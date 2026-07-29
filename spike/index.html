@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Treasure Trash — Spike L1–L3</title>
+<style>
+  :root{
+    --bg:#ffffff; --ink:#1a1a1a; --muted:#5a5a5a; --line:#dcdcdc; --panel:#f5f5f2;
+    --link:#1a3fd0; --red:#ff4b3e; --yel:#ffcf00; --blu:#2d7dd2; --tea:#17c3b2; --pnk:#ff5da2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,Helvetica,sans-serif;padding:0 0 3rem}
+  body::before{content:"";display:block;height:8px;
+    background:repeating-linear-gradient(90deg,var(--red) 0 28px,var(--yel) 28px 56px,var(--blu) 56px 84px,var(--tea) 84px 112px,var(--pnk) 112px 140px)}
+  .wrap{max-width:720px;margin:0 auto;padding:0 1.1rem}
+  header{padding:1.4rem 0 .6rem;border-bottom:2px solid var(--ink);margin-bottom:1rem}
+  h1{font-size:1.7rem;margin:0;font-weight:800;letter-spacing:-.5px;display:inline;box-shadow:inset 0 -.4em 0 var(--yel)}
+  .sub{color:var(--muted);font-size:.85em;margin:.5rem 0 0}
+  .tabs{display:flex;gap:.4rem;margin:1rem 0 .6rem}
+  .tab{font-weight:700;border:2px solid var(--ink);background:#fff;padding:.25rem .8rem;border-radius:4px;cursor:pointer;transform:rotate(-1deg)}
+  .tab.on{background:var(--blu);color:#fff}
+  .tab:nth-child(2).on{background:var(--red)} .tab:nth-child(3).on{background:var(--tea);color:#063}
+  .hud{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin:.5rem 0}
+  .name{font-weight:800}
+  .moves{color:var(--muted)}
+  .moves b{color:var(--ink)}
+  .banner{display:none;font-weight:800;color:#063;background:var(--tea);padding:.15rem .7rem;border-radius:4px;transform:rotate(-1.5deg)}
+  .banner.show{display:inline-block}
+  canvas{display:block;margin:.4rem 0 1rem;image-rendering:auto;max-width:100%;height:auto;border:2px solid var(--ink);background:var(--panel)}
+  .btns{display:flex;gap:.5rem;flex-wrap:wrap;margin:.4rem 0 1rem}
+  button.act{font-weight:700;border:2px solid var(--ink);background:#fff;padding:.3rem .8rem;border-radius:4px;cursor:pointer}
+  button.act:hover{background:var(--yel)}
+  .legend{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--pnk);padding:.7rem 1rem;font-size:.9em}
+  .legend b{font-weight:800}
+  .legend .row{margin:.2rem 0}
+  kbd{background:#fff;border:1px solid var(--line);border-bottom-width:2px;border-radius:3px;padding:0 .35em;font-family:inherit;font-size:.9em}
+  .note{color:var(--muted);font-size:.82em;margin-top:1rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Treasure Trash — Spike</h1>
+  <p class="sub">Throwaway feasibility spike · L1–L3 · raccoon only · does "fire your mess away from your path" feel good?</p>
+</header>
+
+<div class="tabs" id="tabs"></div>
+<div class="hud">
+  <span class="name" id="lvlname"></span>
+  <span class="moves">moves <b id="moves">0</b> · par <b id="par">0</b></span>
+  <span class="banner" id="banner">✦ SOLVED ✦</span>
+</div>
+
+<canvas id="cv" width="300" height="300"></canvas>
+
+<div class="btns" id="dpad">
+  <button class="act" data-act="left">←</button>
+  <button class="act" data-act="up">↑</button>
+  <button class="act" data-act="down">↓</button>
+  <button class="act" data-act="right">→</button>
+</div>
+<div class="btns">
+  <button class="act" data-act="undo">⟲ Undo (U)</button>
+  <button class="act" data-act="restart">↺ Restart (R)</button>
+  <button class="act" data-act="prev">‹ Prev</button>
+  <button class="act" data-act="next">Next ›</button>
+</div>
+
+<div class="legend">
+  <div class="row"><b>Move / strike / push:</b> <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <kbd>U</kbd> undo · <kbd>R</kbd> restart.</div>
+  <div class="row"><b>Goal:</b> open every bag (pounce it). A bag bursts a <b>2×3 fan</b> in the direction you strike; that trash <b>stays</b>.</div>
+  <div class="row"><b>Fan preview:</b> stand next to a bag — the tiles that'll become trash glow <span style="color:#b58900">yellow</span> (valid) or <span style="color:var(--red)">red</span> (blocked, can't strike that way).</div>
+  <div class="row"><b>Cans:</b> push a full can → it slides one and ejects its bag one further; the empty can is then a normal pushable block.</div>
+  <div class="row">Trashed yourself into a corner? That's the puzzle — <kbd>U</kbd> / <kbd>R</kbd>.</div>
+</div>
+
+<p class="note">Deterministic, no RNG. Not part of <code>src/</code> — a spike to feel the mechanic before the design gate.</p>
+</div>
+
+<script>
+"use strict";
+// ---- entities ----
+const NONE=0, BAG=1, CANF=2, CANE=3, TRASH=4;   // cell.o (occupant)
+const FLOOR=0, WALL=1;                            // cell.t (terrain)
+
+// ---- levels (data, not logic) ----
+const LEVELS = [
+  { name:"L1 — Pounce", par:2, grid:[
+    "...",
+    ".B.",
+    "...",
+    "#R#",
+  ]},
+  { name:"L2 — Heavy Can", par:5, grid:[
+    "...",
+    "...",
+    "...",
+    ".C.",
+    ".R.",
+  ]},
+  { name:"L3 — Fire Away From the Path", par:3, grid:[
+    "...",
+    ".B.",
+    ".R.",
+    ".B.",
+    "...",
+  ]},
+];
+
+const CS=76, PAD=9;
+const C = { red:"#ff4b3e", yel:"#ffcf00", blu:"#2d7dd2", tea:"#17c3b2", pnk:"#ff5da2", ink:"#1a1a1a" };
+
+let cur=0, state=null, history=[], won=false;
+
+function parse(g){
+  const rows=g.length, cols=g[0].length;
+  const cells=[]; let rac={x:0,y:0};
+  for(let r=0;r<rows;r++){ cells.push([]);
+    for(let c=0;c<cols;c++){
+      const ch=g[r][c]; let t=FLOOR,o=NONE;
+      if(ch==='#'){t=WALL;}
+      else if(ch==='B')o=BAG;
+      else if(ch==='C')o=CANF;
+      else if(ch==='c')o=CANE;
+      else if(ch==='x')o=TRASH;
+      else if(ch==='R')rac={x:c,y:r};
+      cells[r].push({t,o});
+    }
+  }
+  return {cols,rows,cells,rac,moves:0};
+}
+const clone = s => JSON.parse(JSON.stringify(s));
+const inGrid = (s,x,y) => x>=0&&y>=0&&x<s.cols&&y<s.rows;
+const cell = (s,x,y) => s.cells[y][x];
+const isClearFloor = (s,x,y) => inGrid(s,x,y) && cell(s,x,y).t===FLOOR && cell(s,x,y).o===NONE;
+
+// fan = 2 side cells (perp to D) + the 3 cells one step ahead in D
+function fan(bx,by,dx,dy){
+  const px=-dy, py=dx;  // perpendicular
+  return [
+    [bx+px,by+py],[bx-px,by-py],
+    [bx+dx,by+dy],[bx+dx+px,by+dy+py],[bx+dx-px,by+dy-py],
+  ];
+}
+function fanClear(s,bx,by,dx,dy){ return fan(bx,by,dx,dy).every(([x,y])=>isClearFloor(s,x,y)); }
+
+// attempt a move in direction (dx,dy); returns new state or null if nothing happens
+function tryMove(s,dx,dy){
+  const n=clone(s);
+  const x=n.rac.x, y=n.rac.y, tx=x+dx, ty=y+dy;
+  if(!inGrid(n,tx,ty) || cell(n,tx,ty).t===WALL) return null;
+  const o=cell(n,tx,ty).o;
+  if(o===NONE){ n.rac={x:tx,y:ty}; n.moves++; return n; }
+  if(o===TRASH) return null;
+  if(o===BAG){
+    if(!fanClear(n,tx,ty,dx,dy)) return null;         // strike fails — fan blocked
+    for(const [fx,fy] of fan(tx,ty,dx,dy)) cell(n,fx,fy).o=TRASH;
+    cell(n,tx,ty).o=NONE; n.rac={x:tx,y:ty}; n.moves++; return n;
+  }
+  if(o===CANF){
+    const b1x=tx+dx,b1y=ty+dy, b2x=tx+2*dx,b2y=ty+2*dy;
+    if(!isClearFloor(n,b1x,b1y) || !isClearFloor(n,b2x,b2y)) return null;
+    cell(n,b2x,b2y).o=BAG; cell(n,b1x,b1y).o=CANE; cell(n,tx,ty).o=NONE;
+    n.rac={x:tx,y:ty}; n.moves++; return n;
+  }
+  if(o===CANE){
+    const b1x=tx+dx,b1y=ty+dy;
+    if(!isClearFloor(n,b1x,b1y)) return null;
+    cell(n,b1x,b1y).o=CANE; cell(n,tx,ty).o=NONE;
+    n.rac={x:tx,y:ty}; n.moves++; return n;
+  }
+  return null;
+}
+function bagsLeft(s){ let k=0; for(const row of s.cells) for(const c of row) if(c.o===BAG||c.o===CANF)k++; return k; }
+
+// ---- input ----
+function move(dx,dy){
+  if(won) return;
+  const n=tryMove(state,dx,dy);
+  if(!n) return;
+  history.push(clone(state));
+  state=n;
+  if(bagsLeft(state)===0){ won=true; }
+  render();
+}
+function undo(){ if(history.length){ state=history.pop(); won=false; render(); } }
+function restart(){ load(cur); }
+function load(i){ cur=(i+LEVELS.length)%LEVELS.length; state=parse(LEVELS[cur].grid); history=[]; won=false; render(); }
+
+// ---- render ----
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+function render(){
+  const s=state;
+  cv.width=s.cols*CS; cv.height=s.rows*CS;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // fan preview: for each bag adjacent to raccoon, tint its strike fan
+  const dirs=[[0,-1],[0,1],[-1,0],[1,0]];
+  for(const [dx,dy] of dirs){
+    const bx=s.rac.x+dx, by=s.rac.y+dy;
+    if(inGrid(s,bx,by) && cell(s,bx,by).o===BAG){
+      const ok=fanClear(s,bx,by,dx,dy);
+      for(const [fx,fy] of fan(bx,by,dx,dy)){
+        if(!inGrid(s,fx,fy)) continue;
+        ctx.fillStyle = ok ? "rgba(255,207,0,.45)" : "rgba(255,75,62,.35)";
+        ctx.fillRect(fx*CS,fy*CS,CS,CS);
+      }
+    }
+  }
+  for(let y=0;y<s.rows;y++) for(let x=0;x<s.cols;x++){
+    const c=cell(s,x,y); if(c.t===WALL) continue;
+    drawFloor(x,y);
+    if(c.o===TRASH) drawTrash(x,y);
+    if(c.o===BAG) drawBag(x,y);
+    if(c.o===CANF) drawCan(x,y,true);
+    if(c.o===CANE) drawCan(x,y,false);
+  }
+  drawRaccoon(s.rac.x,s.rac.y);
+  // hud
+  document.getElementById('moves').textContent=s.moves;
+  document.getElementById('par').textContent=LEVELS[cur].par;
+  document.getElementById('lvlname').textContent=LEVELS[cur].name;
+  document.getElementById('banner').className='banner'+(won?' show':'');
+  document.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(i===cur?' on':''));
+}
+function px(x){return x*CS}
+function drawFloor(x,y){ ctx.fillStyle="#fff"; ctx.strokeStyle="#e6e6e2"; ctx.lineWidth=1;
+  ctx.fillRect(px(x)+1,px(y)+1,CS-2,CS-2); ctx.strokeRect(px(x)+1.5,px(y)+1.5,CS-3,CS-3); }
+function hash(x,y){ return ((x*73856093)^(y*19349663))>>>0; }
+function drawTrash(x,y){
+  const cols=[C.red,C.yel,C.blu,C.tea,C.pnk]; let h=hash(x,y);
+  const x0=px(x), y0=px(y), M=16, R=CS-2*M;   // M = margin from cell edge; dot centers stay inside [M, CS-M]
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x0+2, y0+2, CS-4, CS-4); ctx.clip();  // hard guarantee: nothing draws outside this cell
+  for(let i=0;i<6;i++){ h=(h*1103515245+12345)>>>0;
+    const ox=M+(h%R), oy=M+((h>>8)%R), r=3+((h>>16)%3);          // center in [16,59], radius 3–5 -> span [11,64] of 76
+    ctx.fillStyle=cols[(h>>4)%5];
+    ctx.beginPath(); ctx.arc(x0+ox, y0+oy, r, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawBag(x,y){
+  const cx=px(x)+CS/2, top=px(y)+PAD+8, w=CS-2*PAD-6, h=CS-2*PAD-8;
+  ctx.fillStyle="#161616";
+  ctx.beginPath();
+  ctx.moveTo(cx-w/2, top+8);
+  ctx.quadraticCurveTo(cx-w/2, top+h, cx, top+h);
+  ctx.quadraticCurveTo(cx+w/2, top+h, cx+w/2, top+8);
+  ctx.lineTo(cx+w/2-4, top+2); ctx.lineTo(cx+6, top+6);
+  ctx.lineTo(cx-6, top+6); ctx.lineTo(cx-w/2+4, top+2); ctx.closePath(); ctx.fill();
+  // shiny glint
+  ctx.fillStyle=C.yel; drawStar(cx+6, top+h*0.5, 5);
+}
+function drawStar(cx,cy,r){ ctx.beginPath();
+  for(let i=0;i<8;i++){ const a=i*Math.PI/4, rr=i%2?r*.4:r; ctx.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr);} ctx.closePath(); ctx.fill(); }
+function drawCan(x,y,full){
+  const cx=px(x)+CS/2, w=CS-2*PAD-8, top=px(y)+PAD+6, h=CS-2*PAD-6;
+  // body
+  ctx.fillStyle="#b9c0c7"; ctx.strokeStyle="#7d858c"; ctx.lineWidth=2;
+  ctx.fillRect(cx-w/2, top, w, h); ctx.strokeRect(cx-w/2, top, w, h);
+  // ridges
+  ctx.strokeStyle="#9aa2a9"; ctx.lineWidth=1;
+  for(let i=1;i<3;i++){ ctx.beginPath(); ctx.moveTo(cx-w/2, top+i*h/3); ctx.lineTo(cx+w/2, top+i*h/3); ctx.stroke(); }
+  // rim / top
+  ctx.fillStyle="#cfd5da"; ctx.strokeStyle="#7d858c"; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.ellipse(cx, top, w/2, 6, 0,0,7); ctx.fill(); ctx.stroke();
+  if(full){ // black bag bulging out
+    ctx.fillStyle="#161616";
+    ctx.beginPath(); ctx.ellipse(cx, top-3, w/2-3, 9, 0, 0, 7); ctx.fill();
+    ctx.fillStyle=C.yel; drawStar(cx+5, top-4, 4);
+  } else { // open dark mouth
+    ctx.fillStyle="#3a4046"; ctx.beginPath(); ctx.ellipse(cx, top, w/2-3, 4, 0,0,7); ctx.fill();
+  }
+}
+function drawRaccoon(x,y){
+  const cx=px(x)+CS/2, cy=px(y)+CS/2, r=CS/2-PAD-4;
+  // tail hint
+  ctx.fillStyle="#8b8f95"; ctx.beginPath(); ctx.arc(cx+r*0.7, cy+r*0.6, r*0.5, 0,7); ctx.fill();
+  ctx.fillStyle="#4a4e54"; ctx.beginPath(); ctx.arc(cx+r*0.95, cy+r*0.75, r*0.28, 0,7); ctx.fill();
+  // ears
+  ctx.fillStyle="#6b7076"; ctx.beginPath(); ctx.arc(cx-r*0.6,cy-r*0.7,r*0.32,0,7); ctx.arc(cx+r*0.6,cy-r*0.7,r*0.32,0,7); ctx.fill();
+  // head
+  ctx.fillStyle="#9aa0a6"; ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill();
+  // mask band
+  ctx.fillStyle="#2b2f34"; ctx.beginPath(); ctx.ellipse(cx,cy-r*0.05,r*0.95,r*0.42,0,0,7); ctx.fill();
+  // muzzle
+  ctx.fillStyle="#eceef0"; ctx.beginPath(); ctx.ellipse(cx,cy+r*0.45,r*0.5,r*0.35,0,0,7); ctx.fill();
+  // eyes
+  ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(cx-r*0.35,cy-r*0.05,r*0.2,0,7); ctx.arc(cx+r*0.35,cy-r*0.05,r*0.2,0,7); ctx.fill();
+  ctx.fillStyle="#111"; ctx.beginPath(); ctx.arc(cx-r*0.35,cy-r*0.02,r*0.1,0,7); ctx.arc(cx+r*0.35,cy-r*0.02,r*0.1,0,7); ctx.fill();
+  // nose
+  ctx.fillStyle="#111"; ctx.beginPath(); ctx.arc(cx,cy+r*0.35,r*0.12,0,7); ctx.fill();
+}
+
+// ---- wire up ----
+const KEY={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],
+  w:[0,-1],s:[0,1],a:[-1,0],d:[1,0],W:[0,-1],S:[0,1],A:[-1,0],D:[1,0]};
+addEventListener('keydown',e=>{
+  if(e.key in KEY){ e.preventDefault(); const[dx,dy]=KEY[e.key]; move(dx,dy); }
+  else if(e.key==='u'||e.key==='U'){ undo(); }
+  else if(e.key==='r'||e.key==='R'){ restart(); }
+});
+const MOVEACT={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
+document.querySelectorAll('.btns').forEach(bar=>bar.addEventListener('click',e=>{
+  const a=e.target.getAttribute('data-act'); if(!a) return;
+  if(a in MOVEACT){ const[dx,dy]=MOVEACT[a]; move(dx,dy); }
+  else if(a==='undo')undo(); else if(a==='restart')restart();
+  else if(a==='next')load(cur+1); else if(a==='prev')load(cur-1);
+}));
+const tabs=document.getElementById('tabs');
+LEVELS.forEach((L,i)=>{ const b=document.createElement('button'); b.className='tab'; b.textContent='L'+(i+1);
+  b.onclick=()=>load(i); tabs.appendChild(b); });
+
+load(0);
+</script>
+</body>
+</html>
