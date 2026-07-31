@@ -78,7 +78,7 @@
 <div class="legend">
   <div class="row"><b>Move / strike / push:</b> <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <kbd>U</kbd> undo · <kbd>R</kbd> restart.</div>
   <div class="row"><b>Goal:</b> open every bag (pounce it), then stand on the <b style="color:#2e9e5b">exit</b>. A bag bursts a <b>2×3 fan</b> in the direction you strike; that trash <b>stays</b>.</div>
-  <div class="row"><b>Anything permanent takes two presses.</b> There's no pull, so every action that touches the board is irreversible — a shove is no gentler than a burst. Press a direction to <em>aim</em> (the fan, or where the can and its bag will land, lights up <span style="color:#b58900">yellow</span>) — nothing has happened yet. Press the same direction again to commit. <b>Walking</b> is the one exception and stays single-press. Aiming is free, so look before you commit.</div>
+  <div class="row"><b>Aiming</b> (L1 and L2 only — the rooms that introduce a piece): press a direction once to <em>aim</em> and nothing happens yet; press it again to commit. Elsewhere one press acts, block-pusher style. Where a room does aim, it aims shoves as well as bursts — there's no pull, so a shove is no gentler than a burst. Walking is always one press.</div>
   <div class="row"><b>The exit:</b> plain floor — walk over it any time; it only counts once the last bag is torn (the sign <b>lights up</b> when it's live). <b>Nothing may ever land on it</b> — trash, cans and bags are all refused, so you can't bury your way out.</div>
   <div class="row"><b>Blocked:</b> if the rules refuse an action, the one cell <em>doing</em> the blocking flashes <span style="color:var(--red)">red</span> with a ✕, you get a buzz, and the reason shows up top. Refused actions cost nothing.</div>
   <div class="row"><b>Cans:</b> push a full can → it slides one and ejects its bag one further; the empty can is then a normal pushable block. A can in the fan blocks a tear — relocate it first.</div>
@@ -143,17 +143,20 @@ function beep(ok){
 }
 
 // ---- input ----
-// Sokoban's root law: you cannot pull. So ANY action that changes the board is permanent —
-// not just the tear. Measured over the shipped pack: moves are 100% reversible by play,
-// tears 0%, full-can pushes 0% (nothing ever re-fills a can), empty-can pushes 44% and
-// only by walking around to the far side, which is a property of the room, not the verb.
+// ARMING IS A SCAFFOLD, NOT AN INPUT MODE. `:arm on` in the level file makes
+// board-changing actions ask twice, and it belongs on the room that INTRODUCES a piece —
+// the bag in L1, the can in L2. Everywhere else it's off, which is the default and the
+// normal Sokoban feel: one press, one action, undo if you hate it.
 //
-// So the line is move vs. everything else: walking is free and undoable by walking back,
-// and everything else asks twice. Press once to aim (previewed, nothing has happened, no
-// move spent), press the same direction again to commit.
+// Which actions it covers, when it's on, is settled by Sokoban's root law — you cannot
+// pull, so anything that touches the board is permanent. Measured over the pack: moves
+// 100% reversible by play, tears 0%, full-can pushes 0%, empty-can pushes 44% and only
+// by walking round to the far side. So: walking is free, everything else arms.
 //
 // This lives entirely in the input layer. rules.mjs does not know about arming, the
-// solver still explores one action per edge, and par is unchanged: aiming is not a move.
+// solver never sees it, and it cannot change a par: aiming is not a move.
+const arming = () => LEVELS[cur].arm === true;
+
 function act(dir){
   if(won) return;
   const r = explain(state, dir);
@@ -162,7 +165,7 @@ function act(dir){
     blocked = { cells:r.blame, reason:r.reason, dir };
     armed = null; beep(false); render(); return;
   }
-  if(r.kind !== MOVE && armed !== dir){
+  if(arming() && r.kind !== MOVE && armed !== dir){
     armed = dir; blocked = null;    // aimed, not committed
     beep(true); render(); return;
   }
@@ -202,11 +205,12 @@ function render(){
   // The fan is ALWAYS pale yellow — it answers "where would this land?", which has the same
   // answer whether or not the strike is legal. Red is not a second opinion about the fan;
   // it belongs to one cell only, the one doing the blocking, and only once you've tried.
-  // Only the ARMED direction previews. Standing between two bags used to light both
-  // fans at once — ten yellow cells and no idea which was which. Aiming costs nothing,
-  // so you can still inspect every direction before committing to one.
+  // The fan preview is INFORMATION and is always available — it answers "where would
+  // this land", which the player is entitled to know in a full-information puzzle and
+  // which never stops being true. Aiming only FOCUSES it: while armed, just the aimed
+  // direction draws, so a room with two adjacent bags isn't ten yellow cells at once.
   const red = new Set((blocked?.cells ?? []).map(([x,y])=>`${x},${y}`));
-  for(const dir of (armed ? [armed] : [])){
+  for(const dir of (armed ? [armed] : ['u','d','l','r'])){
     const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
     const bx=s.rac.x+dx, by=s.rac.y+dy;
     if(!inGrid(s,bx,by) || cell(s,bx,by).o!==BAG) continue;   // fan preview: bags only

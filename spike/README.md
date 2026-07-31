@@ -37,14 +37,12 @@ ES modules need `http://` — opening `index.html` off the filesystem will fail 
 rather than silently run a stale copy of the rules.
 
 Arrows / WASD to move-strike-push · **U** undo · **R** restart · level tabs.
-- **Anything permanent takes two presses.** There is no pull, so every board-changing
-  action is irreversible — a push is not gentler than a tear. Press a direction to *aim*
-  (the fan previews, or the can's and its bag's landing cells do) and nothing has
-  happened; press it again to commit. **Walking is the one exception** and stays
-  single-press, because the cell you came from is always empty to step back into.
-  Aiming is free, so you can inspect all four directions before committing to one, and
-  only the aimed direction previews — standing between two bags no longer lights both
-  fans at once.
+- **Arming (`:arm on`, default off).** A room that *introduces a piece* asks twice before
+  a board-changing action: press once to *aim* (the fan previews, or the can's and its
+  bag's landing cells) — nothing has happened — press again to commit. On in **L1** (the
+  bag) and **L2** (the can); off in L0 and L3, where one press acts, block-pusher style.
+  When a room does arm it arms tears *and* pushes, because with no pull a push is exactly
+  as permanent; walking is always single-press.
 - **Fan preview** (while aimed): pale yellow on every cell that would become trash. It
   answers *where would this land*, which has the same answer whether or not the strike is
   legal — so it is always yellow.

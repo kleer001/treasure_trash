@@ -10,6 +10,10 @@
 ;
 ; Note how low :traps is: the exit refuses anything that would land on it, so the whole
 ; class of "you buried your own way out" soft-locks is now a refusal at the keypress.
+;
+; :arm on = board-changing actions ask twice in this room. It is a scaffold for the room
+; that INTRODUCES a piece (L1 the bag, L2 the can) and comes off once the verb is known.
+; Default is off. It is input-only: it cannot change a par, and the solver never sees it.
 
 :level  L0
 :name   Out
@@ -28,6 +32,7 @@
 :level  L1
 :name   Pounce
 :teach  directional pounce, the fan, permanent mess
+:arm    on
 :par    4
 :traps  0
 :solves 1
@@ -43,6 +48,7 @@
 :level  L2
 :name   Heavy Can
 :teach  the can, and that where you park your junk is half the job
+:arm    on
 :par    7
 :traps  1
 :solves 1

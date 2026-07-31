@@ -29,11 +29,8 @@ C  full can (has a bag)                     c  empty can (pushable)
 1. **Move** — raccoon steps one cell orthogonally per input. **No pull** — Sokoban's
    root law, and the one that governs everything below. Walking is the *only* reversible
    verb: the cell you came from is empty, so you can always step back into it.
-2. **Pounce-tear (directional!) — takes two presses.** Press **D** at a bag to *aim*:
-   the fan lights up and **nothing happens yet**. Press **D** again to commit. Aiming
-   costs no move, so you can look down all four directions for free before bursting
-   anything; pressing any other direction, or undoing, cancels the aim.
-   Committing sprays a **2×3 fan forward**: the bag's two **side** cells (perpendicular to D)
+2. **Pounce-tear (directional!)** — stepping *into* a bag in direction **D** tears it,
+   spraying a **2×3 fan forward**: the bag's two **side** cells (perpendicular to D)
    **plus the three cells one step ahead in D**. Nothing sprays *backward*. The
    raccoon ends on the bag's cell (which stays clear — only the fan cells get trash).
    ```
@@ -55,10 +52,22 @@ C  full can (has a bag)                     c  empty can (pushable)
    can's old cell, Sokoban-style.)
 6. **Empty can** — a normal pushable Sokoban block.
 
-**Two presses for anything permanent — which is everything except walking.** Because
-there is no pull, *every* board-changing action is irreversible; a push is not gentler
-than a tear, it is the same kind of commitment. Measured over the shipped pack by
-replaying the whole state graph and asking whether the previous state is reachable again:
+**Arming — a per-room scaffold, `:arm on`, default OFF.** A room that *introduces a
+piece* can ask twice before a board-changing action: the first press **aims** (the fan
+lights up, or the cells where a can and its bag will land) and **nothing happens yet**;
+the second press commits. Aiming costs no move, so you can look down all four directions
+for free. Any other direction, or undo, cancels.
+
+**It is off by default and comes off after the room that teaches the verb.** The bag's
+directional burst is a genuinely unusual piece — nothing in the Sokoban family sprays
+*new permanent obstacles* — so it earns one room of ceremony while the player learns
+what it does. After that the game is a block-pusher and plays like one: one press, one
+action, free undo. Currently on in **L1** (introduces the bag) and **L2** (introduces
+the can), off in L0 and L3.
+
+*When a room does arm, it arms every board-changing action, not just the tear* — because
+there is no pull, a push is exactly as permanent. Measured over the shipped pack by
+replaying each whole state graph and asking whether the previous state is reachable again:
 
 | verb | reversible by play |
 |---|---|
@@ -67,11 +76,16 @@ replaying the whole state graph and asking whether the previous state is reachab
 | **push a full can** | 0 / 1 — **0%** (nothing ever re-fills a can) |
 | **push an empty can** | 4 / 9 — **44%**, and only by walking round to the far side |
 
-So the line is **move vs. everything else**, not tear vs. everything else. Walking is
-free and single-press. A tear or a push arms on the first press — showing the fan, or
-where the can and its bag will land — and commits on the second. *(All of this lives in
-the input layer: the rules engine and the solver see one action, and `:par` counts
-committed actions, so nothing about the level format or the pars changes.)*
+So the line is **move vs. everything else**, never tear vs. everything else.
+
+**Arming is not the fan preview, and they have different lifetimes.** The preview is
+*information* — "where would this land" — and a full-information puzzle owes the player
+that answer forever; it is on in every room. Arming is *ceremony*, and ceremony is a
+teaching aid you remove. Aiming only **focuses** the preview: while armed, just the aimed
+direction draws, instead of every adjacent bag at once.
+
+*(All input-layer: the rules engine and the solver never see arming, and `:par` counts
+committed actions, so no flag can change a par.)*
 7. **The exit `E`** — one per room. It is **plain floor you can always walk over**;
    it just *counts* when you're standing on it and every bag is torn. **Nothing else may
    ever occupy it.** A strike whose fan would land on the exit, or a push that would

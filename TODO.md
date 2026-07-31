@@ -31,9 +31,11 @@ Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset 
   the engine and checked over every reachable state. **L0 "Out"** teaches it alone.
 - **No pull, so everything but walking is permanent.** Measured on the shipped pack:
   moves are 100% reversible by play, tears 0%, full-can pushes 0%, empty-can pushes 44%
-  (and only by walking round to the far side). **Every board-changing action therefore
-  takes two presses** — the first arms and previews (the fan, or where the can and its
-  bag land), the second commits. Walking stays single-press.
+  (and only by walking round to the far side).
+- **Arming (`:arm on`) is a per-room teaching scaffold, default OFF.** In a room that
+  *introduces a piece*, board-changing actions ask twice — first press aims and previews,
+  second commits. On in L1 (the bag) and L2 (the can); off elsewhere, where the game plays
+  like the block-pusher it is. Input-layer only: it can never change a par.
 - **Refusal, not punishment.** An illegal action is refused at the keypress: the cell
   to blame flashes red, a beep says no, and the move isn't spent. What remains as a
   genuine soft-lock is **stranding** — your trash walls you off from a clear exit —
@@ -79,6 +81,11 @@ Copy `../template/` into place and implement for real:
   and rebuild the can room variants. Each must satisfy the **authoring checklist** at
   the end of `levels.md` (one exit, exit reachable after the last strike, and the exit
   must forbid at least one strike/push direction — otherwise it's a walk-back tax).
+- **Passive fan preview can be ambiguous.** With arming off and the raccoon between two
+  bags (L3), both fans light and the player can't tell which cell belongs to which strike.
+  In L3 it happens to *be* the lesson — the corridor is the only unlit row — but that's
+  luck, not design. If it misleads in a later room, options are to preview only the last-
+  moved direction, or to tint the two fans differently.
 - **Playtest the exit.** It's mechanically verified but not *felt* — the open question
   is whether the walk to `E` reads as tension or as filler. Cheapest test: play L1–L3
   in the spike and see if the last move is ever a decision.

@@ -114,6 +114,11 @@ for (const level of pack.levels) {
     a.silentTraps.length === 0,
     a.silentTraps.length ? `e.g. ${a.silentTraps[0].lurd}` : '');
 
+  // Arming is a scaffold for a room that introduces a piece, so a room that arms has to
+  // say what it is introducing. If it teaches nothing, the extra press is just friction.
+  if (level.arm) check('an arming room declares what it teaches', !!level.teach, level.teach ?? '');
+  console.log(`    · arming ${level.arm ? 'ON (introduces a piece)' : 'off'}`);
+
   // LAW (the exit earns its slot): in any room with a bag, the exit's position must
   // rule out at least one otherwise-legal action. Now that the exit refuses rather than
   // punishes, that's measured directly — how many (state, direction) pairs does the exit

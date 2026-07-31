@@ -40,6 +40,7 @@ ever collide with a key.
 | `:pack` `:format` | text | file-level metadata, before the first `:level` |
 | `:level` | text | starts a level; the value is its id |
 | `:name` `:teach` `:note` | text | documentation; never affects play |
+| `:arm` | `on`/`off` | **default off.** Board-changing actions ask twice in this room — a scaffold for the room that introduces a piece. Input-only: it can never change a par |
 | `:par` | int | **the provably minimal solve length.** Verified, not declared |
 | `:traps` | int | count of legal actions that lead to an unwinnable board |
 | `:solves` | int | count of distinct shortest solutions (`>1` = unintended solves) |
@@ -100,11 +101,12 @@ action class, so it gets a third case:
 `uU!dr` = step up, tear upward, step down, step right. **Par is the token count**, so the
 solution string *is* the par claim.
 
-**The two-press commit does not appear here.** In the game every board-changing action
-(tear *and* push) is armed with one press and committed with a second, but arming changes
-no state and spends no move — it is an input-layer affordance, not an action. One `U!`
-token is one tear, one `U` is one push. The rules engine, the solver and every par are
-unaffected by it.
+**Arming does not appear here.** In a room with `:arm on`, a board-changing action is
+armed with one press and committed with a second — but arming changes no state and spends
+no move, so it is an input-layer affordance, not an action. One `U!` token is one tear,
+one `U` is one push, in an arming room and a plain one alike. The rules engine, the solver
+and every par are unaffected by the flag, which is why the same solution file replays
+against either.
 
 The kind is part of the token, and the verifier replays each action against the board and
 **rejects a solution whose declared kind disagrees with what actually happens**. A solution
@@ -170,7 +172,10 @@ Per level:
 10. **LAW — the exit earns its slot.** In any room containing a bag, the exit must itself
     refuse at least one action. Zero refusals means the exit's position forbids nothing:
     a walk-back tax, so move it.
-11. Every `:solve` string appears verbatim in `../levels.md`, so the prose cannot drift
+11. **A room with `:arm on` declares what it teaches.** Arming is a scaffold for
+    introducing a piece; a room that arms but teaches nothing is charging the player an
+    extra press for no reason.
+12. Every `:solve` string appears verbatim in `../levels.md`, so the prose cannot drift
     from the data.
 
 ### Refusals vs. traps
