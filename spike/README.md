@@ -37,10 +37,13 @@ ES modules need `http://` — opening `index.html` off the filesystem will fail 
 rather than silently run a stale copy of the rules.
 
 Arrows / WASD to move-strike-push · **U** undo · **R** restart · level tabs.
-- **Fan preview** (standing next to a bag): yellow = this strike is legal and *this*
-  is where the trash lands, including on your exit. Pale red = the strike is refused.
-- **Blocked** (you pressed a direction the rules refuse): the exact cells to blame get
-  a red ✕ and the HUD says why. A refused input costs no moves.
+- **Fan preview** (standing next to a bag): pale yellow on every cell that would become
+  trash, **including your exit if it's in the way**. It answers *where would this land*,
+  which has the same answer whether or not the strike is legal — so it is always yellow.
+- **Blocked** (you pressed a direction the rules refuse): the one cell *doing* the
+  blocking gets a red ✕, and the HUD says why. Red is never a second opinion about the
+  fan — it marks a single cell, and only once you've actually tried. A refused input
+  costs no moves.
 
 ## Verify
 ```

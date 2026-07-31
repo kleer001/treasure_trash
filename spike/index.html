@@ -76,7 +76,8 @@
   <div class="row"><b>Move / strike / push:</b> <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <kbd>U</kbd> undo · <kbd>R</kbd> restart.</div>
   <div class="row"><b>Goal:</b> open every bag (pounce it), then stand on the <b style="color:#2e9e5b">exit</b>. A bag bursts a <b>2×3 fan</b> in the direction you strike; that trash <b>stays</b>.</div>
   <div class="row"><b>The exit:</b> plain floor — walk over it any time; it only counts once the last bag is torn (the sign <b>lights up</b> when it's live). It is <b>not</b> protected: trash or a pushed can lands on it and seals it for good.</div>
-  <div class="row"><b>Fan preview:</b> stand next to a bag — the tiles that'll become trash glow <span style="color:#b58900">yellow</span> (valid) or <span style="color:var(--red)">red</span> (blocked, can't strike that way).</div>
+  <div class="row"><b>Fan preview:</b> stand next to a bag — the tiles that'd become trash glow <span style="color:#b58900">yellow</span>, including your exit if it's in the way.</div>
+  <div class="row"><b>Blocked:</b> if the rules refuse a move, the one cell <em>doing</em> the blocking flashes <span style="color:var(--red)">red</span> with a ✕ and the reason shows up top. Refused moves cost nothing.</div>
   <div class="row"><b>Cans:</b> push a full can → it slides one and ejects its bag one further; the empty can is then a normal pushable block.</div>
   <div class="row">Trashed yourself into a corner? That's the puzzle — <kbd>U</kbd> / <kbd>R</kbd>.</div>
 </div>
@@ -145,16 +146,19 @@ function render(){
 
   // Fan preview, over everything including the exit sign. Law 1.7 says a dead-end must be
   // foreseeable, and the exit traps only are if you can SEE the trash land on your way out.
+  // The fan is ALWAYS pale yellow — it answers "where would this land?", which has the same
+  // answer whether or not the strike is legal. Red is not a second opinion about the fan;
+  // it belongs to one cell only, the one doing the blocking, and only once you've tried.
+  const red = new Set((blocked?.cells ?? []).map(([x,y])=>`${x},${y}`));
   for(const dir of ['u','d','l','r']){
     const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
     const bx=s.rac.x+dx, by=s.rac.y+dy;
     if(!inGrid(s,bx,by) || cell(s,bx,by).o!==BAG) continue;
-    const r=explain(s,dir);
     for(const [fx,fy] of fan(bx,by,dx,dy)){
-      if(!inGrid(s,fx,fy)) continue;
-      ctx.fillStyle = r.ok ? "rgba(255,207,0,.55)" : "rgba(255,75,62,.30)";
+      if(!inGrid(s,fx,fy) || red.has(`${fx},${fy}`)) continue;   // never tint under the red
+      ctx.fillStyle="rgba(255,207,0,.45)";
       ctx.fillRect(fx*CS+1,fy*CS+1,CS-2,CS-2);
-      ctx.strokeStyle = r.ok ? "#e0aa00" : "rgba(255,75,62,.55)"; ctx.lineWidth=2;
+      ctx.strokeStyle="rgba(224,170,0,.85)"; ctx.lineWidth=2;
       ctx.strokeRect(fx*CS+2,fy*CS+2,CS-4,CS-4);
     }
   }
