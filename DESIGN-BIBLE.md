@@ -49,9 +49,12 @@ and when to move them. You win with the plan, not the reflexes.
    can, tearing a bag, snatching a gem) it finishes — you can't abort mid-swing.
    You *can* redirect an animal that's still walking. This is what gives timing
    teeth: you must plan the exit before you start the action.
-   *(Survives the turn-based pivot in a different form: the pounce-tear is the one
-   irreversible verb, so it takes a deliberate two-press commit. Movement is free
-   and reversible. See `levels.md` rule 2.)*
+   **[SUPERSEDED — and it was borrowed from the wrong genre.]** This pillar splits
+   "actions" from "travel", which is a real-time squad-tactics idea: weapons commit,
+   movement doesn't. Treasure Trash is a Sokoban variant, and Sokoban's actual law is
+   simpler and harsher — **you cannot pull**, so *everything* that touches the board is
+   permanent, pushes included. The turn-based design replaces this pillar outright: see
+   `levels.md`, "Two presses for anything permanent".
 4. **No autonomy, no punishment for focus.** The animal you're not commanding
    finishes its current action, then **idles**. It never acts on its own. All
    pressure comes from the clock and travel time, never from babysitting.

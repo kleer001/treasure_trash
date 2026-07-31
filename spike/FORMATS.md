@@ -95,15 +95,16 @@ action class, so it gets a third case:
 |---|---|
 | `l u r d` | **move** — step onto empty floor |
 | `L U R D` | **push** — shove a can (full can also ejects its bag) |
-| `L! U! R! D!` | **pounce-tear** — burst a bag. The `!` is the irreversible one |
+| `L! U! R! D!` | **pounce-tear** — burst a bag. The `!` is the burst, not a danger marker: with no pull, a push is every bit as permanent |
 
 `uU!dr` = step up, tear upward, step down, step right. **Par is the token count**, so the
 solution string *is* the par claim.
 
-**The two-press tear does not appear here.** In the game a tear is armed with one press
-and committed with a second, but arming changes no state and spends no move — it is an
-input-layer affordance, not an action. One `U!` token is one tear. The rules engine, the
-solver and every par are unaffected by it.
+**The two-press commit does not appear here.** In the game every board-changing action
+(tear *and* push) is armed with one press and committed with a second, but arming changes
+no state and spends no move — it is an input-layer affordance, not an action. One `U!`
+token is one tear, one `U` is one push. The rules engine, the solver and every par are
+unaffected by it.
 
 The kind is part of the token, and the verifier replays each action against the board and
 **rejects a solution whose declared kind disagrees with what actually happens**. A solution

@@ -37,12 +37,14 @@ ES modules need `http://` — opening `index.html` off the filesystem will fail 
 rather than silently run a stale copy of the rules.
 
 Arrows / WASD to move-strike-push · **U** undo · **R** restart · level tabs.
-- **Tearing takes two presses.** Press a direction at a bag to *aim* — the fan previews
-  and nothing has happened. Press the same direction again to commit. Aiming is free and
-  spends no move, so you can inspect all four directions before bursting anything. Only
-  the aimed direction previews, so standing between two bags no longer lights both fans
-  at once. Moves and pushes remain single-press: the tear is the only irreversible verb,
-  so it's the only one that asks twice.
+- **Anything permanent takes two presses.** There is no pull, so every board-changing
+  action is irreversible — a push is not gentler than a tear. Press a direction to *aim*
+  (the fan previews, or the can's and its bag's landing cells do) and nothing has
+  happened; press it again to commit. **Walking is the one exception** and stays
+  single-press, because the cell you came from is always empty to step back into.
+  Aiming is free, so you can inspect all four directions before committing to one, and
+  only the aimed direction previews — standing between two bags no longer lights both
+  fans at once.
 - **Fan preview** (while aimed): pale yellow on every cell that would become trash. It
   answers *where would this land*, which has the same answer whether or not the strike is
   legal — so it is always yellow.

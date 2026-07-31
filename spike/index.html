@@ -78,7 +78,7 @@
 <div class="legend">
   <div class="row"><b>Move / strike / push:</b> <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <kbd>U</kbd> undo · <kbd>R</kbd> restart.</div>
   <div class="row"><b>Goal:</b> open every bag (pounce it), then stand on the <b style="color:#2e9e5b">exit</b>. A bag bursts a <b>2×3 fan</b> in the direction you strike; that trash <b>stays</b>.</div>
-  <div class="row"><b>Tearing takes two presses.</b> Press a direction at a bag to <em>aim</em> — the fan lights up <span style="color:#b58900">yellow</span> and nothing has happened yet. Press the same direction again to commit. Aiming is free and costs no moves, so look before you burst.</div>
+  <div class="row"><b>Anything permanent takes two presses.</b> There's no pull, so every action that touches the board is irreversible — a shove is no gentler than a burst. Press a direction to <em>aim</em> (the fan, or where the can and its bag will land, lights up <span style="color:#b58900">yellow</span>) — nothing has happened yet. Press the same direction again to commit. <b>Walking</b> is the one exception and stays single-press. Aiming is free, so look before you commit.</div>
   <div class="row"><b>The exit:</b> plain floor — walk over it any time; it only counts once the last bag is torn (the sign <b>lights up</b> when it's live). <b>Nothing may ever land on it</b> — trash, cans and bags are all refused, so you can't bury your way out.</div>
   <div class="row"><b>Blocked:</b> if the rules refuse an action, the one cell <em>doing</em> the blocking flashes <span style="color:var(--red)">red</span> with a ✕, you get a buzz, and the reason shows up top. Refused actions cost nothing.</div>
   <div class="row"><b>Cans:</b> push a full can → it slides one and ejects its bag one further; the empty can is then a normal pushable block. A can in the fan blocks a tear — relocate it first.</div>
@@ -143,10 +143,14 @@ function beep(ok){
 }
 
 // ---- input ----
-// The tear is the only irreversible verb in the game, so it is the only one that asks
-// twice: press once to aim (the fan is previewed, nothing has happened, no move spent),
-// press the same direction again to commit. Moves and pushes stay single-press —
-// ceremony proportional to consequence.
+// Sokoban's root law: you cannot pull. So ANY action that changes the board is permanent —
+// not just the tear. Measured over the shipped pack: moves are 100% reversible by play,
+// tears 0%, full-can pushes 0% (nothing ever re-fills a can), empty-can pushes 44% and
+// only by walking around to the far side, which is a property of the room, not the verb.
+//
+// So the line is move vs. everything else: walking is free and undoable by walking back,
+// and everything else asks twice. Press once to aim (previewed, nothing has happened, no
+// move spent), press the same direction again to commit.
 //
 // This lives entirely in the input layer. rules.mjs does not know about arming, the
 // solver still explores one action per edge, and par is unchanged: aiming is not a move.
@@ -158,7 +162,7 @@ function act(dir){
     blocked = { cells:r.blame, reason:r.reason, dir };
     armed = null; beep(false); render(); return;
   }
-  if(r.kind === TEAR && armed !== dir){
+  if(r.kind !== MOVE && armed !== dir){
     armed = dir; blocked = null;    // aimed, not committed
     beep(true); render(); return;
   }
@@ -205,7 +209,7 @@ function render(){
   for(const dir of (armed ? [armed] : [])){
     const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
     const bx=s.rac.x+dx, by=s.rac.y+dy;
-    if(!inGrid(s,bx,by) || cell(s,bx,by).o!==BAG) continue;
+    if(!inGrid(s,bx,by) || cell(s,bx,by).o!==BAG) continue;   // fan preview: bags only
     for(const [fx,fy] of fan(bx,by,dx,dy)){
       if(!inGrid(s,fx,fy) || red.has(`${fx},${fy}`)) continue;   // never tint under the red
       ctx.fillStyle="rgba(255,207,0,.45)";
@@ -219,7 +223,14 @@ function render(){
   // board and not only in the HUD.
   if(armed){
     const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[armed];
-    drawAim(s.rac.x+dx, s.rac.y+dy, dx, dy);
+    const ax=s.rac.x+dx, ay=s.rac.y+dy, o=cell(s,ax,ay).o;
+    // For a push, show where the can lands (and, for a full can, where its bag lands) —
+    // the push is as permanent as the tear, so it gets the same look-before-you-commit.
+    if(o===CANE||o===CANF){
+      drawLanding(ax+dx, ay+dy);
+      if(o===CANF) drawLanding(ax+2*dx, ay+2*dy);
+    }
+    drawAim(ax, ay, dx, dy);
   }
 
   // Blocked: you TRIED it and the rules said no. Mark the exact cells to blame, in red,
@@ -237,11 +248,24 @@ function render(){
   w.textContent = blocked ? `✕ ${whyText(blocked)}` : '';
   w.className = 'warn'+(blocked?' show':'');
   const am=document.getElementById('arm');
-  am.textContent = armed ? `${({u:'↑',d:'↓',l:'←',r:'→'})[armed]} again to tear` : '';
+  am.textContent = armed ? `${({u:'↑',d:'↓',l:'←',r:'→'})[armed]} again to ${armedVerb()}` : '';
   am.className = 'arm'+(armed?' show':'');
   document.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(i===cur?' on':''));
 }
 
+function drawLanding(x,y){
+  if(!inGrid(state,x,y)) return;
+  ctx.save();
+  ctx.fillStyle="rgba(255,207,0,.32)"; ctx.fillRect(x*CS+1,y*CS+1,CS-2,CS-2);
+  ctx.strokeStyle="rgba(224,170,0,.9)"; ctx.lineWidth=3; ctx.setLineDash([6,4]);
+  ctx.strokeRect(x*CS+3,y*CS+3,CS-6,CS-6); ctx.setLineDash([]);
+  ctx.restore();
+}
+function armedVerb(){
+  const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[armed];
+  const c = cell(state, state.rac.x+dx, state.rac.y+dy);
+  return c.o===BAG ? 'tear' : 'shove';
+}
 function drawAim(x,y,dx,dy){
   const x0=px(x), y0=px(y), cx=x0+CS/2, cy=y0+CS/2;
   ctx.save();

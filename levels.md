@@ -26,15 +26,13 @@ C  full can (has a bag)                     c  empty can (pushable)
 ```
 
 ## Rules / vocabulary (⚠ = confirm)
-1. **Move** — raccoon steps one cell orthogonally per input. No pull (Sokoban law).
+1. **Move** — raccoon steps one cell orthogonally per input. **No pull** — Sokoban's
+   root law, and the one that governs everything below. Walking is the *only* reversible
+   verb: the cell you came from is empty, so you can always step back into it.
 2. **Pounce-tear (directional!) — takes two presses.** Press **D** at a bag to *aim*:
    the fan lights up and **nothing happens yet**. Press **D** again to commit. Aiming
    costs no move, so you can look down all four directions for free before bursting
-   anything; pressing any other direction, or undoing, cancels the aim. The tear is the
-   game's **only irreversible verb**, so it is the only one that asks twice — moves and
-   can-pushes stay single-press. *(This lives in the input layer only: the rules engine
-   and the solver see one action, and `:par` counts committed actions, so nothing about
-   the level format or the pars changes.)*
+   anything; pressing any other direction, or undoing, cancels the aim.
    Committing sprays a **2×3 fan forward**: the bag's two **side** cells (perpendicular to D)
    **plus the three cells one step ahead in D**. Nothing sprays *backward*. The
    raccoon ends on the bag's cell (which stays clear — only the fan cells get trash).
@@ -56,6 +54,24 @@ C  full can (has a bag)                     c  empty can (pushable)
    its bag one further cell ahead**; the can is now **empty**. (Raccoon ends in the
    can's old cell, Sokoban-style.)
 6. **Empty can** — a normal pushable Sokoban block.
+
+**Two presses for anything permanent — which is everything except walking.** Because
+there is no pull, *every* board-changing action is irreversible; a push is not gentler
+than a tear, it is the same kind of commitment. Measured over the shipped pack by
+replaying the whole state graph and asking whether the previous state is reachable again:
+
+| verb | reversible by play |
+|---|---|
+| **move** | 474 / 474 — **100%** |
+| **tear** | 0 / 15 — **0%** |
+| **push a full can** | 0 / 1 — **0%** (nothing ever re-fills a can) |
+| **push an empty can** | 4 / 9 — **44%**, and only by walking round to the far side |
+
+So the line is **move vs. everything else**, not tear vs. everything else. Walking is
+free and single-press. A tear or a push arms on the first press — showing the fan, or
+where the can and its bag will land — and commits on the second. *(All of this lives in
+the input layer: the rules engine and the solver see one action, and `:par` counts
+committed actions, so nothing about the level format or the pars changes.)*
 7. **The exit `E`** — one per room. It is **plain floor you can always walk over**;
    it just *counts* when you're standing on it and every bag is torn. **Nothing else may
    ever occupy it.** A strike whose fan would land on the exit, or a push that would

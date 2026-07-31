@@ -29,9 +29,11 @@ Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset 
   raccoon, **never occupiable by anything else**. Any strike or push that would put
   trash, a can or a bag on it is **refused**; you cannot bury your way out. Enforced by
   the engine and checked over every reachable state. **L0 "Out"** teaches it alone.
-- **The pounce-tear takes two presses** — the first arms it and previews the fan, the
-  second commits. It is the game's only irreversible verb, so it is the only one that
-  asks twice. Moves and pushes are single-press.
+- **No pull, so everything but walking is permanent.** Measured on the shipped pack:
+  moves are 100% reversible by play, tears 0%, full-can pushes 0%, empty-can pushes 44%
+  (and only by walking round to the far side). **Every board-changing action therefore
+  takes two presses** — the first arms and previews (the fan, or where the can and its
+  bag land), the second commits. Walking stays single-press.
 - **Refusal, not punishment.** An illegal action is refused at the keypress: the cell
   to blame flashes red, a beep says no, and the move isn't spent. What remains as a
   genuine soft-lock is **stranding** — your trash walls you off from a clear exit —
