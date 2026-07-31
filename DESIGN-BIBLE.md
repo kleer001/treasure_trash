@@ -1,5 +1,26 @@
 # DESIGN-BIBLE — Treasure Trash
 
+> # ⚠ SUPERSEDED — HISTORY ONLY
+>
+> **This document describes a game that is no longer being built.** It specifies a
+> **real-time, timed, two-animal click-and-drag command puzzle**. The game is an
+> **untimed, single-raccoon, turn-based Sokoban-family puzzle** built on the
+> directional trash fan.
+>
+> Retained as a record of the design's history. **Do not implement from this file.**
+>
+> | Authority | File |
+> |---|---|
+> | The ruleset | `levels.md` |
+> | The buildable spec | `SPEC-SHEET.md` |
+> | The pitch | `GAME-SHEET.md` |
+>
+> Superseded sections include the control model (§4 — click-to-aim, slow-mo read),
+> the timer and loot thresholds, the crow's kit and the scrap-on-adjacency twist,
+> hazards, bosses, and the phosphor/CRT aesthetic. The crow is **pinned**, not
+> scheduled; its powers here are not carried forward. Where anything below conflicts
+> with `SPEC-SHEET.md`, the spec wins.
+
 > **Status: speculative / working.** This is the brainstorm bible — guesses at
 > levels, equips, hazards, bosses, and story. It is *not* the buildable spec.
 > Anything here is a candidate until it clears a playtest and gets folded into
@@ -7,7 +28,9 @@
 > mechanically forced), **[hunch]** (my guess, untested), **[stub]** (placeholder,
 > needs a pass). Nothing here is a promise to the player.
 >
-> **Design pivot (superseded auto-battler).** Treasure Trash is now a **real-time
+> **Design pivot (superseded auto-battler).** ⚠ *This paragraph is itself superseded
+> — a second pivot, real-time → untimed turn-based, happened after it was written.*
+> Treasure Trash is now a **real-time
 > command puzzle** — you *direct* the two animals with click-to-command, you don't
 > pre-draft-and-watch. The old "place, equip, hit go, watch the raid resolve"
 > auto-battler model is retired. This changed the genre from planning-puzzle to

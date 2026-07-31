@@ -48,16 +48,22 @@ Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset 
   exit is terrain, so it costs nothing against the budget; reserved: water/gap + the
   crow's pieces.
 
-## NEXT MOVE — close Gate 1 (before any `src/` code)
-Per the studio process, authoring real game logic is gated. To proceed:
-1. Distill `levels.md` + `DESIGN-BIBLE.md` into a lean **`SPEC-SHEET.md`** with a
-   filled **Panel gate** block (each persona's concern + resolution, dated).
-2. Write **`REVIEW-LOG.md` Session 1** — the four personas' first-impression notes as
-   the baseline the MVP gate measures against. (The panel has already been run in
-   chat; this just records it against the current design.)
-3. Only then: build on the house stack.
+## Gate 1 — CLOSED 2026-07-29
+`SPEC-SHEET.md` (Panel gate block filled) and `REVIEW-LOG.md` (Session 1, four
+personas) are written. **Code may begin.**
 
-## Then — build on the house stack
+What the panel changed:
+- **Slice cut to the 3 verified objects** (bag, can, trash). The other six each need
+  their own spike — see `SPEC-SHEET.md` → Vertical slice.
+- **Solvability check is in the slice** — the positional soft-lock is currently
+  silent, and a dead board must announce itself.
+- **Act 1 opens on L3**, not L1; L1 teaches nothing about direction.
+- **Unresolved, blocks release only:** the title. Treasure was cut, so the name
+  promises loot the game refuses.
+- `GAME-SHEET.md` rewritten and `DESIGN-BIBLE.md` marked superseded — both described
+  the retired real-time two-animal game.
+
+## NEXT MOVE — build on the house stack
 Copy `../template/` into place and implement for real:
 - `src/` modules: `rng` (mulberry32), `board`/`rules` (pure, testable — the sim from
   `spike/verify.mjs` is a starting point), `render` via `compositor.js` ordered
@@ -72,10 +78,12 @@ Copy `../template/` into place and implement for real:
 - **The crow.** Un-pin and design its powers — the "separation of powers" wasn't
   satisfying yet. What can the crow do that the raccoon can't (reach gaps, fly over
   low trash, grab the shiny the burst reveals)?
-- **Game aesthetic.** Docs use the Memphis house doc style (correct). The *game
-  surface* aesthetic is still officially TBD — the spike uses Memphis by your
-  preference, but `DESIGN-BIBLE.md` still says phosphor as default. Pick one for the
-  game itself.
+- ~~**Game aesthetic.**~~ **DECIDED 2026-07-29 — Memphis for the game surface.**
+  Bright flat geometry, chosen for legibility: the mess must read at a glance or the
+  puzzle isn't fair. The Critic objected that it argues against a game about grime and
+  decay; consciously accepted, revisited at the MVP gate with a full board of trash on
+  screen. Phosphor/CRT is dead here — `DESIGN-BIBLE.md` is superseded. Studio docs
+  keep the house doc style either way.
 - **Verb/skill tree.** Deferred by decision (scope). Layer it *after* the base loop
   proves out. See the addendum in `rules.html`.
 

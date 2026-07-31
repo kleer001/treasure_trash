@@ -4,47 +4,62 @@ The player-facing pitch. No jargon a player wouldn't use.
 
 ## Fantasy
 
-You're the unseen hand behind a **crow** and a **raccoon** raiding a midnight
-trash pile. You don't play *as* them — you *direct* them. Point, send, and time two
-mismatched scavengers so they crack open the garbage and make off with the shiny
-loot **without turning on each other.**
+You're a raccoon in an alley at 3 a.m., and every bag of garbage is a locked box.
+You tear them open one by one. The catch: everything you spill **stays there
+forever** — and the alley is small. You are the mess you make.
 
 ## Core loop
 
-**Click an animal, drag to aim it at a target, let go — it walks over and does its
-thing.** Raccoon tips the can; crow snatches the shiny that spills out. The catch:
-get the first animal *clear* before you send the second in, or they scrap and burn
-the clock. Grab all the treasure before the timer runs out.
+**Walk into a bag and it bursts.** Trash sprays out in a fan *ahead of you* — three
+cells forward, plus the two cells to either side of the bag — and it never goes
+away. So before every tear you pick a direction, because that garbage is about to
+become a wall. Open every bag in the alley and you win.
 
 ## Why it's fun in 30 seconds
 
-You fling the raccoon at a trash can — *BAM*, it topples, a gem glints in the
-spill. But he's standing right on it, and if the crow lands now they'll fight. So
-you send the raccoon off a few steps, *then* send the crow swooping in to snatch
-the gem clean. That one beat — **get him clear before she lands** — is the whole
-game in a single gesture, and it's yours in half a minute with no tutorial.
+Two bags, one narrow corridor between them. You walk up into the first bag — *pop*
+— trash sprays away from you, harmlessly. Now you turn around and do the second
+one, and if you'd torn either bag *toward* the corridor, that corridor is gone, the
+other bag is stranded on the far side, and the alley is unwinnable. Nothing warned
+you. Nothing killed you. You just walled yourself off with your own garbage.
+
+That's the whole game in two moves: **throw your mess where you don't need to
+walk.** Undo is free and instant, so finding that out costs you nothing but the
+click.
+
+## Why it's still fun at minute 30
+
+Because the trash from one bag lands in the fan of another. Once there are three
+bags in a room, you're not choosing a direction — you're choosing an *order*, and
+most orders are already lost by the second tear. The rooms stop being about aiming
+and start being about sequence.
 
 ## Genre & audience
 
-**Real-time command puzzle** — in the line of *The Lost Vikings* and *Pikmin*:
-direct multiple characters with different abilities through hand-crafted levels.
-Single-player, level-based. For puzzle players who like coordinating a little cast,
-reading timing windows, and the "aha" of a clean spatial solution. **Not** a party
-game, and **not** twitchy — the clock is forgiving; the skill is the plan, not the
-reflexes.
+**Turn-based puzzle** — the *Sokoban* family, the same shelf as *A Monster's
+Expedition* and *Bonfire Peaks*. No timer, no reflexes, no hidden information, no
+randomness: the whole room is on one screen, and every loss is a mistake you can
+see and take back. For players who want to be *stuck* — pleasantly, for ten minutes
+— and then see it.
 
 ## The one true twist
 
-Your two units are **allies who don't get along.** Keeping them *productive* and
-*apart* — live, mid-raid, as they cross paths over the same pile — is the puzzle no
-other command game asks you to solve.
+Most block-pushers give you a mess you can **fix**. Sokoban boxes go where you want
+them. Bombs in bomb-Sokoban *clear* space. Here, tearing a bag is the only thing you
+do, and it only ever **adds permanent obstacles**. The board gets strictly worse
+forever, and you win by routing through the wreckage — never by tidying it.
 
 ## Look & sound
 
-Retro-terminal / phosphor, per the house style: the alley and trash pile render on
-a character grid (bins, bags, cans, and glinting gems as glyphs), crow and raccoon
-as sprite layers, a HUD tracking loot and the raid timer, and a CRT pass on top.
-Green-on-black, a security cam pointed at a dumpster at 3 a.m. When you aim, a thin
-sight-line and a ghost marker show where you're sending them. Procedural WebAudio:
-skitter, the clang of a tipped can, a bright chime on a snatched gem, and the ugly
-hiss when the two collide — the sound you're playing to *avoid*.
+Bright, flat, geometric — bold blocks and hard color on a light field, closer to a
+board game than a simulation. The alley reads as a clean grid; garbage reads as
+solid shapes stacking up in it, so the mess is legible at a glance. When you line up
+a tear, a preview tints the cells the trash is about to fill, so you always see the
+wall before you build it. Procedural WebAudio: a dry step, a paper-and-plastic burst
+on the tear, and a flat clunk when a can won't budge.
+
+## Open naming question
+
+The title promises treasure. The game has none — collecting was cut, and winning
+means every bag is torn open, not that anything was carried off. Either a shiny
+comes back as a real object, or the game gets a name about the mess.
