@@ -66,13 +66,13 @@ roughly right instead of nonsense.
 | `x` | spilled trash |
 | `E` | the exit |
 | `+` | raccoon standing on the exit |
-| `X` | exit buried in trash — a soft-lock, visible in a trace |
-| `%` | exit blocked by a shoved can |
 
 **Divergence to know about:** in XSB, `.` is a *goal square* and a space is floor. Treasure
 Trash has no goal squares at all — the win is transformation plus egress — so `.` is free,
 and we spend it on floor for doc readability. Rows shorter than the widest row pad with
-floor. There is no glyph for a full can on the exit: the writer throws rather than invent one.
+floor. **There is no glyph for anything else on the exit**, because no such state exists:
+the rules refuse any action that would put an object there, so the writer throws rather
+than invent a glyph for the unreachable.
 
 ---
 
@@ -158,21 +158,27 @@ Per level:
    regression guard, not enforcement. It starts doing real work the day a mechanic breaks
    move-reversibility, which `DESIGN-BIBLE.md` already plans: World 3's ice, where
    "everyone overshoots". Left in deliberately, labelled honestly.
-9. **LAW — the exit earns its slot.** In any room containing a bag, at least one trap must
-   bury the exit. If the exit's position forbids nothing, it is a walk-back tax and belongs
-   somewhere else on the board.
-10. Every `:solve` string appears verbatim in `../levels.md`, so the prose cannot drift
+9. **INVARIANT — the exit is never occupied.** Across *every reachable state* of every
+   room, the exit cell holds no object. Not "our levels avoid it" — the engine makes it
+   impossible, and this proves it over the whole state graph.
+10. **LAW — the exit earns its slot.** In any room containing a bag, the exit must itself
+    refuse at least one action. Zero refusals means the exit's position forbids nothing:
+    a walk-back tax, so move it.
+11. Every `:solve` string appears verbatim in `../levels.md`, so the prose cannot drift
     from the data.
 
-Traps are also **split by how visible they are**, which is the real difficulty dial:
+### Refusals vs. traps
 
-| Class | The player must… | Count in the pack |
-|---|---|---|
-| **buries the exit** | read the fan preview — it tints the exit tile | L1 2, L2 12, L3 8 |
-| **strands you** | reason about connectivity: the exit stays clear, but the trash walls you off | L1 0, L2 1, L3 2 |
+Protecting the exit converted a whole class of soft-lock into a refusal, which is visible
+in the numbers:
 
-Both are fair under Law 1.2 (full information); only the first is fair under a *glance*.
-L4 "Corner Yourself" is a stranding room by design, so that column is the thing to watch
-when it gets built.
+| | L0 | L1 | L2 | L3 |
+|---|---|---|---|---|
+| **refusals caused by the exit** (said no at the keypress) | 0 | 2 | 12 | 12 |
+| **stranding traps** (trash walls you off from a clear exit) | 0 | 0 | 1 | 2 |
 
-Current pack: 4 levels, 26–320 reachable states each, all green.
+What remains are *stranding* traps — the exit is clear and intact, but your own trash has
+cut you off from it. Those need connectivity reasoning rather than just reading the fan
+preview, and they are what L4 "Corner Yourself" is built around.
+
+Current pack: 4 levels, 3–137 reachable states each, all green.

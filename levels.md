@@ -19,7 +19,8 @@
 ```
 .  floor            R  raccoon (start)      B  garbage bag
 #  wall             _  entry stub (raccoon start / parking — NOT a disposal chute)
-E  the exit (the way out — always walkable; counts only when every bag is torn)
+E  the exit (always walkable by the raccoon, never occupiable by anything else;
+   counts only when every bag is torn)
 x  spilled trash (permanent obstacle)
 C  full can (has a bag)                     c  empty can (pushable)
 ```
@@ -36,8 +37,9 @@ C  full can (has a bag)                     c  empty can (pushable)
                         . B .    →     x R x
                         . R .         . . .   (came-from cell stays clear)
    ```
-3. **Clearance** — a bag opens only if its **2×3 fan is all clear floor** at strike
-   time. Fan blocked (wall / off-grid / trash / can) → **soft-lock** (undo).
+3. **Clearance** — a bag opens only if its **2×3 fan is all free ground** at strike
+   time. Fan blocked (wall / off-grid / trash / can / **the exit**) → the strike is
+   **refused**; nothing happens and the move isn't spent.
 4. **Mess stays** — the 5 fan cells become **permanent trash obstacles**. Opening a
    bag reshapes the board; your own garbage can wall you in. *(Fork resolved: yes.)*
 5. **Full can, when pushed** — slides **one cell** in the push direction **and ejects
@@ -45,9 +47,10 @@ C  full can (has a bag)                     c  empty can (pushable)
    can's old cell, Sokoban-style.)
 6. **Empty can** — a normal pushable Sokoban block.
 7. **The exit `E`** — one per room. It is **plain floor you can always walk over**;
-   it just *counts* when you're standing on it and every bag is torn. It is **not**
-   protected: trash, a can, or any other occupant can land on it and **seals it
-   permanently** → soft-lock (undo).
+   it just *counts* when you're standing on it and every bag is torn. **Nothing else may
+   ever occupy it.** A strike whose fan would land on the exit, or a push that would
+   shove a can onto it, is **refused** — the move simply doesn't happen. You cannot bury
+   your own way out.
 8. **Free undo / restart.** Deterministic. **Win = every bag torn *and* the raccoon
    standing on the exit.**
 
@@ -72,12 +75,19 @@ defined. It's now a first-class element, retrofitted through every room, and the
 rules above are the whole of it. Three calls, made explicitly:
 
 - **It's terrain, not an object.** Always walkable, never pushable, no state of its
-  own. This keeps the clearance rule (rule 3) unchanged — the exit tile reads as
-  clear floor, so a fan can land on it, which is the point.
-- **It's buriable, and burying it is a soft-lock.** Trash on the exit is permanent
-  like all trash; a can pushed onto it can never be pulled back off. Both are
-  visible before you commit (the fan preview tints the cells; a can moves one cell
-  at a time), so this stays a *foreseeable* dead-end, not a hindsight trap.
+  own. Two different questions get two different answers about it: *can the raccoon
+  stand here?* — yes, always. *Can an object come to rest here?* — never.
+- **It cannot be buried — the attempt is refused.** *(Reversed on your call, and the
+  reversal is the better rule.)* The first draft let trash and cans land on the exit and
+  called the result a soft-lock. It's now impossible: the exit is walkable by the raccoon
+  and by nothing else, so any action that would put an object there is refused at the
+  keypress. The engine enforces it, not the level design — `verify.mjs` checks across
+  **every reachable state** of every room that the exit is unoccupied.
+  *What it cost:* an entire class of soft-lock disappeared (L1 2 traps → 0, L2 13 → 1,
+  L3 10 → 2), and with it the "legal but fatal" beat L1 was built around. *What it
+  bought:* the lesson is now taught by refusal instead of by regret, which is the
+  cheapest possible failure and squarely what Law 2.4 asks for. The rooms' pars and
+  solutions were unaffected — every one still solves in the same moves.
 - **It removes the raccoon, never the trash.** He leaves empty-pawed. The exit is
   egress, not disposal — the "maximum mess, nothing gets cleaned up" pillar holds.
 
@@ -103,9 +113,10 @@ budget stays at 3 of ~8).
 **The authoring law that comes with it** (against the Critic's obvious objection —
 that an exit degrades into a walk-back tax): **if the exit's position doesn't rule
 out at least one strike direction or push direction, it's a tax — move it.** Ten
-extra steps of unopposed walking is not a puzzle. L1's exit forbids the down-strike;
-L2's forbids pushing the can left; L3's is inside the corridor the room already
-taught you to protect. Every room must pay that toll.
+extra steps of unopposed walking is not a puzzle. L1's exit forbids the down-strike
+(2 refusals); L2's forbids pushing the can left (12); L3's sits in the corridor the
+room already taught you to protect (12). Every room must pay that toll, and
+`verify.mjs` counts the refusals to prove it does.
 
 **Precedent (this part is real, not invention):** "clear the objective, *then* reach
 the exit" is the standard single-screen puzzle structure, and the two ancestors
@@ -165,13 +176,13 @@ y3  .  .  E
 **Solve — `uU!dr`** (par 4): Up → (2,3). Up → strikes B(2,2) going **up**; fan fills
 all of y1 plus the side cells (1,2)/(3,2); all clear → bag opens, R ends on (2,2).
 Down → (2,3). Right → (3,3) = E, no bags left → win.
-**The trap (optional, and this is the point of adding the exit):** the bag can also
-be struck **downward** — loop up the left side to (2,1) and pounce Down. The fan is
-clear, so it *opens*, and the trash lands on (1,3)/(2,3)/**(3,3)** — the exit is
-buried, the bag is gone, and the room is unwinnable with nothing left to do. Same
-board, same bag, two legal strikes, one of them fatal. Before the exit existed, both
-strikes won. *Lesson: the fan preview isn't just about your path, it's about your
-way out.*
+**The refusal (and this is the point of adding the exit):** the bag can also be
+approached from above — loop up the left side to (2,1) and try to pounce Down. That
+fan would land on (1,3)/(2,3)/**(3,3)**, and (3,3) is the exit, so **the strike is
+refused**: the exit tile goes red, the HUD says *that's your way out — you can't dump
+on it*, and the move isn't spent. One bag, two approaches, and the room quietly tells
+you which one it will accept. *Lesson: the fan is not just about your path, it's about
+your way out — and the game will not let you get that one wrong.*
 
 ---
 
@@ -197,12 +208,12 @@ Right → pushes the empty can (2,3)→(3,3), R→(2,3). Up → strike bag (2,2)
 (sides of y2 + all of y1) is clear → opens. Down → (2,3). Left → (1,3) = E → win.
 **Trap 1 (old):** try to open the bag before clearing the can — every direction
 soft-locks (can in the fan or on the launch cell).
-**Trap 2 (new, and it kills the mirror solve):** shove the can **left** instead — up
-the right side to (3,3), push Left, and the can parks on (1,3) = **E**. No pull, and
-one more push would take it off-grid, so the exit is sealed for good. The bag still
-opens; the room is still lost. The old room accepted either mirror; the exit makes
-exactly one of them right. *Lesson: relocating your junk is half the job — where you
-put it is the other half.*
+**The refusal (it kills the mirror solve):** try to shove the can **left** instead —
+up the right side to (3,3), push Left — and the push is **refused**, because (1,3) is
+the exit and the exit will not take it. The old room accepted either mirror; now
+exactly one of them is available, and the board says so the moment you try rather than
+ten moves later. *Lesson: relocating your junk is half the job — where you put it is
+the other half.*
 
 ---
 
@@ -221,10 +232,11 @@ Raccoon starts on the corridor at (2,3); the exit is the corridor's right end.
 sides of y2); step back **Down** to (2,3); push **Down** → strike B(2,4) down (fan
 fills y5 + sides of y4), R ends on (2,4). Corridor y3 never touched → **Up** to
 (2,3), **Right** to (3,3) = E → win. (Striking B first works too, same par.)
-**The trap:** strike *either* bag toward the corridor (A down, or B up) → a full
-3-wide trash row lands on y3 → corridor sealed, the other bag unreachable, **and the
-exit buried under the same row.** Lesson: **fire your mess away from where you still
-need to walk.**
+**The refusal:** strike *either* bag toward the corridor (A down, or B up) and the
+fan would put a full 3-wide trash row across y3 — which contains the exit at (3,3). So
+both are **refused**. The room's lesson is now enforced rather than discovered: you
+cannot seal the corridor, because sealing it means burying the way out. Lesson:
+**fire your mess away from where you still need to walk.**
 **What the exit adds here:** after both correct strikes the corridor is the *only*
 clear row left on the board — the room already made you protect it, and now it's
 also the thing you're protecting it *for*. The exit didn't change the solution; it
@@ -262,8 +274,8 @@ them fails the build rather than reaching a player.**
    that opens every bag but strands you is a bug, not a difficulty setting (Law 1.8).
    *(checked: solvability + provably minimal par)*
 4. The exit's placement rules out at least one strike or push direction. If it
-   doesn't, it's a walk-back tax — move it. *(checked: ≥1 exit-burying trap in any
-   room that has a bag)*
+   doesn't, it's a walk-back tax — move it. *(checked: the exit must cause ≥1 refusal
+   in any room that has a bag)*
 5. State the par as the **full** solve, including the walk to E. *(checked: the LURD
    token count must equal `:par`, and the solve must replay to a win)*
 6. **No silent traps.** A plain *move* must never take a winnable board to a dead one —

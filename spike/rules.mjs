@@ -20,9 +20,16 @@ export const cloneState = s => ({
 export const inGrid = (s, x, y) => x >= 0 && y >= 0 && x < s.cols && y < s.rows;
 export const cell = (s, x, y) => s.cells[y][x];
 
-// The exit is terrain, not an occupant: it reads as clear floor, so a fan can bury it.
+// Somewhere the raccoon can stand: floor with nothing on it. The exit qualifies —
+// he walks over it freely.
 export const isClearFloor = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && cell(s, x, y).o === NONE;
+
+// Somewhere an OBJECT can come to rest. The exit does not qualify: you cannot bury
+// your own way out. Trash, a shoved can and an ejected bag all test against this, so
+// any action that would put something on the exit is refused outright rather than
+// allowed and then regretted. The exit is walkable by the raccoon and by nothing else.
+export const isOccupiable = (s, x, y) => isClearFloor(s, x, y) && !cell(s, x, y).exit;
 
 /** The 2x3 fan: the bag's two perpendicular side cells + the three cells one step ahead. */
 export function fan(bx, by, dx, dy) {
@@ -34,7 +41,12 @@ export function fan(bx, by, dx, dy) {
 }
 
 export const fanBlockers = (s, bx, by, dx, dy) =>
-  fan(bx, by, dx, dy).filter(([x, y]) => !isClearFloor(s, x, y));
+  fan(bx, by, dx, dy).filter(([x, y]) => !isOccupiable(s, x, y));
+
+// A refusal caused by the exit gets its own reason, because "you can't dump on your
+// way out" is a different lesson from "there's no room".
+const reasonFor = (s, blockers, fallback) =>
+  blockers.some(([x, y]) => inGrid(s, x, y) && cell(s, x, y).exit) ? 'exit' : fallback;
 
 /**
  * Explain what direction `dir` does from the current state — without applying it.
@@ -63,7 +75,7 @@ export function explain(s, dir) {
 
   if (o === BAG) {
     const blockers = fanBlockers(s, tx, ty, dx, dy);
-    if (blockers.length) return { ok: false, reason: 'fan', blame: blockers };
+    if (blockers.length) return { ok: false, reason: reasonFor(s, blockers, 'fan'), blame: blockers };
     const next = cloneState(s);
     for (const [fx, fy] of fan(tx, ty, dx, dy)) cell(next, fx, fy).o = TRASH;
     cell(next, tx, ty).o = NONE;
@@ -74,8 +86,8 @@ export function explain(s, dir) {
   if (o === CAN_FULL) {
     // slides one, ejects its bag one further, becomes empty
     const c1 = [tx + dx, ty + dy], c2 = [tx + 2 * dx, ty + 2 * dy];
-    const blame = [c1, c2].filter(([bx, by]) => !isClearFloor(s, bx, by));
-    if (blame.length) return { ok: false, reason: 'canRoom', blame };
+    const blame = [c1, c2].filter(([bx, by]) => !isOccupiable(s, bx, by));
+    if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
     const next = cloneState(s);
     cell(next, c2[0], c2[1]).o = BAG;
     cell(next, c1[0], c1[1]).o = CAN_EMPTY;
@@ -86,7 +98,8 @@ export function explain(s, dir) {
 
   if (o === CAN_EMPTY) {
     const c1 = [tx + dx, ty + dy];
-    if (!isClearFloor(s, c1[0], c1[1])) return { ok: false, reason: 'canRoom', blame: [c1] };
+    if (!isOccupiable(s, c1[0], c1[1]))
+      return { ok: false, reason: reasonFor(s, [c1], 'canRoom'), blame: [c1] };
     const next = cloneState(s);
     cell(next, c1[0], c1[1]).o = CAN_EMPTY;
     cell(next, tx, ty).o = NONE;

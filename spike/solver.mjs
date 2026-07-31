@@ -76,28 +76,29 @@ export function analyze(start) {
     if (!live.has(key)) continue;
     for (const e of node.edges) {
       if (!dead.has(e.to)) continue;
-      const after = states.get(e.to).state;
       traps.push({
         lurd: formatLurd([...pathTo(states, key), { dir: e.dir, kind: e.kind }]),
         dir: e.dir, kind: e.kind,
-        buriesExit: exitBlocked(after),
       });
     }
   }
+  // How often does the exit itself refuse an action? This is what replaced the
+  // exit-burying trap: the room's way out no longer punishes you after the fact, it
+  // says no at the moment you try. A room where this is zero has an exit that forbids
+  // nothing — a walk-back tax.
+  let exitRefusals = 0;
+  for (const [, node] of states)
+    for (const dir of DIR_ORDER) {
+      const r = explain(node.state, dir);
+      if (!r.ok && r.reason === 'exit') exitRefusals++;
+    }
+
   return {
-    states, minMoves, shortestLurd, shortestCount, dead, traps,
+    states, minMoves, shortestLurd, shortestCount, dead, traps, exitRefusals,
     silentTraps: traps.filter(t => t.kind === MOVE),
     reachable: states.size,
   };
 }
-
-const exitBlocked = s => {
-  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) {
-    const c = cell(s, x, y);
-    if (c.exit) return c.o !== 0;
-  }
-  return false;
-};
 
 function pathTo(states, key) {
   const out = [];

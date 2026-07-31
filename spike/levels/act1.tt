@@ -7,6 +7,9 @@
 ; Every field below is machine-checked by verify.mjs — :par must be the provably
 ; minimal solve, :solve must replay to a win in exactly :par actions, and :traps must
 ; equal the number of legal actions that lead to an unwinnable board.
+;
+; Note how low :traps is: the exit refuses anything that would land on it, so the whole
+; class of "you buried your own way out" soft-locks is now a refusal at the keypress.
 
 :level  L0
 :name   Out
@@ -26,10 +29,10 @@
 :name   Pounce
 :teach  directional pounce, the fan, permanent mess
 :par    4
-:traps  2
+:traps  0
 :solves 1
 :solve  uU!dr
-:note   The down-strike is legal and fatal — its fan buries the exit at (3,3).
+:note   The down-strike is refused: its fan would land on the exit at (3,3).
 :grid
 ---
 -$-
@@ -41,10 +44,10 @@
 :name   Heavy Can
 :teach  the can, and that where you park your junk is half the job
 :par    7
-:traps  13
+:traps  1
 :solves 1
 :solve  UluRU!dl
-:note   Shoving the can left parks it on the exit — no pull, and one more push is off-grid.
+:note   Shoving the can left is refused — the exit will not take it. Right is the way.
 :grid
 ---
 ---
@@ -57,10 +60,10 @@ E--
 :name   Fire Away From the Path
 :teach  fire your mess away from where you still need to walk
 :par    5
-:traps  10
+:traps  2
 :solves 2
 :solve  U!dD!ur
-:note   Either bag struck toward the corridor seals it and buries the exit at once.
+:note   Either bag struck toward the corridor is refused — the exit is in that fan.
 :grid
 ---
 -$-

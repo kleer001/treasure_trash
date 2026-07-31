@@ -89,17 +89,21 @@ for (const level of pack.levels) {
       `found ${a.shortestCount}`);
   else console.log(`    · ${a.shortestCount} distinct shortest solve(s)`);
 
-  // Trap accounting, split by how much work the player must do to SEE the trap coming:
-  //   buries-exit — the fan preview literally tints the exit tile. Read it and you know.
-  //   strands     — the exit stays clear but the trash walls you off from it. Fair (full
-  //                 information) but it needs connectivity reasoning, not just reading.
-  // The split is the difficulty dial: L4 "Corner Yourself" is a stranding room by design.
-  const buries = a.traps.filter(t => t.buriesExit).length;
-  const strands = a.traps.length - buries;
+  // INVARIANT: no reachable state may ever have an object on the exit. This is the
+  // whole point of the rule change — it is not enough that our levels happen to avoid
+  // it, the engine must make it impossible. Checked across every reachable state.
+  const occupied = [...a.states.values()].find(n =>
+    n.state.cells.some(row => row.some(c => c.exit && c.o !== 0)));
+  check('the exit is never occupied, in any reachable state', !occupied,
+    `${a.reachable} states searched`);
+
+  // Traps that remain are stranding traps: the exit stays clear and reachable-looking,
+  // but your trash has walled you off from it. Those need connectivity reasoning, which
+  // is what L4 "Corner Yourself" is designed around.
   if (level.traps !== undefined)
     check('trap count as declared', a.traps.length === level.traps,
-      `${a.traps.length} = ${buries} bury the exit + ${strands} strand you`);
-  else console.log(`    · ${a.traps.length} traps — ${buries} bury the exit, ${strands} strand you`);
+      `${a.traps.length} stranding trap(s)`);
+  else console.log(`    · ${a.traps.length} stranding trap(s)`);
 
   // GUARD, not a law: a plain move can never lose the room, because moving is reversible
   // (you step onto empty floor; stepping back into the cell you just left is always legal).
@@ -111,12 +115,12 @@ for (const level of pack.levels) {
     a.silentTraps.length ? `e.g. ${a.silentTraps[0].lurd}` : '');
 
   // LAW (the exit earns its slot): in any room with a bag, the exit's position must
-  // rule out at least one otherwise-legal action. If it rules out nothing, it's a
-  // walk-back tax and belongs somewhere else on the board.
+  // rule out at least one otherwise-legal action. Now that the exit refuses rather than
+  // punishes, that's measured directly — how many (state, direction) pairs does the exit
+  // itself say no to? Zero means the exit forbids nothing: a walk-back tax, move it.
   if (bags > 0)
-    check('the exit forbids at least one action',
-      a.traps.some(t => t.buriesExit),
-      `${a.traps.filter(t => t.buriesExit).length} exit-burying trap(s)`);
+    check('the exit forbids at least one action', a.exitRefusals > 0,
+      `${a.exitRefusals} refusal(s) caused by the exit`);
 }
 
 // ---------------------------------------------------------------- doc drift

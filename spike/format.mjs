@@ -18,13 +18,13 @@ const READ = {
   'x': { o: TRASH },
   'E': { exit: true },
   '+': { exit: true, rac: true },     // raccoon standing on the exit (XSB's player-on-goal)
-  'X': { exit: true, o: TRASH },      // exit buried — the soft-lock, made visible in a trace
-  '%': { exit: true, o: CAN_EMPTY },  // exit blocked by a shoved can
+  // No glyph for anything else on an exit: nothing else can ever be there. The rules
+  // refuse any action that would put an object on it, so those states are unreachable
+  // and a level file that hand-writes one is invalid input.
 };
 export const LEGEND = [
   '# wall', '- floor', '@ raccoon', '$ bag', 'C full can', 'c empty can',
-  'x spilled trash', 'E exit', '+ raccoon on exit', 'X exit buried in trash',
-  '% exit blocked by a can',
+  'x spilled trash', 'E exit', '+ raccoon on exit',
 ];
 
 function glyphFor(c, isRac) {
@@ -35,10 +35,8 @@ function glyphFor(c, isRac) {
   }
   if (isRac) return '+';
   if (c.o === NONE) return 'E';
-  if (c.o === TRASH) return 'X';
-  if (c.o === CAN_EMPTY) return '%';
-  // Deliberately unrepresentable: fail loudly rather than invent a glyph.
-  throw new Error(`no glyph for occupant ${c.o} on an exit cell`);
+  // Unreachable by the rules — if we ever get here, a rule broke. Fail loudly.
+  throw new Error(`occupant ${c.o} on an exit cell: the exit must never hold an object`);
 }
 
 // --- level pack -------------------------------------------------------------

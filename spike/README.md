@@ -38,8 +38,11 @@ rather than silently run a stale copy of the rules.
 
 Arrows / WASD to move-strike-push · **U** undo · **R** restart · level tabs.
 - **Fan preview** (standing next to a bag): pale yellow on every cell that would become
-  trash, **including your exit if it's in the way**. It answers *where would this land*,
-  which has the same answer whether or not the strike is legal — so it is always yellow.
+  trash. It answers *where would this land*, which has the same answer whether or not the
+  strike is legal — so it is always yellow.
+- **The exit refuses everything.** Trash, cans, ejected bags — none may land on it. A
+  strike or push that would put something there is refused outright, so you can never
+  bury your own way out.
 - **Blocked** (you pressed a direction the rules refuse): the one cell *doing* the
   blocking gets a red ✕, and the HUD says why. Red is never a second opinion about the
   fan — it marks a single cell, and only once you've actually tried. A refused input
@@ -53,9 +56,10 @@ node verify.mjs levels/act1.tt levels/act1.sol
 Exit code 0 or 1. It checks, per level: solvable; **`:par` is provably minimal** (BFS
 over the whole reachable graph, not an assertion); `:solve` replays to a win in exactly
 par with every action's declared *kind* matching the board; the `.sol` file agrees; the
-trap and distinct-solution counts match; **no plain move can lose the room** (Law 1.7,
-mechanised); and in any room with a bag, **the exit forbids at least one action** (or
-it's a walk-back tax). Plus: both formats round-trip, LURD round-trips and rejects
+trap and distinct-solution counts match; **the exit is never occupied in any reachable
+state** (the engine makes it impossible, and this proves it over the whole state graph);
+and in any room with a bag, **the exit must refuse at least one action** (or it's a
+walk-back tax). Plus: both formats round-trip, LURD round-trips and rejects
 malformed input, and every `:solve` appears verbatim in `../levels.md` so the prose
 can't drift from the data.
 
