@@ -31,6 +31,8 @@
   .banner.show{display:inline-block}
   .warn{display:none;font-weight:800;color:#fff;background:var(--red);padding:.15rem .7rem;border-radius:4px;transform:rotate(1deg)}
   .warn.show{display:inline-block}
+  .arm{display:none;font-weight:800;color:#5a4500;background:var(--yel);padding:.15rem .7rem;border-radius:4px;transform:rotate(-1deg)}
+  .arm.show{display:inline-block}
   canvas{display:block;margin:.4rem 0 1rem;image-rendering:auto;max-width:100%;height:auto;border:2px solid var(--ink);background:var(--panel)}
   .btns{display:flex;gap:.5rem;flex-wrap:wrap;margin:.4rem 0 1rem}
   button.act{font-weight:700;border:2px solid var(--ink);background:#fff;padding:.3rem .8rem;border-radius:4px;cursor:pointer}
@@ -55,6 +57,7 @@
   <span class="moves">moves <b id="moves">0</b> · par <b id="par">0</b></span>
   <span class="banner" id="banner">✦ SOLVED ✦</span>
   <span class="warn" id="warn"></span>
+  <span class="arm" id="arm"></span>
 </div>
 
 <canvas id="cv" width="300" height="300"></canvas>
@@ -75,10 +78,10 @@
 <div class="legend">
   <div class="row"><b>Move / strike / push:</b> <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <kbd>U</kbd> undo · <kbd>R</kbd> restart.</div>
   <div class="row"><b>Goal:</b> open every bag (pounce it), then stand on the <b style="color:#2e9e5b">exit</b>. A bag bursts a <b>2×3 fan</b> in the direction you strike; that trash <b>stays</b>.</div>
-  <div class="row"><b>The exit:</b> plain floor — walk over it any time; it only counts once the last bag is torn (the sign <b>lights up</b> when it's live). It is <b>not</b> protected: trash or a pushed can lands on it and seals it for good.</div>
-  <div class="row"><b>Fan preview:</b> stand next to a bag — the tiles that'd become trash glow <span style="color:#b58900">yellow</span>, including your exit if it's in the way.</div>
-  <div class="row"><b>Blocked:</b> if the rules refuse a move, the one cell <em>doing</em> the blocking flashes <span style="color:var(--red)">red</span> with a ✕ and the reason shows up top. Refused moves cost nothing.</div>
-  <div class="row"><b>Cans:</b> push a full can → it slides one and ejects its bag one further; the empty can is then a normal pushable block.</div>
+  <div class="row"><b>Tearing takes two presses.</b> Press a direction at a bag to <em>aim</em> — the fan lights up <span style="color:#b58900">yellow</span> and nothing has happened yet. Press the same direction again to commit. Aiming is free and costs no moves, so look before you burst.</div>
+  <div class="row"><b>The exit:</b> plain floor — walk over it any time; it only counts once the last bag is torn (the sign <b>lights up</b> when it's live). <b>Nothing may ever land on it</b> — trash, cans and bags are all refused, so you can't bury your way out.</div>
+  <div class="row"><b>Blocked:</b> if the rules refuse an action, the one cell <em>doing</em> the blocking flashes <span style="color:var(--red)">red</span> with a ✕, you get a buzz, and the reason shows up top. Refused actions cost nothing.</div>
+  <div class="row"><b>Cans:</b> push a full can → it slides one and ejects its bag one further; the empty can is then a normal pushable block. A can in the fan blocks a tear — relocate it first.</div>
   <div class="row">Trashed yourself into a corner? That's the puzzle — <kbd>U</kbd> / <kbd>R</kbd>.</div>
 </div>
 
@@ -103,28 +106,73 @@ const WHY = {
   edge:    "that's the edge of the alley",
   wall:    "wall",
   trash:   "your own trash — permanent",
-  fan:     "no room to burst: the fan is blocked",
+  fan:     "no room to burst",
   canRoom: "no room to shove it",
   exit:    "that's your way out — you can't dump on it",
 };
+// Name the thing in the way rather than saying "blocked". The player can see the red
+// cell; the words should add the noun, not repeat the colour.
+const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"your own trash" };
+function whyText(b){
+  const base = WHY[b.reason];
+  if(b.reason !== 'fan' && b.reason !== 'canRoom') return base;
+  const [x,y] = b.cells[0] ?? [];
+  if(x === undefined || !inGrid(state,x,y)) return `${base} — the wall's in the way`;
+  const c = cell(state,x,y);
+  const what = c.wall ? "the wall" : (OBSTACLE[c.o] ?? "something");
+  return `${base} — ${what} is in the way`;
+}
 
 let LEVELS = [], cur=0, state=null, start=null, history=[], moves=0, won=false;
 let blocked = null;   // { cells, reason, dir } — cleared by the next legal action
+let armed = null;     // direction of a tear that is aimed but not yet committed
+
+// ---- audio: a two-tone "no" for a refused input. Procedural, per the house stack.
+let ac = null;
+function beep(ok){
+  try {
+    ac ??= new (window.AudioContext || window.webkitAudioContext)();
+    const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+    o.type = ok ? 'triangle' : 'square';
+    o.frequency.setValueAtTime(ok ? 520 : 190, t);
+    if(!ok) o.frequency.setValueAtTime(140, t + .07);          // the downward "nope"
+    g.gain.setValueAtTime(ok ? .045 : .09, t);
+    g.gain.exponentialRampToValueAtTime(.0001, t + (ok ? .07 : .16));
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + (ok ? .08 : .17));
+  } catch { /* audio is a nicety; never let it break input */ }
+}
 
 // ---- input ----
+// The tear is the only irreversible verb in the game, so it is the only one that asks
+// twice: press once to aim (the fan is previewed, nothing has happened, no move spent),
+// press the same direction again to commit. Moves and pushes stay single-press —
+// ceremony proportional to consequence.
+//
+// This lives entirely in the input layer. rules.mjs does not know about arming, the
+// solver still explores one action per edge, and par is unchanged: aiming is not a move.
 function act(dir){
   if(won) return;
   const r = explain(state, dir);
-  if(!r.ok){ blocked = { cells:r.blame, reason:r.reason, dir }; render(); return; }
-  history.push(cloneState(state)); state = r.next; moves++; blocked = null;
+
+  if(!r.ok){                       // refused — say no, and say which cell said it
+    blocked = { cells:r.blame, reason:r.reason, dir };
+    armed = null; beep(false); render(); return;
+  }
+  if(r.kind === TEAR && armed !== dir){
+    armed = dir; blocked = null;    // aimed, not committed
+    beep(true); render(); return;
+  }
+  history.push(cloneState(state)); state = r.next; moves++;
+  blocked = null; armed = null;
   if(isWon(state)) won = true;
   render();
 }
-function undo(){ if(history.length){ state=history.pop(); moves--; won=false; blocked=null; render(); } }
+function undo(){ if(history.length){ state=history.pop(); moves--; won=false; blocked=null; armed=null; render(); } }
 function restart(){ load(cur); }
 function load(i){
   cur=(i+LEVELS.length)%LEVELS.length;
-  state=toState(LEVELS[cur]); start=state; history=[]; moves=0; won=false; blocked=null;
+  state=toState(LEVELS[cur]); start=state; history=[]; moves=0; won=false;
+  blocked=null; armed=null;
   render();
 }
 
@@ -150,8 +198,11 @@ function render(){
   // The fan is ALWAYS pale yellow — it answers "where would this land?", which has the same
   // answer whether or not the strike is legal. Red is not a second opinion about the fan;
   // it belongs to one cell only, the one doing the blocking, and only once you've tried.
+  // Only the ARMED direction previews. Standing between two bags used to light both
+  // fans at once — ten yellow cells and no idea which was which. Aiming costs nothing,
+  // so you can still inspect every direction before committing to one.
   const red = new Set((blocked?.cells ?? []).map(([x,y])=>`${x},${y}`));
-  for(const dir of ['u','d','l','r']){
+  for(const dir of (armed ? [armed] : [])){
     const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
     const bx=s.rac.x+dx, by=s.rac.y+dy;
     if(!inGrid(s,bx,by) || cell(s,bx,by).o!==BAG) continue;
@@ -162,6 +213,13 @@ function render(){
       ctx.strokeStyle="rgba(224,170,0,.85)"; ctx.lineWidth=2;
       ctx.strokeRect(fx*CS+2,fy*CS+2,CS-4,CS-4);
     }
+  }
+
+  // The armed bag gets a ring + a direction arrow, so "what am I about to do" is on the
+  // board and not only in the HUD.
+  if(armed){
+    const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[armed];
+    drawAim(s.rac.x+dx, s.rac.y+dy, dx, dy);
   }
 
   // Blocked: you TRIED it and the rules said no. Mark the exact cells to blame, in red,
@@ -176,11 +234,29 @@ function render(){
   document.getElementById('lvlname').textContent=`${LEVELS[cur].id} — ${LEVELS[cur].name}`;
   document.getElementById('banner').className='banner'+(won?' show':'');
   const w=document.getElementById('warn');
-  w.textContent = blocked ? `✕ blocked — ${WHY[blocked.reason]}` : '';
+  w.textContent = blocked ? `✕ ${whyText(blocked)}` : '';
   w.className = 'warn'+(blocked?' show':'');
+  const am=document.getElementById('arm');
+  am.textContent = armed ? `${({u:'↑',d:'↓',l:'←',r:'→'})[armed]} again to tear` : '';
+  am.className = 'arm'+(armed?' show':'');
   document.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(i===cur?' on':''));
 }
 
+function drawAim(x,y,dx,dy){
+  const x0=px(x), y0=px(y), cx=x0+CS/2, cy=y0+CS/2;
+  ctx.save();
+  ctx.strokeStyle="#e0aa00"; ctx.lineWidth=4; ctx.setLineDash([7,5]);
+  ctx.strokeRect(x0+3,y0+3,CS-6,CS-6); ctx.setLineDash([]);
+  ctx.strokeStyle="#e0aa00"; ctx.lineWidth=5; ctx.lineCap="round"; ctx.lineJoin="round";
+  const a=CS*0.24;
+  ctx.beginPath();
+  ctx.moveTo(cx-dx*a, cy-dy*a); ctx.lineTo(cx+dx*a, cy+dy*a);
+  ctx.moveTo(cx+dx*a-(dx+dy)*8, cy+dy*a-(dy+dx)*8);
+  ctx.lineTo(cx+dx*a, cy+dy*a);
+  ctx.lineTo(cx+dx*a-(dx-dy)*8, cy+dy*a-(dy-dx)*8);
+  ctx.stroke();
+  ctx.restore();
+}
 function drawBlocked(x,y){
   const x0=px(x), y0=px(y);
   ctx.save();

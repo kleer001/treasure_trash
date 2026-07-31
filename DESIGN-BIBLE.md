@@ -49,6 +49,9 @@ and when to move them. You win with the plan, not the reflexes.
    can, tearing a bag, snatching a gem) it finishes — you can't abort mid-swing.
    You *can* redirect an animal that's still walking. This is what gives timing
    teeth: you must plan the exit before you start the action.
+   *(Survives the turn-based pivot in a different form: the pounce-tear is the one
+   irreversible verb, so it takes a deliberate two-press commit. Movement is free
+   and reversible. See `levels.md` rule 2.)*
 4. **No autonomy, no punishment for focus.** The animal you're not commanding
    finishes its current action, then **idles**. It never acts on its own. All
    pressure comes from the clock and travel time, never from babysitting.

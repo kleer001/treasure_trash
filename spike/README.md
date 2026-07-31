@@ -37,14 +37,20 @@ ES modules need `http://` — opening `index.html` off the filesystem will fail 
 rather than silently run a stale copy of the rules.
 
 Arrows / WASD to move-strike-push · **U** undo · **R** restart · level tabs.
-- **Fan preview** (standing next to a bag): pale yellow on every cell that would become
-  trash. It answers *where would this land*, which has the same answer whether or not the
-  strike is legal — so it is always yellow.
+- **Tearing takes two presses.** Press a direction at a bag to *aim* — the fan previews
+  and nothing has happened. Press the same direction again to commit. Aiming is free and
+  spends no move, so you can inspect all four directions before bursting anything. Only
+  the aimed direction previews, so standing between two bags no longer lights both fans
+  at once. Moves and pushes remain single-press: the tear is the only irreversible verb,
+  so it's the only one that asks twice.
+- **Fan preview** (while aimed): pale yellow on every cell that would become trash. It
+  answers *where would this land*, which has the same answer whether or not the strike is
+  legal — so it is always yellow.
 - **The exit refuses everything.** Trash, cans, ejected bags — none may land on it. A
   strike or push that would put something there is refused outright, so you can never
   bury your own way out.
 - **Blocked** (you pressed a direction the rules refuse): the one cell *doing* the
-  blocking gets a red ✕, and the HUD says why. Red is never a second opinion about the
+  blocking gets a red ✕, a buzz sounds, and the HUD names what's in the way. Red is never a second opinion about the
   fan — it marks a single cell, and only once you've actually tried. A refused input
   costs no moves.
 

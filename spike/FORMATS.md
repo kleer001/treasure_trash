@@ -100,6 +100,11 @@ action class, so it gets a third case:
 `uU!dr` = step up, tear upward, step down, step right. **Par is the token count**, so the
 solution string *is* the par claim.
 
+**The two-press tear does not appear here.** In the game a tear is armed with one press
+and committed with a second, but arming changes no state and spends no move — it is an
+input-layer affordance, not an action. One `U!` token is one tear. The rules engine, the
+solver and every par are unaffected by it.
+
 The kind is part of the token, and the verifier replays each action against the board and
 **rejects a solution whose declared kind disagrees with what actually happens**. A solution
 that still reaches the exit for the wrong reason fails loudly instead of quietly passing —

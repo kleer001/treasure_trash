@@ -27,8 +27,15 @@ C  full can (has a bag)                     c  empty can (pushable)
 
 ## Rules / vocabulary (⚠ = confirm)
 1. **Move** — raccoon steps one cell orthogonally per input. No pull (Sokoban law).
-2. **Pounce-tear (directional!)** — stepping *into* a bag in direction **D** tears it.
-   It sprays a **2×3 fan forward**: the bag's two **side** cells (perpendicular to D)
+2. **Pounce-tear (directional!) — takes two presses.** Press **D** at a bag to *aim*:
+   the fan lights up and **nothing happens yet**. Press **D** again to commit. Aiming
+   costs no move, so you can look down all four directions for free before bursting
+   anything; pressing any other direction, or undoing, cancels the aim. The tear is the
+   game's **only irreversible verb**, so it is the only one that asks twice — moves and
+   can-pushes stay single-press. *(This lives in the input layer only: the rules engine
+   and the solver see one action, and `:par` counts committed actions, so nothing about
+   the level format or the pars changes.)*
+   Committing sprays a **2×3 fan forward**: the bag's two **side** cells (perpendicular to D)
    **plus the three cells one step ahead in D**. Nothing sprays *backward*. The
    raccoon ends on the bag's cell (which stays clear — only the fan cells get trash).
    ```
@@ -38,8 +45,11 @@ C  full can (has a bag)                     c  empty can (pushable)
                         . R .         . . .   (came-from cell stays clear)
    ```
 3. **Clearance** — a bag opens only if its **2×3 fan is all free ground** at strike
-   time. Fan blocked (wall / off-grid / trash / can / **the exit**) → the strike is
-   **refused**; nothing happens and the move isn't spent.
+   time. Fan blocked (wall / off-grid / **spilled trash** / **a can, full or empty** /
+   **the exit**) → the strike is **refused on the first press**; it never even arms.
+   The offending cell flashes red with a ✕, a buzz says no, the HUD names what's in the
+   way, and the move isn't spent. *Yes — a can in the fan blocks a tear. That is the
+   side-cell corollary and the whole of L2's lesson: relocate the can first.*
 4. **Mess stays** — the 5 fan cells become **permanent trash obstacles**. Opening a
    bag reshapes the board; your own garbage can wall you in. *(Fork resolved: yes.)*
 5. **Full can, when pushed** — slides **one cell** in the push direction **and ejects

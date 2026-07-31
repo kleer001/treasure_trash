@@ -5,8 +5,8 @@ Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset 
 
 ## Where we are
 - Genre + core loop **decided**; the raccoon's core mechanic is **designed and
-  verified** in `spike/` (L0–L3 solvable in provably-minimal par; three soft-locks
-  fire).
+  verified** in `spike/` (L0–L3 solvable in provably-minimal par, proven by an
+  exhaustive solver, not asserted).
 - Crow is **pinned** — deliberately parked until the raccoon-alone game proves fun.
 - **No real game code yet.** `spike/` is a throwaway prototype (the studio gate's one
   allowed pre-gate artifact). `src/` does not exist on purpose.
@@ -25,12 +25,18 @@ Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset 
   relocated. Corollary: a bag flush against a wall can't be opened (bags need room).
 - **Cans:** pushing a *full* can slides it one cell **and** ejects its bag one further
   ahead; the can becomes **empty** (a normal pushable Sokoban block).
-- **The exit `E`:** one per room, **terrain not object** — always walkable, wins the
-  room only while you stand on it with zero bags left, and is **not protected** (trash
-  or a pushed can seals it permanently). Retrofitted through every room; **L0 "Out"**
-  teaches it alone. See the fork-resolution block in `levels.md`.
-- **Soft-lock** is the only failure — self-inflicted, avoidable, foreseeable; **free
-  undo/restart**. **Win = every bag opened *and* the raccoon on the exit.**
+- **The exit `E`:** one per room, **terrain not object** — always walkable by the
+  raccoon, **never occupiable by anything else**. Any strike or push that would put
+  trash, a can or a bag on it is **refused**; you cannot bury your way out. Enforced by
+  the engine and checked over every reachable state. **L0 "Out"** teaches it alone.
+- **The pounce-tear takes two presses** — the first arms it and previews the fan, the
+  second commits. It is the game's only irreversible verb, so it is the only one that
+  asks twice. Moves and pushes are single-press.
+- **Refusal, not punishment.** An illegal action is refused at the keypress: the cell
+  to blame flashes red, a beep says no, and the move isn't spent. What remains as a
+  genuine soft-lock is **stranding** — your trash walls you off from a clear exit —
+  recoverable with **free undo/restart**. **Win = every bag opened *and* the raccoon
+  on the exit.**
 - **Deterministic**, no RNG. Object budget **3 of ~8 used** (bag, can, trash) — the
   exit is terrain, so it costs nothing against the budget; reserved: water/gap + the
   crow's pieces.
@@ -64,8 +70,7 @@ Copy `../template/` into place and implement for real:
   preference, but `DESIGN-BIBLE.md` still says phosphor as default. Pick one for the
   game itself.
 - **Verb/skill tree.** Deferred by decision (scope). Layer it *after* the base loop
-  proves out (Into the Breach model: ship the loop, then the unlocks). See the
-  addendum in `rules.html`.
+  proves out. See the addendum in `rules.html`.
 
 ## Backlog (rooms & content)
 - Verify/cell-exact the sketches: **L4 "Corner Yourself"**, **L5 "Interference"**,
