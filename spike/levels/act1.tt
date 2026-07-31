@@ -1,0 +1,70 @@
+:pack   Treasure Trash — Act 1 (raccoon only, crow pinned)
+:format 1
+;
+; legend  # wall  - floor  @ raccoon  $ bag  C full can  c empty can
+;         x spilled trash  E exit  + raccoon on exit  X exit buried  % exit blocked by a can
+;
+; Every field below is machine-checked by verify.mjs — :par must be the provably
+; minimal solve, :solve must replay to a win in exactly :par actions, and :traps must
+; equal the number of legal actions that lead to an unwinnable board.
+
+:level  L0
+:name   Out
+:teach  the exit
+:par    2
+:traps  0
+:solves 1
+:solve  uu
+:note   No bags, so the exit is live from move one. Walk forward and leave.
+:grid
+#E#
+#-#
+#@#
+:end
+
+:level  L1
+:name   Pounce
+:teach  directional pounce, the fan, permanent mess
+:par    4
+:traps  2
+:solves 1
+:solve  uU!dr
+:note   The down-strike is legal and fatal — its fan buries the exit at (3,3).
+:grid
+---
+-$-
+--E
+#@#
+:end
+
+:level  L2
+:name   Heavy Can
+:teach  the can, and that where you park your junk is half the job
+:par    7
+:traps  13
+:solves 1
+:solve  UluRU!dl
+:note   Shoving the can left parks it on the exit — no pull, and one more push is off-grid.
+:grid
+---
+---
+E--
+-C-
+-@-
+:end
+
+:level  L3
+:name   Fire Away From the Path
+:teach  fire your mess away from where you still need to walk
+:par    5
+:traps  10
+:solves 2
+:solve  U!dD!ur
+:note   Either bag struck toward the corridor seals it and buries the exit at once.
+:grid
+---
+-$-
+-@E
+-$-
+---
+:end

@@ -5,6 +5,16 @@
 > must be beatable by the raccoon alone. Goal of a room: **open all bags, then get
 > out.** Coordinates: **(x,y), top-left = (1,1)**, x → right, y ↓ down.
 
+> **The data is canonical, this doc is commentary.** Every room below lives as a level
+> file in [`spike/levels/act1.tt`](./spike/levels/act1.tt), and every par and solve here
+> is checked against the rules engine by `spike/verify.mjs` — including a check that the
+> solve strings quoted below appear verbatim, so the prose can't drift from the game.
+> Formats and API: [`spike/FORMATS.md`](./spike/FORMATS.md).
+>
+> Solutions are written in **extended LURD**: lowercase = move, UPPERCASE = push,
+> UPPERCASE + `!` = pounce-tear. `uU!dr` is *step up, tear upward, step down, step right*,
+> and the token count **is** the par.
+
 ## Legend
 ```
 .  floor            R  raccoon (start)      B  garbage bag
@@ -135,7 +145,7 @@ y1  #  E  #
 y2  #  .  #
 y3  #  R  #
 ```
-**Solve (2 moves, par 2):** Up, Up → standing on E with zero bags left → win.
+**Solve — `uu`** (par 2): Up, Up → standing on E with zero bags left → win.
 That's the entire room: *walk forward, leave.* One idea, taught in isolation, with
 nothing to fail at (Witness rule — teach the piece before you combine it). It also
 plants the shape every later room inherits: **the last move of a level is stepping
@@ -152,7 +162,7 @@ y2  .  B  .
 y3  .  .  E
        R      (entry stub at (2,4), walls either side)
 ```
-**Solve (4 moves, par 4):** Up → (2,3). Up → strikes B(2,2) going **up**; fan fills
+**Solve — `uU!dr`** (par 4): Up → (2,3). Up → strikes B(2,2) going **up**; fan fills
 all of y1 plus the side cells (1,2)/(3,2); all clear → bag opens, R ends on (2,2).
 Down → (2,3). Right → (3,3) = E, no bags left → win.
 **The trap (optional, and this is the point of adding the exit):** the bag can also
@@ -181,7 +191,7 @@ R→(2,4). The empty can now sits directly below the bag — so it blocks **ever
 (it's in the fan for down/left/right, and it's the launch cell for up). It must move,
 and — with only the bag above it and the raccoon below — the only two directions it
 *can* move are left and right.
-**Solve (7 moves, par 7):** Left → (1,4). Up → (1,3); you're standing **on** the exit
+**Solve — `UluRU!dl`** (par 7): Up (push the can) → (2,4). Left → (1,4). Up → (1,3); you're standing **on** the exit
 with a bag still out, and nothing happens — that's the second thing this room teaches.
 Right → pushes the empty can (2,3)→(3,3), R→(2,3). Up → strike bag (2,2) upward; fan
 (sides of y2 + all of y1) is clear → opens. Down → (2,3). Left → (1,3) = E → win.
@@ -207,7 +217,7 @@ y4  .  B  .      bag B
 y5  .  .  .
 ```
 Raccoon starts on the corridor at (2,3); the exit is the corridor's right end.
-**Solve (5 moves, par 5):** at (2,3) push **Up** → strike A(2,2) up (fan fills y1 +
+**Solve — `U!dD!ur`** (par 5): at (2,3) push **Up** → strike A(2,2) up (fan fills y1 +
 sides of y2); step back **Down** to (2,3); push **Down** → strike B(2,4) down (fan
 fills y5 + sides of y4), R ends on (2,4). Corridor y3 never touched → **Up** to
 (2,3), **Right** to (3,3) = E → win. (Striking B first works too, same par.)
@@ -242,14 +252,24 @@ reworked can in when it's solid. Still no crow needed — the honest test of the
 raccoon-alone game.
 
 ## Authoring checklist (every new room)
-1. Exactly **one** `E`, and nothing starts on it (no bag, no can, no raccoon).
+**Items 1, 3, 4 and 5 are now enforced by `spike/verify.mjs` — a room that violates
+them fails the build rather than reaching a player.**
+
+1. Exactly **one** `E`, and nothing starts on it (no bag, no can, no raccoon). *(checked)*
 2. The raccoon start and the exit are **different cells** — otherwise L0's lesson
-   ("walk to the way out") reads as "do nothing."
+   ("walk to the way out") reads as "do nothing." *(checked)*
 3. The room is solvable *and* E is still reachable after the last strike — a room
    that opens every bag but strands you is a bug, not a difficulty setting (Law 1.8).
+   *(checked: solvability + provably minimal par)*
 4. The exit's placement rules out at least one strike or push direction. If it
-   doesn't, it's a walk-back tax — move it.
-5. State the par as the **full** solve, including the walk to E.
+   doesn't, it's a walk-back tax — move it. *(checked: ≥1 exit-burying trap in any
+   room that has a bag)*
+5. State the par as the **full** solve, including the walk to E. *(checked: the LURD
+   token count must equal `:par`, and the solve must replay to a win)*
+6. **No silent traps.** A plain *move* must never take a winnable board to a dead one —
+   only a push or a tear may lose the room, because only those visibly change the
+   board. This is Block-Pusher Law 1.7 ("foreseeable dead-ends") turned into an
+   assertion; it is the check the Laws always implied and never had. *(checked)*
 
 ---
 

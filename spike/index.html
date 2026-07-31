@@ -29,6 +29,8 @@
   .moves b{color:var(--ink)}
   .banner{display:none;font-weight:800;color:#063;background:var(--tea);padding:.15rem .7rem;border-radius:4px;transform:rotate(-1.5deg)}
   .banner.show{display:inline-block}
+  .warn{display:none;font-weight:800;color:#fff;background:var(--red);padding:.15rem .7rem;border-radius:4px;transform:rotate(1deg)}
+  .warn.show{display:inline-block}
   canvas{display:block;margin:.4rem 0 1rem;image-rendering:auto;max-width:100%;height:auto;border:2px solid var(--ink);background:var(--panel)}
   .btns{display:flex;gap:.5rem;flex-wrap:wrap;margin:.4rem 0 1rem}
   button.act{font-weight:700;border:2px solid var(--ink);background:#fff;padding:.3rem .8rem;border-radius:4px;cursor:pointer}
@@ -52,6 +54,7 @@
   <span class="name" id="lvlname"></span>
   <span class="moves">moves <b id="moves">0</b> · par <b id="par">0</b></span>
   <span class="banner" id="banner">✦ SOLVED ✦</span>
+  <span class="warn" id="warn"></span>
 </div>
 
 <canvas id="cv" width="300" height="300"></canvas>
@@ -81,125 +84,47 @@
 <p class="note">Deterministic, no RNG. Not part of <code>src/</code> — a spike to feel the mechanic before the design gate.</p>
 </div>
 
-<script>
-"use strict";
-// ---- entities ----
-const NONE=0, BAG=1, CANF=2, CANE=3, TRASH=4;   // cell.o (occupant)
-const FLOOR=0, WALL=1;                            // cell.t (terrain)
+<script type="module">
+// The spike no longer owns the rules — rules.mjs does, and the verifier imports the same
+// module. This file is presentation and input only. ES modules need http://, so run ./run.sh.
+import {
+  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, MOVE, PUSH, TEAR,
+  explain, isWon, bagsLeft, fan, inGrid, cell, cloneState,
+} from './rules.mjs';
+import { parseLevelPack, toState } from './format.mjs';
 
-// ---- levels (data, not logic) ----
-const LEVELS = [
-  { name:"L0 — Out", par:2, grid:[
-    "#E#",
-    "#.#",
-    "#R#",
-  ]},
-  { name:"L1 — Pounce", par:4, grid:[
-    "...",
-    ".B.",
-    "..E",
-    "#R#",
-  ]},
-  { name:"L2 — Heavy Can", par:7, grid:[
-    "...",
-    "...",
-    "E..",
-    ".C.",
-    ".R.",
-  ]},
-  { name:"L3 — Fire Away From the Path", par:5, grid:[
-    "...",
-    ".B.",
-    ".RE",
-    ".B.",
-    "...",
-  ]},
-];
-
+const CANF = CAN_FULL, CANE = CAN_EMPTY;
 const CS=76, PAD=9;
 const C = { red:"#ff4b3e", yel:"#ffcf00", blu:"#2d7dd2", tea:"#17c3b2", pnk:"#ff5da2", ink:"#1a1a1a",
   grn:"#2e9e5b" };   // exit-sign green — ISO 3864 "safe condition", not a Memphis accent
 
-let cur=0, state=null, history=[], won=false;
+const WHY = {
+  edge:    "that's the edge of the alley",
+  wall:    "wall",
+  trash:   "your own trash — permanent",
+  fan:     "no room to burst: the fan is blocked",
+  canRoom: "no room to shove it",
+};
 
-function parse(g){
-  const rows=g.length, cols=g[0].length;
-  const cells=[]; let rac={x:0,y:0};
-  for(let r=0;r<rows;r++){ cells.push([]);
-    for(let c=0;c<cols;c++){
-      const ch=g[r][c]; let t=FLOOR,o=NONE,exit=false;
-      if(ch==='#'){t=WALL;}
-      else if(ch==='B')o=BAG;
-      else if(ch==='C')o=CANF;
-      else if(ch==='c')o=CANE;
-      else if(ch==='x')o=TRASH;
-      else if(ch==='E')exit=true;
-      else if(ch==='R')rac={x:c,y:r};
-      cells[r].push({t,o,exit});
-    }
-  }
-  return {cols,rows,cells,rac,moves:0};
-}
-const clone = s => JSON.parse(JSON.stringify(s));
-const inGrid = (s,x,y) => x>=0&&y>=0&&x<s.cols&&y<s.rows;
-const cell = (s,x,y) => s.cells[y][x];
-// the exit is terrain, not an occupant — it reads as clear floor, so a fan CAN bury it
-const isClearFloor = (s,x,y) => inGrid(s,x,y) && cell(s,x,y).t===FLOOR && cell(s,x,y).o===NONE;
-
-// fan = 2 side cells (perp to D) + the 3 cells one step ahead in D
-function fan(bx,by,dx,dy){
-  const px=-dy, py=dx;  // perpendicular
-  return [
-    [bx+px,by+py],[bx-px,by-py],
-    [bx+dx,by+dy],[bx+dx+px,by+dy+py],[bx+dx-px,by+dy-py],
-  ];
-}
-function fanClear(s,bx,by,dx,dy){ return fan(bx,by,dx,dy).every(([x,y])=>isClearFloor(s,x,y)); }
-
-// attempt a move in direction (dx,dy); returns new state or null if nothing happens
-function tryMove(s,dx,dy){
-  const n=clone(s);
-  const x=n.rac.x, y=n.rac.y, tx=x+dx, ty=y+dy;
-  if(!inGrid(n,tx,ty) || cell(n,tx,ty).t===WALL) return null;
-  const o=cell(n,tx,ty).o;
-  if(o===NONE){ n.rac={x:tx,y:ty}; n.moves++; return n; }
-  if(o===TRASH) return null;
-  if(o===BAG){
-    if(!fanClear(n,tx,ty,dx,dy)) return null;         // strike fails — fan blocked
-    for(const [fx,fy] of fan(tx,ty,dx,dy)) cell(n,fx,fy).o=TRASH;
-    cell(n,tx,ty).o=NONE; n.rac={x:tx,y:ty}; n.moves++; return n;
-  }
-  if(o===CANF){
-    const b1x=tx+dx,b1y=ty+dy, b2x=tx+2*dx,b2y=ty+2*dy;
-    if(!isClearFloor(n,b1x,b1y) || !isClearFloor(n,b2x,b2y)) return null;
-    cell(n,b2x,b2y).o=BAG; cell(n,b1x,b1y).o=CANE; cell(n,tx,ty).o=NONE;
-    n.rac={x:tx,y:ty}; n.moves++; return n;
-  }
-  if(o===CANE){
-    const b1x=tx+dx,b1y=ty+dy;
-    if(!isClearFloor(n,b1x,b1y)) return null;
-    cell(n,b1x,b1y).o=CANE; cell(n,tx,ty).o=NONE;
-    n.rac={x:tx,y:ty}; n.moves++; return n;
-  }
-  return null;
-}
-function bagsLeft(s){ let k=0; for(const row of s.cells) for(const c of row) if(c.o===BAG||c.o===CANF)k++; return k; }
-const atExit = s => cell(s,s.rac.x,s.rac.y).exit;
-const isWon = s => bagsLeft(s)===0 && atExit(s);
+let LEVELS = [], cur=0, state=null, start=null, history=[], moves=0, won=false;
+let blocked = null;   // { cells, reason, dir } — cleared by the next legal action
 
 // ---- input ----
-function move(dx,dy){
+function act(dir){
   if(won) return;
-  const n=tryMove(state,dx,dy);
-  if(!n) return;
-  history.push(clone(state));
-  state=n;
-  if(isWon(state)){ won=true; }
+  const r = explain(state, dir);
+  if(!r.ok){ blocked = { cells:r.blame, reason:r.reason, dir }; render(); return; }
+  history.push(cloneState(state)); state = r.next; moves++; blocked = null;
+  if(isWon(state)) won = true;
   render();
 }
-function undo(){ if(history.length){ state=history.pop(); won=false; render(); } }
+function undo(){ if(history.length){ state=history.pop(); moves--; won=false; blocked=null; render(); } }
 function restart(){ load(cur); }
-function load(i){ cur=(i+LEVELS.length)%LEVELS.length; state=parse(LEVELS[cur].grid); history=[]; won=false; render(); }
+function load(i){
+  cur=(i+LEVELS.length)%LEVELS.length;
+  state=toState(LEVELS[cur]); start=state; history=[]; moves=0; won=false; blocked=null;
+  render();
+}
 
 // ---- render ----
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -208,7 +133,7 @@ function render(){
   cv.width=s.cols*CS; cv.height=s.rows*CS;
   ctx.clearRect(0,0,cv.width,cv.height);
   for(let y=0;y<s.rows;y++) for(let x=0;x<s.cols;x++){
-    const c=cell(s,x,y); if(c.t===WALL) continue;
+    const c=cell(s,x,y); if(c.wall) continue;
     drawFloor(x,y);
     if(c.exit) drawExit(x,y, bagsLeft(s)===0);   // under the occupants — trash visibly buries it
     if(c.o===TRASH) drawTrash(x,y);
@@ -217,30 +142,65 @@ function render(){
     if(c.o===CANE) drawCan(x,y,false);
   }
   drawRaccoon(s.rac.x,s.rac.y);
-  // Fan preview LAST, washed over everything — including the exit sign. Law 1.7 says a
-  // dead-end must be foreseeable, and the exit traps only are if you can SEE the trash
-  // land on your way out. (Drawing this before the floor pass painted white over it.)
-  const dirs=[[0,-1],[0,1],[-1,0],[1,0]];
-  for(const [dx,dy] of dirs){
+
+  // Fan preview, over everything including the exit sign. Law 1.7 says a dead-end must be
+  // foreseeable, and the exit traps only are if you can SEE the trash land on your way out.
+  for(const dir of ['u','d','l','r']){
+    const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
     const bx=s.rac.x+dx, by=s.rac.y+dy;
-    if(inGrid(s,bx,by) && cell(s,bx,by).o===BAG){
-      const ok=fanClear(s,bx,by,dx,dy);
-      for(const [fx,fy] of fan(bx,by,dx,dy)){
-        if(!inGrid(s,fx,fy)) continue;
-        ctx.fillStyle = ok ? "rgba(255,207,0,.55)" : "rgba(255,75,62,.45)";
-        ctx.fillRect(fx*CS+1,fy*CS+1,CS-2,CS-2);
-        ctx.strokeStyle = ok ? "#e0aa00" : C.red; ctx.lineWidth=2;
-        ctx.strokeRect(fx*CS+2,fy*CS+2,CS-4,CS-4);
-      }
+    if(!inGrid(s,bx,by) || cell(s,bx,by).o!==BAG) continue;
+    const r=explain(s,dir);
+    for(const [fx,fy] of fan(bx,by,dx,dy)){
+      if(!inGrid(s,fx,fy)) continue;
+      ctx.fillStyle = r.ok ? "rgba(255,207,0,.55)" : "rgba(255,75,62,.30)";
+      ctx.fillRect(fx*CS+1,fy*CS+1,CS-2,CS-2);
+      ctx.strokeStyle = r.ok ? "#e0aa00" : "rgba(255,75,62,.55)"; ctx.lineWidth=2;
+      ctx.strokeRect(fx*CS+2,fy*CS+2,CS-4,CS-4);
     }
   }
-  // hud
-  document.getElementById('moves').textContent=s.moves;
+
+  // Blocked: you TRIED it and the rules said no. Mark the exact cells to blame, in red,
+  // and say why. A refused input that looks identical to no input is a bug, not a puzzle.
+  if(blocked){
+    for(const [bx,by] of blocked.cells) drawBlocked(bx,by);
+    if(!blocked.cells.length) drawEdgeBar(s.rac.x, s.rac.y, blocked.dir);
+  }
+
+  document.getElementById('moves').textContent=moves;
   document.getElementById('par').textContent=LEVELS[cur].par;
-  document.getElementById('lvlname').textContent=LEVELS[cur].name;
+  document.getElementById('lvlname').textContent=`${LEVELS[cur].id} — ${LEVELS[cur].name}`;
   document.getElementById('banner').className='banner'+(won?' show':'');
+  const w=document.getElementById('warn');
+  w.textContent = blocked ? `✕ blocked — ${WHY[blocked.reason]}` : '';
+  w.className = 'warn'+(blocked?' show':'');
   document.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(i===cur?' on':''));
 }
+
+function drawBlocked(x,y){
+  const x0=px(x), y0=px(y);
+  ctx.save();
+  ctx.fillStyle="rgba(255,75,62,.42)"; ctx.fillRect(x0+1,y0+1,CS-2,CS-2);
+  ctx.strokeStyle=C.red; ctx.lineWidth=4; ctx.strokeRect(x0+3,y0+3,CS-6,CS-6);
+  ctx.lineCap="round"; ctx.lineWidth=7; ctx.strokeStyle="#c8321f";
+  const m=CS*0.30;
+  ctx.beginPath();
+  ctx.moveTo(x0+m,y0+m); ctx.lineTo(x0+CS-m,y0+CS-m);
+  ctx.moveTo(x0+CS-m,y0+m); ctx.lineTo(x0+m,y0+CS-m);
+  ctx.stroke();
+  ctx.restore();
+}
+// off-grid: there is no cell to paint, so mark the wall of the alley itself
+function drawEdgeBar(x,y,dir){
+  const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
+  const x0=px(x), y0=px(y), T=9;
+  ctx.save(); ctx.fillStyle=C.red;
+  if(dy<0) ctx.fillRect(x0+2,y0+1,CS-4,T);
+  if(dy>0) ctx.fillRect(x0+2,y0+CS-1-T,CS-4,T);
+  if(dx<0) ctx.fillRect(x0+1,y0+2,T,CS-4);
+  if(dx>0) ctx.fillRect(x0+CS-1-T,y0+2,T,CS-4);
+  ctx.restore();
+}
+
 function px(x){return x*CS}
 function drawFloor(x,y){ ctx.fillStyle="#fff"; ctx.strokeStyle="#e6e6e2"; ctx.lineWidth=1;
   ctx.fillRect(px(x)+1,px(y)+1,CS-2,CS-2); ctx.strokeRect(px(x)+1.5,px(y)+1.5,CS-3,CS-3); }
@@ -344,24 +304,28 @@ function drawRaccoon(x,y){
 }
 
 // ---- wire up ----
-const KEY={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],
-  w:[0,-1],s:[0,1],a:[-1,0],d:[1,0],W:[0,-1],S:[0,1],A:[-1,0],D:[1,0]};
+const KEY={ArrowUp:'u',ArrowDown:'d',ArrowLeft:'l',ArrowRight:'r',
+  w:'u',s:'d',a:'l',d:'r',W:'u',S:'d',A:'l',D:'r'};
 addEventListener('keydown',e=>{
-  if(e.key in KEY){ e.preventDefault(); const[dx,dy]=KEY[e.key]; move(dx,dy); }
+  if(e.key in KEY){ e.preventDefault(); act(KEY[e.key]); }
   else if(e.key==='u'||e.key==='U'){ undo(); }
   else if(e.key==='r'||e.key==='R'){ restart(); }
 });
-const MOVEACT={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
+const MOVEACT={up:'u',down:'d',left:'l',right:'r'};
 document.querySelectorAll('.btns').forEach(bar=>bar.addEventListener('click',e=>{
   const a=e.target.getAttribute('data-act'); if(!a) return;
-  if(a in MOVEACT){ const[dx,dy]=MOVEACT[a]; move(dx,dy); }
+  if(a in MOVEACT){ act(MOVEACT[a]); }
   else if(a==='undo')undo(); else if(a==='restart')restart();
   else if(a==='next')load(cur+1); else if(a==='prev')load(cur-1);
 }));
-const tabs=document.getElementById('tabs');
-LEVELS.forEach((L,i)=>{ const b=document.createElement('button'); b.className='tab'; b.textContent='L'+i;
-  b.onclick=()=>load(i); tabs.appendChild(b); });
 
+// Levels are data on disk, in the same pack the verifier checks. Fail loudly.
+const res = await fetch('./levels/act1.tt');
+if(!res.ok) throw new Error(`cannot load levels/act1.tt (${res.status}) — serve with ./run.sh`);
+LEVELS = parseLevelPack(await res.text()).levels;
+const tabs=document.getElementById('tabs');
+LEVELS.forEach((L,i)=>{ const b=document.createElement('button'); b.className='tab'; b.textContent=L.id;
+  b.onclick=()=>load(i); tabs.appendChild(b); });
 load(0);
 </script>
 </body>

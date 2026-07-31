@@ -10,6 +10,9 @@ Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset 
 - Crow is **pinned** — deliberately parked until the raccoon-alone game proves fun.
 - **No real game code yet.** `spike/` is a throwaway prototype (the studio gate's one
   allowed pre-gate artifact). `src/` does not exist on purpose.
+- **Levels are data with a real toolchain** — `spike/levels/*.tt` + `*.sol`, one rules
+  module (`spike/rules.mjs`) shared by the player and the verifier, and a solver that
+  proves par minimal rather than trusting it. Spec: `spike/FORMATS.md`.
 
 ## Locked mechanics (verified in the spike)
 - Untimed, **grid step-move**; one raccoon controlled directly.
@@ -79,10 +82,10 @@ Copy `../template/` into place and implement for real:
 
 ## How to run / verify (local)
 ```
-# play the prototype
-open trash_treasure/spike/index.html      # or just open in a browser
+# play the prototype (ES modules need http://, so serve it)
+cd trash_treasure/spike && ./run.sh 8000   # then open http://localhost:8000
 
-# prove L0–L3 solve in minimal par + the three soft-locks fire
+# check every claim the level files make
 cd trash_treasure/spike && node verify.mjs
 ```
 

@@ -16,30 +16,48 @@ to forbid at least one strike or push direction — L1's forbids the down-strike
 forbids shoving the can left, L3's sits in the corridor the room already taught you
 to protect. If it still reads as a tax in play, that's the finding.
 
-## Run
-- Open `index.html` in any browser (self-contained, no server, no build).
-- Arrows / WASD to move-strike-push · **U** undo · **R** restart · level tabs.
-- The **fan preview** tints where your trash will land: yellow = valid strike,
-  red = blocked (can't tear that way).
+## Layout
 
-## Verify (proves the rooms are solvable in par)
+| File | What it is |
+|---|---|
+| `rules.mjs` | **the rules.** Pure, deterministic, no DOM. One implementation, imported by everything else |
+| `format.mjs` | `.tt` / `.sol` parse + serialise, LURD, glyphs |
+| `solver.mjs` | exhaustive state-graph analysis: minimal par, liveness, traps |
+| `verify.mjs` | the CLI that checks every claim the level files make |
+| `levels/act1.tt` | the levels, as **data** |
+| `levels/act1.sol` | the par solutions, as **data** |
+| `index.html` | presentation + input only. Owns no rules |
+| `FORMATS.md` | the spec for all of the above |
+
+## Run
 ```
-node verify.mjs
+./run.sh 8000          # then open http://localhost:8000
 ```
-All logic mirrors `index.html`. It checks:
-- **L0–L3 solve in par** (2 / 4 / 7 / 5), where winning means *every bag torn **and**
-  the raccoon standing on the exit*.
-- **Par is minimal, not asserted** — a BFS over the whole state space finds the
-  shortest win for each room and confirms it equals the stated par (Laws list 4:
-  ship a solver, and surface unintended solutions).
-- **The exit stays inert while bags remain** — L2 walks over it mid-solve and nothing
-  happens.
-- **Three soft-locks fire:** L1's legal-but-fatal down-strike buries the exit, L2's
-  mirror solve parks the can on the exit with no way to shove it off, and L3's wrong
-  strike seals the corridor *and* the exit under one trash row.
+ES modules need `http://` — opening `index.html` off the filesystem will fail loudly
+rather than silently run a stale copy of the rules.
+
+Arrows / WASD to move-strike-push · **U** undo · **R** restart · level tabs.
+- **Fan preview** (standing next to a bag): yellow = this strike is legal and *this*
+  is where the trash lands, including on your exit. Pale red = the strike is refused.
+- **Blocked** (you pressed a direction the rules refuse): the exact cells to blame get
+  a red ✕ and the HUD says why. A refused input costs no moves.
+
+## Verify
+```
+node verify.mjs                          # defaults to levels/act1.tt + levels/act1.sol
+node verify.mjs levels/act1.tt levels/act1.sol
+```
+Exit code 0 or 1. It checks, per level: solvable; **`:par` is provably minimal** (BFS
+over the whole reachable graph, not an assertion); `:solve` replays to a win in exactly
+par with every action's declared *kind* matching the board; the `.sol` file agrees; the
+trap and distinct-solution counts match; **no plain move can lose the room** (Law 1.7,
+mechanised); and in any room with a bag, **the exit forbids at least one action** (or
+it's a walk-back tax). Plus: both formats round-trip, LURD round-trips and rejects
+malformed input, and every `:solve` appears verbatim in `../levels.md` so the prose
+can't drift from the data.
 
 ## Scope / omissions (deliberate)
 - Raccoon only (crow pinned). No cans-as-bridges, no multi-fan interference yet.
 - No compositor / RNG / audio — a spike, not the house-stack game.
-- Levels are the verified ones from `../levels.md` (L0 Out, L1 Pounce, L2 Heavy Can,
-  L3 Fire Away From the Path).
+- `verify.mjs` is a bespoke CLI. When this graduates to `src/`, port the checks to
+  `node --test` per the house rule; the analysis in `solver.mjs` moves across as-is.
