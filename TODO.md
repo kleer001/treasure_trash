@@ -5,7 +5,8 @@ Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset 
 
 ## Where we are
 - Genre + core loop **decided**; the raccoon's core mechanic is **designed and
-  verified** in `spike/` (L1–L3 solvable in par; the L3 soft-lock fires).
+  verified** in `spike/` (L0–L3 solvable in provably-minimal par; three soft-locks
+  fire).
 - Crow is **pinned** — deliberately parked until the raccoon-alone game proves fun.
 - **No real game code yet.** `spike/` is a throwaway prototype (the studio gate's one
   allowed pre-gate artifact). `src/` does not exist on purpose.
@@ -21,10 +22,15 @@ Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset 
   relocated. Corollary: a bag flush against a wall can't be opened (bags need room).
 - **Cans:** pushing a *full* can slides it one cell **and** ejects its bag one further
   ahead; the can becomes **empty** (a normal pushable Sokoban block).
+- **The exit `E`:** one per room, **terrain not object** — always walkable, wins the
+  room only while you stand on it with zero bags left, and is **not protected** (trash
+  or a pushed can seals it permanently). Retrofitted through every room; **L0 "Out"**
+  teaches it alone. See the fork-resolution block in `levels.md`.
 - **Soft-lock** is the only failure — self-inflicted, avoidable, foreseeable; **free
-  undo/restart**. Win = all bags opened.
-- **Deterministic**, no RNG. Object budget **3 of ~8 used** (bag, can, trash);
-  reserved: water/gap + the crow's pieces.
+  undo/restart**. **Win = every bag opened *and* the raccoon on the exit.**
+- **Deterministic**, no RNG. Object budget **3 of ~8 used** (bag, can, trash) — the
+  exit is terrain, so it costs nothing against the budget; reserved: water/gap + the
+  crow's pieces.
 
 ## NEXT MOVE — close Gate 1 (before any `src/` code)
 Per the studio process, authoring real game logic is gated. To proceed:
@@ -60,7 +66,14 @@ Copy `../template/` into place and implement for real:
 
 ## Backlog (rooms & content)
 - Verify/cell-exact the sketches: **L4 "Corner Yourself"**, **L5 "Interference"**,
-  and rebuild the can room variants.
+  and rebuild the can room variants. Each must satisfy the **authoring checklist** at
+  the end of `levels.md` (one exit, exit reachable after the last strike, and the exit
+  must forbid at least one strike/push direction — otherwise it's a walk-back tax).
+- **Playtest the exit.** It's mechanically verified but not *felt* — the open question
+  is whether the walk to `E` reads as tension or as filler. Cheapest test: play L1–L3
+  in the spike and see if the last move is ever a decision.
+- The linked spike Artifact below predates the exit — republish it before showing it
+  to anyone.
 - New objects toward the ~8 budget: **cans as bridges** (non-dump use), **water/gap**.
 - Audio (procedural WebAudio), art pass, more rooms → Act 1.
 
@@ -69,7 +82,7 @@ Copy `../template/` into place and implement for real:
 # play the prototype
 open trash_treasure/spike/index.html      # or just open in a browser
 
-# prove L1–L3 solve in par + soft-lock fires
+# prove L0–L3 solve in minimal par + the three soft-locks fire
 cd trash_treasure/spike && node verify.mjs
 ```
 
