@@ -207,19 +207,6 @@ function render(){
   const s=state;
   cv.width=s.cols*CS; cv.height=s.rows*CS;
   ctx.clearRect(0,0,cv.width,cv.height);
-  // fan preview: for each bag adjacent to raccoon, tint its strike fan
-  const dirs=[[0,-1],[0,1],[-1,0],[1,0]];
-  for(const [dx,dy] of dirs){
-    const bx=s.rac.x+dx, by=s.rac.y+dy;
-    if(inGrid(s,bx,by) && cell(s,bx,by).o===BAG){
-      const ok=fanClear(s,bx,by,dx,dy);
-      for(const [fx,fy] of fan(bx,by,dx,dy)){
-        if(!inGrid(s,fx,fy)) continue;
-        ctx.fillStyle = ok ? "rgba(255,207,0,.45)" : "rgba(255,75,62,.35)";
-        ctx.fillRect(fx*CS,fy*CS,CS,CS);
-      }
-    }
-  }
   for(let y=0;y<s.rows;y++) for(let x=0;x<s.cols;x++){
     const c=cell(s,x,y); if(c.t===WALL) continue;
     drawFloor(x,y);
@@ -230,6 +217,23 @@ function render(){
     if(c.o===CANE) drawCan(x,y,false);
   }
   drawRaccoon(s.rac.x,s.rac.y);
+  // Fan preview LAST, washed over everything — including the exit sign. Law 1.7 says a
+  // dead-end must be foreseeable, and the exit traps only are if you can SEE the trash
+  // land on your way out. (Drawing this before the floor pass painted white over it.)
+  const dirs=[[0,-1],[0,1],[-1,0],[1,0]];
+  for(const [dx,dy] of dirs){
+    const bx=s.rac.x+dx, by=s.rac.y+dy;
+    if(inGrid(s,bx,by) && cell(s,bx,by).o===BAG){
+      const ok=fanClear(s,bx,by,dx,dy);
+      for(const [fx,fy] of fan(bx,by,dx,dy)){
+        if(!inGrid(s,fx,fy)) continue;
+        ctx.fillStyle = ok ? "rgba(255,207,0,.55)" : "rgba(255,75,62,.45)";
+        ctx.fillRect(fx*CS+1,fy*CS+1,CS-2,CS-2);
+        ctx.strokeStyle = ok ? "#e0aa00" : C.red; ctx.lineWidth=2;
+        ctx.strokeRect(fx*CS+2,fy*CS+2,CS-4,CS-4);
+      }
+    }
+  }
   // hud
   document.getElementById('moves').textContent=s.moves;
   document.getElementById('par').textContent=LEVELS[cur].par;
