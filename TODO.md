@@ -64,16 +64,19 @@ What the panel changed:
 - `GAME-SHEET.md` rewritten and `DESIGN-BIBLE.md` marked superseded — both described
   the retired real-time two-animal game.
 
-## NEXT MOVE — build on the house stack
-Copy `../template/` into place and implement for real:
-- `src/` modules: `rng` (mulberry32), `board`/`rules` (pure, testable — the sim from
-  `spike/verify.mjs` is a starting point), `render` via `compositor.js` ordered
-  layers, `input`, `audio`.
-- `tests/*.test.js` (`node --test`) — port `spike/verify.mjs` into real tests:
-  every shipped room must be provably solvable (Law 1.8), and assert the par solves.
-- Levels as **data** (JSON/data module), not hard-coded — see `levels.md` legend.
-- `index.html`, `run.sh`, `package.json`, `.github/workflows/`, `GAME-SHEET.md`
-  (done), `CLAUDE.md`, `.trace_rom_studio_version` (stamp from studio `VERSION`).
+## NEXT MOVE — build the slice
+The house scaffolding is in place: `index.html`, `run.sh`, `package.json`, `styles.css`,
+`src/` (compositor, logo, rng), `tests/`, and the test + Pages workflows, all running
+green (`npm test`, `cd spike && ./run.sh`). What's left is the game itself, per
+`SPEC-SHEET.md` → *Systems*:
+- `src/` modules: `rules` (port `spike/rules.mjs` — do not write a second engine),
+  `board`, `format`, `solver` (port `spike/solver.mjs`), `undo`, `render` via
+  `compositor.js` ordered layers, `input` (owns arming), `audio`.
+- `tests/*.test.js` (`node --test`) — port `spike/verify.mjs`: every shipped room
+  provably solvable in its stated par, the exit unoccupied across every reachable state,
+  and the refusal/trap counts the level files declare.
+- Levels stay **data** — the `.tt`/`.sol` pack in `spike/levels/`, per `spike/FORMATS.md`.
+- Delete `spike/` only once `src/` covers it; until then it is the reference engine.
 
 ## Open decisions (need a call)
 - **The crow.** Un-pin and design its powers — the "separation of powers" wasn't
