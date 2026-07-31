@@ -384,6 +384,107 @@ loaded and once empty. **Zero traps**: nothing here can be lost, only lengthened
 
 ---
 
+## L7–L13 — the ladder **[verified, found by search]**
+
+These seven were not composed the way L0–L6 were. Each of those rooms exists to teach one
+thing, and the prose above can say what that thing is. These were **found**: a seeded
+generator threw random layouts at the rules engine across 24 parallel workers, 1,474 came
+back solvable inside the target band, and these seven were selected against three
+measurable properties — a rising par, the fewest optimal lines, and the fewest ways to
+quietly lose.
+
+So the honest description is a **difficulty ladder, not a lesson plan.** Par climbs by two
+a room, from 13 to 25, and each room re-uses pieces the pack has already taught rather than
+introducing anything. Four different piece mixes keep them from reading as one room
+stretched seven ways.
+
+| Room | Par | Pieces | Optimal lines | Traps | States |
+|---|---|---|---|---|---|
+| **L7** — Three Bags Full | 13 | three bags | 1 | 13 | 297 |
+| **L8** — Bin Night | 15 | a bag, a full can, a recycle bin | 1 | 7 | 3089 |
+| **L9** — Tight Corner | 17 | two bags, a recycle bin | 2 | 3 | 258 |
+| **L10** — Long Way Round | 19 | a bag, a wheelie bin | 1 | 16 | 1260 |
+| **L11** — Crosstown | 21 | two bags, a wheelie bin | 1 | 34 | 2626 |
+| **L12** — The Far Side | 23 | a bag, a wheelie bin | 3 | 12 | 1537 |
+| **L13** — Closing Time | 25 | two bags, a wheelie bin | 2 | 43 | 2492 |
+
+Two numbers in that table are worth reading. **Optimal lines** is how many distinct
+shortest solutions exist — 1 means the room has exactly one intended answer, and every
+room here has 1, 2 or 3. **Traps** is how many legal actions take a winnable board to an
+unwinnable one; the search turned up rooms with over 1,600 of them, which is a board that
+has stopped telling the player anything, so the selection capped it at 60.
+
+**L7 — "Three Bags Full"** · par 13 · `lldR!ldD!ulluR!l`
+```
+----@
+E$-$-
+-----
+--$--
+-----
+```
+**L8 — "Bin Night"** · par 15 · `lDldL!rurrdLLdR!l`
+```
+-b--@
+---C-
+-$---
+--E--
+-----
+-----
+```
+**L9 — "Tight Corner"** · par 17 · `uruullDurrddD!ulU!d`
+```
+------
+------
+b$----
+-E----
+-@$---
+------
+```
+**L10 — "Long Way Round"** · par 19 · `uuulDdddlU!drrddLuL!r`
+```
+-----
+---W-
+--$--
+----@
+----E
+-----
+```
+**L11 — "Crosstown"** · par 21 · `rrUuurD!ulluuRdR!lulD!ul`
+```
+E-----
+-$----
+------
+---W$-
+-@----
+------
+```
+**L12 — "The Far Side"** · par 23 · `uuuurrDdL!rddrddLuL!ruuuu`
+```
+----E-
+--$W--
+------
+------
+-@----
+------
+```
+**L13 — "Closing Time"** · par 25 · `uuuulDddlU!ddddRrU!dlllluR!l`
+```
+------
+---$W-
+------
+------
+E$---@
+------
+```
+
+**A caveat worth keeping.** A searched room is verified, not designed. Every claim above is
+machine-checked — the par is provably minimal, the solve replays to a win, the trap and
+refusal counts are exact — but nothing checks that a room is *interesting*, and no search
+can. If any of these plays flat, it should be swapped out rather than defended: the bank of
+candidates it came from is in `spike/levels/bank.jsonl`, several hundred rooms deep.
+
+---
+
 ## Proposed next rooms **[sketch — not verified]**
 - **L2-redux — the can, rebuilt** per the rework note above.
 - **A room that fences you in on the long axis.** L5 cuts the board because it is three

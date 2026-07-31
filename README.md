@@ -2,7 +2,7 @@
 
 ### ▶ [Play it in your browser](https://kleer001.github.io/treasure_trash/spike/)
 
-Seven rooms, no install, no timer. Arrows or WASD, `U` to undo, `R` to restart.
+Fourteen rooms, no install, no timer. Arrows or WASD, `U` to undo, `R` to restart.
 
 A **Trace ROM Studio** game, currently in **design + verified-prototype** phase.
 An untimed, single-raccoon, Sokoban-family **block-pusher**: you tear open garbage bags
@@ -21,10 +21,10 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 |---|---|
 | `GAME-SHEET.md` | Player-facing pitch (the fantasy, the loop, the hook). |
 | `SPEC-SHEET.md` | **The buildable spec**, plus the design-gate record. Build from this. |
-| `levels.md` | **The live ruleset** + cell-exact verified rooms (L0–L6) and sketches for what comes next. Start here for mechanics. |
+| `levels.md` | **The live ruleset** + cell-exact verified rooms (L0–L13) and sketches for what comes next. Start here for mechanics. |
 | `REVIEW-LOG.md` | The persona panel's notes across the gates. |
 | `rules.html` | The "Block-Pusher Laws" doc (the 4 panel lists + progression-mutation addendum), house doc style. |
-| `spike/` | **Playable prototype** of L0–L6 + a headless verifier. Throwaway, gate-legal, not the real game. Formats and API: `spike/FORMATS.md`. |
+| `spike/` | **Playable prototype** of L0–L13 + a headless verifier. Throwaway, gate-legal, not the real game. Formats and API: `spike/FORMATS.md`. |
 | `TODO.md` | Where we are, what's locked, what's open, and the next move. **Read this to continue.** |
 | `DESIGN-BIBLE.md` | **Superseded — history only.** Describes a retired real-time two-animal design. Do not implement from it. |
 
@@ -35,9 +35,9 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 - **Play it locally:** `cd spike && ./run.sh 8000`, then open the URL. It loads ES
   modules, so it needs `http://` — opening the file directly will not work.
   Arrows/WASD or the on-screen d-pad; `U` undo, `R` restart.
-- **Check every claim the level files make:** `cd spike && node verify.mjs` → L0–L6 solve
-  in provably-minimal par (2/4/7/5/5/6/11), the exit is unoccupied across every reachable
-  state, and the trap and refusal counts match what the files declare.
+- **Check every claim the level files make:** `cd spike && node verify.mjs` → all 14 rooms solve
+  in provably-minimal par (2/4/7/5/5/6/11/13/15/17/19/21/23/25), the exit is unoccupied
+  across every reachable state, and the trap and refusal counts match what the files declare.
 - **Run the tests:** `npm test` — the rules engine, the compositor, the seeded RNG.
 
 ## Status in one line

@@ -40,3 +40,31 @@
 
 
 
+
+:solution L7
+:label  par
+:moves  lldR!ldD!ulluR!l
+
+:solution L8
+:label  par
+:moves  lDldL!rurrdLLdR!l
+
+:solution L9
+:label  par
+:moves  uruullDurrddD!ulU!d
+
+:solution L10
+:label  par
+:moves  uuulDdddlU!drrddLuL!r
+
+:solution L11
+:label  par
+:moves  rrUuurD!ulluuRdR!lulD!ul
+
+:solution L12
+:label  par
+:moves  uuuurrDdL!rddrddLuL!ruuuu
+
+:solution L13
+:label  par
+:moves  uuuulDddlU!ddddRrU!dlllluR!l
