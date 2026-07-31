@@ -1,0 +1,28 @@
+/* Retro-terminal / phosphor look. Swap the palette per game. */
+:root {
+  --bg: #000;
+  --phosphor: #33ff66;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--phosphor);
+  font-family: monospace;
+}
+
+main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+}
+
+#screen {
+  max-width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  /* Cheap CRT glow until the WebGL filter is wired in. */
+  box-shadow: 0 0 8px rgba(51, 255, 102, 0.35);
+}

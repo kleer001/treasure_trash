@@ -1,0 +1,11 @@
+{
+  "name": "treasure-trash",
+  "version": "0.0.1",
+  "description": "An untimed Sokoban-family block-pusher: every bag you tear sprays permanent trash, so aim your mess away from your way out.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test",
+    "start": "./run.sh"
+  }
+}
