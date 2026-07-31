@@ -6,7 +6,7 @@ is superseded — history only, do not implement from it.)
 
 ## Where we are
 - Genre + core loop **decided**; the raccoon's core mechanic is **designed and
-  verified** in `spike/` (L0–L3 solvable in provably-minimal par, proven by an
+  verified** in `spike/` (L0–L6 solvable in provably-minimal par, proven by an
   exhaustive solver, not asserted).
 - Crow is **pinned** — deliberately parked until the raccoon-alone game proves fun.
 - **No real game code yet.** `spike/` is a throwaway prototype (the studio gate's one

@@ -1,7 +1,10 @@
 // Treasure Trash — the file formats. Parse and serialise levels (.tt) and solutions (.sol).
 // Text in, data out; data in, byte-identical text out. See FORMATS.md for the spec.
 
-import { NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, DIRS, MOVE, PUSH, TEAR } from './rules.mjs';
+import {
+  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY,
+  DIRS, MOVE, PUSH, TEAR,
+} from './rules.mjs';
 
 // --- glyphs -----------------------------------------------------------------
 // Canonical writer emits exactly one glyph per cell state. The reader also accepts
@@ -16,6 +19,11 @@ const READ = {
   'C': { o: CAN_FULL },
   'c': { o: CAN_EMPTY },
   'x': { o: TRASH },
+  // Case carries load, as it does for the can: UPPER holds a bag, lower does not.
+  'S': { o: STACK },          // a loose bag riding a still-full can
+  'W': { o: WHEELIE },        // wheelie bin with a bag in it
+  'w': { o: WHEELIE_EMPTY },  // wheelie bin, emptied — still rolls
+  'b': { o: BIN },            // recycle bin: drops one cell of trash per shove
   'E': { exit: true },
   '+': { exit: true, rac: true },     // raccoon standing on the exit (XSB's player-on-goal)
   // No glyph for anything else on an exit: nothing else can ever be there. The rules
@@ -25,13 +33,15 @@ const READ = {
 export const LEGEND = [
   '# wall', '- floor', '@ raccoon', '$ bag', 'C full can', 'c empty can',
   'x spilled trash', 'E exit', '+ raccoon on exit',
+  'S bag-on-can stack', 'W wheelie bin (full)', 'w wheelie bin (empty)', 'b recycle bin',
 ];
 
 function glyphFor(c, isRac) {
   if (c.wall) return '#';
   if (!c.exit) {
     if (isRac) return '@';
-    return { [NONE]: '-', [BAG]: '$', [CAN_FULL]: 'C', [CAN_EMPTY]: 'c', [TRASH]: 'x' }[c.o];
+    return { [NONE]: '-', [BAG]: '$', [CAN_FULL]: 'C', [CAN_EMPTY]: 'c', [TRASH]: 'x',
+             [STACK]: 'S', [WHEELIE]: 'W', [WHEELIE_EMPTY]: 'w', [BIN]: 'b' }[c.o];
   }
   if (isRac) return '+';
   if (c.o === NONE) return 'E';

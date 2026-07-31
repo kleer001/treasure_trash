@@ -22,3 +22,21 @@
 :label  par
 :moves  U!dD!ur
 :note   Striking the bottom bag first also solves in 5 — the two orders converge.
+
+:solution L4
+:label  par
+:moves  D!uuR!l
+:note   Clear the low bag first, then walk onto the exit and fire the other one off it.
+
+:solution L5
+:label  par
+:moves  luRU!dl
+:note   Round to the exit, shove the bin right off your launch cell, then strike upward.
+
+:solution L6
+:label  par
+:moves  UluuRdR!lddd
+:note   Roll the bin up, go over the top, roll the emptied bin clear of the bag it dropped, then strike that bag sideways and walk down to the exit.
+
+
+

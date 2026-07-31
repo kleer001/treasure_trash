@@ -310,26 +310,110 @@ gave the existing lesson a reason.
 
 ---
 
-## Proposed next rooms **[sketch — not verified]**
-- **L4 — "Corner Yourself":** one bag, but only one of four strike directions leaves
-  you a path out. The two failure modes are distinct, and only one of them can still
-  cost you the room: a fan that would *bury* the exit is **refused** at the keypress
-  (L1's lesson), while a fan that *fences you off* from an exit that's still perfectly
-  clear is **allowed** — you're alive, the exit is intact, and there's no path. This
-  room is built on the second one, which is the whole reason it needs building: it's
-  the failure the engine can't refuse for you. Teaches reading the fan before you commit.
-- **L5 — "Interference":** two bags whose fans *compete* for the same cells — order
-  and direction must be chosen so neither fan is pre-blocked by the other's trash,
-  and so the last strike doesn't strand you from E.
-- **L2-redux — the can, rebuilt** per the rework note above.
-- **Candidate (exit-specific):** a room where the only safe strike **fires toward
-  the exit tile itself but stops one cell short** — the fan's leading row lands on
-  the row before E. Teaches that the exit is not magically protected; you just have
-  to count.
+## L4 — "Right Beside the Door" **[verified]**
+*New idea:* a bag parked next to the exit has exactly **one** legal direction — away.
+```
+   x=1 2 3 4
+y1  .  .  .  .
+y2  .  E  B  .    bag A, orthogonally adjacent to the way out
+y3  .  R  .  .
+y4  .  B  .  .    bag B
+y5  .  .  .  .
+```
+**Solve — `D!uuR!l`** (par 5): Down → strike B(2,4) downward (fan fills y5 plus the side
+cells (1,4)/(3,4)); R ends on (2,4). Up, Up → (2,2), which **is** the exit — one bag still
+out, so nothing happens, exactly as L2 taught. Right → strike A(3,2) **rightward**: the fan
+is the x=4 column plus (3,1)/(3,3), all clear. Left → back onto E → win.
+**The refusals:** A is orthogonally adjacent to E, so three of its four directions put trash
+on the exit — up and down land E in the *side* cells, left lands it in the leading row. All
+three are refused, and the room registers **13** exit refusals in total, the most in the pack.
+What's left is the one direction that fires A away from the door, and the only cell you can
+throw it from is the exit itself. *Lesson: standing on the exit isn't the win, it's the
+vantage point — and a bag beside the door can only ever be fired away from it.*
 
-**Act 1 spine:** L0 → L1 → L3 → L4 → L5 (all on direction + mess + egress), fold the
-reworked can in when it's solid. Still no crow needed — the honest test of the
-raccoon-alone game.
+---
+
+## L5 — "Recycling Day" **[verified]**
+*New object:* the **recycle bin** `b` — push it and it slides one cell **and drops a single
+cell of permanent trash directly ahead of itself**. It is the precise obstacle placer, which
+in a game with no targets means it is a piece that *charges you floor* to get it out of the way.
+```
+   x=1 2 3 4 5
+y1  .  .  .  .  .
+y2  .  .  B  .  .
+y3  .  E  b  .  .
+y4  .  .  R  .  .
+y5  .  .  .  .  .
+```
+The bin is parked on (3,3) — the cell you have to stand on to strike the bag upward. It has
+to move, and there are only two ways it can go.
+**Solve — `luRU!dl`** (par 6): Left, Up onto the exit at (2,3). Right → shove the bin to
+(4,3); it drops trash at (5,3) as it goes, and R takes the launch cell. Up → strike the bag,
+fan filling y1 plus (2,2)/(4,2). Down, Left → E → win.
+**The refusals:** shoving the bin **up** is refused before you spend it — the bag is in the
+way. Shoving it **left** is refused too: the exit at (2,3) will not take it. The room logs
+**8** exit refusals, and what's left is the one direction that works.
+*Lesson: the bin is not an obstacle you remove, it's an obstacle you relocate — and it bills
+you a cell of floor for the service.*
+
+---
+
+## L6 — "Runaway Bin" **[verified]**
+*New object:* the **wheelie bin** `W` — it **rolls until something stops it** and dumps its
+bag **out the back** on impact. Emptied (`w`) it still rolls. You choose which wall it hits;
+you do not choose where it stops.
+```
+   x=1 2 3 4 5
+y1  .  .  .  .  .
+y2  .  .  W  .  .
+y3  .  .  R  .  .
+y4  .  .  .  .  .
+y5  .  E  .  .  .
+```
+**Solve — `UluuRdR!lddd`** (par 11): Up → the bin rolls to (3,1), the top edge stops it, and
+its bag drops into (3,2) — the cell it just vacated. **The raccoon does not follow it**: it
+leaves from under the shove, which is the one thing about this piece you have to unlearn from
+the can. Left, Up, Up to (2,1). Right → the emptied bin rolls clear to (5,1). Down. Right →
+strike the freed bag rightward; its side cells are (3,1) and (3,3), and (3,1) is only clear
+because you rolled the bin off it. Left, Down, Down, Down → E → win.
+**Why it is the longest room in the pack:** every container in this game ends up adjacent to
+the bag it produces, so the bag is never immediately strikeable — the bin that dropped it is
+standing in its side cell. The wheelie bin makes you clear the same obstacle twice, once
+loaded and once empty. **Zero traps**: nothing here can be lost, only lengthened.
+*Lesson: a piece that keeps moving after you stop pushing is aimed, not placed.*
+
+---
+
+## Proposed next rooms **[sketch — not verified]**
+- **L2-redux — the can, rebuilt** per the rework note above.
+- **A room that fences you in on the long axis.** L5 cuts the board because it is three
+  cells wide and a fan spans it. On a wider board that needs walls, and walls are awkward:
+  a fan cell that lands on a wall is *not occupiable*, so the strike is refused rather
+  than cramped. A fencing room on a wide board therefore has to be built out of **trash**
+  the player has already laid down, not out of level geometry.
+- **A bag that must be opened last.** Every current room lets you finish on either bag.
+  A room where one bag's fan is the only route to the other would force a single order
+  outright, rather than punishing the wrong one after the fact.
+
+**A constraint worth knowing before designing another room.** The verifier requires the
+exit to forbid at least one action, and a bag's fan only ever reaches cells that are
+Chebyshev-adjacent to that bag — its two side cells and the three cells one step ahead.
+So **the exit has to sit next to a piece** or it forbids nothing. In a *one-bag* room that
+turns out to be mutually exclusive with a fencing trap: the raccoon always ends a tear on
+the bag's cell, and the exit is adjacent to that cell, so he is never sealed away from it.
+That is why L5 needs two bags to do what it does. A can also satisfies the gate, since a
+push that would put the can — or its ejected bag — on the exit is refused the same way.
+
+**Act 1 spine:** L0 → L1 → L2 → L3 → L4 → L5 → L6, **one new object per room** from L5 on.
+Par runs 2, 4, 7, 5, 5, 6, 11. Still no crow needed — the honest test of the raccoon-alone game.
+
+**The adjacency tax, and what it costs a room.** Every container in this game puts the bag it
+produces in a cell *next to itself* — the full can ejects one cell past where it lands, the
+wheelie bin dumps directly out the back, the stack launches past the can it slides. A bag
+adjacent to a solid piece cannot be struck in any direction: the piece is either in the fan's
+side cells or standing on the launch cell. So **every container costs two relocations, not
+one** — move it to free the bag, then move it again to free the strike. That is the floor
+under these rooms' pars, and it is why the wheelie bin's room is par 11 rather than 6.
 
 ## Authoring checklist (every new room)
 **Items 1, 3, 4 and 5 are now enforced by `spike/verify.mjs` — a room that violates
@@ -378,9 +462,21 @@ bag open **and** the raccoon on the exit.
 **Cut:** shiny/treasure & any collecting · aerosol · leaky sack/bag · cardboard box (= empty can)
 · dumpster · gum/tar · oil slick · glass bottle.
 
-**Verified in `spike/`:** bag + metal can + exit (L0–L3), pars 2/4/7/5, and the two
-failure classes kept separate — **refusals** (L1's exit-burying down-strike, L2's
-can-onto-exit push, L3's strikes into the corridor: 2 / 12 / 12 refused actions) and
-**stranding traps**, the only remaining way to lose (L2 ×1, L3 ×2). **Needs a spike:**
-wheelie-bin roll (fun / redundancy vs plain can),
-furniture polyomino pushes, bag-on-can launch.
+**Implemented and verified in `spike/`:** bag, metal can, exit, spilled trash, **recycle
+bin**, **wheelie bin** — L0–L6, pars 2/4/7/5/5/6/11, every one a provably minimal solve.
+The two failure classes stay separate: **refusals** (an action the exit or a blocked fan
+will not accept, played out and rewound at no cost) and **stranding traps** (legal, and
+they lose you the room). Each piece's rule has a unit test in `tests/items.test.js`.
+
+**Implemented but with no room yet — the bag-on-can stack.** The engine supports it and it
+is unit-tested, but it does not currently earn a level. A stack holds **two** bags (the
+loose one on top and the one still in the can beneath), and both of them pay the adjacency
+tax above, so every solvable room built around it comes out at **par 20 with 5–10 distinct
+optimal lines and 300+ soft-locks** — measured across wall-free and walled layouts from 5×5
+up to 7×6. That is an expert-act piece, not an introduction. It would want either a late
+slot or a rules change (a stack whose can is *empty* underneath would cost one bag and one
+relocation instead of two).
+
+**Still needs a state-model change:** furniture and the shopping cart are **multi-cell**
+pieces, and the board currently stores one independent occupant code per cell with no notion
+of a piece spanning cells. Those two are blocked on that, not on level design.

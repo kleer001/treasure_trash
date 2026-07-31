@@ -79,3 +79,56 @@ E--
 -$-
 ---
 :end
+
+:level  L4
+:name   Right Beside the Door
+:teach  a bag sitting next to the exit has exactly one legal direction — away from it
+:par    5
+:traps  3
+:solves 1
+:solve  D!uuR!l
+:note   Three of the top bag's four directions put trash on the exit and are refused, so you fire it from the exit itself.
+:grid
+----
+-E$-
+-@--
+-$--
+----
+:end
+
+:level  L5
+:name   Recycling Day
+:teach  the recycle bin — shifting it costs you a cell of floor, and only one way is legal
+:arm    on
+:par    6
+:traps  1
+:solves 1
+:solve  luRU!dl
+:note   The bin stands on the cell you must strike from. Shoving it left is refused (the exit will not take it), so it goes right — and drops a cell of trash two along as it goes.
+:grid
+-----
+--$--
+-Eb--
+--@--
+-----
+:end
+
+:level  L6
+:name   Runaway Bin
+:teach  the wheelie bin rolls until something stops it, and drops its bag out the back
+:arm    on
+:par    11
+:traps  0
+:solves 1
+:solve  UluuRdR!lddd
+:note   You choose the wall it hits, not where it stops. The bag lands behind it, so the emptied bin — which still rolls — is what stands between you and the bag you just freed.
+:grid
+-----
+--W--
+--@--
+-----
+-E---
+:end
+
+
+

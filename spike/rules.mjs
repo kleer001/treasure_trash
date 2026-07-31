@@ -2,7 +2,10 @@
 // This module is the single source of truth for what is legal. The browser spike,
 // the solver, and the verifier all import it; nothing re-implements a rule.
 
-export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4;
+// Occupant codes. `stateKey` packs these one CHARACTER per cell, so this list must stay
+// below 10 entries — a two-digit code would make two different boards share a key.
+export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
+             BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8;
 
 // Direction letters are the solution format's alphabet — see FORMATS.md.
 export const DIRS = { l: [-1, 0], u: [0, -1], r: [1, 0], d: [0, 1] };
@@ -83,14 +86,21 @@ export function explain(s, dir) {
     return { ok: true, kind: TEAR, next };
   }
 
-  if (o === CAN_FULL) {
-    // slides one, ejects its bag one further, becomes empty
+  // Three pieces share one shape of shove: the piece slides one cell and something lands
+  // one cell further. Only what lands differs, so the clearance test lives in one place.
+  const TWO_CELL = {
+    [CAN_FULL]: { slides: CAN_EMPTY, drops: BAG },     // ejects its bag and empties
+    [STACK]:    { slides: CAN_FULL,  drops: BAG },     // launches the loose bag; the can stays full
+    [BIN]:      { slides: BIN,       drops: TRASH },   // the precise obstacle placer
+  };
+  if (TWO_CELL[o]) {
+    const { slides, drops } = TWO_CELL[o];
     const c1 = [tx + dx, ty + dy], c2 = [tx + 2 * dx, ty + 2 * dy];
     const blame = [c1, c2].filter(([bx, by]) => !isOccupiable(s, bx, by));
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
     const next = cloneState(s);
-    cell(next, c2[0], c2[1]).o = BAG;
-    cell(next, c1[0], c1[1]).o = CAN_EMPTY;
+    cell(next, c2[0], c2[1]).o = drops;
+    cell(next, c1[0], c1[1]).o = slides;
     cell(next, tx, ty).o = NONE;
     next.rac = { x: tx, y: ty };
     return { ok: true, kind: PUSH, next };
@@ -104,6 +114,31 @@ export function explain(s, dir) {
     cell(next, c1[0], c1[1]).o = CAN_EMPTY;
     cell(next, tx, ty).o = NONE;
     next.rac = { x: tx, y: ty };
+    return { ok: true, kind: PUSH, next };
+  }
+
+  // The wheelie bin does not stop where you stop pushing — it rolls until something stops
+  // it, and a full one dumps its bag out the back on impact. The raccoon does NOT follow
+  // it: the bin leaves from under the shove, which is also what keeps the one-cell roll
+  // from dropping a bag onto the cell he would otherwise be standing in.
+  if (o === WHEELIE || o === WHEELIE_EMPTY) {
+    let rx = tx, ry = ty;
+    while (isOccupiable(s, rx + dx, ry + dy)) { rx += dx; ry += dy; }
+    if (rx === tx && ry === ty) {
+      const stop = [[tx + dx, ty + dy]];
+      return { ok: false, reason: reasonFor(s, stop, 'canRoom'), blame: stop };
+    }
+    const next = cloneState(s);
+    cell(next, tx, ty).o = NONE;
+    cell(next, rx, ry).o = WHEELIE_EMPTY;
+    if (o === WHEELIE) {
+      // Out the back, into the cell it just vacated — tested against the board the bin has
+      // already left, because on a one-cell roll that cell is the bin's own starting square.
+      const back = [rx - dx, ry - dy];
+      if (!isOccupiable(next, back[0], back[1]))
+        return { ok: false, reason: reasonFor(s, [back], 'canRoom'), blame: [back] };
+      cell(next, back[0], back[1]).o = BAG;
+    }
     return { ok: true, kind: PUSH, next };
   }
 
@@ -127,9 +162,13 @@ export function applyAction(s, { dir, kind }) {
   return r.next;
 }
 
+// Every bag still to be torn, wherever it is sitting — loose, inside a can, inside a
+// wheelie bin, or riding a stack. A stack counts TWO: the loose bag on top and the one in
+// the still-full can beneath it.
+const BAGS_IN = { [BAG]: 1, [CAN_FULL]: 1, [WHEELIE]: 1, [STACK]: 2 };
 export function bagsLeft(s) {
   let k = 0;
-  for (const row of s.cells) for (const c of row) if (c.o === BAG || c.o === CAN_FULL) k++;
+  for (const row of s.cells) for (const c of row) k += BAGS_IN[c.o] ?? 0;
   return k;
 }
 

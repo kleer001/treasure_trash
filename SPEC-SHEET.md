@@ -233,7 +233,7 @@ every winning state. Returns `minMoves`, a canonical `shortestLurd` (ties broken
 direction order), `shortestCount` (`>1` means unintended solves), the `dead` key set,
 every `trap` (a legal action from a live state to a dead one) and `silentTraps` (traps
 whose action is a plain move). No estimation and no node cap — the shipped rooms measure
-3 / 18 / 137 / 62 reachable states (L0–L3), so this is exact where a full-size Sokoban
+3 / 18 / 137 / 62 / 106 / 125 / 695 reachable states (L0–L6), so this is exact where a full-size Sokoban
 solver would need deadlock tables. It answers the Superfan's stranding concern at runtime and backs the test
 assertion that every shipped room is solvable in its stated par. `replay(state, actions)`
 walks a declared solution through `explain` and throws on the first disagreement.
