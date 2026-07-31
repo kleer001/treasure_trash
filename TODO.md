@@ -1,7 +1,8 @@
 # TODO / Handoff — Treasure Trash
 
-Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset and
-`DESIGN-BIBLE.md` for the wider design.
+Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset,
+`SPEC-SHEET.md` for what gets built, and `GAME-SHEET.md` for the pitch. (`DESIGN-BIBLE.md`
+is superseded — history only, do not implement from it.)
 
 ## Where we are
 - Genre + core loop **decided**; the raccoon's core mechanic is **designed and
@@ -117,4 +118,3 @@ cd trash_treasure/spike && node verify.mjs
   Rebuild + republish after any spike change: `cd trash_treasure/spike && node build-artifact.mjs`,
   then publish the output to that same URL (a new URL means the old link goes stale).
 - Block-Pusher Laws (Artifact): https://claude.ai/code/artifact/438adc6f-d6f1-470e-b273-97b084ba2a71
-- Branch: `claude/crows-raccoons-game-5b2yjy`

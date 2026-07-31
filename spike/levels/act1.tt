@@ -2,7 +2,9 @@
 :format 1
 ;
 ; legend  # wall  - floor  @ raccoon  $ bag  C full can  c empty can
-;         x spilled trash  E exit  + raccoon on exit  X exit buried  % exit blocked by a can
+;         x spilled trash  E exit  + raccoon on exit
+; There is no glyph for anything else on an exit: the rules refuse any action that would
+; put an object there, so no reachable state needs one.
 ;
 ; Every field below is machine-checked by verify.mjs — :par must be the provably
 ; minimal solve, :solve must replay to a win in exactly :par actions, and :traps must

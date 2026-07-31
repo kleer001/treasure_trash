@@ -137,7 +137,7 @@ can be dropped into a bug report.
 computes liveness exactly, returning `minMoves`, a canonical `shortestLurd`,
 `shortestCount`, the `dead` set, and every `trap` (a legal action from a live state to a
 dead one). This is the small-board version of what a Sokoban solver approximates with
-deadlock tables — the rooms are ~26–320 states, so there is no need to estimate anything.
+deadlock tables — the rooms run 3 to 137 states, so there is no need to estimate anything.
 
 **`verify.mjs`** — the CLI. `node verify.mjs [levels/act1.tt] [levels/act1.sol]`, exit code
 0 or 1.

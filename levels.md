@@ -16,14 +16,21 @@
 > and the token count **is** the par.
 
 ## Legend
+These are the letters the **diagrams in this doc** use, chosen to be readable in prose.
+The level files use the XSB-compatible glyph set instead (`-` floor, `@` raccoon, `$` bag,
+`+` raccoon on the exit) — see [`spike/FORMATS.md`](./spike/FORMATS.md). Same cells, two
+notations; the files are canonical.
 ```
 .  floor            R  raccoon (start)      B  garbage bag
-#  wall             _  entry stub (raccoon start / parking — NOT a disposal chute)
+#  wall             x  spilled trash (permanent obstacle)
 E  the exit (always walkable by the raccoon, never occupiable by anything else;
    counts only when every bag is torn)
-x  spilled trash (permanent obstacle)
 C  full can (has a bag)                     c  empty can (pushable)
 ```
+The raccoon's starting cell is **plain floor** — there is no entry-stub terrain. A room
+may wall it in on either side to make the entrance read as an entrance (L1 does), but the
+cell itself has no special rules, and nothing on the board ever *removes* trash: there is
+no chute and no disposal object anywhere in the game.
 
 ## Rules / vocabulary (⚠ = confirm)
 1. **Move** — raccoon steps one cell orthogonally per input. **No pull** — Sokoban's
@@ -116,7 +123,8 @@ trash never blocks your path, your way out, or another bag's fan.*
 
 **Design identity — "maximum mess, nothing gets cleaned up."** The raccoon only ever
 *adds* or *relocates* mess, never removes it. **No disposal/removal objects** (this is
-why the dumpster is cut, and why the entry stub is a start/parking cell, not a chute).
+why the dumpster is cut, and why the raccoon's entrance is an ordinary floor cell rather
+than a chute).
 Spilled trash, empty cans, every obstacle — all permanent. Boards only get messier; you
 win by routing *through* the accumulation, never by tidying it.
 
@@ -228,7 +236,7 @@ onto E**, so from here on the player is already asking "can I still get there?"
 y1  .  .  .
 y2  .  B  .
 y3  .  .  E
-       R      (entry stub at (2,4), walls either side)
+       R      (start cell at (2,4), floor, walls either side)
 ```
 **Solve — `uU!dr`** (par 4): Up → (2,3). Up → strikes B(2,2) going **up**; fan fills
 all of y1 plus the side cells (1,2)/(3,2); all clear → bag opens, R ends on (2,2).
@@ -263,9 +271,10 @@ and — with only the bag above it and the raccoon below — the only two direct
 with a bag still out, and nothing happens — that's the second thing this room teaches.
 Right → pushes the empty can (2,3)→(3,3), R→(2,3). Up → strike bag (2,2) upward; fan
 (sides of y2 + all of y1) is clear → opens. Down → (2,3). Left → (1,3) = E → win.
-**Trap 1 (old):** try to open the bag before clearing the can — every direction
-soft-locks (can in the fan or on the launch cell).
-**The refusal (it kills the mirror solve):** try to shove the can **left** instead —
+**Refused — the can is in the way:** try to open the bag before clearing the can and
+*every* direction is refused, because the can is either in the fan or on the launch cell.
+That's the side-cell corollary saying no out loud.
+**Refused — and it kills the mirror solve:** try to shove the can **left** instead —
 up the right side to (3,3), push Left — and the push is **refused**, because (1,3) is
 the exit and the exit will not take it. The old room accepted either mirror; now
 exactly one of them is available, and the board says so the moment you try rather than
@@ -303,10 +312,12 @@ gave the existing lesson a reason.
 
 ## Proposed next rooms **[sketch — not verified]**
 - **L4 — "Corner Yourself":** one bag, but only one of four strike directions leaves
-  you **and** the exit un-trapped by the fan. The two failure modes are now distinct
-  and both live: the fan can *bury* the exit (L1's trap) or it can *fence you off*
-  from an exit that's still perfectly clear (new — you're alive, the exit is intact,
-  and there's no path). Teaches reading the fan before you commit.
+  you a path out. The two failure modes are distinct, and only one of them can still
+  cost you the room: a fan that would *bury* the exit is **refused** at the keypress
+  (L1's lesson), while a fan that *fences you off* from an exit that's still perfectly
+  clear is **allowed** — you're alive, the exit is intact, and there's no path. This
+  room is built on the second one, which is the whole reason it needs building: it's
+  the failure the engine can't refuse for you. Teaches reading the fan before you commit.
 - **L5 — "Interference":** two bags whose fans *compete* for the same cells — order
   and direction must be chosen so neither fan is pre-blocked by the other's trash,
   and so the last strike doesn't strand you from E.
@@ -349,10 +360,10 @@ goal) **and the raccoon standing on the exit** (get out of the alley you just wr
 
 | Object | On push / strike | Constraints |
 |---|---|---|
-| **Garbage bag** | step into it in dir D → tears open, sprays a **2×3 fan of permanent trash** (2 side cells + the 3 cells one row ahead in D); raccoon ends on the bag's cell | opens only if the whole fan is clear floor, else soft-lock; can't be pushed — only *launched* via a stack; needs interior room |
+| **Garbage bag** | step into it in dir D → tears open, sprays a **2×3 fan of permanent trash** (2 side cells + the 3 cells one row ahead in D); raccoon ends on the bag's cell | opens only if the whole fan is clear floor **and free of the exit**, else the strike is refused; can't be pushed — only *launched* via a stack; needs interior room |
 | **Metal can** (full) | push → **slides 1**, ejects its bag **1 further ahead**, becomes an empty can; raccoon advances into its old cell | both the can's destination *and* the bag's landing cell must be clear |
 | **Empty can / plain block** | push → slides 1 (plain Sokoban block) | destination clear; **never removable**; may start on the board as a plain block |
-| **Exit** | — (terrain, not an occupant) | walkable at all times; **wins the room** only while standing on it with zero bags left; **not protected** — trash or a pushed can lands on it and seals it permanently; exactly one per room |
+| **Exit** | — (terrain, not an occupant) | walkable at all times; **wins the room** only while standing on it with zero bags left; **protected by the engine** — any strike or push that would land trash, a can or a bag on it is refused, so it can never be sealed; exactly one per room |
 | **Spilled trash** | — (inert) | **permanent** obstacle; never moves, never clears |
 | **Bag-on-can stack** | push → top bag **launches 2** ahead (loose), can **slides 1** (still full); raccoon advances 1 | landing cells clear; launched bag must still be struck; only way to **reposition** a bag |
 | **Recycle bin** | push → slides 1, **drops 1 cell of trash** directly ahead | destination clear (precise obstacle placer) |
@@ -367,7 +378,9 @@ bag open **and** the raccoon on the exit.
 **Cut:** shiny/treasure & any collecting · aerosol · leaky sack/bag · cardboard box (= empty can)
 · dumpster · gum/tar · oil slick · glass bottle.
 
-**Verified in `spike/`:** bag + metal can + exit (L0–L3), pars 2/4/7/5, and three
-soft-locks — L1's exit-burying down-strike, L2's can-on-exit push, L3's sealed
-corridor. **Needs a spike:** wheelie-bin roll (fun / redundancy vs plain can),
+**Verified in `spike/`:** bag + metal can + exit (L0–L3), pars 2/4/7/5, and the two
+failure classes kept separate — **refusals** (L1's exit-burying down-strike, L2's
+can-onto-exit push, L3's strikes into the corridor: 2 / 12 / 12 refused actions) and
+**stranding traps**, the only remaining way to lose (L2 ×1, L3 ×2). **Needs a spike:**
+wheelie-bin roll (fun / redundancy vs plain can),
 furniture polyomino pushes, bag-on-can launch.
