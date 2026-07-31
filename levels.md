@@ -71,6 +71,17 @@ rules above are the whole of it. Three calls, made explicitly:
 - **It removes the raccoon, never the trash.** He leaves empty-pawed. The exit is
   egress, not disposal — the "maximum mess, nothing gets cleaned up" pillar holds.
 
+**How it reads on screen:** an **emergency exit sign** — white legend and arrow on
+green, **unlit while bags remain, lit when the last one tears.** The arrow points at
+the nearest board edge, so the tile also tells you which way he's leaving. Green is
+borrowed, not invented: ISO 3864 codes green as *"safe condition,"* which is why
+ISO 7010's emergency-exit signs are white-on-green worldwide (the US is the odd one
+out — NFPA's Life Safety Code has long permitted red as well, hence the red signs
+Americans picture first). Using the real convention means the tile needs no tutorial:
+everyone over the age of six has already been taught what a lit green EXIT sign
+means. It is the one non-Memphis color on the board, and it's a signal color on
+purpose — nothing else in the palette should be that green.
+
 **Why it earns its slot:** without an exit, a room ends the instant the last bag
 tears, so the last strike is free — you can bury the whole board and still win.
 Every room here got easier at exactly the moment it should have gotten hardest.

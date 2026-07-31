@@ -71,8 +71,8 @@
 
 <div class="legend">
   <div class="row"><b>Move / strike / push:</b> <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <kbd>U</kbd> undo · <kbd>R</kbd> restart.</div>
-  <div class="row"><b>Goal:</b> open every bag (pounce it), then stand on the <b style="color:#0a8">exit</b>. A bag bursts a <b>2×3 fan</b> in the direction you strike; that trash <b>stays</b>.</div>
-  <div class="row"><b>The exit:</b> plain floor — walk over it any time; it only counts once the last bag is torn (it goes solid when it's live). It is <b>not</b> protected: trash or a pushed can lands on it and seals it for good.</div>
+  <div class="row"><b>Goal:</b> open every bag (pounce it), then stand on the <b style="color:#2e9e5b">exit</b>. A bag bursts a <b>2×3 fan</b> in the direction you strike; that trash <b>stays</b>.</div>
+  <div class="row"><b>The exit:</b> plain floor — walk over it any time; it only counts once the last bag is torn (the sign <b>lights up</b> when it's live). It is <b>not</b> protected: trash or a pushed can lands on it and seals it for good.</div>
   <div class="row"><b>Fan preview:</b> stand next to a bag — the tiles that'll become trash glow <span style="color:#b58900">yellow</span> (valid) or <span style="color:var(--red)">red</span> (blocked, can't strike that way).</div>
   <div class="row"><b>Cans:</b> push a full can → it slides one and ejects its bag one further; the empty can is then a normal pushable block.</div>
   <div class="row">Trashed yourself into a corner? That's the puzzle — <kbd>U</kbd> / <kbd>R</kbd>.</div>
@@ -117,7 +117,8 @@ const LEVELS = [
 ];
 
 const CS=76, PAD=9;
-const C = { red:"#ff4b3e", yel:"#ffcf00", blu:"#2d7dd2", tea:"#17c3b2", pnk:"#ff5da2", ink:"#1a1a1a" };
+const C = { red:"#ff4b3e", yel:"#ffcf00", blu:"#2d7dd2", tea:"#17c3b2", pnk:"#ff5da2", ink:"#1a1a1a",
+  grn:"#2e9e5b" };   // exit-sign green — ISO 3864 "safe condition", not a Memphis accent
 
 let cur=0, state=null, history=[], won=false;
 
@@ -239,23 +240,37 @@ function render(){
 function px(x){return x*CS}
 function drawFloor(x,y){ ctx.fillStyle="#fff"; ctx.strokeStyle="#e6e6e2"; ctx.lineWidth=1;
   ctx.fillRect(px(x)+1,px(y)+1,CS-2,CS-2); ctx.strokeRect(px(x)+1.5,px(y)+1.5,CS-3,CS-3); }
-// the way out: a gap in the fence. Solid teal + arrow when every bag is torn; ghosted while work remains.
-function drawExit(x,y,open){
-  const x0=px(x), y0=px(y), m=10, w=CS-2*m, cx=x0+CS/2;
+// The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
+// "safe condition" coding (ISO 7010 E002). Lit = every bag torn; unlit = work left to do.
+// The arrow points at the nearest board edge — the direction he's actually leaving in.
+function exitArrowDir(s,x,y){
+  const d=[[y,[0,-1]],[s.rows-1-y,[0,1]],[x,[-1,0]],[s.cols-1-x,[1,0]]];
+  return d.reduce((a,b)=>b[0]<a[0]?b:a)[1];
+}
+function drawExit(x,y,lit){
+  const s=state, [dx,dy]=exitArrowDir(s,x,y);
+  const x0=px(x), y0=px(y), m=8, w=CS-2*m, cx=x0+CS/2, cy=y0+CS/2;
   ctx.save();
-  ctx.globalAlpha = open ? 1 : .35;
-  ctx.fillStyle = open ? "rgba(23,195,178,.28)" : "rgba(23,195,178,.18)";
+  // the sign plate
+  ctx.fillStyle = lit ? C.grn : "rgba(46,158,91,.12)";
   ctx.fillRect(x0+m, y0+m, w, w);
-  ctx.strokeStyle = C.tea; ctx.lineWidth=3;
-  ctx.setLineDash(open?[]:[5,4]);
-  ctx.strokeRect(x0+m, y0+m, w, w);
-  ctx.setLineDash([]);
-  // arrow pointing out
-  ctx.strokeStyle = open ? "#063" : C.tea; ctx.lineWidth=4; ctx.lineCap="round"; ctx.lineJoin="round";
-  const ay=y0+CS/2, r=w*0.26;
-  ctx.beginPath(); ctx.moveTo(cx-r, ay); ctx.lineTo(cx+r, ay);
-  ctx.moveTo(cx+r-7, ay-7); ctx.lineTo(cx+r, ay); ctx.lineTo(cx+r-7, ay+7);
-  ctx.stroke();
+  if(!lit){
+    ctx.strokeStyle="rgba(46,158,91,.6)"; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+    ctx.strokeRect(x0+m+1, y0+m+1, w-2, w-2); ctx.setLineDash([]);
+  }
+  const fg = lit ? "#fff" : "rgba(46,158,91,.55)";
+  // legend
+  ctx.fillStyle=fg;
+  ctx.font="700 12px -apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText("EXIT", cx, y0+m+11);
+  // arrow, rotated to point out of the room
+  ctx.translate(cx, cy+7); ctx.rotate(Math.atan2(dy,dx));
+  const a=w*0.30, H=w*0.24, h=w*0.09;
+  ctx.beginPath();
+  ctx.moveTo(a,0); ctx.lineTo(0,-H); ctx.lineTo(0,-h); ctx.lineTo(-a,-h);
+  ctx.lineTo(-a,h); ctx.lineTo(0,h); ctx.lineTo(0,H); ctx.closePath();
+  ctx.fill();
   ctx.restore();
 }
 function hash(x,y){ return ((x*73856093)^(y*19349663))>>>0; }
