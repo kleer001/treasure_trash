@@ -41,10 +41,27 @@ C  full can (has a bag)                     c  empty can (pushable)
    ```
 3. **Clearance** — a bag opens only if its **2×3 fan is all free ground** at strike
    time. Fan blocked (wall / off-grid / **spilled trash** / **a can, full or empty** /
-   **the exit**) → the strike is **refused on the first press**; it never even arms.
-   The offending cell flashes red with a ✕, a buzz says no, the HUD names what's in the
-   way, and the move isn't spent. *Yes — a can in the fan blocks a tear. That is the
-   side-cell corollary and the whole of L2's lesson: relocate the can first.*
+   **the exit**) → the strike is **refused**, and the move isn't spent. *Yes — a can in
+   the fan blocks a tear. That is the side-cell corollary and the whole of L2's lesson:
+   relocate the can first.*
+
+   **A refusal is performed, not reported.** The raccoon lunges, the bag bursts, the
+   debris flies out and reaches the cell that won't take it, that cell flashes red and
+   buzzes — and then the whole thing **rewinds itself**. The board is exactly where it
+   was, the move isn't spent, and the red ✕ and the reason stay on screen afterwards as
+   the explanation.
+
+   **The distinction that matters:** the invalid overlap is a *frame in a rejection*,
+   never a *position on the board*. There is no state the player has to undo out of and
+   no mode where undo is the only legal input — that would be a modal dialog wearing a
+   grid costume, and the industry pattern for an invalid move is a soft bounce-back, not
+   a dialog. You get the whole visceral "no" without ever rendering a board that the
+   rules say cannot exist.
+
+   It is also **scaled and self-effacing**: a refused burst gets the full sequence, a
+   refused shove a short lunge, a refused step a quick knock — and the second time you
+   make the same mistake in the same room, you get the short version, because by then
+   you know. Any keypress skips it.
 4. **Mess stays** — the 5 fan cells become **permanent trash obstacles**. Opening a
    bag reshapes the board; your own garbage can wall you in. *(Fork resolved: yes.)*
 5. **Full can, when pushed** — slides **one cell** in the push direction **and ejects

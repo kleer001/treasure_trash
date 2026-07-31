@@ -49,10 +49,13 @@ Arrows / WASD to move-strike-push · **U** undo · **R** restart · level tabs.
 - **The exit refuses everything.** Trash, cans, ejected bags — none may land on it. A
   strike or push that would put something there is refused outright, so you can never
   bury your own way out.
-- **Blocked** (you pressed a direction the rules refuse): the one cell *doing* the
-  blocking gets a red ✕, a buzz sounds, and the HUD names what's in the way. Red is never a second opinion about the
-  fan — it marks a single cell, and only once you've actually tried. A refused input
-  costs no moves.
+- **Blocked** (you pressed a direction the rules refuse): the refusal is *performed* —
+  the raccoon lunges, the bag bursts, the debris reaches the cell that won't take it, that
+  cell flashes red with a ✕ and buzzes, and the sequence rewinds itself. **No state
+  changes and no move is spent**, so the invalid overlap is a frame in a rejection, not a
+  position you have to undo out of. Afterwards the ✕ and the reason stay on screen. A
+  refused shove gets a shorter version, a refused step a quick knock, and a repeat of the
+  same mistake in the same room degrades to the short form. Any keypress skips it.
 
 ## Verify
 ```

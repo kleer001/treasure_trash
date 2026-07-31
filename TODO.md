@@ -36,8 +36,11 @@ Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset 
   *introduces a piece*, board-changing actions ask twice — first press aims and previews,
   second commits. On in L1 (the bag) and L2 (the can); off elsewhere, where the game plays
   like the block-pusher it is. Input-layer only: it can never change a par.
-- **Refusal, not punishment.** An illegal action is refused at the keypress: the cell
-  to blame flashes red, a beep says no, and the move isn't spent. What remains as a
+- **Refusal, not punishment — and it's performed.** An illegal action plays out and
+  rewinds: raccoon lunges, bag bursts, debris reaches the cell that won't take it, red
+  flash + buzz, then the whole sequence reverses. The board never changes and no move is
+  spent, so the invalid overlap is a frame in an animation, never a state to escape.
+  Scaled by what there is to show, degrades to a short version on repeat, skippable. What remains as a
   genuine soft-lock is **stranding** — your trash walls you off from a clear exit —
   recoverable with **free undo/restart**. **Win = every bag opened *and* the raccoon
   on the exit.**

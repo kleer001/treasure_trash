@@ -80,7 +80,7 @@
   <div class="row"><b>Goal:</b> open every bag (pounce it), then stand on the <b style="color:#2e9e5b">exit</b>. A bag bursts a <b>2×3 fan</b> in the direction you strike; that trash <b>stays</b>.</div>
   <div class="row"><b>Aiming</b> (L1 and L2 only — the rooms that introduce a piece): press a direction once to <em>aim</em> and nothing happens yet; press it again to commit. Elsewhere one press acts, block-pusher style. Where a room does aim, it aims shoves as well as bursts — there's no pull, so a shove is no gentler than a burst. Walking is always one press.</div>
   <div class="row"><b>The exit:</b> plain floor — walk over it any time; it only counts once the last bag is torn (the sign <b>lights up</b> when it's live). <b>Nothing may ever land on it</b> — trash, cans and bags are all refused, so you can't bury your way out.</div>
-  <div class="row"><b>Blocked:</b> if the rules refuse an action, the one cell <em>doing</em> the blocking flashes <span style="color:var(--red)">red</span> with a ✕, you get a buzz, and the reason shows up top. Refused actions cost nothing.</div>
+  <div class="row"><b>Blocked:</b> the refusal plays out and rewinds — the raccoon lunges, the bag bursts, the debris reaches the cell that won't take it, that cell flashes <span style="color:var(--red)">red</span> with a ✕ and buzzes, and it all runs backwards. <b>Nothing changes and no move is spent.</b> Make the same mistake twice in a room and you get the short version; any key skips it.</div>
   <div class="row"><b>Cans:</b> push a full can → it slides one and ejects its bag one further; the empty can is then a normal pushable block. A can in the fan blocks a tear — relocate it first.</div>
   <div class="row">Trashed yourself into a corner? That's the puzzle — <kbd>U</kbd> / <kbd>R</kbd>.</div>
 </div>
@@ -127,6 +127,54 @@ let LEVELS = [], cur=0, state=null, start=null, history=[], moves=0, won=false;
 let blocked = null;   // { cells, reason, dir } — cleared by the next legal action
 let armed = null;     // direction of a tear that is aimed but not yet committed
 
+// ---- the rejection animation ---------------------------------------------------------
+// THE STATE NEVER CHANGES. This is a refusal played out in full: the raccoon lunges, the
+// bag bursts, the debris reaches the cell that won't take it, everything flashes, and the
+// whole thing rewinds itself. The player spends no move and is never left in a position
+// they have to escape — the invalid overlap is a frame in a rejection, not a board state.
+//
+// Scaled to what there is to show: a refused tear gets the full sequence, a refused shove
+// a short lunge, a refused step a quick knock. And it degrades — the second time you make
+// the same mistake in a room you get the short version, because by then you know.
+const FX = {
+  tear: { lunge:150, burst:190, hold:260, rewind:240 },
+  push: { lunge:130, burst:0,   hold:170, rewind:140 },
+  bump: { lunge:70,  burst:0,   hold:110, rewind:80  },
+};
+let fx = null, fxSeen = new Set(), raf = 0;
+
+function startFx(dir, r){
+  const [dx,dy] = ({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
+  const tx = state.rac.x+dx, ty = state.rac.y+dy;
+  const o = inGrid(state,tx,ty) ? cell(state,tx,ty).o : NONE;
+  let kind = o===BAG ? 'tear' : (o===CANF||o===CANE) ? 'push' : 'bump';
+  const key = `${kind}:${r.reason}`;
+  if(fxSeen.has(key)) kind = 'bump';          // you've seen it; don't make you sit through it
+  fxSeen.add(key);
+  fx = { kind, dx, dy, bx:tx, by:ty, showBurst: kind==='tear',
+         cells: kind==='tear' ? fan(tx,ty,dx,dy) : [], blame:r.blame, t0:performance.now(), beeped:false };
+  if(!raf) raf = requestAnimationFrame(fxTick);
+}
+function fxPhase(){
+  const d = FX[fx.kind], e = performance.now() - fx.t0;
+  const t1=d.lunge, t2=t1+d.burst, t3=t2+d.hold, t4=t3+d.rewind;
+  if(e < t1)  return { lunge:e/t1, burst:0, flash:0 };
+  if(e < t2)  return { lunge:1, burst:d.burst ? (e-t1)/d.burst : 1, flash:0 };
+  if(e < t3)  return { lunge:1, burst:1, flash:1 };
+  if(e < t4){ const k = 1-(e-t3)/d.rewind; return { lunge:k, burst:k, flash:0 }; }
+  return null;                                 // done
+}
+function fxTick(){
+  raf = 0;
+  if(!fx) return;
+  const ph = fxPhase();
+  if(ph && ph.flash && !fx.beeped){ fx.beeped = true; beep(false); }
+  if(!ph) fx = null;
+  render();
+  if(fx) raf = requestAnimationFrame(fxTick);
+}
+const cancelFx = () => { if(raf) cancelAnimationFrame(raf); raf = 0; fx = null; };
+
 // ---- audio: a two-tone "no" for a refused input. Procedural, per the house stack.
 let ac = null;
 function beep(ok){
@@ -158,12 +206,13 @@ function beep(ok){
 const arming = () => LEVELS[cur].arm === true;
 
 function act(dir){
+  if(fx){ cancelFx(); render(); }        // any input skips a rejection already playing
   if(won) return;
   const r = explain(state, dir);
 
-  if(!r.ok){                       // refused — say no, and say which cell said it
+  if(!r.ok){                       // refused — play the whole no, then rewind it
     blocked = { cells:r.blame, reason:r.reason, dir };
-    armed = null; beep(false); render(); return;
+    armed = null; startFx(dir, r); render(); return;
   }
   if(arming() && r.kind !== MOVE && armed !== dir){
     armed = dir; blocked = null;    // aimed, not committed
@@ -174,9 +223,10 @@ function act(dir){
   if(isWon(state)) won = true;
   render();
 }
-function undo(){ if(history.length){ state=history.pop(); moves--; won=false; blocked=null; armed=null; render(); } }
+function undo(){ cancelFx(); if(history.length){ state=history.pop(); moves--; won=false; blocked=null; armed=null; render(); } }
 function restart(){ load(cur); }
 function load(i){
+  cancelFx(); fxSeen = new Set();          // a new room earns the full explanation again
   cur=(i+LEVELS.length)%LEVELS.length;
   state=toState(LEVELS[cur]); start=state; history=[]; moves=0; won=false;
   blocked=null; armed=null;
@@ -187,18 +237,28 @@ function load(i){
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 function render(){
   const s=state;
+  const ph = fx ? fxPhase() : null;
+  const fxCells = new Set((ph && fx.showBurst ? fx.cells : []).map(([x,y])=>`${x},${y}`));
   cv.width=s.cols*CS; cv.height=s.rows*CS;
   ctx.clearRect(0,0,cv.width,cv.height);
   for(let y=0;y<s.rows;y++) for(let x=0;x<s.cols;x++){
     const c=cell(s,x,y); if(c.wall) continue;
     drawFloor(x,y);
-    if(c.exit) drawExit(x,y, bagsLeft(s)===0);   // under the occupants — trash visibly buries it
+    if(c.exit) drawExit(x,y, bagsLeft(s)===0);
     if(c.o===TRASH) drawTrash(x,y);
-    if(c.o===BAG) drawBag(x,y);
+    if(c.o===BAG) drawBag(x,y, ph && fx.bx===x && fx.by===y ? 1-ph.burst : 1);
     if(c.o===CANF) drawCan(x,y,true);
     if(c.o===CANE) drawCan(x,y,false);
   }
-  drawRaccoon(s.rac.x,s.rac.y);
+  // the debris of a burst that is being refused: it flies out, reaches the cell that
+  // won't take it, and retracts. None of it is board state.
+  if(ph) for(const [fxx,fxy] of (fx.showBurst ? fx.cells : []))
+    if(inGrid(s,fxx,fxy) && !cell(s,fxx,fxy).wall) drawTrash(fxx,fxy, ph.burst);
+
+  if(ph){
+    const k = ph.lunge*0.42;
+    drawRaccoon(s.rac.x+fx.dx*k, s.rac.y+fx.dy*k);
+  } else drawRaccoon(s.rac.x,s.rac.y);
 
   // Fan preview, over everything including the exit sign. Law 1.7 says a dead-end must be
   // foreseeable, and the exit traps only are if you can SEE the trash land on your way out.
@@ -210,7 +270,7 @@ function render(){
   // which never stops being true. Aiming only FOCUSES it: while armed, just the aimed
   // direction draws, so a room with two adjacent bags isn't ten yellow cells at once.
   const red = new Set((blocked?.cells ?? []).map(([x,y])=>`${x},${y}`));
-  for(const dir of (armed ? [armed] : ['u','d','l','r'])){
+  for(const dir of (ph ? [] : armed ? [armed] : ['u','d','l','r'])){
     const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
     const bx=s.rac.x+dx, by=s.rac.y+dy;
     if(!inGrid(s,bx,by) || cell(s,bx,by).o!==BAG) continue;   // fan preview: bags only
@@ -239,7 +299,7 @@ function render(){
 
   // Blocked: you TRIED it and the rules said no. Mark the exact cells to blame, in red,
   // and say why. A refused input that looks identical to no input is a bug, not a puzzle.
-  if(blocked){
+  if(blocked && (!ph || ph.flash)){
     for(const [bx,by] of blocked.cells) drawBlocked(bx,by);
     if(!blocked.cells.length) drawEdgeBar(s.rac.x, s.rac.y, blocked.dir);
   }
@@ -347,7 +407,8 @@ function drawExit(x,y,lit){
   ctx.restore();
 }
 function hash(x,y){ return ((x*73856093)^(y*19349663))>>>0; }
-function drawTrash(x,y){
+function drawTrash(x,y,k=1){
+  if(k<=0) return;
   const cols=[C.red,C.yel,C.blu,C.tea,C.pnk]; let h=hash(x,y);
   const x0=px(x), y0=px(y), M=16, R=CS-2*M;   // M = margin from cell edge; dot centers stay inside [M, CS-M]
   ctx.save();
@@ -355,11 +416,21 @@ function drawTrash(x,y){
   for(let i=0;i<6;i++){ h=(h*1103515245+12345)>>>0;
     const ox=M+(h%R), oy=M+((h>>8)%R), r=3+((h>>16)%3);          // center in [16,59], radius 3–5 -> span [11,64] of 76
     ctx.fillStyle=cols[(h>>4)%5];
-    ctx.beginPath(); ctx.arc(x0+ox, y0+oy, r, 0, 7); ctx.fill();
+    // k<1: the debris is still flying out from the bag, so pull it toward the cell centre
+    const cx0=x0+CS/2, cy0=y0+CS/2;
+    const ax=cx0+(x0+ox-cx0)*k, ay=cy0+(y0+oy-cy0)*k;
+    ctx.beginPath(); ctx.arc(ax, ay, r*Math.max(.25,k), 0, 7); ctx.fill();
   }
   ctx.restore();
 }
-function drawBag(x,y){
+function drawBag(x,y,k=1){
+  if(k<=0) return;
+  const cx0=px(x)+CS/2, cy0=px(y)+CS/2;
+  ctx.save(); ctx.translate(cx0,cy0); ctx.scale(k,k); ctx.translate(-cx0,-cy0);
+  drawBagBody(x,y);
+  ctx.restore();
+}
+function drawBagBody(x,y){
   const cx=px(x)+CS/2, top=px(y)+PAD+8, w=CS-2*PAD-6, h=CS-2*PAD-8;
   ctx.fillStyle="#161616";
   ctx.beginPath();
@@ -393,7 +464,7 @@ function drawCan(x,y,full){
   }
 }
 function drawRaccoon(x,y){
-  const cx=px(x)+CS/2, cy=px(y)+CS/2, r=CS/2-PAD-4;
+  const cx=x*CS+CS/2, cy=y*CS+CS/2, r=CS/2-PAD-4;   // x,y may be fractional mid-lunge
   // tail hint
   ctx.fillStyle="#8b8f95"; ctx.beginPath(); ctx.arc(cx+r*0.7, cy+r*0.6, r*0.5, 0,7); ctx.fill();
   ctx.fillStyle="#4a4e54"; ctx.beginPath(); ctx.arc(cx+r*0.95, cy+r*0.75, r*0.28, 0,7); ctx.fill();
