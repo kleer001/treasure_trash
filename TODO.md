@@ -92,8 +92,6 @@ Copy `../template/` into place and implement for real:
 - **Playtest the exit.** It's mechanically verified but not *felt* — the open question
   is whether the walk to `E` reads as tension or as filler. Cheapest test: play L1–L3
   in the spike and see if the last move is ever a decision.
-- The linked spike Artifact below predates the exit — republish it before showing it
-  to anyone.
 - New objects toward the ~8 budget: **cans as bridges** (non-dump use), **water/gap**.
 - Audio (procedural WebAudio), art pass, more rooms → Act 1.
 
@@ -107,6 +105,8 @@ cd trash_treasure/spike && node verify.mjs
 ```
 
 ## Handy links
-- Playable spike (Artifact): https://claude.ai/code/artifact/3fc191a1-4c78-4b55-b112-416f3770bac6
+- Playable spike (Artifact): https://claude.ai/code/artifact/10ed938d-a736-4251-a501-cafa78653bda
+  Rebuild + republish after any spike change: `cd trash_treasure/spike && node build-artifact.mjs`,
+  then publish the output to that same URL (a new URL means the old link goes stale).
 - Block-Pusher Laws (Artifact): https://claude.ai/code/artifact/438adc6f-d6f1-470e-b273-97b084ba2a71
 - Branch: `claude/crows-raccoons-game-5b2yjy`

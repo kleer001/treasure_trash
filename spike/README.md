@@ -28,6 +28,7 @@ to protect. If it still reads as a tax in play, that's the finding.
 | `levels/act1.sol` | the par solutions, as **data** |
 | `index.html` | presentation + input only. Owns no rules |
 | `FORMATS.md` | the spec for all of the above |
+| `build-artifact.mjs` | bundles the whole spike into one self-contained HTML for publishing |
 
 ## Run
 ```
@@ -71,6 +72,16 @@ and in any room with a bag, **the exit must refuse at least one action** (or it'
 walk-back tax). Plus: both formats round-trip, LURD round-trips and rejects
 malformed input, and every `:solve` appears verbatim in `../levels.md` so the prose
 can't drift from the data.
+
+## Publish
+```
+node build-artifact.mjs [out.html]      # default: ./artifact.html (gitignored)
+```
+Inlines the modules and the level pack into a single file, because an Artifact is one
+file behind a CSP that blocks every external request. It is a **publishing** step, not a
+build step — `spike/` stays the source of truth and still runs unbundled via `./run.sh`,
+and the script only concatenates. It throws if a `fetch` or any module syntax survives,
+since the CSP would kill either one silently.
 
 ## Scope / omissions (deliberate)
 - Raccoon only (crow pinned). No cans-as-bridges, no multi-fan interference yet.
