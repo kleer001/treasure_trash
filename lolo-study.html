@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Treasure Trash — What to take from Adventures of Lolo</title>
+<style>
+  :root{
+    --bg:#ffffff; --ink:#1a1a1a; --muted:#5a5a5a; --line:#dcdcdc; --panel:#f5f5f2;
+    --link:#1a3fd0; --visited:#6b2fb3;
+    --red:#ff4b3e; --yel:#ffcf00; --blu:#2d7dd2; --tea:#17c3b2; --pnk:#ff5da2;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,Helvetica,sans-serif;
+    padding:0 0 4rem;
+  }
+  body::before{
+    content:""; display:block; height:8px;
+    background:repeating-linear-gradient(90deg,
+      var(--red) 0 28px, var(--yel) 28px 56px, var(--blu) 56px 84px,
+      var(--tea) 84px 112px, var(--pnk) 112px 140px);
+  }
+  .wrap{max-width:1080px; margin:0 auto; padding:0 1.1rem}
+  header{position:relative; padding:1.6rem 0 1rem; margin-bottom:1.2rem; border-bottom:2px solid var(--ink)}
+  header::after{
+    content:""; position:absolute; top:1rem; right:0; width:150px; height:44px; opacity:.95;
+    background:
+      radial-gradient(circle 5px at 12px 12px, var(--red) 98%, transparent),
+      radial-gradient(circle 5px at 44px 30px, var(--blu) 98%, transparent),
+      radial-gradient(circle 5px at 74px 10px, var(--tea) 98%, transparent),
+      radial-gradient(circle 5px at 106px 32px, var(--pnk) 98%, transparent),
+      radial-gradient(circle 5px at 136px 14px, var(--yel) 98%, transparent);
+    background-repeat:no-repeat; pointer-events:none;
+  }
+  @media(max-width:620px){header::after{display:none}}
+  h1{
+    font-size:2rem; margin:0 0 .2rem; font-weight:800; letter-spacing:-.5px;
+    display:inline; box-shadow:inset 0 -.45em 0 var(--yel); line-height:1.6;
+  }
+  .sub{color:var(--ink); margin:.7rem 0 0; font-weight:600; max-width:70ch}
+  .status{color:var(--muted); font-size:.82em; margin-top:.5rem; max-width:74ch}
+  h2{
+    font-size:1.3rem; margin:2.4rem 0 .3rem; font-weight:800; letter-spacing:-.3px;
+    padding-bottom:.2rem; border-bottom:2px dashed var(--line);
+  }
+  h2 .num{
+    display:inline-grid; place-items:center; width:1.5em; height:1.5em; margin-right:.5em;
+    background:var(--blu); color:#fff; font-size:.8em; border-radius:3px; transform:rotate(-4deg);
+  }
+  h2#h-terrain .num{background:var(--tea); color:#063}
+  h2#h-objects .num{background:var(--pnk)}
+  h2#h-enemies .num{background:var(--red)}
+  h2#h-picks .num{background:var(--yel); color:#333}
+  h3{font-size:.8rem; color:var(--muted); margin:1.4rem 0 .3rem; text-transform:uppercase; letter-spacing:.8px; font-weight:700}
+  a{color:var(--link); text-decoration:underline}
+  a:visited{color:var(--visited)}
+  a:hover{color:#000}
+  p{max-width:78ch}
+  ol,ul{padding-left:1.4rem; margin:.4rem 0; max-width:78ch}
+  li{margin:.35rem 0}
+  code{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:var(--panel); padding:.08em .35em; border-radius:3px}
+  .lede{background:var(--panel); border:1px solid var(--line); border-left:5px solid var(--yel); padding:.85rem 1rem; margin:1.1rem 0; max-width:none}
+  .callout{background:var(--panel); border:1px solid var(--line); border-left:5px solid var(--blu); padding:.85rem 1rem; margin:1.2rem 0; max-width:none}
+  .callout.warn{border-left-color:var(--red); background:#fff6f5}
+  .callout.good{border-left-color:var(--tea); background:#f2fcfb}
+  .callout p{max-width:78ch}
+  .callout p:first-child{margin-top:0}
+  .callout p:last-child{margin-bottom:0}
+
+  .scroller{overflow-x:auto; margin:1rem 0; border:1px solid var(--line)}
+  table{border-collapse:collapse; width:100%; min-width:940px; font-size:.88em}
+  th,td{text-align:left; vertical-align:top; padding:.6rem .7rem; border-bottom:1px solid var(--line)}
+  thead th{
+    background:var(--ink); color:#fff; font-size:.72rem; text-transform:uppercase;
+    letter-spacing:.7px; position:sticky; top:0; border-bottom:none; white-space:nowrap;
+  }
+  tbody tr:nth-child(even){background:#fafaf8}
+  tbody tr:hover{background:#f2f6ff}
+  td.el{width:15%}
+  td.el strong{display:block; font-size:1.02em}
+  td.el .src{font-size:.8em}
+  td.tr{width:26%}
+  td.meter{width:78px; white-space:nowrap}
+  .sprite{
+    image-rendering:pixelated; width:48px; height:auto; display:block;
+    margin:0 0 .35rem; background:#000; padding:2px; border-radius:2px;
+  }
+
+  .chip{
+    display:inline-block; font-size:.66rem; font-weight:800; letter-spacing:.5px;
+    text-transform:uppercase; padding:.14em .5em; border-radius:3px; white-space:nowrap;
+    color:#fff; background:var(--muted); margin-bottom:.35rem;
+  }
+  .chip.take{background:var(--tea); color:#053}
+  .chip.maybe{background:var(--yel); color:#3a2f00}
+  .chip.no{background:var(--red)}
+  .chip.shipped{background:var(--blu)}
+  .chip.parked{background:#6b6b6b}
+
+  .dots{font-size:0; line-height:0; white-space:nowrap}
+  .dots i{
+    display:inline-block; width:9px; height:9px; border-radius:50%;
+    background:var(--line); margin-right:3px;
+  }
+  .dots i.on{background:var(--blu)}
+  .dots.awe i.on{background:var(--pnk)}
+  .dots b{display:block; font-size:10px; line-height:1.6; color:var(--muted); font-weight:600; letter-spacing:.3px}
+
+  .picks{list-style:none; padding:0; counter-reset:pick; max-width:none}
+  .picks li{
+    counter-increment:pick; position:relative; padding:.85rem 1rem .85rem 3.2rem;
+    border:1px solid var(--line); border-left:5px solid var(--tea);
+    background:var(--panel); margin:.6rem 0; max-width:none;
+  }
+  .picks li::before{
+    content:counter(pick); position:absolute; left:.85rem; top:.8rem;
+    display:grid; place-items:center; width:1.7em; height:1.7em;
+    background:var(--ink); color:#fff; border-radius:3px; font-weight:800; font-size:.85em;
+  }
+  .picks .why{color:var(--muted); font-size:.9em; margin:.3rem 0 0}
+
+  .refs{margin-top:2rem; border-top:2px solid var(--ink); padding-top:1rem}
+  .refs h2{border:none; margin-top:.8rem}
+  .refs li{font-size:.9em}
+  footer{color:var(--muted); font-size:.78em; margin-top:2.4rem; border-top:1px solid var(--line); padding-top:.8rem; max-width:78ch}
+  hr{border:none; height:4px; margin:2.2rem 0; background:repeating-linear-gradient(90deg, var(--ink) 0 10px, transparent 10px 18px)}
+  .toc{columns:2; column-gap:1.5rem; font-size:.9em; margin:.9rem 0; max-width:600px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>What to take from Lolo</h1>
+  <p class="sub">A catalogue of every enemy, tile and object in HAL's <strong>Eggerland / Adventures of Lolo</strong>
+  line, scored against what <strong>Treasure Trash</strong> can actually accept.</p>
+  <p class="status">Research note. Nothing here is decided or implemented — the shipped ruleset is
+  <code>levels.md</code> and <code>spike/rules.mjs</code>. Every Lolo behaviour below is quoted from the
+  sources listed at the foot of the page; every claim about Treasure Trash is from its own code.</p>
+  <nav class="toc">
+    <a href="#verdict">The short version</a><br>
+    <a href="#budget">What a new piece costs</a><br>
+    <a href="#h-terrain">1 · Terrain &amp; tiles</a><br>
+    <a href="#h-objects">2 · Objects &amp; items</a><br>
+    <a href="#h-enemies">3 · Enemies</a><br>
+    <a href="#h-picks">4 · The four to build</a><br>
+    <a href="#refs">Sources</a>
+  </nav>
+</header>
+
+<p class="lede" id="verdict">
+<strong>The short version: take Lolo's floor, leave Lolo's monsters.</strong>
+Everything people remember about Lolo — Medusa, the Skulls, Alma curling into a ball — is
+real&#8209;time and lethal, and Treasure Trash is neither. Everything under their feet is static,
+deterministic and full&#8209;information, which is exactly what this game already is. The split
+isn't a matter of taste, either: it falls out of <code>stateKey</code>. Terrain is free and there is
+room for <em>one</em> more occupant.
+</p>
+
+<p>Lolo's shape and ours already rhyme, which is why the comparison is worth making at all.
+Lolo clears every Heart Framer to open the Jewel Box, then leaves. The raccoon tears every bag,
+then stands on the exit. Same contract — <em>finish the objective, then get out</em> — and the
+README already names Lolo as lineage.</p>
+
+<p>The difference is the sign. <strong>Lolo's objective removes things from the board; ours adds
+them.</strong> A collected Heart Framer is gone and the room gets roomier. A torn bag sprays five
+permanent cells of trash and the room gets tighter. That inversion is the whole reason a Lolo
+element can look like a perfect fit and still be unusable: half of Lolo's catalogue is about
+clearing space, and <code>levels.md</code> states the pillar flatly — <em>only add or relocate, never
+remove</em>, and <em>there is no chute and no disposal object anywhere in the game.</em></p>
+
+<div class="callout" id="budget">
+<p><strong>What a new piece actually costs.</strong> Two lines of the engine decide this, and they
+decide it before any design argument does.</p>
+<p><code>spike/rules.mjs:5</code> — occupant codes are packed <em>one character per cell</em>, so the list
+must stay below ten. Nine are spent: <code>NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK,
+WHEELIE, WHEELIE_EMPTY</code>. <strong>There is exactly one code left</strong> before the state key needs
+reworking.</p>
+<p><code>spike/rules.mjs:179</code> — the key is <code>occupants + raccoon position</code>. Walls and the exit
+flag never appear in it. <strong>Static terrain is free:</strong> it constrains the puzzle without
+growing the state graph the solver has to walk, which matters because that solver is exhaustive
+and every shipped par is provably minimal.</p>
+<p>So a terrain import costs a flag on a cell and a branch in one predicate. An occupant import
+costs the last slot in the game. Price them differently.</p>
+</div>
+
+<h2 id="h-terrain"><span class="num">1</span>Terrain &amp; tiles</h2>
+<p>The richest category, and the cheapest. Lolo's floor is a genuine design language — seven
+distinct tiles, each defined by a small table of <em>who may pass and what may pass through</em>.
+Treasure Trash currently has three: floor, wall, exit.</p>
+
+<div class="scroller">
+<table>
+<thead><tr>
+  <th>Element</th><th>Purpose in Lolo</th><th>Behaviour</th><th>Suggested translation</th>
+  <th>Conf.</th><th>Awesome</th>
+</tr></thead>
+<tbody>
+
+<tr>
+  <td class="el"><span class="chip take">Take</span><strong>Arrow Tile</strong><span class="src">One-Way Pass</span></td>
+  <td>Forces a route to be taken in one order rather than any order.</td>
+  <td>Lolo may enter from any side but <em>&ldquo;cannot pass over the Arrow mark in reverse
+      direction&rdquo;</em>. Monsters ignore it entirely; Emerald Framers and eggs obey it. Its
+      direction can be rotated with a Power item.</td>
+  <td class="tr"><strong>The curb.</strong> A cell you can drop off but not climb back onto — cans
+      included. In a game with no pull, a one-way tile is the cleanest instrument there is for
+      forcing order, and it answers an open sketch in <code>levels.md</code> by name:
+      <em>&ldquo;a bag that must be opened last.&rdquo;</em> Today nothing can force that outright.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><b>High</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Very</b></span></td>
+</tr>
+
+<tr>
+  <td class="el"><span class="chip take">Take</span><strong>Tree vs. Rock</strong><span class="src">two walls, one permeable</span></td>
+  <td>Two blockers that look different and <em>are</em> different — the distinction is what
+      passes <em>through</em>, not who walks on.</td>
+  <td>Both stop Lolo and every monster. Medusa's gaze <em>&ldquo;can pass through trees&rdquo;</em> but not
+      rocks; Magic Shots pass through neither. Rocks can be destroyed with the Hammer.</td>
+  <td class="tr"><strong>Chain-link fence vs. brick.</strong> The fence stops the raccoon but
+      <em>accepts</em> fan trash — debris hits it and sticks. Brick refuses it, as walls do now.
+      This is the highest-leverage item on the page: <code>levels.md</code> records that a fencing
+      room on a wide board <em>&ldquo;has to be built out of trash the player has already laid
+      down, not out of level geometry&rdquo;</em>, because a fan cell landing on a wall refuses the
+      whole strike. A trash-permeable wall gives that room type back.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Very high</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Very</b></span></td>
+</tr>
+
+<tr>
+  <td class="el"><span class="chip take">Take</span><strong>Egg as raft</strong><span class="src">the additive half of water</span></td>
+  <td>Turns an obstacle into a crossing — the one place in Lolo where a push <em>opens</em> the
+      board instead of closing it.</td>
+  <td>Push an egg into water and it floats; Lolo rides it across and steps off where he needs
+      to. <em>&ldquo;Sometimes the egg will just sink,&rdquo;</em> so placement is the puzzle. Emerald
+      Framers can never be pushed onto water.</td>
+  <td class="tr"><strong>The puddle you fill.</strong> A cell nothing may cross until you shove a
+      can into it; the can jams there for good and becomes walkable floor. Purely additive,
+      never removes, fully deterministic — and it would be the <em>only</em> push in the game
+      that widens the board. Everything else the raccoon does narrows it, and a counterweight
+      is worth having.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><b>High</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Very</b></span></td>
+</tr>
+
+<tr>
+  <td class="el"><span class="chip maybe">Maybe</span><strong>Break Tile</strong><span class="src">Lolo 3</span></td>
+  <td>Makes <em>walking</em> a limited resource — the only tile that does.</td>
+  <td>A bridge tile that <em>&ldquo;can only be used twice&rdquo;</em>: it cracks after the first two
+      crossings, then shatters and is gone. Introduced in Lolo 3 (earlier in the Japanese
+      release).</td>
+  <td class="tr"><strong>The rotten pallet.</strong> Same rule, visible crack count. Strongly
+      on-pillar — the board only ever gets worse. The one rule it negotiates with:
+      <code>verify.mjs</code> enforces that <em>a plain move must never take a winnable board to a dead
+      one</em>. A break tile makes walking spend something. Lolo's own answer is that the tile
+      visibly cracks, so take that version and relax the assertion to <em>no <u>unsignposted</u>
+      traps</em>.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><b>Medium</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><b>High</b></span></td>
+</tr>
+
+<tr>
+  <td class="el"><span class="chip maybe">Maybe</span><strong>Flower Bed</strong></td>
+  <td>A cell only the player may enter — a safe island inside a hostile room.</td>
+  <td><em>&ldquo;Lolo can move through this tile but no monster can.&rdquo;</em> Gazes and shots pass over
+      it; Framers and eggs can be pushed onto it.</td>
+  <td class="tr">As written it's dead on arrival — it filters monsters, and the crow is pinned.
+      <strong>Its inversion is the useful one:</strong> a grating the raccoon walks over but no
+      <em>object</em> can be pushed across. A soft wall that constrains pushes only, at zero
+      state cost. Park the original with the crow.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><b>High</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><b>Medium</b></span></td>
+</tr>
+
+<tr>
+  <td class="el"><span class="chip maybe">Maybe</span><strong>Desert</strong></td>
+  <td>Makes distance cost something, so the short route and the cheap route can differ.</td>
+  <td><em>&ldquo;Lolo will move at half-speed through these tiles while monsters will move
+      normally.&rdquo;</em> Everything else passes normally.</td>
+  <td class="tr"><strong>Gravel or soaked cardboard: a cell that costs two moves.</strong> It's a
+      real dial — it would make par a <em>cost</em> rather than a step count. But it breaks two
+      things at once: par is currently the LURD token count (<code>FORMATS.md</code>), and the
+      solver is a uniform-cost BFS that would have to become Dijkstra. Buys a difficulty knob
+      the ladder already has by other means.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><b>Low-med</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><b>Medium</b></span></td>
+</tr>
+
+<tr>
+  <td class="el"><span class="chip no">No</span><strong>Water &amp; Lava</strong></td>
+  <td>Hard negative space, and a way to make objects disappear.</td>
+  <td>Neither Lolo nor any monster may enter. Gazes and shots pass over both. Framers can't be
+      pushed onto either; eggs float on water only. Bridges span both, but a bridge over lava
+      <em>&ldquo;will last for approximately 5 seconds before they burn up.&rdquo;</em></td>
+  <td class="tr"><strong>Ruled out by the pillar, not by the engineering.</strong> A tile that
+      swallows a can is a disposal object, and <code>levels.md</code> is explicit that nothing on
+      the board ever removes anything. The burning bridge additionally needs a clock, and this
+      game is untimed. The salvageable half is the raft, one row up.</td>
+  <td class="meter"><span class="dots"><i></i><i></i><i></i><i></i><i></i><b>—</b></span></td>
+  <td class="meter"><span class="dots awe"><i></i><i></i><i></i><i></i><i></i><b>—</b></span></td>
+</tr>
+
+</tbody>
+</table>
+</div>
+
+<h2 id="h-objects"><span class="num">2</span>Objects &amp; items</h2>
+<p>Mostly a scorecard rather than a shopping list: Lolo's object set and ours already converged,
+independently. The items that <em>haven't</em> been imported turn out to be blocked by one decision
+each — and it's the same decision three times, that collecting was cut.</p>
+
+<div class="scroller">
+<table>
+<thead><tr>
+  <th>Element</th><th>Purpose in Lolo</th><th>Behaviour</th><th>Suggested translation</th>
+  <th>Conf.</th><th>Awesome</th>
+</tr></thead>
+<tbody>
+
+<tr>
+  <td class="el"><span class="chip shipped">Shipped</span><strong>Heart Framer</strong></td>
+  <td>The objective. Collect every one to finish the room.</td>
+  <td>Static, unpushable, and a shield: <em>&ldquo;Heart Framers will protect Lolo from all attacks,
+      but if he steps on it he no longer has that protection.&rdquo;</em> They also power the Magic
+      Shots.</td>
+  <td class="tr"><strong>Already the garbage bag</strong> — with the sign flipped. Lolo's hearts
+      leave the board; the raccoon's bags become five more obstacles. Same objective shape,
+      opposite effect on space, and that inversion is the game.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Done</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Core</b></span></td>
+</tr>
+
+<tr>
+  <td class="el"><span class="chip shipped">Shipped</span><strong>Emerald Framer</strong></td>
+  <td>The pushable block — the Sokoban primitive.</td>
+  <td><em>&ldquo;A movable shield&hellip; indestructible, and only one can be pushed at a time. If two
+      blocks are touching, they cannot be moved together in the same direction.&rdquo;</em></td>
+  <td class="tr"><strong>Already <code>CAN_EMPTY</code></strong>, under the same law. Worth noting that
+      Lolo arrived at the identical rule — one block, never two — which is quiet evidence the
+      empty can is shaped right.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Done</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Core</b></span></td>
+</tr>
+
+<tr>
+  <td class="el"><span class="chip shipped">Shipped</span><strong>Jewel Box</strong></td>
+  <td>The way out, and the reason to finish the objective before leaving.</td>
+  <td>Sealed until the last Heart Framer is taken. <em>&ldquo;Lolo can walk through it, while other
+      enemies cannot&rdquo;</em> — but it is no protection from Medusa, Don Medusa or Gol.</td>
+  <td class="tr"><strong>Already the exit</strong>, and ours is the stricter version: the engine
+      refuses any strike or push that would land trash, a can or a bag on it, so it can never
+      be sealed. Lolo's box can't be buried either — same instinct, enforced differently.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Done</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Core</b></span></td>
+</tr>
+
+<tr>
+  <td class="el"><span class="chip no">No</span><strong>Egg</strong></td>
+  <td>Converts a threat into a tool — the series' signature verb.</td>
+  <td>A Magic Shot turns a monster into a pushable egg that <em>&ldquo;will revert back to a Monster
+      after some time.&rdquo;</em> A second shot sends it off-screen to reappear later at its original
+      position. Eggs block gazes, trap monsters and float.</td>
+  <td class="tr">The conversion half is already the core loop, pointed the other way: bag becomes
+      trash. The reversion half is a timer, and the game is untimed by policy. Nothing left to
+      import except the raft, which is listed under terrain.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i></i><i></i><i></i><i></i><b>Low</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i></i><i></i><i></i><i></i><b>Low</b></span></td>
+</tr>
+
+<tr>
+  <td class="el"><span class="chip no">No</span><strong>Power Items</strong><span class="src">Bridge · Hammer · Arrow Changer</span></td>
+  <td>Consumable verbs, bought with the objective you were collecting anyway.</td>
+  <td>Bridge spans one tile of water or lava. Hammer destroys an adjacent rock. Arrow Changer
+      rotates an adjacent arrow tile 90&deg; clockwise. All are powered by Heart Framers.</td>
+  <td class="tr">All three need a charge economy, which needs collecting, which
+      <code>levels.md</code> lists under <em>Cut</em>. The Hammer <em>removes a rock</em> and fails the
+      pillar twice over. The Arrow Changer is the only one worth revisiting, and only as a
+      terrain rule rather than ammunition, and only if the curb lands first.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i></i><i></i><i></i><i></i><b>Low</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><b>Low-med</b></span></td>
+</tr>
+
+<tr>
+  <td class="el"><span class="chip no">No</span><strong>Special Heart Framer</strong></td>
+  <td>A hidden reward — indistinguishable from the ordinary kind until claimed.</td>
+  <td>Looks exactly like a normal Heart Framer; grants <em>&ldquo;two Magic Shots&rdquo;</em> when taken.</td>
+  <td class="tr"><strong>Rejected on policy, not on cost.</strong> This is hidden information, and
+      the fan preview is on in every room because <em>&ldquo;a full-information puzzle owes the
+      player that answer forever.&rdquo;</em> A tile that lies about what it is contradicts the
+      contract the whole game is built on.</td>
+  <td class="meter"><span class="dots"><i></i><i></i><i></i><i></i><i></i><b>—</b></span></td>
+  <td class="meter"><span class="dots awe"><i></i><i></i><i></i><i></i><i></i><b>—</b></span></td>
+</tr>
+
+</tbody>
+</table>
+</div>
+
+<h2 id="h-enemies"><span class="num">3</span>Enemies</h2>
+<p>Eight monsters, and on the face of it none of them fit: they move in real time, they kill on
+contact, and this game has one animal in it. But two are worth taking anyway, because their
+<em>rule</em> survives when the creature is thrown away — and a third turns out to describe a piece
+that already shipped.</p>
+
+<div class="scroller">
+<table>
+<thead><tr>
+  <th>Element</th><th>Purpose in Lolo</th><th>Behaviour</th><th>Suggested translation</th>
+  <th>Conf.</th><th>Awesome</th>
+</tr></thead>
+<tbody>
+
+<tr>
+  <td class="el">
+    <img class="sprite" src="https://cdn.wikimg.net/en/strategywiki/images/6/61/Eggerland_Gol.png" alt="Gol sprite">
+    <span class="chip take">Take</span><strong>Gol</strong>
+    <span class="src"><a href="https://strategywiki.org/wiki/Adventures_of_Lolo/Enemies">sprite</a></span>
+  </td>
+  <td>Puts a sting in the walk home — the room changes character the moment you finish it.</td>
+  <td><em>&ldquo;Gols&hellip; remain stationary facing one direction. When Lolo collects all of the Heart
+      Framers in a room, they wake up and shoot a fireball if he walks into their line of
+      sight.&rdquo;</em> One shot at a time; it can't fire again until the first is gone.</td>
+  <td class="tr"><strong>The gate that shuts when the alley is wrecked.</strong> Drop the fireball,
+      keep the trigger: terrain that changes state the instant the last bag is torn. This
+      attacks a real weakness — the authoring checklist demands the exit forbid at least one
+      action precisely because the walk to it otherwise degenerates into <em>&ldquo;a walk-back
+      tax&rdquo;</em>. And it is <strong>free</strong>: <em>every bag torn</em> is already
+      <code>bagsLeft(s) === 0</code>, derived from occupants, so it adds nothing to the state key.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><b>High</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Very</b></span></td>
+</tr>
+
+<tr>
+  <td class="el">
+    <img class="sprite" src="https://cdn.wikimg.net/en/strategywiki/images/3/3a/Eggerland_Medusa.png" alt="Medusa sprite">
+    <span class="chip maybe">Maybe</span><strong>Medusa</strong>
+    <span class="src"><a href="https://strategywiki.org/wiki/Adventures_of_Lolo/Enemies">sprite</a></span>
+  </td>
+  <td>Denies territory from a distance, and lets the player <em>rebuild</em> what's denied by
+      moving blocks into the line.</td>
+  <td>Stationary. <em>&ldquo;It can shoot Lolo with its petrifying stare in all four directions (even
+      through trees!), but is incapable of doing so through rocks, Heart Framers, Emerald
+      Framers, eggs, stationary monsters, and even mobile monsters.&rdquo;</em> Only the cell directly
+      in front is fatal; it cannot be egged or shot away.</td>
+  <td class="tr"><strong>The motion light, or a dog on a chain.</strong> Strip the death and the
+      clock and what's left is static and deterministic: a cell that projects four lines of
+      denial until something blocks them, recomputed after every push. The player reshapes the
+      lit region by shoving cans into it. Costs the last occupant code, and the trap analysis
+      has to learn about cells that are only sometimes standable.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><b>Medium</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Very</b></span></td>
+</tr>
+
+<tr>
+  <td class="el">
+    <span class="chip maybe">Maybe</span><strong>Moby</strong><span class="src">Lolo 3, underwater</span>
+  </td>
+  <td>The only monster that moves <em>you</em> rather than blocking you.</td>
+  <td>A whale in the underwater rooms; cross its line of sight and it sucks Lolo in towards it.
+      Not directly fatal, but it can strand him and force a restart. The manual calls it
+      <em>&ldquo;an underwater Snakey, with one major difference.&rdquo;</em></td>
+  <td class="tr"><strong>The storm drain.</strong> A cell that drags the raccoon along its line
+      until he fetches up against something — the wheelie bin's rule, turned on the player.
+      It's the one Lolo idea that adds a <em>movement</em> verb instead of another blocker. Note
+      that <em>no pull</em> governs the raccoon pulling objects; terrain moving the raccoon is a
+      different rule. Needs the same signposting the break tile does, for the same reason.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><b>Medium</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><b>High</b></span></td>
+</tr>
+
+<tr>
+  <td class="el">
+    <img class="sprite" src="https://cdn.wikimg.net/en/strategywiki/images/0/02/Eggerland_Alma.png" alt="Alma sprite">
+    <span class="chip shipped">Shipped</span><strong>Alma</strong>
+    <span class="src"><a href="https://strategywiki.org/wiki/Adventures_of_Lolo/Enemies">sprite</a></span>
+  </td>
+  <td>A chaser with a commitment problem you can exploit.</td>
+  <td>Chases Lolo, fatal on contact — but <em>&ldquo;if an Alma is aligned with Lolo horizontally, it
+      will roll into a ball and keep moving in that direction&hellip; the ball will keep rolling until
+      it hits something.&rdquo;</em></td>
+  <td class="tr"><strong>The wheelie bin already is this.</strong> Roll-until-you-hit-something
+      shipped in L6 at par 11. No work to do here — but it's worth knowing that the same rule
+      carried a marquee enemy in 1989, and that the reason it's expensive for us (the bin dumps
+      its bag adjacent to itself, so every container costs two relocations) is our own
+      adjacency tax, not the rule's fault.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Done</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><b>High</b></span></td>
+</tr>
+
+<tr>
+  <td class="el">
+    <img class="sprite" src="https://cdn.wikimg.net/en/strategywiki/images/6/6d/Eggerland_Leeper.png" alt="Leeper sprite">
+    <span class="chip parked">Parked</span><strong>Leeper</strong>
+    <span class="src"><a href="https://strategywiki.org/wiki/Adventures_of_Lolo/Enemies">sprite</a></span>
+  </td>
+  <td>Lets the player convert a moving nuisance into permanent furniture, for better or worse.</td>
+  <td>Roams freely. <em>&ldquo;Once Lolo touches one, it will fall asleep and remain in that position
+      permanently (which is possibly good or bad, either blocking another enemy or perhaps
+      trapping Lolo). Once a Leeper is asleep, it can no longer be put into an egg.&rdquo;</em></td>
+  <td class="tr">Touch-to-freeze is <em>exactly</em> this game's pillar — maximum mess, nothing gets
+      cleaned up, and the choice of where to freeze it is the puzzle. There is simply nothing
+      mobile on the board to freeze. <strong>Parked with the crow:</strong> if the crow ever
+      unpins, this is the rule that makes its leavings permanent.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><b>Blocked</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><b>High later</b></span></td>
+</tr>
+
+<tr>
+  <td class="el">
+    <img class="sprite" src="https://cdn.wikimg.net/en/strategywiki/images/6/6e/Eggerland_Snakey.png" alt="Snakey sprite">
+    <span class="chip no">No</span><strong>Snakey</strong>
+    <span class="src"><a href="https://strategywiki.org/wiki/Adventures_of_Lolo/Enemies">sprite</a></span>
+  </td>
+  <td>Scenery that's in the way, and raw material for an egg.</td>
+  <td><em>&ldquo;Completely stationary and pose no real threat to Lolo except that they may get in his
+      way from time to time.&rdquo;</em> Can be egged and then pushed, or floated as a raft.</td>
+  <td class="tr">A stationary obstacle that becomes pushable is the empty can with an extra step
+      in front of it. Nothing here that <code>CAN_EMPTY</code> doesn't already do.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><b>High</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i></i><i></i><i></i><i></i><b>Low</b></span></td>
+</tr>
+
+<tr>
+  <td class="el">
+    <img class="sprite" src="https://cdn.wikimg.net/en/strategywiki/images/2/21/Eggerland_Skull.png" alt="Skull sprite">
+    <span class="chip no">No</span><strong>Skull</strong>
+    <span class="src"><a href="https://strategywiki.org/wiki/Adventures_of_Lolo/Enemies">sprite</a></span>
+  </td>
+  <td>Turns the last stretch into a chase — the endgame pressure valve.</td>
+  <td><em>&ldquo;Remain dormant until all of the Heart Framers within a room are collected, at which
+      time they become active and prowl throughout the area&hellip; it is necessary to find a way to
+      confine the Skulls before all of the heart frames are collected.&rdquo;</em></td>
+  <td class="tr">Needs a real-time actor and makes plain moves lethal — two direct violations.
+      The <em>trigger</em> is the good part, and it's the same trigger as Gol; take it there,
+      without the chase.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i></i><i></i><i></i><i></i><b>Low</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><b>Low-med</b></span></td>
+</tr>
+
+<tr>
+  <td class="el">
+    <img class="sprite" src="https://cdn.wikimg.net/en/strategywiki/images/e/e9/Eggerland_Don_Medusa.png" alt="Don Medusa sprite">
+    <span class="chip no">No</span><strong>Don Medusa</strong>
+    <span class="src"><a href="https://strategywiki.org/wiki/Adventures_of_Lolo/Enemies">sprite</a></span>
+  </td>
+  <td>A moving denial line — timing and position at once.</td>
+  <td><em>&ldquo;Don Medusas only move back and forth either vertically or horizontally&hellip; once Lolo is
+      within their line of sight, they will throw a sword which is instantly fatal.&rdquo;</em> Cannot
+      be egged; lethal to touch.</td>
+  <td class="tr">A fixed patrol <em>is</em> deterministic — one step per player move would work.
+      But it multiplies the state graph by its period, and the solver is exhaustive. It also
+      makes plain moves lethal. Expensive and off-pillar in the same breath.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><b>Low</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><b>Medium</b></span></td>
+</tr>
+
+<tr>
+  <td class="el">
+    <img class="sprite" src="https://cdn.wikimg.net/en/strategywiki/images/5/53/Eggerland_Rocky.png" alt="Rocky sprite">
+    <span class="chip no">No</span><strong>Rocky</strong>
+    <span class="src"><a href="https://strategywiki.org/wiki/Adventures_of_Lolo/Enemies">sprite</a></span>
+  </td>
+  <td>A slow blocker that suddenly isn't slow.</td>
+  <td><em>&ldquo;Walks at half of Lolo's speed&hellip; if they are aligned with Lolo vertically they will
+      charge him at full speed&hellip; When a Rocky is in close proximity to Lolo it will stop moving
+      in an attempt to block his path.&rdquo;</em></td>
+  <td class="tr">Every interesting thing about Rocky is a speed differential, and there is no
+      clock to differentiate against. The align-and-charge rule is Alma's, already shipped as
+      the wheelie bin.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i></i><i></i><i></i><i></i><b>Low</b></span></td>
+  <td class="meter"><span class="dots awe"><i class="on"></i><i></i><i></i><i></i><i></i><b>Low</b></span></td>
+</tr>
+
+</tbody>
+</table>
+</div>
+
+<hr>
+
+<h2 id="h-picks"><span class="num">4</span>The four to build</h2>
+<p>Ranked by what they unblock, not by how good they sound. All four are terrain, all four are
+deterministic, and none of them spends the last occupant code.</p>
+
+<ol class="picks">
+<li>
+  <strong>The chain-link fence</strong> — a wall that stops the raccoon but accepts fan trash.
+  <p class="why">Picked first because it's the only one that unblocks a room type the design doc
+  says can't currently be built: a wide board can't fence you in with level geometry today,
+  because a fan cell landing on a wall refuses the strike outright. One terrain flag, one branch
+  in the fan-blocker check.</p>
+</li>
+<li>
+  <strong>The gate that shuts when the last bag tears</strong> — Gol's trigger, no fireball.
+  <p class="why">Free. <code>bagsLeft(s) === 0</code> is already derived from the occupant grid, so
+  nothing joins the state key and the solver doesn't grow. Makes the walk to the exit a puzzle
+  instead of a victory lap — which the authoring checklist already had to legislate around.</p>
+</li>
+<li>
+  <strong>The curb</strong> — a one-way cell, for the raccoon and for anything pushed.
+  <p class="why">The cleanest way to force order in a game with no pull, and the direct answer to
+  the open sketch <em>&ldquo;a bag that must be opened last.&rdquo;</em> Wants one real refactor:
+  <code>isOccupiable()</code> takes only <code>(x, y)</code> today and would need to know which way
+  something is entering from.</p>
+</li>
+<li>
+  <strong>The puddle you fill</strong> — Lolo's egg-raft, made permanent.
+  <p class="why">The only push in the game that would <em>open</em> space rather than close it.
+  Worth building last of the four and worth building anyway: a game where every action narrows
+  the board benefits from one action that doesn't. Costs a bit per puddle cell in the state key.</p>
+</li>
+</ol>
+
+<div class="callout warn">
+<p><strong>One thing to decide before any of this.</strong> The occupant list is nine of a maximum
+nine — <code>stateKey</code> packs one character per cell, so a tenth code would make two different
+boards collide on the same key. Every recommendation above routes around that ceiling by living
+in terrain instead. The Medusa-style light is the one genuinely exciting idea that <em>can't</em>,
+and it would spend the last slot. If that piece is ever wanted, widen the key first and decide it
+on its merits — not by accident, because it happened to be the next thing built.</p>
+</div>
+
+<div class="callout good">
+<p><strong>And one flattering thing the research turned up.</strong> Alma's roll-until-you-hit-something
+carried a marquee enemy in 1989, and it's the wheelie bin, shipped in L6. Lolo's Emerald Framer
+rule — one block at a time, never two touching — is the empty can's rule, arrived at
+independently. The convergence isn't a coincidence so much as a sign the grammar was already
+right; what Lolo has that this game doesn't is a <em>floor</em> that participates.</p>
+</div>
+
+<div class="refs" id="refs">
+<h2>Sources</h2>
+<p>Every Lolo behaviour quoted above comes from one of these. Sprite images are hotlinked from
+StrategyWiki; the tile and object art is in the sprite sheets.</p>
+<ul>
+  <li><a href="https://strategywiki.org/wiki/Adventures_of_Lolo/Enemies">Adventures of Lolo / Enemies</a> — StrategyWiki. All eight monster descriptions and sprites.</li>
+  <li><a href="https://strategywiki.org/wiki/Adventures_of_Lolo_2/Gameplay">Adventures of Lolo 2 / Gameplay</a> — StrategyWiki. The full Objects, Power Items and Tiles tables; the per-tile pass-through rules.</li>
+  <li><a href="https://strategywiki.org/wiki/Adventures_of_Lolo_2/Enemies">Adventures of Lolo 2 / Enemies</a> — StrategyWiki.</li>
+  <li><a href="http://www.world-of-nintendo.com/manuals/nes/adventures_of_lolo.shtml">Adventures of Lolo</a> and <a href="http://www.world-of-nintendo.com/manuals/nes/adventures_of_lolo_3.shtml">Adventures of Lolo 3</a> NES instruction manuals — primary source for the one-way pass, the egg and Magic Shot rules, and the Break Tile.</li>
+  <li><a href="https://gamefaqs.gamespot.com/nes/587075-adventures-of-lolo-3/faqs/9731">Adventures of Lolo 3 guide, by Dalez</a> — GameFAQs. Moby's pull, and the crumbling bridge.</li>
+  <li><a href="https://strategywiki.org/wiki/Adventures_of_Lolo_3">Adventures of Lolo 3</a> — StrategyWiki. Series lineage; Moby's debut; breakable bridges.</li>
+  <li>Sprite sheets — The Spriters Resource:
+    <a href="https://www.spriters-resource.com/nes/adventuresoflolo3/asset/70210/">Lolo 3 tileset</a> ·
+    <a href="https://www.spriters-resource.com/nes/adventuresoflolo3/asset/70208/">Lolo 3 enemies &amp; objects</a> ·
+    <a href="https://www.spriters-resource.com/nes/adventuresoflolo/asset/12443/">Lolo 1 enemies</a> ·
+    <a href="https://www.spriters-resource.com/nes/adventuresoflolo/">Lolo 1</a> ·
+    <a href="https://www.spriters-resource.com/nes/adventuresoflolo2/">Lolo 2</a>
+  </li>
+</ul>
+</div>
+
+<footer>
+Research note for <strong>Treasure Trash</strong>, a Trace ROM Studio game. Claims about Lolo are
+sourced above; claims about this game are from <code>levels.md</code>, <code>spike/rules.mjs</code> and
+<code>spike/verify.mjs</code>. Adventures of Lolo and Eggerland are HAL Laboratory properties; sprites
+are reproduced here for design reference.
+</footer>
+
+</div>
+</body>
+</html>
