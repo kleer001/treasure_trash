@@ -549,6 +549,45 @@ can be lost, only lengthened.
 
 ---
 
+## L15 — "Two Crossings" **[verified — found by a targeted search]**
+*New question:* **order.** Every room before this one asks *which way*; this one asks
+*which bag*. Three bags, and two of them get spent on the canal.
+```
+   x=1 2 3 4 5
+y1  .  .  .  .  .
+y2  .  B  E  .  .    bag A, beside the exit on the far bank
+y3  ~  ~  ~  ~  ~    the canal
+y4  .  B  R  B  .    bags B (left) and C (right)
+y5  .  .  .  .  .
+```
+**Solve — `R!uulL!dD!uur`** (par 10): Right → strike **C**(4,4) rightward; two of its five fan
+cells land in the canal at (4,3)/(5,3), and the east crossing exists. Up, Up over it to (4,2).
+Left → (3,2), the exit, with three bags still out. Left → strike **A**(2,2) *leftward*, away
+from the door as L4 taught — and its fan drops two more cells into the canal at (2,3)/(1,3),
+which is the west crossing. Down onto it, Down → strike **B**(2,4) downward. Up, Up, Right →
+E → win.
+**The order is the puzzle, and it is enforced by consequence rather than by refusal.** Open
+**B** first — the left bag, the one right next to you — and the room is lost **in all three of
+its legal directions**: its fan puts trash on (3,4), the only dry cell joining you to C, and C
+is the bag that builds your way across. Every direction, measured: *first tear at B → 0 live,
+3 dead. First tear at C → 1 live, 2 dead.* One bag of three may go first, and only one of its
+four directions survives.
+**What the water is for.** A fan spent on the canal is a fan you cannot spend on a bag, and
+each of the two crossings costs you a whole bag's worth of mess. That is the piece doing what
+it was added to do: making the *order* of your spending the question.
+*Lesson: some bags are doors. Open the door before you open the room behind it.*
+
+**Where it fails its own laws, stated plainly.** `pm` is **12** — you can lose this room on
+move one and keep playing for twelve moves before anything tells you. That misses the working
+target of 8 in [`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md) § 3. It is not a bad pick: a
+sweep of 46,428 layouts produced 86 rooms with this signature and **not one of them scored
+below 12**. The finding is about the target, not the room — a 3-bag board simply has more
+left to wander over than the 1- and 2-bag rooms the figure was set from, so `pm` needs to
+scale with bag count. Flagged for playtest; if the walk-after-death reads as punishing, this
+is the room that proves it.
+
+---
+
 ## Proposed next rooms **[sketch — not verified]**
 - **L2-redux — the can, rebuilt** per the rework note above.
 - **A room that fences you in on the long axis.** L5 cuts the board because it is three
@@ -556,9 +595,12 @@ can be lost, only lengthened.
   a fan cell that lands on a wall is *not occupiable*, so the strike is refused rather
   than cramped. A fencing room on a wide board therefore has to be built out of **trash**
   the player has already laid down, not out of level geometry.
-- **A bag that must be opened last.** Every current room lets you finish on either bag.
-  A room where one bag's fan is the only route to the other would force a single order
-  outright, rather than punishing the wrong one after the fact.
+- ~~**A bag that must be opened last.**~~ **Built — L15 "Two Crossings"**, in its mirror
+  form: a bag that must be opened *first*, because its fan is the only route to the rest of
+  the room. But note what this sketch asked for and L15 does not deliver — it forces the
+  order by *punishing the wrong one after the fact*, exactly the thing the last line here
+  warned against. A room that **refuses** the wrong first tear outright is still unbuilt,
+  and would be the better teacher; it is also the fix for L15's `pm` of 12.
 
 **A constraint worth knowing before designing another room.** The verifier requires the
 exit to forbid at least one action, and a bag's fan only ever reaches cells that are

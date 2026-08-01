@@ -69,6 +69,35 @@ function coupling(s) {
   return choices ? constraining / choices : 0;
 }
 
+/**
+ * The Order axis (§5 of LEVEL-GENERATION.md), measured: can every bag be opened first, or
+ * does some first choice lose the room outright? A bag is identified by the cell the
+ * raccoon ends on, because a tear always ends on the bag's own cell.
+ *
+ * Returns { first, safe } — how many distinct bags can be torn first at all, and how many
+ * of those leave a winnable board. `safe < first` is the room asking "which one first?";
+ * `safe === first` means the order is free and the room only asks about direction.
+ *
+ * CAVEAT: it counts distinct *cells*, not distinct bags. In a room with loose bags only
+ * those are the same thing. In a room with a can or a wheelie bin, one bag can be torn at
+ * several different cells depending on where the container put it, so `first` overcounts —
+ * which is why L10 and L11 read 1/4 with only two bags between them.
+ */
+function orderChoices(a, start) {
+  const intact = bagsLeft(start);
+  const safeByBag = new Map();
+  for (const [, node] of a.states) {
+    if (bagsLeft(node.state) !== intact) continue;      // nothing torn yet
+    for (const e of node.edges) {
+      if (e.kind !== TEAR) continue;
+      const t = a.states.get(e.to).state;
+      const k = `${t.rac.x},${t.rac.y}`;
+      safeByBag.set(k, (safeByBag.get(k) ?? false) || !a.dead.has(e.to));
+    }
+  }
+  return { first: safeByBag.size, safe: [...safeByBag.values()].filter(Boolean).length };
+}
+
 /** Shallowest BFS depth at which the room says "no" for the given refusal reason. */
 function firstRefusal(a, reasons) {
   let best = Infinity;
@@ -152,6 +181,7 @@ export function metrics(level) {
     opening,
     coupling: (v => v === null ? null : +v.toFixed(2))(coupling(start)),
     bridges,
+    order: (o => `${o.safe}/${o.first}`)(orderChoices(a, start)),
     // 'water' belongs here and 'wall'/'edge' do not: open water is the only refusal that
     // looks like ground you ought to be able to cross, which is what makes it a decoy
     // rather than a boundary.
@@ -167,7 +197,7 @@ export function metrics(level) {
 // and a module that prints on import is a module you cannot compose.
 const COLS = [
   ['id', 4], ['par', 4], ['bags', 5], ['decisions', 10], ['walkRatio', 10], ['opening', 8],
-  ['tightness', 10], ['slack', 6], ['coupling', 9], ['bridges', 8], ['solves', 7],
+  ['tightness', 10], ['slack', 6], ['coupling', 9], ['bridges', 8], ['order', 7], ['solves', 7],
   ['traps', 6], ['firstTrap', 10], ['pm', 4], ['firstRefusal', 13], ['firstExitRefusal', 17],
 ];
 const val = (r, k) => k === 'pm' ? r.postMortem.depth : (r[k] ?? '·');

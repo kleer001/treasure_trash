@@ -203,7 +203,8 @@ filter:* **size the board from the piece count** — `floor ≈ 5×bags / 0.55` 
 fixing 6×6 and sprinkling. **Diagnosis:** L12 ends with 25 free cells, i.e. most of its
 board was scenery; the bank's median is 20.
 
-**Law 6 — Bound the regret distance. Working target `pm ≤ 8`.** *Why:* free undo makes a
+**Law 6 — Bound the regret distance. Working target `pm ≤ 8` for 1–2 bags; it must scale
+with bag count.** *Why:* free undo makes a
 trap cheap to *escape* and does nothing to make it cheap to *diagnose*. If the room stays
 playable for 30 moves after it became unwinnable, the player must work out which of 30
 moves was the mistake, with no feedback distinguishing them. The constraint is attribution,
@@ -213,6 +214,15 @@ dead branch as soon as it can prove it dead; a room owes the player the same cou
 *Metric:* `pm`. *Use:* prefer this over the current cap on raw trap count — trap count says
 how often you can lose, `pm` says how expensive losing is to understand. **Diagnosis:**
 hand-authored 0–11, searched 11–34 (L11 and L10 at 34 and 32), bank median 23.
+
+*The threshold was set too rigidly, and building L15 proved it.* A sweep of **46,428**
+layouts for the `R`+`P` signature produced 86 legal, one-line, order-forcing rooms, and
+**not one scored below `pm` 12** — the shipped L15 sits exactly on that floor. The reason is
+structural rather than incidental: a room with more bags has more board left over after a
+mistake, so the wandering room grows with the piece count. Treat 8 as the figure for 1–2
+bags and expect roughly 12 at three; what a generator should reject is a room whose `pm` is
+far above the floor *for its own size*, which is what L10 and L11 (2 and 3 bags, `pm` 32 and
+34) actually are.
 
 **Law 7 — Make the decoys refusals, and put one in reach immediately.** *Why:* the game
 has two ways to say no and they cost the player very differently. A **refusal** is
@@ -308,14 +318,31 @@ Reading the current pack this way:
   question twice, which is the honest description of the wheelie bin's double relocation).
 - **L7** `OR` — the strongest of the searched rooms, and the only one with real coupling
   (0.89).
+- **L14** `O` — the water introduction; two decisions, no traps, nothing losable.
+- **L15** `RP` — order and path, the first room where *which bag* is the question.
 - **L11, L13** — nominally `R`, but `coupling` 0 means the order question is not actually
   asked. Their signature is `L` with extra walking.
 
-**The gap is `R`.** Order is the question this ruleset is best suited to ask — permanent
-trash means an early tear can close a later bag's only direction — and almost no room asks
-it. `levels.md` already wants the room ("a bag that must be opened last... a room where one
-bag's fan is the only route to the other"); it is `R` in pure form, and §4's intent
-enumeration finds it directly.
+**The gap was `R`, and it is now filled — L15 "Two Crossings" (`RP`, par 10).** Order is the
+question this ruleset is best suited to ask, because permanent trash means an early tear can
+close a later bag's only direction, and water sharpens it further: a fan spent on the canal
+is a fan you cannot spend on a bag. L15 makes the wrong first tear lose the room in all three
+of its legal directions.
+
+`metrics.mjs` now measures the axis directly. **`order`** reports `safe/first` — how many
+bags can be torn first at all, and how many of those leave a winnable board. `safe < first`
+is the room asking *which one first?*; `safe === first` means order is free and the room only
+asks about direction. Reading the pack: L15 is `1/2`, L7 is `2/3`, and everything in L0–L6 is
+`n/n` — before L15, no shipped room asked the question at all.
+
+Two limits on the metric, both worth knowing before trusting it:
+- **It counts cells, not bags.** A tear always ends on its bag's cell, so for loose bags the
+  two are identical — but a can or a wheelie bin can present the same bag at several cells,
+  which is why L10 and L11 read `1/4` on two bags between them.
+- **It cannot tell "can't" from "shouldn't".** A bag whose every direction is *refused* at
+  the start never enters `first` at all, so a room that forbids the wrong order outright
+  scores `1/1` and looks orderless — while actually being the better room, since Law 7
+  prefers refusals to traps. That room is still unbuilt; it is also the fix for L15's `pm`.
 
 **The act structure that follows.** Four binary axes give 15 non-empty signatures — a
 natural progression that does not depend on inventing new pieces:
@@ -439,11 +466,11 @@ reports **`bridges`** alongside, and the rule is: **`coupling 0` is only a Law 4
    of the pack is being rebuilt from scratch.
 4. **Add Law 8's plausible-vs-legal count, symmetry, and near-optimal multiplicity to
    `metrics.mjs`** — the three laws that are currently argued but unmeasured.
-5. **A second water room, this time a puzzle.** L14 is an introduction and behaves like
-   one: two decisions, zero traps, nothing losable. The question water is *built* to ask is
-   an Order question — a fan spent on the canal is a fan you cannot spend on a bag, so which
-   one you bridge with, and when, is the puzzle. That room is `R` + `P`, which is precisely
-   the gap §5 identifies. Build it with §4's intent enumeration.
+5. ~~**A second water room, this time a puzzle.**~~ **Built — L15 "Two Crossings"** (`RP`,
+   par 10, order `1/2`, coupling 0.89). What it leaves open is the better version of itself:
+   a room that **refuses** the wrong first tear instead of letting it lose silently. That
+   fixes L15's `pm` of 12 and satisfies Law 7 rather than trading against it — and, per §5,
+   the `order` metric currently cannot see such a room, so the metric needs the fix too.
 6. **Then** a rules decision on the stack.
 
 ---

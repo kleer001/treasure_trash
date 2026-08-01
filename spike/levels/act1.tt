@@ -268,3 +268,19 @@ E$---@
 -@$-
 ----
 :end
+
+:level  L15
+:name   Two Crossings
+:teach  order — one bag builds the way to another, so the wrong first tear strands you
+:par    10
+:traps  8
+:solves 1
+:solve  R!uulL!dD!uur
+:note   Three bags, two of them spent on the canal. Opening the left bag first loses the room in every direction — its fan seals the only route to the bag that builds your crossing. The first room in the pack where WHICH bag, not which way, is the question.
+:grid
+-----
+-$E--
+~~~~~
+-$@$-
+-----
+:end
