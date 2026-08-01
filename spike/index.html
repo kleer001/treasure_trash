@@ -90,7 +90,7 @@
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY,
   MOVE, PUSH, TEAR, DIRS,
-  explain, isWon, bagsLeft, fan, inGrid, cell, cloneState,
+  explain, isWon, bagsLeft, fan, inGrid, cell, cloneState, bridged,
 } from './rules.mjs';
 import { parseLevelPack, toState } from './format.mjs';
 
@@ -360,7 +360,7 @@ function render(){
     const c=cell(s,x,y); if(c.wall) continue;
     // Water is terrain with two looks, and the second one is the whole lesson: open
     // canal he won't cross, or the same cell full of his own trash and walkable.
-    if(c.water){ drawWater(x,y, c.o===TRASH); continue; }
+    if(c.water){ drawWater(x,y, bridged(c)); continue; }
     drawFloor(x,y);
     if(c.exit) drawExit(x,y, bagsLeft(s)===0);
     if(mv && mv.hide.has(`${x},${y}`)) continue;   // in flight — the move animation draws it

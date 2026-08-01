@@ -35,32 +35,36 @@ export const cell = (s, x, y) => s.cells[y][x];
 // So trash means "blocked" on floor and "walkable" on water. That inversion is the whole
 // piece, and it is the one place in the game where making a mess buys you something.
 
-/** Ordinary dry ground with nothing on it. Water is not this, filled or empty. */
-export const isClearFloor = (s, x, y) =>
-  inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).water && cell(s, x, y).o === NONE;
-
-/** A water cell someone has already dumped trash into: the raccoon's bridge. */
-export const isBridge = (s, x, y) =>
-  inGrid(s, x, y) && cell(s, x, y).water && cell(s, x, y).o === TRASH;
-
-/** Everywhere the raccoon can stand. The exit qualifies — he walks over it freely. */
-export const canStand = (s, x, y) => isClearFloor(s, x, y) || isBridge(s, x, y);
-
-// Somewhere an OBJECT can come to rest. The exit does not qualify: you cannot bury
-// your own way out. Water does not qualify either — a can shoved into the canal would be
-// a second way to build a bridge, and the piece is clearer with exactly one. A shoved can
-// and an ejected bag test against this, so any action that would put something on the
-// exit, or in the water, is refused outright rather than allowed and then regretted.
-export const isOccupiable = (s, x, y) => isClearFloor(s, x, y) && !cell(s, x, y).exit;
+// The two water states get names, because everything below is phrased in terms of them
+// and a rule spelled out twice is a rule that drifts. These take a CELL, not coordinates:
+// the renderer and the serialiser already hold one and should not have to re-look it up.
+/** Filled in with trash: the raccoon's bridge, and permanent. */
+export const bridged = c => c.water && c.o === TRASH;
+/** Still open: he will not wet his paws, and nothing but trash may land here. */
+export const openWater = c => c.water && c.o === NONE;
 
 /**
  * Somewhere TRASH can land — which is strictly more places than an object can rest.
  * Trash is the only thing water accepts, and accepting it is what turns the cell into
  * ground. Fans and the recycle bin's drop test against this; cans and bags do not.
+ * Water needs no mention here: an empty cell that is not wall and not the exit takes
+ * trash, and that is true of the canal exactly as it is of the floor.
  */
 export const canHoldTrash = (s, x, y) =>
-  isOccupiable(s, x, y) ||
-  (inGrid(s, x, y) && cell(s, x, y).water && cell(s, x, y).o === NONE);
+  inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).exit && cell(s, x, y).o === NONE;
+
+// Somewhere an OBJECT can come to rest: everywhere trash can land, minus the water. The
+// exit is already excluded above — you cannot bury your own way out — and water is
+// excluded here because a can shoved into the canal would be a second way to build a
+// bridge, and the piece is clearer with exactly one. A shoved can and an ejected bag test
+// against this, so any action that would put something on the exit, or in the water, is
+// refused outright rather than allowed and then regretted.
+export const isOccupiable = (s, x, y) => canHoldTrash(s, x, y) && !cell(s, x, y).water;
+
+/** Everywhere the raccoon can stand. The exit qualifies — he walks over it freely. */
+export const canStand = (s, x, y) =>
+  inGrid(s, x, y) && !cell(s, x, y).wall &&
+  (cell(s, x, y).water ? bridged(cell(s, x, y)) : cell(s, x, y).o === NONE);
 
 /** The 2x3 fan: the bag's two perpendicular side cells + the three cells one step ahead. */
 export function fan(bx, by, dx, dy) {
@@ -81,9 +85,9 @@ export const fanBlockers = (s, bx, by, dx, dy) =>
 // reason: "it would sink" is not "there's no room", and the player has to learn that
 // water takes trash and nothing else.
 const reasonFor = (s, blockers, fallback) => {
-  const is = pred => blockers.some(([x, y]) => inGrid(s, x, y) && pred(cell(s, x, y)));
-  if (is(c => c.exit)) return 'exit';
-  if (is(c => c.water && c.o === NONE)) return 'water';
+  const cells = blockers.filter(([x, y]) => inGrid(s, x, y)).map(([x, y]) => cell(s, x, y));
+  if (cells.some(c => c.exit)) return 'exit';
+  if (cells.some(openWater)) return 'water';
   return fallback;
 };
 
@@ -103,20 +107,19 @@ export function explain(s, dir) {
   const target = cell(s, tx, ty);
   if (target.wall) return { ok: false, reason: 'wall', blame: [[tx, ty]] };
 
-  const stepOnto = () => {
+  // One predicate owns "where he may stand", and the engine asks it rather than deriving
+  // the answer a second time: empty dry floor, or water he has already filled in.
+  if (canStand(s, tx, ty)) {
     const next = cloneState(s);
     next.rac = { x: tx, y: ty };
     return { ok: true, kind: MOVE, next };
-  };
+  }
 
-  // Water holds nothing but trash, so this branch is total: empty, or bridged.
+  // Water holds nothing but trash, so past `canStand` it can only be open water.
   // He will not wet his paws — but he will happily walk over what he threw in there.
-  if (target.water)
-    return isBridge(s, tx, ty) ? stepOnto() : { ok: false, reason: 'water', blame: [[tx, ty]] };
+  if (target.water) return { ok: false, reason: 'water', blame: [[tx, ty]] };
 
   const o = target.o;
-
-  if (o === NONE) return stepOnto();
 
   if (o === TRASH) return { ok: false, reason: 'trash', blame: [[tx, ty]] };
 
@@ -132,22 +135,22 @@ export function explain(s, dir) {
 
   // Three pieces share one shape of shove: the piece slides one cell and something lands
   // one cell further. Only what lands differs, so the clearance test lives in one place.
+  // The piece itself always needs dry ground; what it DROPS is held to the looser test
+  // only when that thing is trash. So the recycle bin can bridge a single cell of water —
+  // one cell of floor for one cell spent, against the bag's five — and the full can still
+  // cannot eject its bag into the canal. That clearance is a property of the piece, so it
+  // lives in the row rather than being re-derived from `drops` at the call site.
   const TWO_CELL = {
-    [CAN_FULL]: { slides: CAN_EMPTY, drops: BAG },     // ejects its bag and empties
-    [STACK]:    { slides: CAN_FULL,  drops: BAG },     // launches the loose bag; the can stays full
-    [BIN]:      { slides: BIN,       drops: TRASH },   // the precise obstacle placer
+    [CAN_FULL]: { slides: CAN_EMPTY, drops: BAG,   lands: isOccupiable },  // ejects its bag and empties
+    [STACK]:    { slides: CAN_FULL,  drops: BAG,   lands: isOccupiable },  // launches the loose bag; the can stays full
+    [BIN]:      { slides: BIN,       drops: TRASH, lands: canHoldTrash },  // the precise obstacle placer
   };
   if (TWO_CELL[o]) {
-    const { slides, drops } = TWO_CELL[o];
+    const { slides, drops, lands } = TWO_CELL[o];
     const c1 = [tx + dx, ty + dy], c2 = [tx + 2 * dx, ty + 2 * dy];
-    // The piece itself needs dry ground; what it drops is only held to the looser test
-    // when that thing is trash. So the recycle bin can bridge a single cell of water —
-    // one cell of floor for one cell spent, against the bag's five — and the full can
-    // still cannot eject its bag into the canal.
-    const fits = drops === TRASH ? canHoldTrash : isOccupiable;
     const blame = [];
     if (!isOccupiable(s, c1[0], c1[1])) blame.push(c1);
-    if (!fits(s, c2[0], c2[1])) blame.push(c2);
+    if (!lands(s, c2[0], c2[1])) blame.push(c2);
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
     const next = cloneState(s);
     cell(next, c2[0], c2[1]).o = drops;
@@ -238,5 +241,5 @@ export const isWon = s => bagsLeft(s) === 0 && atExit(s);
  * The key is opaque. Nothing parses it; `solver.mjs` only ever uses it as a Map key.
  */
 export const stateKey = s =>
-  s.cells.map(r => r.map(c => String.fromCharCode(65 + c.o)).join('')).join('/')
+  s.cells.map(r => String.fromCharCode(...r.map(c => 65 + c.o))).join('/')
   + `|${s.rac.x},${s.rac.y}`;

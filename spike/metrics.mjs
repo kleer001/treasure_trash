@@ -20,10 +20,12 @@ import { dirname, resolve } from 'node:path';
 import { parseLevelPack, parseLurd, toState } from './format.mjs';
 import { analyze } from './solver.mjs';
 import {
-  DIR_ORDER, DIRS, MOVE, TEAR, BAG, explain, cell, fan, canStand, canHoldTrash, bagsLeft,
+  DIR_ORDER, DIRS, MOVE, TEAR, BAG, TRASH, explain, cell, fan, fanBlockers, canStand, bagsLeft,
 } from './rules.mjs';
 
-const FAN_CELLS = 5;   // a tear always spends exactly five cells of floor, never fewer
+// A tear always spends exactly the cells its fan covers, so ask the fan rather than
+// restating the number here and letting the two drift apart.
+const FAN_CELLS = fan(0, 0, 1, 0).length;
 
 /** Dry ground: the floor budget a room starts with, before anything stands on it.
  *  Water is not floor — it is floor you can buy, at five cells a bag or one a bin. */
@@ -58,7 +60,7 @@ function coupling(s) {
   for (const [ax, ay] of bags) for (const dir of DIR_ORDER) {
     const [dx, dy] = DIRS[dir];
     const laid = fan(ax, ay, dx, dy);
-    if (laid.some(([x, y]) => !canHoldTrash(s, x, y))) continue;   // not a legal opening anyway
+    if (fanBlockers(s, ax, ay, dx, dy).length) continue;           // not a legal opening anyway
     choices++;
     const hits = bags.some(([bx, by]) =>
       (bx !== ax || by !== ay) &&
@@ -118,13 +120,13 @@ function firstRefusal(a, reasons) {
  */
 function postMortem(a) {
   // Rebuild trap targets: analyze() reports the action, we want the dead state it lands in.
-  const entries = [];
+  const entries = new Set();
   for (const [key, node] of a.states) {
     if (a.dead.has(key)) continue;
-    for (const e of node.edges) if (a.dead.has(e.to)) entries.push(e.to);
+    for (const e of node.edges) if (a.dead.has(e.to)) entries.add(e.to);
   }
-  let worstDepth = 0, worstStates = 0;
-  for (const start of new Set(entries)) {
+  let worstDepth = 0;
+  for (const start of entries) {
     const seen = new Set([start]);
     let frontier = [start], depth = 0;
     while (frontier.length) {
@@ -135,9 +137,8 @@ function postMortem(a) {
       frontier = next;
     }
     worstDepth = Math.max(worstDepth, depth);
-    worstStates = Math.max(worstStates, seen.size);
   }
-  return { depth: worstDepth, states: worstStates };
+  return worstDepth;
 }
 
 export function metrics(level) {
@@ -157,16 +158,17 @@ export function metrics(level) {
   // fan bridges a canal is coupled to the room through the *terrain* instead, which is
   // the strongest coupling there is — it creates the route. Read the two together, or a
   // water room reads as uncoupled when it is the opposite.
-  let final = start, bridges = 0;
-  for (const act of actions) {
-    const before = final;
-    final = explain(final, act.dir).next;
-    for (let y = 0; y < final.rows; y++) for (let x = 0; x < final.cols; x++)
-      if (cell(final, x, y).water && cell(final, x, y).o !== cell(before, x, y).o) bridges++;
-  }
+  // Trash in water is permanent and nothing else may ever enter it, so the count only ever
+  // climbs: the answer is the difference between the two ends, not a per-move board diff.
+  const bridgeCells = s => s.cells.flat().filter(c => c.water && c.o === TRASH).length;
+  let final = start;
+  for (const act of actions) final = explain(final, act.dir).next;
+  const bridges = bridgeCells(final) - bridgeCells(start);
 
   const floor = floorCells(start);
   const bags = bagsLeft(start);
+  const cpl = coupling(start);
+  const ord = orderChoices(a, start);
 
   return {
     id: level.id, name: level.name ?? '',
@@ -179,16 +181,16 @@ export function metrics(level) {
     slack: freeCells(final),
     walkRatio: decisions ? +(walks / decisions).toFixed(2) : null,
     opening,
-    coupling: (v => v === null ? null : +v.toFixed(2))(coupling(start)),
+    coupling: cpl === null ? null : +cpl.toFixed(2),
     bridges,
-    order: (o => `${o.safe}/${o.first}`)(orderChoices(a, start)),
+    order: `${ord.safe}/${ord.first}`,
     // 'water' belongs here and 'wall'/'edge' do not: open water is the only refusal that
     // looks like ground you ought to be able to cross, which is what makes it a decoy
     // rather than a boundary.
     firstRefusal: firstRefusal(a, new Set(['exit', 'fan', 'canRoom', 'water'])),
     firstExitRefusal: firstRefusal(a, new Set(['exit'])),
-    firstTrap: a.traps.length ? Math.min(...a.traps.map(t => parseLurd(t.lurd).length - 1)) : null,
-    postMortem: postMortem(a),
+    firstTrap: a.traps.length ? Math.min(...a.traps.map(t => t.depth)) : null,
+    pm: postMortem(a),
   };
 }
 
@@ -200,12 +202,16 @@ const COLS = [
   ['tightness', 10], ['slack', 6], ['coupling', 9], ['bridges', 8], ['order', 7], ['solves', 7],
   ['traps', 6], ['firstTrap', 10], ['pm', 4], ['firstRefusal', 13], ['firstExitRefusal', 17],
 ];
-const val = (r, k) => k === 'pm' ? r.postMortem.depth : (r[k] ?? '·');
+const val = (r, k) => r[k] ?? '·';
 
 export function report(levels) {
   console.log(COLS.map(([k, w]) => String(k).padStart(w)).join(''));
-  for (const l of levels)
-    console.log(COLS.map(([k, w]) => String(val(metrics(l), k)).padStart(w)).join(''));
+  for (const l of levels) {
+    // One analysis per level, not one per column: `metrics` runs the exhaustive solver,
+    // so calling it inside the column map did the whole state-graph walk 17 times a row.
+    const m = metrics(l);
+    console.log(COLS.map(([k, w]) => String(val(m, k)).padStart(w)).join(''));
+  }
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

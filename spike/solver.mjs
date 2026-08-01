@@ -79,6 +79,10 @@ export function analyze(start) {
       traps.push({
         lurd: formatLurd([...pathTo(states, key), { dir: e.dir, kind: e.kind }]),
         dir: e.dir, kind: e.kind,
+        // How many actions in the trap is sprung. Carried here because it is free — the
+        // node already knows — and recovering it from `lurd` means parsing back a string
+        // we just formatted.
+        depth: node.depth,
       });
     }
   }

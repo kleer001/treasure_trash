@@ -3,7 +3,7 @@
 
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY,
-  DIRS, MOVE, PUSH, TEAR,
+  DIRS, MOVE, PUSH, TEAR, bridged, openWater,
 } from './rules.mjs';
 
 // --- glyphs -----------------------------------------------------------------
@@ -45,8 +45,8 @@ export const LEGEND = [
 function glyphFor(c, isRac) {
   if (c.wall) return '#';
   if (c.water) {
-    if (c.o === TRASH) return isRac ? '*' : '=';
-    if (c.o === NONE) return '~';          // nothing can stand in open water, raccoon included
+    if (bridged(c)) return isRac ? '*' : '=';
+    if (openWater(c)) return '~';          // nothing can stand in open water, raccoon included
     throw new Error(`occupant ${c.o} in water: water holds trash or nothing`);
   }
   if (!c.exit) {
