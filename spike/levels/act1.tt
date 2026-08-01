@@ -250,3 +250,37 @@ E-----
 E$---@
 ------
 :end
+
+:level  L14
+:name   Wet Paws
+:teach  water — he won't cross it, but he'll walk on what he throws in it
+:arm    on
+:par    7
+:traps  0
+:solves 1
+:solve  R!uuluR!l
+:note   The canal is the only thing between him and the exit, and the first move you try walks straight into it. A fan fired sideways drops two of its five cells in the water; those two are now floor. Nothing here can be lost — the room has no traps at all.
+:grid
+----
+-E$-
+----
+~~~~
+-@$-
+----
+:end
+
+:level  L15
+:name   Two Crossings
+:teach  order — one bag builds the way to another, so the wrong first tear strands you
+:par    10
+:traps  8
+:solves 1
+:solve  R!uulL!dD!uur
+:note   Three bags, two of them spent on the canal. Opening the left bag first loses the room in every direction — its fan seals the only route to the bag that builds your crossing. The first room in the pack where WHICH bag, not which way, is the question.
+:grid
+-----
+-$E--
+~~~~~
+-$@$-
+-----
+:end

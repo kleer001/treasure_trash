@@ -26,6 +26,11 @@ const READ = {
   'b': { o: BIN },            // recycle bin: drops one cell of trash per shove
   'E': { exit: true },
   '+': { exit: true, rac: true },     // raccoon standing on the exit (XSB's player-on-goal)
+  // Water is terrain with two states, and trash is what flips it. `=` reads as the plank
+  // it effectively is; it is written as water-plus-trash, never as a third glyph state.
+  '~': { water: true },               // open water — he will not wet his paws
+  '=': { water: true, o: TRASH },     // filled in: a permanent bridge
+  '*': { water: true, o: TRASH, rac: true },   // raccoon standing on a bridge he made
   // No glyph for anything else on an exit: nothing else can ever be there. The rules
   // refuse any action that would put an object on it, so those states are unreachable
   // and a level file that hand-writes one is invalid input.
@@ -34,10 +39,16 @@ export const LEGEND = [
   '# wall', '- floor', '@ raccoon', '$ bag', 'C full can', 'c empty can',
   'x spilled trash', 'E exit', '+ raccoon on exit',
   'S bag-on-can stack', 'W wheelie bin (full)', 'w wheelie bin (empty)', 'b recycle bin',
+  '~ water', '= water filled with trash (a bridge)', '* raccoon on a bridge',
 ];
 
 function glyphFor(c, isRac) {
   if (c.wall) return '#';
+  if (c.water) {
+    if (c.o === TRASH) return isRac ? '*' : '=';
+    if (c.o === NONE) return '~';          // nothing can stand in open water, raccoon included
+    throw new Error(`occupant ${c.o} in water: water holds trash or nothing`);
+  }
   if (!c.exit) {
     if (isRac) return '@';
     return { [NONE]: '-', [BAG]: '$', [CAN_FULL]: 'C', [CAN_EMPTY]: 'c', [TRASH]: 'x',
@@ -160,7 +171,8 @@ export function toState(level) {
       const ch = level.grid[y][x] ?? '-';        // short rows pad with floor
       const spec = READ[ch];
       if (!spec) throw new Error(`${level.id}: unknown glyph ${JSON.stringify(ch)} at (${x + 1},${y + 1})`);
-      const c = { wall: !!spec.wall, exit: !!spec.exit, o: spec.o ?? NONE };
+      const c = { wall: !!spec.wall, exit: !!spec.exit, water: !!spec.water, o: spec.o ?? NONE };
+      if (c.exit && c.water) throw new Error(`${level.id}: the exit cannot be water at (${x + 1},${y + 1})`);
       if (spec.rac) {
         if (rac) throw new Error(`${level.id}: more than one raccoon`);
         rac = { x, y };

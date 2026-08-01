@@ -26,6 +26,7 @@ notations; the files are canonical.
 E  the exit (always walkable by the raccoon, never occupiable by anything else;
    counts only when every bag is torn)
 C  full can (has a bag)                     c  empty can (pushable)
+~  water (impassable)                       =  water filled with trash (a bridge)
 ```
 The raccoon's starting cell is **plain floor** — there is no entry-stub terrain. A room
 may wall it in on either side to make the entrance read as an entrance (L1 does), but the
@@ -117,6 +118,14 @@ committed actions, so no flag can change a par.)*
    your own way out.
 8. **Free undo / restart.** Deterministic. **Win = every bag torn *and* the raccoon
    standing on the exit.**
+9. **Water `~`** — terrain, like the wall and the exit, with two states and no others.
+   **Open:** the raccoon will not step in it and no object may come to rest in it — a can,
+   an ejected bag or a rolling wheelie bin aimed at water is **refused**. **Filled:** trash
+   that lands in water stays there permanently and the cell becomes **ordinary walkable
+   ground**. So trash means *blocked* on the floor and *walkable* on the water, and that
+   inversion is the whole piece. Only two things can fill it — a bag's fan (five cells
+   spent, however many of them happen to be water) and the recycle bin's drop (one for
+   one). The exit is never water. Introduced alone in **L14**.
 
 **Core proposition:** *choose each strike's direction and order so your persistent
 trash never blocks your path, your way out, or another bag's fan.*
@@ -207,8 +216,12 @@ tail is huge and unindexed — can't prove absence). *Design consequence:* playe
 expect "explosion = opens space"; our burst *closes* space, so the **fan preview +
 free undo** are load-bearing — they teach the inversion, not just polish.
 
-**Object budget (aim ~8):** `bag`, `can` (full/empty), `spilled trash` = **3 used.**
-Reserved: water/gap, and the crow's pieces (pinned).
+**Object budget (aim ~8):** `bag`, `can` (full/empty), `spilled trash`, `recycle bin`,
+`wheelie bin` = **5 used**, plus the `bag-on-can stack` — built and unit-tested, but it
+earns no room yet (see the note at the end of this file), so call it **5 spent and a
+sixth parked**. The exit is terrain and costs nothing against the budget.
+Reserved: water/gap, and the crow's pieces (pinned). Which to spend the next slot on, and
+why it should be water/gap: [`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md) § 6.
 
 ---
 
@@ -483,6 +496,96 @@ refusal counts are exact — but nothing checks that a room is *interesting*, an
 can. If any of these plays flat, it should be swapped out rather than defended: the bank of
 candidates it came from is in `spike/levels/bank.jsonl`, several hundred rooms deep.
 
+**Measured since, and the news is bad.** `spike/metrics.mjs` scores these seven on what they
+cost the player rather than on par, and they do not hold up: par climbs 13 → 25 while the number
+of board-changing *decisions* stays flat at 3–5, so the ladder is built out of walking; L11 and
+L13 have zero coupling between their bags (independent puzzles sharing a grid); and L11 lets you
+keep playing for 34 moves after the room is already unwinnable. The bank cannot supply
+replacements — 0 of its 226 rooms pass the same filters — so these need regenerating rather than
+re-sorting. The laws, the numbers and the generator design are in
+[`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md). Note also that **the generator that produced
+these rooms is not in the repo** — only the bank survived it.
+
+---
+
+## L14 — "Wet Paws" **[verified]**
+*New terrain:* **water** `~` — the raccoon will not cross it, but he will happily walk on
+what he throws into it. **Trash landing in water fills it permanently, and a filled cell is
+ordinary walkable ground.** This is the one place in the game where making a mess buys you
+something, and it does not dent the pillar: nothing is cleaned up, a hole is filled in.
+```
+   x=1 2 3 4
+y1  .  .  .  .
+y2  .  E  B  .    bag A, beside the exit
+y3  .  .  .  .
+y4  ~  ~  ~  ~    the canal — the only thing between him and the way out
+y5  .  R  B  .    bag B
+y6  .  .  .  .
+```
+**Solve — `R!uuluR!l`** (par 7): Right → strike B(3,5) **rightward**. Its fan is the side
+cells (3,4)/(3,6) plus the x=4 column at (4,4)/(4,5)/(4,6) — and (3,4) and (4,4) are canal,
+so those two cells fill in and become floor. R ends on (3,5). Up onto the bridge at (3,4),
+Up to (3,3), Left to (2,3), Up to (2,2) — which **is** the exit, with a bag still out, so
+nothing happens. Right → strike A(3,2) rightward, away from the door, exactly as L4 taught.
+Left → back onto E → win.
+**The refusal that opens the room:** the exit is straight up from the start, and the first
+move anyone tries walks into the canal. It is **refused at move zero** — *he's not wetting
+his paws — fill it in first* — which is the cheapest possible way to teach a new piece: it
+costs no move, and the answer is on screen. **Zero traps in the whole room**; nothing here
+can be lost, only lengthened.
+*Lesson: your mess is a wall on the floor and a floor on the water.*
+
+**Two rules fall out of the geometry, and both are load-bearing:**
+- **Only a bag can bridge a canal.** The raccoon ends a tear standing on the *bag's* cell,
+  which is behind the fan — so the bridge is in front of him with nothing in between. Every
+  other piece parks itself on the only dry cell that approaches the bridge it just built (a
+  water cell's only dry neighbours are the two banks), and seals it. The recycle bin *can*
+  fill one cell of water — one spent for one gained, the cheapest bridge in the game — but
+  it can never do so for its own benefit. That is the adjacency tax in its purest form, and
+  it is unit-tested.
+- **Water takes trash and nothing else.** A can shoved at the canal, a full can trying to
+  eject its bag into it, a wheelie bin rolling at it — all refused. There is exactly one way
+  to build a bridge, so the piece stays legible.
+
+---
+
+## L15 — "Two Crossings" **[verified — found by a targeted search]**
+*New question:* **order.** Every room before this one asks *which way*; this one asks
+*which bag*. Three bags, and two of them get spent on the canal.
+```
+   x=1 2 3 4 5
+y1  .  .  .  .  .
+y2  .  B  E  .  .    bag A, beside the exit on the far bank
+y3  ~  ~  ~  ~  ~    the canal
+y4  .  B  R  B  .    bags B (left) and C (right)
+y5  .  .  .  .  .
+```
+**Solve — `R!uulL!dD!uur`** (par 10): Right → strike **C**(4,4) rightward; two of its five fan
+cells land in the canal at (4,3)/(5,3), and the east crossing exists. Up, Up over it to (4,2).
+Left → (3,2), the exit, with three bags still out. Left → strike **A**(2,2) *leftward*, away
+from the door as L4 taught — and its fan drops two more cells into the canal at (2,3)/(1,3),
+which is the west crossing. Down onto it, Down → strike **B**(2,4) downward. Up, Up, Right →
+E → win.
+**The order is the puzzle, and it is enforced by consequence rather than by refusal.** Open
+**B** first — the left bag, the one right next to you — and the room is lost **in all three of
+its legal directions**: its fan puts trash on (3,4), the only dry cell joining you to C, and C
+is the bag that builds your way across. Every direction, measured: *first tear at B → 0 live,
+3 dead. First tear at C → 1 live, 2 dead.* One bag of three may go first, and only one of its
+four directions survives.
+**What the water is for.** A fan spent on the canal is a fan you cannot spend on a bag, and
+each of the two crossings costs you a whole bag's worth of mess. That is the piece doing what
+it was added to do: making the *order* of your spending the question.
+*Lesson: some bags are doors. Open the door before you open the room behind it.*
+
+**Where it fails its own laws, stated plainly.** `pm` is **12** — you can lose this room on
+move one and keep playing for twelve moves before anything tells you. That misses the working
+target of 8 in [`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md) § 3. It is not a bad pick: a
+sweep of 46,428 layouts produced 86 rooms with this signature and **not one of them scored
+below 12**. The finding is about the target, not the room — a 3-bag board simply has more
+left to wander over than the 1- and 2-bag rooms the figure was set from, so `pm` needs to
+scale with bag count. Flagged for playtest; if the walk-after-death reads as punishing, this
+is the room that proves it.
+
 ---
 
 ## Proposed next rooms **[sketch — not verified]**
@@ -492,9 +595,12 @@ candidates it came from is in `spike/levels/bank.jsonl`, several hundred rooms d
   a fan cell that lands on a wall is *not occupiable*, so the strike is refused rather
   than cramped. A fencing room on a wide board therefore has to be built out of **trash**
   the player has already laid down, not out of level geometry.
-- **A bag that must be opened last.** Every current room lets you finish on either bag.
-  A room where one bag's fan is the only route to the other would force a single order
-  outright, rather than punishing the wrong one after the fact.
+- ~~**A bag that must be opened last.**~~ **Built — L15 "Two Crossings"**, in its mirror
+  form: a bag that must be opened *first*, because its fan is the only route to the rest of
+  the room. But note what this sketch asked for and L15 does not deliver — it forces the
+  order by *punishing the wrong one after the fact*, exactly the thing the last line here
+  warned against. A room that **refuses** the wrong first tear outright is still unbuilt,
+  and would be the better teacher; it is also the fix for L15's `pm` of 12.
 
 **A constraint worth knowing before designing another room.** The verifier requires the
 exit to forbid at least one action, and a bag's fan only ever reaches cells that are
@@ -549,7 +655,8 @@ goal) **and the raccoon standing on the exit** (get out of the alley you just wr
 | **Metal can** (full) | push → **slides 1**, ejects its bag **1 further ahead**, becomes an empty can; raccoon advances into its old cell | both the can's destination *and* the bag's landing cell must be clear |
 | **Empty can / plain block** | push → slides 1 (plain Sokoban block) | destination clear; **never removable**; may start on the board as a plain block |
 | **Exit** | — (terrain, not an occupant) | walkable at all times; **wins the room** only while standing on it with zero bags left; **protected by the engine** — any strike or push that would land trash, a can or a bag on it is refused, so it can never be sealed; exactly one per room |
-| **Spilled trash** | — (inert) | **permanent** obstacle; never moves, never clears |
+| **Spilled trash** | — (inert) | **permanent** obstacle; never moves, never clears — **except in water, where the same trash is walkable ground** |
+| **Water** | — (terrain, not an occupant) | the raccoon won't cross it and **nothing may come to rest in it**; trash that lands in it **fills it permanently** and the cell becomes ordinary floor. Only a bag's fan or the recycle bin's drop can fill it. Never the exit |
 | **Bag-on-can stack** | push → top bag **launches 2** ahead (loose), can **slides 1** (still full); raccoon advances 1 | landing cells clear; launched bag must still be struck; only way to **reposition** a bag |
 | **Recycle bin** | push → slides 1, **drops 1 cell of trash** directly ahead | destination clear (precise obstacle placer) |
 | **Furniture** (couch/mattress) | rigid **polyomino** (L / Z / T / straight); push → shoves as a unit 1 cell | only if **all** leading cells clear; **translate-only** (no rotation); multi-cell footprint |
@@ -564,7 +671,8 @@ bag open **and** the raccoon on the exit.
 · dumpster · gum/tar · oil slick · glass bottle.
 
 **Implemented and verified in `spike/`:** bag, metal can, exit, spilled trash, **recycle
-bin**, **wheelie bin** — L0–L6, pars 2/4/7/5/5/6/11, every one a provably minimal solve.
+bin**, **wheelie bin**, **water** — L0–L6 at pars 2/4/7/5/5/6/11 and L14 at par 7, every one
+a provably minimal solve.
 The two failure classes stay separate: **refusals** (an action the exit or a blocked fan
 will not accept, played out and rewound at no cost) and **stranding traps** (legal, and
 they lose you the room). Each piece's rule has a unit test in `tests/items.test.js`.

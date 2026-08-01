@@ -67,13 +67,20 @@ roughly right instead of nonsense.
 | `x` | spilled trash |
 | `E` | the exit |
 | `+` | raccoon standing on the exit |
+| `~` | water — impassable, and no object may rest in it |
+| `=` | water filled with trash: a permanent bridge, walkable like floor |
+| `*` | raccoon standing on a bridge |
 
 **Divergence to know about:** in XSB, `.` is a *goal square* and a space is floor. Treasure
 Trash has no goal squares at all — the win is transformation plus egress — so `.` is free,
 and we spend it on floor for doc readability. Rows shorter than the widest row pad with
 floor. **There is no glyph for anything else on the exit**, because no such state exists:
 the rules refuse any action that would put an object there, so the writer throws rather
-than invent a glyph for the unreachable.
+than invent a glyph for the unreachable. **Water is the same story with one exception:** it
+is terrain carrying at most one occupant, and that occupant can only ever be trash, so `~`
+and `=` are the complete set and anything else in water makes the writer throw. Note that
+water is a cell *flag*, not an occupant code — the codes are at nine and `stateKey` packs
+one character per cell, so a tenth would silently collide two different boards.
 
 ---
 

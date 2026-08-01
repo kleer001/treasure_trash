@@ -23,16 +23,44 @@ export const cloneState = s => ({
 export const inGrid = (s, x, y) => x >= 0 && y >= 0 && x < s.cols && y < s.rows;
 export const cell = (s, x, y) => s.cells[y][x];
 
-// Somewhere the raccoon can stand: floor with nothing on it. The exit qualifies —
-// he walks over it freely.
+// WATER IS TERRAIN, not an occupant — a `water` flag on the cell, like `wall` and `exit`.
+// That is not a stylistic call: the occupant codes above are at 9, `stateKey` packs one
+// CHARACTER per cell, and a tenth code would make two different boards share a key. It is
+// also the truthful model. Water never moves and is never pushed; what changes is whether
+// something has been dumped in it.
+//
+// A water cell has exactly two states, and they are opposites for the raccoon:
+//   empty  (o === NONE)  — he will not wet his paws. Impassable.
+//   filled (o === TRASH) — a bridge. Walkable, permanently.
+// So trash means "blocked" on floor and "walkable" on water. That inversion is the whole
+// piece, and it is the one place in the game where making a mess buys you something.
+
+/** Ordinary dry ground with nothing on it. Water is not this, filled or empty. */
 export const isClearFloor = (s, x, y) =>
-  inGrid(s, x, y) && !cell(s, x, y).wall && cell(s, x, y).o === NONE;
+  inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).water && cell(s, x, y).o === NONE;
+
+/** A water cell someone has already dumped trash into: the raccoon's bridge. */
+export const isBridge = (s, x, y) =>
+  inGrid(s, x, y) && cell(s, x, y).water && cell(s, x, y).o === TRASH;
+
+/** Everywhere the raccoon can stand. The exit qualifies — he walks over it freely. */
+export const canStand = (s, x, y) => isClearFloor(s, x, y) || isBridge(s, x, y);
 
 // Somewhere an OBJECT can come to rest. The exit does not qualify: you cannot bury
-// your own way out. Trash, a shoved can and an ejected bag all test against this, so
-// any action that would put something on the exit is refused outright rather than
-// allowed and then regretted. The exit is walkable by the raccoon and by nothing else.
+// your own way out. Water does not qualify either — a can shoved into the canal would be
+// a second way to build a bridge, and the piece is clearer with exactly one. A shoved can
+// and an ejected bag test against this, so any action that would put something on the
+// exit, or in the water, is refused outright rather than allowed and then regretted.
 export const isOccupiable = (s, x, y) => isClearFloor(s, x, y) && !cell(s, x, y).exit;
+
+/**
+ * Somewhere TRASH can land — which is strictly more places than an object can rest.
+ * Trash is the only thing water accepts, and accepting it is what turns the cell into
+ * ground. Fans and the recycle bin's drop test against this; cans and bags do not.
+ */
+export const canHoldTrash = (s, x, y) =>
+  isOccupiable(s, x, y) ||
+  (inGrid(s, x, y) && cell(s, x, y).water && cell(s, x, y).o === NONE);
 
 /** The 2x3 fan: the bag's two perpendicular side cells + the three cells one step ahead. */
 export function fan(bx, by, dx, dy) {
@@ -43,13 +71,21 @@ export function fan(bx, by, dx, dy) {
   ];
 }
 
+// A fan lays trash, so it clears against `canHoldTrash` — a bag CAN be fired into water,
+// and that is the point of the piece.
 export const fanBlockers = (s, bx, by, dx, dy) =>
-  fan(bx, by, dx, dy).filter(([x, y]) => !isOccupiable(s, x, y));
+  fan(bx, by, dx, dy).filter(([x, y]) => !canHoldTrash(s, x, y));
 
 // A refusal caused by the exit gets its own reason, because "you can't dump on your
-// way out" is a different lesson from "there's no room".
-const reasonFor = (s, blockers, fallback) =>
-  blockers.some(([x, y]) => inGrid(s, x, y) && cell(s, x, y).exit) ? 'exit' : fallback;
+// way out" is a different lesson from "there's no room". Water earns one for the same
+// reason: "it would sink" is not "there's no room", and the player has to learn that
+// water takes trash and nothing else.
+const reasonFor = (s, blockers, fallback) => {
+  const is = pred => blockers.some(([x, y]) => inGrid(s, x, y) && pred(cell(s, x, y)));
+  if (is(c => c.exit)) return 'exit';
+  if (is(c => c.water && c.o === NONE)) return 'water';
+  return fallback;
+};
 
 /**
  * Explain what direction `dir` does from the current state — without applying it.
@@ -64,15 +100,23 @@ export function explain(s, dir) {
   const x = s.rac.x, y = s.rac.y, tx = x + dx, ty = y + dy;
 
   if (!inGrid(s, tx, ty)) return { ok: false, reason: 'edge', blame: [] };
-  if (cell(s, tx, ty).wall) return { ok: false, reason: 'wall', blame: [[tx, ty]] };
+  const target = cell(s, tx, ty);
+  if (target.wall) return { ok: false, reason: 'wall', blame: [[tx, ty]] };
 
-  const o = cell(s, tx, ty).o;
-
-  if (o === NONE) {
+  const stepOnto = () => {
     const next = cloneState(s);
     next.rac = { x: tx, y: ty };
     return { ok: true, kind: MOVE, next };
-  }
+  };
+
+  // Water holds nothing but trash, so this branch is total: empty, or bridged.
+  // He will not wet his paws — but he will happily walk over what he threw in there.
+  if (target.water)
+    return isBridge(s, tx, ty) ? stepOnto() : { ok: false, reason: 'water', blame: [[tx, ty]] };
+
+  const o = target.o;
+
+  if (o === NONE) return stepOnto();
 
   if (o === TRASH) return { ok: false, reason: 'trash', blame: [[tx, ty]] };
 
@@ -96,7 +140,14 @@ export function explain(s, dir) {
   if (TWO_CELL[o]) {
     const { slides, drops } = TWO_CELL[o];
     const c1 = [tx + dx, ty + dy], c2 = [tx + 2 * dx, ty + 2 * dy];
-    const blame = [c1, c2].filter(([bx, by]) => !isOccupiable(s, bx, by));
+    // The piece itself needs dry ground; what it drops is only held to the looser test
+    // when that thing is trash. So the recycle bin can bridge a single cell of water —
+    // one cell of floor for one cell spent, against the bag's five — and the full can
+    // still cannot eject its bag into the canal.
+    const fits = drops === TRASH ? canHoldTrash : isOccupiable;
+    const blame = [];
+    if (!isOccupiable(s, c1[0], c1[1])) blame.push(c1);
+    if (!fits(s, c2[0], c2[1])) blame.push(c2);
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
     const next = cloneState(s);
     cell(next, c2[0], c2[1]).o = drops;
