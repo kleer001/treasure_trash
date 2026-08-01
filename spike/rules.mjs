@@ -2,8 +2,9 @@
 // This module is the single source of truth for what is legal. The browser spike,
 // the solver, and the verifier all import it; nothing re-implements a rule.
 
-// Occupant codes. `stateKey` packs these one CHARACTER per cell, so this list must stay
-// below 10 entries — a two-digit code would make two different boards share a key.
+// Occupant codes. Add freely — `stateKey` encodes each as one printable character, so the
+// list is not near any ceiling. Whether a new piece belongs here is a design question about
+// the piece, never a budget question about this list.
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
              BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8;
 
@@ -24,10 +25,9 @@ export const inGrid = (s, x, y) => x >= 0 && y >= 0 && x < s.cols && y < s.rows;
 export const cell = (s, x, y) => s.cells[y][x];
 
 // WATER IS TERRAIN, not an occupant — a `water` flag on the cell, like `wall` and `exit`.
-// That is not a stylistic call: the occupant codes above are at 9, `stateKey` packs one
-// CHARACTER per cell, and a tenth code would make two different boards share a key. It is
-// also the truthful model. Water never moves and is never pushed; what changes is whether
-// something has been dumped in it.
+// That is the truthful model rather than a saving: water never moves and is never pushed,
+// so nothing about it belongs in the occupant grid. What varies is whether something has
+// been dumped in it, and that is already an occupant on the cell.
 //
 // A water cell has exactly two states, and they are opposites for the raccoon:
 //   empty  (o === NONE)  — he will not wet his paws. Impassable.
@@ -226,6 +226,17 @@ export function bagsLeft(s) {
 export const atExit = s => cell(s, s.rac.x, s.rac.y).exit;
 export const isWon = s => bagsLeft(s) === 0 && atExit(s);
 
-/** Canonical state key — walls are static, so only occupants + raccoon vary. */
+/** Canonical state key — walls are static, so only occupants + raccoon vary.
+ *
+ * One character per cell, but the character is the code OFFSET INTO PRINTABLE ASCII rather
+ * than its decimal digits. Joining decimals with no delimiter is ambiguous the moment a
+ * code reaches two digits — `1,0,10` and `10,1,0` both render as "1010" — and the failure
+ * is silent: the solver reads the second board as already visited and its "minimal" par is
+ * no longer minimal. Offsetting sidesteps that without lengthening the key, which matters
+ * because `analyze()` holds one key per reachable state and rooms reach tens of thousands.
+ *
+ * The key is opaque. Nothing parses it; `solver.mjs` only ever uses it as a Map key.
+ */
 export const stateKey = s =>
-  s.cells.map(r => r.map(c => c.o).join('')).join('/') + `|${s.rac.x},${s.rac.y}`;
+  s.cells.map(r => r.map(c => String.fromCharCode(65 + c.o)).join('')).join('/')
+  + `|${s.rac.x},${s.rac.y}`;

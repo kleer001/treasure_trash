@@ -156,8 +156,8 @@
 Everything people remember about Lolo — Medusa, the Skulls, Alma curling into a ball — is
 real&#8209;time and lethal, and Treasure Trash is neither. Everything under their feet is static,
 deterministic and full&#8209;information, which is exactly what this game already is. The split
-isn't a matter of taste, either: it falls out of <code>stateKey</code>. Terrain is free and there is
-room for <em>one</em> more occupant.
+is a claim about the <em>rules</em>, not about the engine — the engine will hold either kind
+cheaply. See <a href="#budget">what a new piece costs</a>.
 </p>
 
 <p>Lolo's shape and ours already rhyme, which is why the comparison is worth making at all.
@@ -173,18 +173,20 @@ clearing space, and <code>levels.md</code> states the pillar flatly — <em>only
 remove</em>, and <em>there is no chute and no disposal object anywhere in the game.</em></p>
 
 <div class="callout" id="budget">
-<p><strong>What a new piece actually costs.</strong> Two lines of the engine decide this, and they
-decide it before any design argument does.</p>
-<p><code>spike/rules.mjs:5</code> — occupant codes are packed <em>one character per cell</em>, so the list
-must stay below ten. Nine are spent: <code>NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK,
-WHEELIE, WHEELIE_EMPTY</code>. <strong>There is exactly one code left</strong> before the state key needs
-reworking.</p>
-<p><code>spike/rules.mjs:179</code> — the key is <code>occupants + raccoon position</code>. Walls and the exit
-flag never appear in it. <strong>Static terrain is free:</strong> it constrains the puzzle without
-growing the state graph the solver has to walk, which matters because that solver is exhaustive
-and every shipped par is provably minimal.</p>
-<p>So a terrain import costs a flag on a cell and a branch in one predicate. An occupant import
-costs the last slot in the game. Price them differently.</p>
+<p><strong>What a new piece actually costs.</strong> Less than it looks, in both directions — and it
+is worth being exact, because a wrong cost estimate quietly re-ranks everything below it.</p>
+<p><strong>An occupant costs a code, and codes are not scarce.</strong> Nine are defined
+(<code>NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY</code>) and
+<code>stateKey</code> gives each one printable character, so there is room for scores more. The key
+is opaque — nothing parses it, and <code>solver.mjs</code> only ever uses it as a <code>Map</code> key.
+Whether a piece should be an occupant is a question about the piece, not about the budget.</p>
+<p><strong>Terrain costs less still, and for a reason that does not go away.</strong> The key is
+<code>occupants + raccoon position</code>; walls, water and the exit flag never enter it. Static
+terrain constrains a room <em>without growing the state graph the solver walks</em> — and that
+solver is exhaustive, so every extra bit of state is paid for in every room, forever. That is a
+real asymmetry rather than an accounting artifact.</p>
+<p>So: prefer terrain when a piece is genuinely static, because the solver is the thing you are
+spending. Do not prefer it merely to avoid defining a code.</p>
 </div>
 
 <h2 id="h-terrain"><span class="num">1</span>Terrain &amp; tiles</h2>
@@ -231,18 +233,19 @@ Treasure Trash currently has three: floor, wall, exit.</p>
 </tr>
 
 <tr>
-  <td class="el"><span class="chip take">Take</span><strong>Egg as raft</strong><span class="src">the additive half of water</span></td>
+  <td class="el"><span class="chip shipped">Shipped</span><strong>Egg as raft</strong><span class="src">the additive half of water</span></td>
   <td>Turns an obstacle into a crossing — the one place in Lolo where a push <em>opens</em> the
       board instead of closing it.</td>
   <td>Push an egg into water and it floats; Lolo rides it across and steps off where he needs
       to. <em>&ldquo;Sometimes the egg will just sink,&rdquo;</em> so placement is the puzzle. Emerald
       Framers can never be pushed onto water.</td>
-  <td class="tr"><strong>The puddle you fill.</strong> A cell nothing may cross until you shove a
-      can into it; the can jams there for good and becomes walkable floor. Purely additive,
-      never removes, fully deterministic — and it would be the <em>only</em> push in the game
-      that widens the board. Everything else the raccoon does narrows it, and a counterweight
-      is worth having.</td>
-  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><b>High</b></span></td>
+  <td class="tr"><strong>The puddle you fill — shipped as water.</strong> A cell the raccoon won't
+      cross until something is dumped in it. The shipped rule is narrower than the raft and
+      better for it: water refuses cans exactly as the exit does, and accepts <em>only trash</em>,
+      laid by a bag's fan or dropped by the recycle bin. Trash therefore means <em>blocked</em> on
+      dry ground and <em>walkable</em> on water — the one place where making a mess buys you
+      something. Terrain, so it never enters the state key.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Done</b></span></td>
   <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Very</b></span></td>
 </tr>
 
@@ -436,7 +439,7 @@ that already shipped.</p>
 <tr>
   <td class="el">
     <img class="sprite" src="https://cdn.wikimg.net/en/strategywiki/images/3/3a/Eggerland_Medusa.png" alt="Medusa sprite">
-    <span class="chip maybe">Maybe</span><strong>Medusa</strong>
+    <span class="chip take">Take</span><strong>Medusa</strong>
     <span class="src"><a href="https://strategywiki.org/wiki/Adventures_of_Lolo/Enemies">sprite</a></span>
   </td>
   <td>Denies territory from a distance, and lets the player <em>rebuild</em> what's denied by
@@ -448,9 +451,10 @@ that already shipped.</p>
   <td class="tr"><strong>The motion light, or a dog on a chain.</strong> Strip the death and the
       clock and what's left is static and deterministic: a cell that projects four lines of
       denial until something blocks them, recomputed after every push. The player reshapes the
-      lit region by shoving cans into it. Costs the last occupant code, and the trap analysis
-      has to learn about cells that are only sometimes standable.</td>
-  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><b>Medium</b></span></td>
+      lit region by shoving cans into it. The one genuine cost is analytical, not structural:
+      the trap checker has to learn about cells that are legal to stand on only sometimes,
+      which is a category it does not have today.</td>
+  <td class="meter"><span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><b>High</b></span></td>
   <td class="meter"><span class="dots awe"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><b>Very</b></span></td>
 </tr>
 
@@ -581,8 +585,9 @@ that already shipped.</p>
 <hr>
 
 <h2 id="h-picks"><span class="num">4</span>The four to build</h2>
-<p>Ranked by what they unblock, not by how good they sound. All four are terrain, all four are
-deterministic, and none of them spends the last occupant code.</p>
+<p>Ranked by what they unblock, not by how good they sound, and not by which half of the engine
+they land in — three are terrain and one is an occupant, which is the right mix rather than a
+concession.</p>
 
 <ol class="picks">
 <li>
@@ -606,20 +611,22 @@ deterministic, and none of them spends the last occupant code.</p>
   something is entering from.</p>
 </li>
 <li>
-  <strong>The puddle you fill</strong> — Lolo's egg-raft, made permanent.
-  <p class="why">The only push in the game that would <em>open</em> space rather than close it.
-  Worth building last of the four and worth building anyway: a game where every action narrows
-  the board benefits from one action that doesn't. Costs a bit per puddle cell in the state key.</p>
+  <strong>The motion light</strong> — Medusa's denial lines, without Medusa.
+  <p class="why">The one occupant on the list, and the only pick that adds a constraint the player
+  can <em>reshape</em> rather than merely route around: shove a can into the beam and the lit
+  region changes. Last of the four because it is the only one that asks something new of the
+  analysis — a cell that is legal to stand on only sometimes is a category the trap checker
+  doesn't have. Build it when that checker is worth extending, not before.</p>
 </li>
 </ol>
 
-<div class="callout warn">
-<p><strong>One thing to decide before any of this.</strong> The occupant list is nine of a maximum
-nine — <code>stateKey</code> packs one character per cell, so a tenth code would make two different
-boards collide on the same key. Every recommendation above routes around that ceiling by living
-in terrain instead. The Medusa-style light is the one genuinely exciting idea that <em>can't</em>,
-and it would spend the last slot. If that piece is ever wanted, widen the key first and decide it
-on its merits — not by accident, because it happened to be the next thing built.</p>
+<div class="callout good">
+<p><strong>Already built: the puddle.</strong> Water is in, as terrain rather than as an occupant —
+and with a sharper rule than the obvious one. It refuses cans exactly the way the exit does; the
+only thing it accepts is <em>trash</em>, laid by a bag's fan or dropped in by the recycle bin. So
+trash reads as <em>blocked</em> on dry ground and <em>walkable</em> on water, which makes it the one
+place in the game where making a mess buys you something rather than costing you something. That
+is a better idea than the raft it came from.</p>
 </div>
 
 <div class="callout good">
@@ -627,7 +634,9 @@ on its merits — not by accident, because it happened to be the next thing buil
 carried a marquee enemy in 1989, and it's the wheelie bin, shipped in L6. Lolo's Emerald Framer
 rule — one block at a time, never two touching — is the empty can's rule, arrived at
 independently. The convergence isn't a coincidence so much as a sign the grammar was already
-right; what Lolo has that this game doesn't is a <em>floor</em> that participates.</p>
+right. What Lolo still has more of is a <em>floor</em> that participates — seven tiles that each
+answer <em>who may pass, and what may pass through</em>. Water is the first cell here to answer
+that question at all, and the rest of this page is mostly arguing for more of them.</p>
 </div>
 
 <div class="refs" id="refs">
