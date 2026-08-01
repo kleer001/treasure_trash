@@ -106,6 +106,7 @@ const WHY = {
   fan:     "no room to burst",
   canRoom: "no room to shove it",
   exit:    "that's your way out — you can't dump on it",
+  water:   "he's not wetting his paws — fill it in first",
 };
 // Name the thing in the way rather than saying "blocked". The player can see the red
 // cell; the words should add the noun, not repeat the colour.
@@ -357,6 +358,9 @@ function render(){
   ctx.clearRect(0,0,cv.width,cv.height);
   for(let y=0;y<s.rows;y++) for(let x=0;x<s.cols;x++){
     const c=cell(s,x,y); if(c.wall) continue;
+    // Water is terrain with two looks, and the second one is the whole lesson: open
+    // canal he won't cross, or the same cell full of his own trash and walkable.
+    if(c.water){ drawWater(x,y, c.o===TRASH); continue; }
     drawFloor(x,y);
     if(c.exit) drawExit(x,y, bagsLeft(s)===0);
     if(mv && mv.hide.has(`${x},${y}`)) continue;   // in flight — the move animation draws it
@@ -515,6 +519,25 @@ function drawOccupant(o, x, y, k=1){
 function px(x){return x*CS}
 function drawFloor(x,y){ ctx.fillStyle="#fff"; ctx.strokeStyle="#e6e6e2"; ctx.lineWidth=1;
   ctx.fillRect(px(x)+1,px(y)+1,CS-2,CS-2); ctx.strokeRect(px(x)+1.5,px(y)+1.5,CS-3,CS-3); }
+// Open water reads as a hole in the floor — darker than anything else on the board, with
+// ripples, because the one thing the player must believe on sight is "not walkable". A
+// filled cell keeps the dark rim so you can still see it WAS water, and takes the same
+// trash glyph the rest of the board uses: the mess is the bridge.
+function drawWater(x,y,filled){
+  const x0=px(x), y0=px(y);
+  ctx.fillStyle = filled ? "#7fb7c4" : "#2e6f8e";
+  ctx.fillRect(x0+1,y0+1,CS-2,CS-2);
+  if(filled){ drawTrash(x,y); return; }
+  ctx.strokeStyle="rgba(255,255,255,.45)"; ctx.lineWidth=2; ctx.lineCap="round";
+  for(let i=1;i<=2;i++){
+    const yy=y0+CS*(i/3);
+    ctx.beginPath();
+    ctx.moveTo(x0+6,yy);
+    ctx.quadraticCurveTo(x0+CS/3,yy-4, x0+CS/2,yy);
+    ctx.quadraticCurveTo(x0+2*CS/3,yy+4, x0+CS-6,yy);
+    ctx.stroke();
+  }
+}
 // The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
 // "safe condition" coding (ISO 7010 E002). Lit = every bag torn; unlit = work left to do.
 // The arrow points at the nearest board edge — the direction he's actually leaving in.

@@ -250,3 +250,21 @@ E-----
 E$---@
 ------
 :end
+
+:level  L14
+:name   Wet Paws
+:teach  water — he won't cross it, but he'll walk on what he throws in it
+:arm    on
+:par    7
+:traps  0
+:solves 1
+:solve  R!uuluR!l
+:note   The canal is the only thing between him and the exit, and the first move you try walks straight into it. A fan fired sideways drops two of its five cells in the water; those two are now floor. Nothing here can be lost — the room has no traps at all.
+:grid
+----
+-E$-
+----
+~~~~
+-@$-
+----
+:end

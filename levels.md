@@ -26,6 +26,7 @@ notations; the files are canonical.
 E  the exit (always walkable by the raccoon, never occupiable by anything else;
    counts only when every bag is torn)
 C  full can (has a bag)                     c  empty can (pushable)
+~  water (impassable)                       =  water filled with trash (a bridge)
 ```
 The raccoon's starting cell is **plain floor** — there is no entry-stub terrain. A room
 may wall it in on either side to make the entrance read as an entrance (L1 does), but the
@@ -117,6 +118,14 @@ committed actions, so no flag can change a par.)*
    your own way out.
 8. **Free undo / restart.** Deterministic. **Win = every bag torn *and* the raccoon
    standing on the exit.**
+9. **Water `~`** — terrain, like the wall and the exit, with two states and no others.
+   **Open:** the raccoon will not step in it and no object may come to rest in it — a can,
+   an ejected bag or a rolling wheelie bin aimed at water is **refused**. **Filled:** trash
+   that lands in water stays there permanently and the cell becomes **ordinary walkable
+   ground**. So trash means *blocked* on the floor and *walkable* on the water, and that
+   inversion is the whole piece. Only two things can fill it — a bag's fan (five cells
+   spent, however many of them happen to be water) and the recycle bin's drop (one for
+   one). The exit is never water. Introduced alone in **L14**.
 
 **Core proposition:** *choose each strike's direction and order so your persistent
 trash never blocks your path, your way out, or another bag's fan.*
@@ -499,6 +508,47 @@ these rooms is not in the repo** — only the bank survived it.
 
 ---
 
+## L14 — "Wet Paws" **[verified]**
+*New terrain:* **water** `~` — the raccoon will not cross it, but he will happily walk on
+what he throws into it. **Trash landing in water fills it permanently, and a filled cell is
+ordinary walkable ground.** This is the one place in the game where making a mess buys you
+something, and it does not dent the pillar: nothing is cleaned up, a hole is filled in.
+```
+   x=1 2 3 4
+y1  .  .  .  .
+y2  .  E  B  .    bag A, beside the exit
+y3  .  .  .  .
+y4  ~  ~  ~  ~    the canal — the only thing between him and the way out
+y5  .  R  B  .    bag B
+y6  .  .  .  .
+```
+**Solve — `R!uuluR!l`** (par 7): Right → strike B(3,5) **rightward**. Its fan is the side
+cells (3,4)/(3,6) plus the x=4 column at (4,4)/(4,5)/(4,6) — and (3,4) and (4,4) are canal,
+so those two cells fill in and become floor. R ends on (3,5). Up onto the bridge at (3,4),
+Up to (3,3), Left to (2,3), Up to (2,2) — which **is** the exit, with a bag still out, so
+nothing happens. Right → strike A(3,2) rightward, away from the door, exactly as L4 taught.
+Left → back onto E → win.
+**The refusal that opens the room:** the exit is straight up from the start, and the first
+move anyone tries walks into the canal. It is **refused at move zero** — *he's not wetting
+his paws — fill it in first* — which is the cheapest possible way to teach a new piece: it
+costs no move, and the answer is on screen. **Zero traps in the whole room**; nothing here
+can be lost, only lengthened.
+*Lesson: your mess is a wall on the floor and a floor on the water.*
+
+**Two rules fall out of the geometry, and both are load-bearing:**
+- **Only a bag can bridge a canal.** The raccoon ends a tear standing on the *bag's* cell,
+  which is behind the fan — so the bridge is in front of him with nothing in between. Every
+  other piece parks itself on the only dry cell that approaches the bridge it just built (a
+  water cell's only dry neighbours are the two banks), and seals it. The recycle bin *can*
+  fill one cell of water — one spent for one gained, the cheapest bridge in the game — but
+  it can never do so for its own benefit. That is the adjacency tax in its purest form, and
+  it is unit-tested.
+- **Water takes trash and nothing else.** A can shoved at the canal, a full can trying to
+  eject its bag into it, a wheelie bin rolling at it — all refused. There is exactly one way
+  to build a bridge, so the piece stays legible.
+
+---
+
 ## Proposed next rooms **[sketch — not verified]**
 - **L2-redux — the can, rebuilt** per the rework note above.
 - **A room that fences you in on the long axis.** L5 cuts the board because it is three
@@ -563,7 +613,8 @@ goal) **and the raccoon standing on the exit** (get out of the alley you just wr
 | **Metal can** (full) | push → **slides 1**, ejects its bag **1 further ahead**, becomes an empty can; raccoon advances into its old cell | both the can's destination *and* the bag's landing cell must be clear |
 | **Empty can / plain block** | push → slides 1 (plain Sokoban block) | destination clear; **never removable**; may start on the board as a plain block |
 | **Exit** | — (terrain, not an occupant) | walkable at all times; **wins the room** only while standing on it with zero bags left; **protected by the engine** — any strike or push that would land trash, a can or a bag on it is refused, so it can never be sealed; exactly one per room |
-| **Spilled trash** | — (inert) | **permanent** obstacle; never moves, never clears |
+| **Spilled trash** | — (inert) | **permanent** obstacle; never moves, never clears — **except in water, where the same trash is walkable ground** |
+| **Water** | — (terrain, not an occupant) | the raccoon won't cross it and **nothing may come to rest in it**; trash that lands in it **fills it permanently** and the cell becomes ordinary floor. Only a bag's fan or the recycle bin's drop can fill it. Never the exit |
 | **Bag-on-can stack** | push → top bag **launches 2** ahead (loose), can **slides 1** (still full); raccoon advances 1 | landing cells clear; launched bag must still be struck; only way to **reposition** a bag |
 | **Recycle bin** | push → slides 1, **drops 1 cell of trash** directly ahead | destination clear (precise obstacle placer) |
 | **Furniture** (couch/mattress) | rigid **polyomino** (L / Z / T / straight); push → shoves as a unit 1 cell | only if **all** leading cells clear; **translate-only** (no rotation); multi-cell footprint |
@@ -578,7 +629,8 @@ bag open **and** the raccoon on the exit.
 · dumpster · gum/tar · oil slick · glass bottle.
 
 **Implemented and verified in `spike/`:** bag, metal can, exit, spilled trash, **recycle
-bin**, **wheelie bin** — L0–L6, pars 2/4/7/5/5/6/11, every one a provably minimal solve.
+bin**, **wheelie bin**, **water** — L0–L6 at pars 2/4/7/5/5/6/11 and L14 at par 7, every one
+a provably minimal solve.
 The two failure classes stay separate: **refusals** (an action the exit or a blocked fan
 will not accept, played out and rewound at no cost) and **stranding traps** (legal, and
 they lose you the room). Each piece's rule has a unit test in `tests/items.test.js`.

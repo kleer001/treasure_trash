@@ -20,16 +20,21 @@ import { dirname, resolve } from 'node:path';
 import { parseLevelPack, parseLurd, toState } from './format.mjs';
 import { analyze } from './solver.mjs';
 import {
-  DIR_ORDER, DIRS, MOVE, TEAR, BAG, NONE, explain, cell, inGrid, fan, isOccupiable, bagsLeft,
+  DIR_ORDER, DIRS, MOVE, TEAR, BAG, explain, cell, fan, canStand, canHoldTrash, bagsLeft,
 } from './rules.mjs';
 
 const FAN_CELLS = 5;   // a tear always spends exactly five cells of floor, never fewer
 
-/** Non-wall cells: the floor budget a room starts with, before anything stands on it. */
-const floorCells = s => s.cells.flat().filter(c => !c.wall).length;
+/** Dry ground: the floor budget a room starts with, before anything stands on it.
+ *  Water is not floor — it is floor you can buy, at five cells a bag or one a bin. */
+const floorCells = s => s.cells.flat().filter(c => !c.wall && !c.water).length;
 
-/** Cells nothing occupies and no wall covers — where the raccoon can still walk. */
-const freeCells = s => s.cells.flat().filter(c => !c.wall && c.o === NONE).length;
+/** Everywhere the raccoon can still walk, bridges included. */
+const freeCells = (s) => {
+  let n = 0;
+  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) if (canStand(s, x, y)) n++;
+  return n;
+};
 
 /**
  * Static coupling between bags: does opening bag A in some direction cost bag B one of
@@ -53,7 +58,7 @@ function coupling(s) {
   for (const [ax, ay] of bags) for (const dir of DIR_ORDER) {
     const [dx, dy] = DIRS[dir];
     const laid = fan(ax, ay, dx, dy);
-    if (laid.some(([x, y]) => !isOccupiable(s, x, y))) continue;   // not a legal opening anyway
+    if (laid.some(([x, y]) => !canHoldTrash(s, x, y))) continue;   // not a legal opening anyway
     choices++;
     const hits = bags.some(([bx, by]) =>
       (bx !== ax || by !== ay) &&
@@ -118,9 +123,18 @@ export function metrics(level) {
   let opening = 0;
   while (opening < actions.length && actions[opening].kind === MOVE) opening++;
 
-  // Replay to the win to read the floor that survived it.
-  let final = start;
-  for (const act of actions) final = explain(final, act.dir).next;
+  // Replay to the win to read the floor that survived it, and to count the water the
+  // solution had to fill. `coupling` only ever sees bag-on-bag interference; a bag whose
+  // fan bridges a canal is coupled to the room through the *terrain* instead, which is
+  // the strongest coupling there is — it creates the route. Read the two together, or a
+  // water room reads as uncoupled when it is the opposite.
+  let final = start, bridges = 0;
+  for (const act of actions) {
+    const before = final;
+    final = explain(final, act.dir).next;
+    for (let y = 0; y < final.rows; y++) for (let x = 0; x < final.cols; x++)
+      if (cell(final, x, y).water && cell(final, x, y).o !== cell(before, x, y).o) bridges++;
+  }
 
   const floor = floorCells(start);
   const bags = bagsLeft(start);
@@ -137,7 +151,11 @@ export function metrics(level) {
     walkRatio: decisions ? +(walks / decisions).toFixed(2) : null,
     opening,
     coupling: (v => v === null ? null : +v.toFixed(2))(coupling(start)),
-    firstRefusal: firstRefusal(a, new Set(['exit', 'fan', 'canRoom'])),
+    bridges,
+    // 'water' belongs here and 'wall'/'edge' do not: open water is the only refusal that
+    // looks like ground you ought to be able to cross, which is what makes it a decoy
+    // rather than a boundary.
+    firstRefusal: firstRefusal(a, new Set(['exit', 'fan', 'canRoom', 'water'])),
     firstExitRefusal: firstRefusal(a, new Set(['exit'])),
     firstTrap: a.traps.length ? Math.min(...a.traps.map(t => parseLurd(t.lurd).length - 1)) : null,
     postMortem: postMortem(a),
@@ -149,7 +167,7 @@ export function metrics(level) {
 // and a module that prints on import is a module you cannot compose.
 const COLS = [
   ['id', 4], ['par', 4], ['bags', 5], ['decisions', 10], ['walkRatio', 10], ['opening', 8],
-  ['tightness', 10], ['slack', 6], ['coupling', 9], ['solves', 7],
+  ['tightness', 10], ['slack', 6], ['coupling', 9], ['bridges', 8], ['solves', 7],
   ['traps', 6], ['firstTrap', 10], ['pm', 4], ['firstRefusal', 13], ['firstExitRefusal', 17],
 ];
 const val = (r, k) => k === 'pm' ? r.postMortem.depth : (r[k] ?? '·');

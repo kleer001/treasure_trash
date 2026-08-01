@@ -360,9 +360,10 @@ footprint, i.e. more `L`, which is already the pack's best-served axis, and they
 blocked on a multi-cell state-model change that the board does not currently support. That
 change should wait until a room needs it, not lead.
 
-**Recommendation: spend the next slot on water / gap, which is already reserved.** A cell
-the raccoon cannot cross; **trash landing in it fills it, and the filled cell becomes
-ordinary walkable trash.**
+**Recommendation: spend the next slot on water / gap, which is already reserved.**
+**— Taken. Built, unit-tested, and introduced in L14 "Wet Paws" (par 7).** A cell the
+raccoon cannot cross; **trash landing in it fills it, and the filled cell becomes ordinary
+walkable ground.**
 
 It is the only candidate on the table that adds a question rather than a piece:
 
@@ -378,9 +379,31 @@ It is the only candidate on the table that adds a question rather than a piece:
 - It attacks the `P` (Path) axis, which is the second-least-served, and it makes `R`
   (Order) sharper: fill the gap too early and you have spent a fan you needed elsewhere.
 
-Open question it raises, to settle before building: **does a filled gap count against the
-floor budget?** It should — it costs five cells to gain one — which keeps Law 5 honest and
-makes bridging an expensive, deliberate act rather than a default.
+**What building it settled, and two things it taught.**
+
+*The floor-budget question* — does a filled gap count against the budget? Resolved in the
+metrics: **water is not floor, it is floor you can buy**, at five cells a bag or one a bin.
+`tightness` counts dry ground only, so bridging is priced honestly as an expensive,
+deliberate act.
+
+*Only a bag can bridge a canal.* This was not designed in, it fell out of the geometry, and
+it kills an obvious room before anyone builds it. A water cell's only dry neighbours are the
+two banks, so the cell that approaches a new bridge is the bank cell directly behind it —
+and every piece except the bag **parks itself on exactly that cell**. Push the recycle bin
+at a canal and it slides onto the approach and drops its trash beyond, sealing the bridge it
+just built. The bag is the exception because the raccoon ends a tear standing on the *bag's*
+cell, which is behind the fan, so the bridge is in front of him with nothing in between. So
+the bin *can* fill water — one cell spent for one gained, the cheapest bridge in the game —
+but never for its own benefit. Unit-tested, because it is the kind of rule a later refactor
+would break silently.
+
+*Water inverts two of the metrics, and they need reading together.* Trash in water **adds**
+walkable ground, so `slack` counts bridges as free floor and a water room reads looser than
+it is. And `coupling` only ever sees bag-on-bag interference, so L14 scores **0** while
+actually being maximally coupled — its first bag's fan *creates the route to the second*.
+That is coupling through terrain, which is the strongest kind there is. `metrics.mjs` now
+reports **`bridges`** alongside, and the rule is: **`coupling 0` is only a Law 4 failure when
+`bridges` is also 0.**
 
 **Two calls in the other direction.**
 
@@ -416,7 +439,12 @@ makes bridging an expensive, deliberate act rather than a default.
    of the pack is being rebuilt from scratch.
 4. **Add Law 8's plausible-vs-legal count, symmetry, and near-optimal multiplicity to
    `metrics.mjs`** — the three laws that are currently argued but unmeasured.
-5. **Then** water/gap, and a rules decision on the stack.
+5. **A second water room, this time a puzzle.** L14 is an introduction and behaves like
+   one: two decisions, zero traps, nothing losable. The question water is *built* to ask is
+   an Order question — a fan spent on the canal is a fan you cannot spend on a bag, so which
+   one you bridge with, and when, is the puzzle. That room is `R` + `P`, which is precisely
+   the gap §5 identifies. Build it with §4's intent enumeration.
+6. **Then** a rules decision on the stack.
 
 ---
 
