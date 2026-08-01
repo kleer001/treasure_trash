@@ -207,8 +207,12 @@ tail is huge and unindexed — can't prove absence). *Design consequence:* playe
 expect "explosion = opens space"; our burst *closes* space, so the **fan preview +
 free undo** are load-bearing — they teach the inversion, not just polish.
 
-**Object budget (aim ~8):** `bag`, `can` (full/empty), `spilled trash` = **3 used.**
-Reserved: water/gap, and the crow's pieces (pinned).
+**Object budget (aim ~8):** `bag`, `can` (full/empty), `spilled trash`, `recycle bin`,
+`wheelie bin` = **5 used**, plus the `bag-on-can stack` — built and unit-tested, but it
+earns no room yet (see the note at the end of this file), so call it **5 spent and a
+sixth parked**. The exit is terrain and costs nothing against the budget.
+Reserved: water/gap, and the crow's pieces (pinned). Which to spend the next slot on, and
+why it should be water/gap: [`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md) § 6.
 
 ---
 
@@ -482,6 +486,16 @@ machine-checked — the par is provably minimal, the solve replays to a win, the
 refusal counts are exact — but nothing checks that a room is *interesting*, and no search
 can. If any of these plays flat, it should be swapped out rather than defended: the bank of
 candidates it came from is in `spike/levels/bank.jsonl`, several hundred rooms deep.
+
+**Measured since, and the news is bad.** `spike/metrics.mjs` scores these seven on what they
+cost the player rather than on par, and they do not hold up: par climbs 13 → 25 while the number
+of board-changing *decisions* stays flat at 3–5, so the ladder is built out of walking; L11 and
+L13 have zero coupling between their bags (independent puzzles sharing a grid); and L11 lets you
+keep playing for 34 moves after the room is already unwinnable. The bank cannot supply
+replacements — 0 of its 226 rooms pass the same filters — so these need regenerating rather than
+re-sorting. The laws, the numbers and the generator design are in
+[`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md). Note also that **the generator that produced
+these rooms is not in the repo** — only the bank survived it.
 
 ---
 
