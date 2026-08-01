@@ -47,32 +47,23 @@
 
 :solution L8
 :label  par
-:moves  lDldL!rurrdLLdR!l
+:moves  rruuuull
+:note   Right around the ring. The left arm is the canal, and walking into it costs nothing.
 
 :solution L9
 :label  par
-:moves  uruullDurrddD!ulU!d
+:moves  lluururD!u
+:note   Around the canal the long way, then strike down off the exit cell — the only tear the room allows.
 
 :solution L10
 :label  par
-:moves  uuulDdddlU!drrddLuL!r
+:moves  R!uuluR!l
 
 :solution L11
 :label  par
-:moves  rrUuurD!ulluuRdR!lulD!ul
+:moves  rrrrU!uluuruL!r
+:note   Strike the low bag upward so the fan's three forward cells straddle the gate column, cross, then take the top bag leftward off the exit.
 
 :solution L12
-:label  par
-:moves  uuuurrDdL!rddrddLuL!ruuuu
-
-:solution L13
-:label  par
-:moves  uuuulDddlU!ddddRrU!dlllluR!l
-
-:solution L14
-:label  par
-:moves  R!uuluR!l
-
-:solution L15
 :label  par
 :moves  R!uulL!dD!uur

@@ -1,0 +1,117 @@
+:pack   Treasure Trash — sketches (not in the game)
+:format 1
+;
+; legend  # wall  - floor  @ raccoon  $ bag  C full can  c empty can
+;         x spilled trash  E exit  + raccoon on exit  b recycle bin
+;         W wheelie bin (full)  w wheelie bin (empty)
+;
+; These six were the old L8-L13: a difficulty ladder FOUND by a seeded generator, not
+; composed. They verify — every par here is provably minimal — but metrics.mjs showed
+; the ladder is built out of walking rather than decisions (par climbs 15 -> 25 while
+; board-changing decisions stay flat at 3-5), so they are out of the game pack.
+;
+; Kept because they are green and because the rooms that replace them have to beat
+; something. Verify with:  node verify.mjs levels/sketches.tt levels/sketches.sol
+;
+
+:level  S1
+:name   Bin Night
+:teach  both containers at once — the can that ejects a bag and the bin that drops trash
+:par    15
+:traps  7
+:solves 1
+:solve  lDldL!rurrdLLdR!l
+:note   The can hands you a second bag to deal with and the bin charges you a cell of floor. Neither can be left where it stands.
+:grid
+-b--@
+---C-
+-$---
+--E--
+-----
+-----
+:end
+
+:level  S2
+:name   Tight Corner
+:teach  the exit wedged between two bags and the bin that can bury the way through
+:par    17
+:traps  3
+:solves 2
+:solve  uruullDurrddD!ulU!d
+:note   Only three ways to lose this one, and all of them are the same mistake: filling the gap you have to come back through.
+:grid
+------
+------
+b$----
+-E----
+-@$---
+------
+:end
+
+:level  S3
+:name   Long Way Round
+:teach  the wheelie bin again, now with the walk home as part of the cost
+:par    19
+:traps  16
+:solves 1
+:solve  uuulDdddlU!drrddLuL!r
+:note   The bin rolls away from the exit, so freeing the bag and reaching the door pull in opposite directions.
+:grid
+-----
+---W-
+--$--
+----@
+----E
+-----
+:end
+
+:level  S4
+:name   Crosstown
+:teach  two bags on opposite corners with one rolling bin between them
+:par    21
+:traps  34
+:solves 1
+:solve  rrUuurD!ulluuRdR!lulD!ul
+:note   The bin is the only piece that crosses the board, and it only crosses once per shove.
+:grid
+E-----
+-$----
+------
+---W$-
+-@----
+------
+:end
+
+:level  S5
+:name   The Far Side
+:teach  a bag and a bin parked as far from the exit as the room allows
+:par    23
+:traps  12
+:solves 3
+:solve  uuuurrDdL!rddrddLuL!ruuuu
+:note   Nothing here is subtle. The room is long because the pieces are far apart and the bin will not stop where you want it.
+:grid
+----E-
+--$W--
+------
+------
+-@----
+------
+:end
+
+:level  S6
+:name   Closing Time
+:teach  everything the pack has taught, at the longest range it has asked for
+:par    25
+:traps  43
+:solves 2
+:solve  uuuulDddlU!ddddRrU!dlllluR!l
+:note   Two bags, a rolling bin, and an exit on the far wall. The last room in the pack and the only one that needs all of it at once.
+:grid
+------
+---$W-
+------
+------
+E$---@
+------
+:end

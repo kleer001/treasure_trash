@@ -150,108 +150,42 @@ E$-$-
 :end
 
 :level  L8
-:name   Bin Night
-:teach  both containers at once — the can that ejects a bag and the bin that drops trash
-:par    15
-:traps  7
+:name   Round the Canal
+:teach  water — terrain he will not cross, so the way through is around
+:arm    on
+:par    8
+:traps  0
 :solves 1
-:solve  lDldL!rurrdLLdR!l
-:note   The can hands you a second bag to deal with and the bin charges you a cell of floor. Neither can be left where it stands.
+:solve  rruuuull
+:note   No bags at all: the room is only about the canal. Both arms of the ring look equal from the start and the left one is plugged, so the wrong guess costs a refusal and nothing else.
 :grid
--b--@
----C-
--$---
---E--
------
------
+#######
+#--E--#
+#-###-#
+#~###-#
+#-###-#
+#--@--#
+#######
 :end
 
 :level  L9
-:name   Tight Corner
-:teach  the exit wedged between two bags and the bin that can bury the way through
-:par    17
-:traps  3
-:solves 2
-:solve  uruullDurrddD!ulU!d
-:note   Only three ways to lose this one, and all of them are the same mistake: filling the gap you have to come back through.
+:name   Fill It In
+:teach  trash landing in water fills it permanently
+:par    9
+:traps  0
+:solves 1
+:solve  lluururD!u
+:note   The exit refuses both side approaches to the bag, so the only tear is downward off the exit cell — and its whole forward row is canal. Three cells of water flip to bridge at once. The canal blocks nothing here; you walk around it either way.
 :grid
-------
-------
-b$----
--E----
--@$---
-------
+#######
+##-E--#
+#--$--#
+#-~~~##
+#--@--#
+#######
 :end
 
 :level  L10
-:name   Long Way Round
-:teach  the wheelie bin again, now with the walk home as part of the cost
-:par    19
-:traps  16
-:solves 1
-:solve  uuulDdddlU!drrddLuL!r
-:note   The bin rolls away from the exit, so freeing the bag and reaching the door pull in opposite directions.
-:grid
------
----W-
---$--
-----@
-----E
------
-:end
-
-:level  L11
-:name   Crosstown
-:teach  two bags on opposite corners with one rolling bin between them
-:par    21
-:traps  34
-:solves 1
-:solve  rrUuurD!ulluuRdR!lulD!ul
-:note   The bin is the only piece that crosses the board, and it only crosses once per shove.
-:grid
-E-----
--$----
-------
----W$-
--@----
-------
-:end
-
-:level  L12
-:name   The Far Side
-:teach  a bag and a bin parked as far from the exit as the room allows
-:par    23
-:traps  12
-:solves 3
-:solve  uuuurrDdL!rddrddLuL!ruuuu
-:note   Nothing here is subtle. The room is long because the pieces are far apart and the bin will not stop where you want it.
-:grid
-----E-
---$W--
-------
-------
--@----
-------
-:end
-
-:level  L13
-:name   Closing Time
-:teach  everything the pack has taught, at the longest range it has asked for
-:par    25
-:traps  43
-:solves 2
-:solve  uuuulDddlU!ddddRrU!dlllluR!l
-:note   Two bags, a rolling bin, and an exit on the far wall. The last room in the pack and the only one that needs all of it at once.
-:grid
-------
----$W-
-------
-------
-E$---@
-------
-:end
-
-:level  L14
 :name   Wet Paws
 :teach  water — he won't cross it, but he'll walk on what he throws in it
 :arm    on
@@ -269,7 +203,27 @@ E$---@
 ----
 :end
 
-:level  L15
+:level  L11
+:name   The Gate
+:teach  the fan's aim decides WHERE the bridge lands, and only one landing lines up
+:par    13
+:traps  1
+:solves 1
+:solve  rrrrU!uluuruL!r
+:note   The far bank is wall except for one opening, so bridging the canal is not enough — you have to bridge the column under the gate. Striking the low bag rightward builds a crossing that goes nowhere and loses the room; it is the pack's first trap that is purely about aim.
+:grid
+##########
+#--------#
+#-----$E-#
+#--------#
+######-###
+#~~~~~~~~#
+#------$-#
+#--@-----#
+##########
+:end
+
+:level  L12
 :name   Two Crossings
 :teach  order — one bag builds the way to another, so the wrong first tear strands you
 :par    10

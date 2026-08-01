@@ -125,7 +125,7 @@ committed actions, so no flag can change a par.)*
    ground**. So trash means *blocked* on the floor and *walkable* on the water, and that
    inversion is the whole piece. Only two things can fill it — a bag's fan (five cells
    spent, however many of them happen to be water) and the recycle bin's drop (one for
-   one). The exit is never water. Introduced alone in **L14**.
+   one). The exit is never water. Introduced alone in **L8**, and taught across **L8–L12**.
 
 **Core proposition:** *choose each strike's direction and order so your persistent
 trash never blocks your path, your way out, or another bag's fan.*
@@ -220,8 +220,10 @@ free undo** are load-bearing — they teach the inversion, not just polish.
 `wheelie bin` = **5 used**, plus the `bag-on-can stack` — built and unit-tested, but it
 earns no room yet (see the note at the end of this file), so call it **5 spent and a
 sixth parked**. The exit is terrain and costs nothing against the budget.
-Reserved: water/gap, and the crow's pieces (pinned). Which to spend the next slot on, and
-why it should be water/gap: [`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md) § 6.
+**Water is terrain, not an object**, so like the exit it costs nothing against this budget —
+but it was the reserved slot [`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md) § 6 argued for,
+and it is now **spent**: built, unit-tested, and taught across L8–L12. Still reserved: the
+`gap` (a dry hole, filled the same way but never walkable) and the crow's pieces (pinned).
 
 ---
 
@@ -397,7 +399,14 @@ loaded and once empty. **Zero traps**: nothing here can be lost, only lengthened
 
 ---
 
-## L7–L13 — the ladder **[verified, found by search]**
+## L7, and the retired L8–L13 ladder **[L7 in the pack; L8–L13 archived]**
+
+**Only L7 is still in the game.** L8–L13 were cut from the pack and archived as
+`spike/levels/sketches.tt`, renamed **S1–S6**, still green under
+`node verify.mjs levels/sketches.tt levels/sketches.sol`. The reason is the measurement
+recorded at the end of this section — the ladder is built out of walking rather than
+decisions — and the numbers they used to occupy now carry the water block, **L8–L12** below.
+They are kept rather than deleted because whatever replaces them has to beat something.
 
 These seven were not composed the way L0–L6 were. Each of those rooms exists to teach one
 thing, and the prose above can say what that thing is. These were **found**: a seeded
@@ -508,8 +517,55 @@ these rooms is not in the repo** — only the bank survived it.
 
 ---
 
-## L14 — "Wet Paws" **[verified]**
-*New terrain:* **water** `~` — the raccoon will not cross it, but he will happily walk on
+## L8 — "Round the Canal" **[verified]**
+*New terrain:* **water** `~` — terrain, like the wall and the exit. One fact and no others:
+**the raccoon will not cross it.** No bags in the room, nothing that could change the canal,
+nothing to spend. The piece is introduced as an obstacle before it is introduced as a tool.
+```
+   x=1 2 3 4 5
+y1  .  .  E  .  .
+y2  .  #  #  #  .
+y3  ~  #  #  #  .    the canal, plugging the west arm one cell in
+y4  .  #  #  #  .
+y5  .  .  R  .  .
+```
+**Solve — `rruuuull`** (par 8): right, right, up the east arm, then left along the top onto
+the exit. The room is a ring around a solid core, and the two arms are the same length, so
+roughly half the table turns left, meets the canal on move three, and is **refused at no
+cost**. That refusal is the whole room. **Zero bags**, so the exit is live from move one —
+this is L0's shape with one cell changed.
+*Lesson: water is a wall you can see through.*
+
+---
+
+## L9 — "Fill It In" **[verified]**
+*New rule:* **trash that lands in water fills it permanently**, and the filled cell stops
+being water. The canal here **blocks nothing** — both ends are open, you can walk around it
+either way — so filling it buys the player nothing at all. That is deliberate: they watch the
+transformation once, for free, before the game asks them to rely on it.
+```
+   x=1 2 3 4 5
+y1  #  .  E  .  .
+y2  .  .  B  .  .
+y3  .  ~  ~  ~  #
+y4  .  .  R  .  .
+```
+**Solve — `lluururD!u`** (par 9): the first thing anyone presses is Up, straight into the
+canal, and it is refused — the same free opening L8 taught. So: left, left, up the west arm,
+up, right, up, right onto the exit — then **strike the bag downward off the exit cell**. The
+fan's forward row is (2,3)/(3,3)/(4,3), which is the entire canal, so **three cells of water
+flip to bridge in one strike**. Up, back onto E → win.
+**Why that tear is the only one.** The bag sits directly below the exit, so both side
+approaches are refused *by the exit itself*: struck rightward from (2,2) or leftward from
+(4,2), a fan cell lands on E and the engine says no. The only legal strike is downward, from
+the exit, and the player has to walk the ring to get there. **Zero traps; the exit refuses
+two actions**, which is how it earns its slot in a one-bag room.
+*Lesson: your mess is a wall on the floor and a floor on the water.*
+
+---
+
+## L10 — "Wet Paws" **[verified]**
+*Now the rule pays:* the raccoon will not cross the canal, but he will happily walk on
 what he throws into it. **Trash landing in water fills it permanently, and a filled cell is
 ordinary walkable ground.** This is the one place in the game where making a mess buys you
 something, and it does not dent the pillar: nothing is cleaned up, a hole is filled in.
@@ -549,7 +605,36 @@ can be lost, only lengthened.
 
 ---
 
-## L15 — "Two Crossings" **[verified — found by a targeted search]**
+## L11 — "The Gate" **[verified]**
+*New question:* **where.** L10 asked whether you would spend a fan on the canal at all. This
+one takes that for granted and asks *which cell of it* — because the far bank is wall except
+for a single opening, and a bridge that does not land under the opening is a bridge to
+nowhere.
+```
+   x=1 2 3 4 5 6 7 8
+y1  .  .  .  .  .  .  .  .
+y2  .  .  .  .  .  B  E  .    bag A, beside the exit on the far bank
+y3  .  .  .  .  .  .  .  .
+y4  #  #  #  #  #  G  #  #    the gate — the only way off the canal
+y5  ~  ~  ~  ~  ~  ~  ~  ~    the canal
+y6  .  .  .  .  .  .  B  .    bag B
+y7  .  .  R  .  .  .  .  .
+```
+**Solve — `rrrrU!uluuruL!r`** (par 13): four steps right to (7,7), then strike **B**(7,6)
+**upward**. Its fan's forward row is (6,5)/(7,5)/(8,5), which straddles the gate column, so
+the bridge you need at (6,5) is there. Up onto (7,5), Left onto (6,5), Up through the gate,
+Up, Right, Up onto E, then strike **A**(6,2) **leftward** — away from the door, as L4 taught
+— and Right back onto E → win.
+**The trap, and it is purely about aim.** Strike B *rightward* instead and the fan bridges
+(7,5) and (8,5): a perfectly good crossing, two cells wide, under solid wall. The room is
+lost, the board still looks healthy, and nothing else in it can make another bridge. **One
+trap in the room, and that is it** — the pack's first room where the losing move is a
+correctly-reasoned bridge aimed one column off.
+*Lesson: a bridge is only worth what is on the far side of it.*
+
+---
+
+## L12 — "Two Crossings" **[verified — found by a targeted search]**
 *New question:* **order.** Every room before this one asks *which way*; this one asks
 *which bag*. Three bags, and two of them get spent on the canal.
 ```
@@ -595,12 +680,12 @@ is the room that proves it.
   a fan cell that lands on a wall is *not occupiable*, so the strike is refused rather
   than cramped. A fencing room on a wide board therefore has to be built out of **trash**
   the player has already laid down, not out of level geometry.
-- ~~**A bag that must be opened last.**~~ **Built — L15 "Two Crossings"**, in its mirror
+- ~~**A bag that must be opened last.**~~ **Built — L12 "Two Crossings"**, in its mirror
   form: a bag that must be opened *first*, because its fan is the only route to the rest of
   the room. But note what this sketch asked for and L15 does not deliver — it forces the
   order by *punishing the wrong one after the fact*, exactly the thing the last line here
   warned against. A room that **refuses** the wrong first tear outright is still unbuilt,
-  and would be the better teacher; it is also the fix for L15's `pm` of 12.
+  and would be the better teacher; it is also the fix for L12's `pm` of 12.
 
 **A constraint worth knowing before designing another room.** The verifier requires the
 exit to forbid at least one action, and a bag's fan only ever reaches cells that are
@@ -671,7 +756,8 @@ bag open **and** the raccoon on the exit.
 · dumpster · gum/tar · oil slick · glass bottle.
 
 **Implemented and verified in `spike/`:** bag, metal can, exit, spilled trash, **recycle
-bin**, **wheelie bin**, **water** — L0–L6 at pars 2/4/7/5/5/6/11 and L14 at par 7, every one
+bin**, **wheelie bin**, **water** — L0–L6 at pars 2/4/7/5/5/6/11 and the water block L8–L12
+at pars 8/9/7/13/10, every one
 a provably minimal solve.
 The two failure classes stay separate: **refusals** (an action the exit or a blocked fan
 will not accept, played out and rewound at no cost) and **stranding traps** (legal, and

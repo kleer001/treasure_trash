@@ -1,4 +1,4 @@
-# Spike — Treasure Trash L0–L13
+# Spike — Treasure Trash L0–L12
 
 **Throwaway feasibility spike. NOT the game.** Per the studio design gate, this is the
 one allowed pre-gate artifact: a spike to answer a specific risk before any real
