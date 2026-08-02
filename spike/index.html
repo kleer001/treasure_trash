@@ -717,31 +717,49 @@ function drawFurniture(cells, ox=0, oy=0){
   ctx.restore();
 }
 
-// The water jug: the recycle bin's mirror, so it is drawn as the bin's opposite. Same
-// squat footprint, but translucent with a visible waterline in the canal's own blue — the
-// player should read "this is where that water comes from" the first time it spills.
+// The water jug: a cooler bottle, not a milk jug. Sloped shoulders to a capped neck, an air
+// gap of pale cyan above the waterline, moulded ribs across the belly, and the water itself in
+// the canal's exact blue — the player should read "this is where that water comes from" the
+// first time it spills. The thin white rim inside the outline is what keeps it reading as
+// translucent plastic against both the white floor and the dark canal it can end up in.
 function drawJug(x,y){
-  const bx=px(x)+CS/2-5, w=CS-2*PAD-16, top=px(y)+PAD+3, h=CS-2*PAD-6;
-  const neck=w*0.34, shoulder=top+11, wl=top+h*0.44;    // neck, shoulder, waterline
+  const bx=px(x)+CS/2-4, w=CS-2*PAD-16, top=px(y)+PAD+5, h=CS-2*PAD-8;
+  const neck=w*0.32, shoulder=top+10, wl=top+h*0.34, bot=top+h;
   const L=bx-w/2, R=bx+w/2;
+  const body=()=>{                                       // shoulders in to a short neck
+    ctx.beginPath();
+    ctx.moveTo(bx-neck/2, top); ctx.lineTo(bx+neck/2, top);
+    ctx.lineTo(bx+neck/2, shoulder-4); ctx.lineTo(R, shoulder);
+    ctx.lineTo(R, bot); ctx.lineTo(L, bot);
+    ctx.lineTo(L, shoulder); ctx.lineTo(bx-neck/2, shoulder-4);
+    ctx.closePath();
+  };
   ctx.save();
-  ctx.lineWidth=2; ctx.lineJoin="round"; ctx.strokeStyle="#1b4f86";
+  ctx.lineJoin="round"; ctx.lineCap="round";
+  ctx.strokeStyle="#1b4f86"; ctx.lineWidth=2;
   // the handle first, so the body's fill covers where it meets the shoulder
-  ctx.beginPath(); ctx.moveTo(R-2, shoulder+5);
-  ctx.quadraticCurveTo(R+13, top+h*0.42, R-2, top+h*0.72); ctx.stroke();
-  ctx.beginPath();                                      // body: shoulders in to a short neck
-  ctx.moveTo(bx-neck/2, top); ctx.lineTo(bx+neck/2, top);
-  ctx.lineTo(bx+neck/2, shoulder-5); ctx.lineTo(R, shoulder);
-  ctx.lineTo(R, top+h); ctx.lineTo(L, top+h);
-  ctx.lineTo(L, shoulder); ctx.lineTo(bx-neck/2, shoulder-5);
-  ctx.closePath();
-  ctx.fillStyle="rgba(226,241,247,.95)"; ctx.fill();
-  ctx.save(); ctx.clip();                               // the water it is full of
-  ctx.fillStyle="#2e6f8e"; ctx.fillRect(L, wl, w, top+h-wl);
-  ctx.strokeStyle="rgba(255,255,255,.55)"; ctx.lineWidth=2; ctx.beginPath();
-  ctx.moveTo(L, wl+3); ctx.quadraticCurveTo(bx, wl-4, R, wl+3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(R-2, shoulder+8);
+  ctx.quadraticCurveTo(R+12, top+h*0.48, R-2, top+h*0.74); ctx.stroke();
+  ctx.fillStyle="#1b4f86";                               // the cap, sitting on the neck
+  ctx.fillRect(bx-neck/2-2, top-4, neck+4, 5);
+
+  body();
+  ctx.fillStyle="#cdeef9"; ctx.fill();                   // the air above the water: the light bit
+  ctx.save(); ctx.clip();
+  ctx.fillStyle="#2e6f8e"; ctx.fillRect(L, wl, w, bot-wl);
+  // two moulded ribs, the way a ten-gallon bottle is banded
+  ctx.strokeStyle="rgba(255,255,255,.65)"; ctx.lineWidth=2;
+  for(const t of [0.60, 0.82]){
+    const yy=top+h*t;
+    ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(R, yy); ctx.stroke();
+  }
+  ctx.strokeStyle="rgba(255,255,255,.9)"; ctx.lineWidth=2;   // the waterline, brightest
+  ctx.beginPath(); ctx.moveTo(L, wl+2); ctx.quadraticCurveTo(bx, wl-4, R, wl+2); ctx.stroke();
+  ctx.strokeStyle="rgba(255,255,255,.85)"; ctx.lineWidth=4;  // clipped, so only the inner half lands
+  body(); ctx.stroke();
   ctx.restore();
-  ctx.strokeStyle="#1b4f86"; ctx.lineWidth=2; ctx.stroke();
+  ctx.strokeStyle="#1b4f86"; ctx.lineWidth=2;
+  body(); ctx.stroke();
   ctx.restore();
 }
 
