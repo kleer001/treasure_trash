@@ -152,7 +152,55 @@ test('a fan bridges water the jug poured, and the raccoon walks over it', () => 
   assert.deepEqual(after(bridged, 'u'), ['-----', 'x*x--', 'x-x--', '-----', 'E----']);
 });
 
+// Furniture: the first piece that spans cells. A rigid polyomino, translate-only, and the
+// clearance test covers only the ground it moves INTO — not the ground it moves out of.
+test('a couch shoves as one unit and the raccoon takes the cell he pushed', () => {
+  assert.deepEqual(after(['-----', '-FF--', '-@---', 'E----'], 'u'),
+                          ['-FF--', '-@---', '-----', 'E----']);
+});
+
+// A three-long couch shoved along its own length asks for ONE new cell, not three — the two
+// it is stepping out of are its own. That is the difference between clearing the translated
+// footprint and clearing the leading edge, and it is what makes long pieces manoeuvrable.
+test('a couch may slide along its own length — vacated cells are not blockers', () => {
+  assert.deepEqual(after(['-----', '--F--', '--F--', '--F--', '--@--', 'E----'], 'u'),
+                          ['--F--', '--F--', '--F--', '--@--', '-----', 'E----']);
+});
+
+test('one blocked cell of the leading edge refuses the whole shove', () => {
+  assert.equal(refused(['-#---', '-FF--', '-@---', 'E----'], 'u'), 'canRoom');
+});
+
+test('a couch will not be shoved onto the exit, or into water', () => {
+  assert.equal(refused(['-E---', '-FF--', '-@---', '-----'], 'u'), 'exit');
+  assert.equal(refused(['-~---', '-FF--', '-@---', 'E----'], 'u'), 'water');
+});
+
+// The two-couch problem, and the reason the glyphs are a pool rather than one letter.
+test('two letters flush together are two couches, and shove independently', () => {
+  const g = ['-----', '-FFGG', '-@---', 'E----'];
+  assert.deepEqual(after(g, 'u'), ['-FF--', '-@-GG', '-----', 'E----']);
+});
+
+test('the same letter, touching, is one couch and shoves whole', () => {
+  const g = ['-----', '-FFFF', '-@---', 'E----'];
+  assert.deepEqual(after(g, 'u'), ['-FFFF', '-@---', '-----', 'E----']);
+});
+
+test('the same letter used twice, not touching, is two couches', () => {
+  // Written with one letter; the writer hands out canonical letters, so it comes back F and G.
+  assert.deepEqual(toGrid(S(['FF-FF', '--@--', 'E----'])), ['FF-GG', '--@--', 'E----']);
+});
+
+test('a one-cell couch is refused — that piece already exists, and it is the can', () => {
+  assert.throws(() => S(['-F---', '-@---', 'E----']), /single cell/);
+});
+
+test('furniture blocks a fan, like anything else standing in one', () => {
+  assert.equal(refused(['-----', 'FF---', '-$---', '-@---', 'E----'], 'u'), 'fan');
+});
+
 test('glyphs round-trip through the serialiser', () => {
-  const g = ['Sb---', '-Wwj-', '--@--', 'E-~=-'];
+  const g = ['Sb---', '-Wwj-', '--@--', 'E-~=-', 'FFGG-'];
   assert.deepEqual(toGrid(S(g)), g);
 });

@@ -28,6 +28,8 @@ E  the exit (always walkable by the raccoon, never occupiable by anything else;
 C  full can (has a bag)                     c  empty can (pushable)
 ~  water (impassable)                       =  water filled with trash (a bridge)
 b  recycle bin (drops a cell of trash)      j  water jug (spills a cell of water)
+F  furniture — one letter per piece; a touching same-letter blob is ONE couch, so two
+   couches shoved flush together are written F and G (the level files use F G H K M N)
 ```
 The raccoon's starting cell is **plain floor** — there is no entry-stub terrain. A room
 may wall it in on either side to make the entrance read as an entrance (L1 does), but the
@@ -144,6 +146,18 @@ committed actions, so no flag can change a par.)*
      a cell of floor that a bag can buy back. It never runs dry, for the same reason the
      bin never does: the question is where you put the obstacle, not how many you have left.
 
+11. **Furniture `F`** — the first piece that **spans cells**: a rigid polyomino (straight, L,
+   Z, T) that shoves **one cell as a unit**. **Translate only — nothing in this game rotates.**
+   Two rules, and the second is the whole reason the piece is interesting:
+   - **It asks for a clear *edge*, not a clear cell.** Every cell it moves *into* must be
+     ordinary empty floor; one blocked cell anywhere along the leading edge refuses the whole
+     shove. The exit and open water refuse it like anything else.
+   - **The ground it moves *out of* does not count against it.** So a three-long couch shoved
+     along its own length asks for exactly one new cell, while the same couch shoved broadside
+     asks for three. Long pieces are cheap the way they point and expensive across it, and
+     since you cannot turn them, which way a couch lies is a fact about the room rather than
+     a thing you fix.
+
 **Core proposition:** *choose each strike's direction and order so your persistent
 trash never blocks your path, your way out, or another bag's fan.*
 
@@ -234,9 +248,9 @@ expect "explosion = opens space"; our burst *closes* space, so the **fan preview
 free undo** are load-bearing — they teach the inversion, not just polish.
 
 **Object budget (aim ~8):** `bag`, `can` (full/empty), `spilled trash`, `recycle bin`,
-`wheelie bin`, `water jug` = **6 used**, plus the `bag-on-can stack` — built and unit-tested,
-but it earns no room yet (see the note at the end of this file), so call it **6 spent and a
-seventh parked**. The exit and water are terrain and cost nothing against the budget — but
+`wheelie bin`, `water jug`, `furniture` = **7 used**, plus the `bag-on-can stack` — built and
+unit-tested, but it earns no room yet (see the note at the end of this file), so call it
+**7 spent and an eighth parked**. The exit and water are terrain and cost nothing against the budget — but
 note that the jug *is* an object, and water itself is the terrain it writes.
 Reserved: the crow's pieces (pinned).
 
@@ -648,6 +662,39 @@ the constraint being this tight. Flagged for playtest alongside L15.
 
 ---
 
+## L17 — "Both Ends" **[verified — found by a targeted search]**
+*New object:* **furniture** `F` — the first piece that **spans cells**. A rigid polyomino that
+shoves one cell as a unit, translate-only, and its whole leading edge must be clear. It places
+nothing and spends no floor; what it costs you is that it takes up more room than you can see
+from the end you are standing at.
+```
+   x=1 2 3 4 5
+y1  .  E  .  .  .
+y2  .  F  B  .  .    the couch lies north–south; the bag is beside its top end
+y3  R  F  .  .  .
+y4  .  .  .  .  .
+```
+**Solve — `uurDR!lu`** (par 7): Up, Up to (1,1). Right onto the exit at (2,1), with the bag
+still out. Down → shove the couch from (2,2)/(2,3) to (2,3)/(2,4); it asks for **one** new
+cell, (2,4), and you take (2,2). Right → strike the bag at (3,2) rightward, fan filling the
+x=4 column plus (3,1)/(3,3). Left, Up → E → win.
+
+**The refusal is the lesson, and it is one no single-cell piece can give you.** The first thing
+anyone tries from the start is Right — shove the couch out of the way. The cell in front of the
+end he actually touched, (3,3), is **empty**. The shove is refused anyway, because the couch's
+*other* end needs (3,2) and the bag is sitting in it. You pressed a direction, looked at the
+cell in front of you, and the game said no about somewhere else.
+
+What works is pushing it **the way it lies**. North–south, the couch is stepping into ground it
+already occupies except for one cell at the far end — one cell instead of two. Since nothing in
+this game rotates, that asymmetry is a fact about the room rather than something you can fix.
+*Lesson: a couch is cheap along its length and dear across it, and both ends have to fit.*
+
+**Zero traps in the whole room**, 16 refusals caused by the exit. Like L14, nothing here can be
+lost — only lengthened.
+
+---
+
 ## Proposed next rooms **[sketch — not verified]**
 - **L2-redux — the can, rebuilt** per the rework note above.
 - **A room that fences you in on the long axis.** L5 cuts the board because it is three
@@ -720,7 +767,7 @@ goal) **and the raccoon standing on the exit** (get out of the alley you just wr
 | **Bag-on-can stack** | push → top bag **launches 2** ahead (loose), can **slides 1** (still full); raccoon advances 1 | landing cells clear; launched bag must still be struck; only way to **reposition** a bag |
 | **Recycle bin** | push → slides 1, **drops 1 cell of trash** directly ahead | destination clear (precise obstacle placer) |
 | **Water jug** | push → slides 1, **spills 1 cell of water** directly ahead | the spill needs **bare floor** — water, trash, an object or the exit all refuse it. Never runs dry, and can never be shoved twice running in the same direction: the cell it must slide into next is the water it just poured. Its obstacle is the **soft** one — trash blocks a fan, water accepts one and is bridged by it |
-| **Furniture** (couch/mattress) | rigid **polyomino** (L / Z / T / straight); push → shoves as a unit 1 cell | only if **all** leading cells clear; **translate-only** (no rotation); multi-cell footprint |
+| **Furniture** (couch/mattress) | rigid **polyomino** (L / Z / T / straight); push → shoves as a unit 1 cell | only if **all** leading cells clear — the cells it *vacates* don't count, so it is cheap along its length and dear across it; **translate-only** (no rotation); multi-cell footprint |
 | **Wheelie bin** | holds a bag; push → **rolls until it hits a wall**, then dumps its bag **1 cell in reverse** (out the back); empty bin still rolls | won't stop unless stopped; reverse cell must be clear (else no-op) |
 | **Shopping cart** | a **2-cell wheelie bin** (rolls + holds a bag + reverse-dump on impact) | as wheelie bin, ×2 footprint |
 
@@ -747,6 +794,10 @@ up to 7×6. That is an expert-act piece, not an introduction. It would want eith
 slot or a rules change (a stack whose can is *empty* underneath would cost one bag and one
 relocation instead of two).
 
-**Still needs a state-model change:** furniture and the shopping cart are **multi-cell**
-pieces, and the board currently stores one independent occupant code per cell with no notion
-of a piece spanning cells. Those two are blocked on that, not on level design.
+**The multi-cell state model is built.** Cells belonging to a piece that spans cells carry a
+`pid` naming which piece they are part of, `stateKey` encodes the partition as well as the
+codes, and the `.tt` format writes one letter per piece so `FFFF` (one long couch) and `FFGG`
+(two short ones flush together) are different boards rather than the same one. **Furniture is
+implemented and unit-tested on it.** The **shopping cart** — a 2-cell wheelie bin, so rolling
+and a reverse-dump on top of a footprint — is no longer blocked on the model; it is just not
+built yet.

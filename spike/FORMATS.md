@@ -69,6 +69,7 @@ roughly right instead of nonsense.
 | `+` | raccoon standing on the exit |
 | `b` | recycle bin — shove it and it drops a cell of trash ahead |
 | `j` | water jug — shove it and it spills a cell of water ahead |
+| `F` `G` `H` `K` `M` `N` | furniture — **one letter per piece**, see below |
 | `~` | water — impassable, and no object may rest in it |
 | `=` | water filled with trash: a permanent bridge, walkable like floor |
 | `*` | raccoon standing on a bridge |
@@ -84,6 +85,36 @@ and `=` are the complete set and anything else in water makes the writer throw. 
 water is a cell *flag*, not an occupant code, because it is terrain — but unlike the wall
 it is **not static**: the water jug writes new water mid-room, which is why `stateKey`
 encodes the (water, occupant) pair rather than the occupant alone.
+
+### Multi-cell pieces
+
+Furniture is one rigid piece spanning several cells, so **its glyph names a piece, not a kind
+of thing.** The rule is one line:
+
+> **A 4-connected blob of the same letter is one piece.**
+
+Everything else follows. Two couches shoved flush together are told apart by writing them with
+two letters — that is the entire reason there is a pool (`F G H K M N`) rather than a single
+furniture glyph, because `FFFF` and `FFGG` are boards that push completely differently and a
+format that cannot distinguish them is a format that loses one of them. The same letter used
+twice in places that do not touch is simply two pieces; letters carry no meaning beyond
+grouping, and none at all across rooms.
+
+Two things the reader enforces, loudly:
+
+- **A one-cell piece is an error.** A single-cell couch is an empty can with a different name,
+  and the game does not need two names for one behaviour.
+- **More pieces than the pool is an error**, not a wrap-around. Six couches is already far more
+  than a room should hold.
+
+**The writer is canonical:** it hands out pool letters in raster order of each piece's first
+cell. A grid that letters its pieces in some other order still *parses* correctly — it just
+fails the round-trip check, the same way writing floor as `.` instead of `-` does.
+
+`stateKey` carries a **second lane** for the piece partition, because the occupant codes alone
+do not determine the board: four furniture cells in a row are one long couch or two short ones,
+and the two push differently. The lane is numbered by first appearance in raster order, so it
+keys on the partition itself and not on whichever internal ids happen to be in play.
 
 ---
 

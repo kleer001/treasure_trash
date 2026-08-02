@@ -2,7 +2,7 @@
 // Text in, data out; data in, byte-identical text out. See FORMATS.md for the spec.
 
 import {
-  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
+  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
   DIRS, MOVE, PUSH, TEAR,
 } from './rules.mjs';
 
@@ -26,6 +26,11 @@ const READ = {
   'b': { o: BIN },            // recycle bin: drops one cell of trash per shove
   'j': { o: JUG },            // water jug: spills one cell of water per shove
   'E': { exit: true },
+  // Furniture is multi-cell, so its glyphs name a PIECE rather than a kind of thing. Any
+  // 4-connected blob of the same letter is one couch; two couches shoved flush together are
+  // told apart by using two letters, which is why there is a pool rather than one glyph.
+  // The letters carry no meaning beyond "same letter, touching = same piece" — see FURN_POOL.
+  ...Object.fromEntries([...'FGHKMN'].map(ch => [ch, { o: FURNITURE }])),
   '+': { exit: true, rac: true },     // raccoon standing on the exit (XSB's player-on-goal)
   // Water is terrain with two states, and trash is what flips it. `=` reads as the plank
   // it effectively is; it is written as water-plus-trash, never as a third glyph state.
@@ -36,14 +41,59 @@ const READ = {
   // refuse any action that would put an object on it, so those states are unreachable
   // and a level file that hand-writes one is invalid input.
 };
+// The pool of letters furniture pieces are written with. The writer hands them out in raster
+// order of each piece's first cell, so a board's lettering is canonical and the grid round-trips.
+// Six is far more couches than a room should ever hold; past that, throw rather than wrap.
+export const FURN_POOL = [...'FGHKMN'];
+
 export const LEGEND = [
   '# wall', '- floor', '@ raccoon', '$ bag', 'C full can', 'c empty can',
   'x spilled trash', 'E exit', '+ raccoon on exit',
   'S bag-on-can stack', 'W wheelie bin (full)', 'w wheelie bin (empty)', 'b recycle bin',
   'j water jug', '~ water', '= water filled with trash (a bridge)', '* raccoon on a bridge',
+  `${FURN_POOL.join('/')} furniture — one letter per piece, a touching same-letter blob is one couch`,
 ];
 
-function glyphFor(c, isRac) {
+/**
+ * Number the multi-cell pieces on a freshly-read board. Each 4-connected run of the SAME
+ * glyph is one piece; a different letter starts a different piece even flush against it, and
+ * the same letter used in two places that do not touch is simply two pieces. Ids are handed
+ * out in raster order of each piece's first cell, which is what makes `toGrid` reproduce the
+ * lettering it was given.
+ */
+function labelPieces(cells, glyphs, id) {
+  const rows = cells.length, cols = cells[0].length;
+  let next = 0;
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    if (!glyphs[y][x] || cells[y][x].pid !== undefined) continue;
+    const pid = next++, ch = glyphs[y][x], stack = [[x, y]], size = [];
+    while (stack.length) {
+      const [cx, cy] = stack.pop();
+      if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) continue;
+      if (glyphs[cy][cx] !== ch || cells[cy][cx].pid !== undefined) continue;
+      cells[cy][cx].pid = pid; size.push([cx, cy]);
+      stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+    }
+    // A one-cell couch is an empty can wearing a hat. Refuse it rather than ship two names
+    // for one behaviour — the whole point of the piece is that it spans cells.
+    if (size.length < 2)
+      throw new Error(`${id}: furniture '${ch}' at (${x + 1},${y + 1}) is a single cell; use a can, or give it a second cell`);
+  }
+}
+
+/** Raster-order piece ids → the pool letters the writer spells them with. */
+function furnitureLetters(s) {
+  const letters = new Map();
+  for (const row of s.cells) for (const c of row) {
+    if (c.pid === undefined || letters.has(c.pid)) continue;
+    if (letters.size >= FURN_POOL.length)
+      throw new Error(`more than ${FURN_POOL.length} furniture pieces: the glyph pool is ${FURN_POOL.join('')}`);
+    letters.set(c.pid, FURN_POOL[letters.size]);
+  }
+  return letters;
+}
+
+function glyphFor(c, isRac, letters) {
   if (c.wall) return '#';
   if (c.water) {
     if (c.o === TRASH) return isRac ? '*' : '=';
@@ -52,6 +102,7 @@ function glyphFor(c, isRac) {
   }
   if (!c.exit) {
     if (isRac) return '@';
+    if (c.o === FURNITURE) return letters.get(c.pid);
     return { [NONE]: '-', [BAG]: '$', [CAN_FULL]: 'C', [CAN_EMPTY]: 'c', [TRASH]: 'x',
              [STACK]: 'S', [WHEELIE]: 'W', [WHEELIE_EMPTY]: 'w', [BIN]: 'b', [JUG]: 'j' }[c.o];
   }
@@ -163,11 +214,11 @@ export function formatLevelPack(pack) {
 export function toState(level) {
   const rows = level.grid.length;
   const cols = Math.max(...level.grid.map(r => r.length));
-  const cells = [];
+  const cells = [], glyphs = [];
   let rac = null, exits = 0;
 
   for (let y = 0; y < rows; y++) {
-    const row = [];
+    const row = [], grow = [];
     for (let x = 0; x < cols; x++) {
       const ch = level.grid[y][x] ?? '-';        // short rows pad with floor
       const spec = READ[ch];
@@ -180,18 +231,21 @@ export function toState(level) {
       }
       if (c.exit) exits++;
       row.push(c);
+      grow.push(c.o === FURNITURE ? ch : null);   // which letter wrote this cell, for grouping
     }
-    cells.push(row);
+    cells.push(row); glyphs.push(grow);
   }
   if (!rac) throw new Error(`${level.id}: no raccoon`);
   if (exits !== 1) throw new Error(`${level.id}: needs exactly one exit, found ${exits}`);
+  labelPieces(cells, glyphs, level.id);
   return { cols, rows, cells, rac };
 }
 
 /** Serialise a live state back to grid lines — used for traces and round-trip checks. */
 export function toGrid(s) {
+  const letters = furnitureLetters(s);
   return s.cells.map((row, y) =>
-    row.map((c, x) => glyphFor(c, s.rac.x === x && s.rac.y === y)).join(''));
+    row.map((c, x) => glyphFor(c, s.rac.x === x && s.rac.y === y, letters)).join(''));
 }
 
 // --- solutions --------------------------------------------------------------

@@ -6,7 +6,23 @@
 // list is not near any ceiling. Whether a new piece belongs here is a design question about
 // the piece, never a budget question about this list.
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
-             BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9;
+             BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9, FURNITURE = 10;
+
+// MULTI-CELL PIECES. Every code above occupies exactly one cell, and a cell's occupant code
+// is the whole story about it. FURNITURE is the first that is not: a couch is one rigid piece
+// spanning several cells, so its cells also carry a `pid` naming which piece they belong to.
+// Two cells both reading FURNITURE may be one couch or two touching couches, and the pid is
+// the only thing that says which — so anything that reasons about a piece reads the pid, and
+// `stateKey` encodes the partition, not just the codes.
+export const isMultiCell = o => o === FURNITURE;
+
+/** Every cell of the piece `pid`, in raster order. Boards are tiny; this scans the whole one. */
+export function pieceCells(s, pid) {
+  const out = [];
+  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++)
+    if (s.cells[y][x].pid === pid) out.push([x, y]);
+  return out;
+}
 
 // Direction letters are the solution format's alphabet — see FORMATS.md.
 export const DIRS = { l: [-1, 0], u: [0, -1], r: [1, 0], d: [0, 1] };
@@ -134,6 +150,28 @@ export function explain(s, dir) {
     return { ok: true, kind: TEAR, next };
   }
 
+  // A rigid multi-cell piece translates one cell as a unit — no rotation, ever. The clearance
+  // test is over the cells it moves INTO and not the cells it moves out of, which is the whole
+  // difference from a single-cell shove: a couch may slide along its own length, because the
+  // cell in front of its leading edge is the only new ground it asks for. The raccoon advances
+  // into the cell he shoved, which the piece has always just vacated (the cell behind it is his
+  // own, so it can never be part of the translated footprint).
+  if (isMultiCell(o)) {
+    const own = pieceCells(s, target.pid);
+    const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
+    const blame = own.map(([x, y]) => [x + dx, y + dy])
+      .filter(([x, y]) => !ownSet.has(`${x},${y}`) && !isOccupiable(s, x, y));
+    if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
+    const next = cloneState(s);
+    for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; delete c.pid; }
+    for (const [x, y] of own) {
+      const c = cell(next, x + dx, y + dy);
+      c.o = o; c.pid = target.pid;
+    }
+    next.rac = { x: tx, y: ty };
+    return { ok: true, kind: PUSH, next };
+  }
+
   // Four pieces share one shape of shove: the piece slides one cell and something lands
   // one cell further. Only what lands differs, so the clearance test lives in one place.
   const TWO_CELL = {
@@ -252,8 +290,22 @@ export const isWon = s => bagsLeft(s) === 0 && atExit(s);
  * and `10,1,0` both render as "1010" — and that failure is silent in exactly the same way.
  * Packing as `o * 2 + water` stays injective however many occupant codes get added.
  *
+ * Multi-cell pieces need a second lane, because the codes alone do not determine the board:
+ * four FURNITURE cells in a row are one long couch, or two short ones, and those push
+ * differently. The lane walks the furniture cells in raster order and writes each one's piece
+ * as a label numbered by first appearance — canonical, so it depends on the partition and not
+ * on which `pid` values happen to be in play. It is a separate lane rather than a wider
+ * alphabet in the first one so that adding an eleventh occupant code cannot collide with it.
+ *
  * The key is opaque. Nothing parses it; `solver.mjs` only ever uses it as a Map key.
  */
-export const stateKey = s =>
-  s.cells.map(r => r.map(c => String.fromCharCode(65 + c.o * 2 + (c.water ? 1 : 0))).join('')).join('/')
-  + `|${s.rac.x},${s.rac.y}`;
+export const stateKey = s => {
+  const kinds = s.cells.map(r => r.map(c =>
+    String.fromCharCode(65 + c.o * 2 + (c.water ? 1 : 0))).join('')).join('/');
+  const label = new Map();
+  const pieces = s.cells.flat().filter(c => c.pid !== undefined).map(c => {
+    if (!label.has(c.pid)) label.set(c.pid, label.size);
+    return String.fromCharCode(65 + label.get(c.pid));
+  }).join('');
+  return `${kinds}|${pieces}|${s.rac.x},${s.rac.y}`;
+};

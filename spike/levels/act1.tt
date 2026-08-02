@@ -301,3 +301,19 @@ E$---@
 --j--
 --@--
 :end
+
+:level  L17
+:name   Both Ends
+:teach  furniture — it spans cells, so both ends need room, and it is cheapest along its own length
+:arm    on
+:par    7
+:traps  0
+:solves 1
+:solve  uurDR!lu
+:note   Shove the couch sideways and the cell in front of the end you touched is empty — but the bag sits in front of its other end, and that refuses the whole shove. Pushed the way it lies it asks for one new cell instead of two, and that is the shove that frees the bag's launch cell.
+:grid
+-E---
+-F$--
+@F---
+-----
+:end

@@ -28,6 +28,7 @@ walkable ground only ever changes by amounts you can compute in advance.
 | tear a bag | **−5**, **+2** for each of those five fan cells that lands in water |
 | shove the recycle bin | **−1** on dry floor, **+1** into water |
 | shove the water jug | **−1** — it turns floor into water |
+| shove furniture | **0** — it relocates its own footprint, spending nothing |
 
 A fan must be entirely free to fire, so fans never overlap and the five is always five.
 Water is not floor; it is **floor you can buy**, at five fan cells a bag or one a bin. Price
@@ -247,9 +248,11 @@ limits, both worth knowing before you trust it:
 
 ## 6. What a new piece has to earn
 
-Every piece in the game is the same verb — *an obstacle placer with a different delivery
-curve*. A seventh delivery curve adds inventory, not questions. To earn a slot, a piece has to
-pass all three:
+Almost every piece in the game is the same verb — *an obstacle placer with a different
+delivery curve* — and one more delivery curve adds inventory, not questions. (Furniture is the
+exception that shows the shape of a good answer: it places nothing at all, spends no floor, and
+earns its slot by being the only piece whose *footprint* is the constraint.) To earn a slot, a
+piece has to pass all three:
 
 - **It adds a question, not a curve.** Either a new one on the `OLRP` axes, or it changes what
   the existing pieces are *for* — a piece that multiplies the pack is worth more than one that

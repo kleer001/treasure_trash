@@ -88,9 +88,9 @@
 // The spike no longer owns the rules — rules.mjs does, and the verifier imports the same
 // module. This file is presentation and input only. ES modules need http://, so run ./run.sh.
 import {
-  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
+  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
   MOVE, PUSH, TEAR, DIRS,
-  explain, isWon, bagsLeft, fan, inGrid, cell, cloneState,
+  explain, isWon, bagsLeft, fan, inGrid, cell, cloneState, pieceCells, isMultiCell,
 } from './rules.mjs';
 import { parseLevelPack, toState } from './format.mjs';
 
@@ -113,7 +113,7 @@ const WHY = {
 // cell; the words should add the noun, not repeat the colour.
 const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"your own trash",
   [BIN]:"the recycle bin", [STACK]:"a bag on a can", [WHEELIE]:"a wheelie bin",
-  [WHEELIE_EMPTY]:"an empty wheelie bin", [JUG]:"the water jug" };
+  [WHEELIE_EMPTY]:"an empty wheelie bin", [JUG]:"the water jug", [FURNITURE]:"the couch" };
 function whyText(b){
   const base = WHY[b.reason];
   // 'water' covers two different noes, and the paws line only fits one of them. If the
@@ -156,7 +156,7 @@ function startFx(dir, r){
   const [dx,dy] = ({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
   const tx = state.rac.x+dx, ty = state.rac.y+dy;
   const o = inGrid(state,tx,ty) ? cell(state,tx,ty).o : NONE;
-  let kind = o===BAG ? 'tear' : (o===CANF||o===CANE) ? 'push' : 'bump';
+  let kind = o===BAG ? 'tear' : (o===CANF||o===CANE||isMultiCell(o)) ? 'push' : 'bump';
   const key = `${kind}:${r.reason}`;
   if(fxSeen.has(key)) kind = 'bump';          // you've seen it; don't make you sit through it
   fxSeen.add(key);
@@ -192,6 +192,13 @@ function startMv(prev, kind, dir){
       m.hide.add(`${tx},${ty}`);
       m.parts.push({ what:'trash', from:[tx,ty], to:[tx,ty], src:[bx,by] });
     }
+  } else if(kind === PUSH && isMultiCell(cell(prev,bx,by).o)){
+    // A multi-cell piece is one body, so it slides as one. The per-cell diff below would
+    // read a translated couch as several unrelated pieces all flying out of the shove cell,
+    // which is the one shape it cannot describe.
+    const pc = cell(prev,bx,by), own = pieceCells(prev, pc.pid);
+    for(const [x,y] of own){ m.hide.add(`${x},${y}`); m.hide.add(`${x+dx},${y+dy}`); }
+    m.parts.push({ what:'body', o:pc.o, cells:own, dx, dy });
   } else if(kind === PUSH){
     // Whatever the shove produced, slide it out of the cell that was shoved. Reading the
     // two boards rather than naming the piece keeps this correct for every pushable —
@@ -373,8 +380,17 @@ function render(){
     drawFloor(x,y);
     if(c.exit) drawExit(x,y, bagsLeft(s)===0);
     if(mv && mv.hide.has(`${x},${y}`)) continue;   // in flight — the move animation draws it
+    if(isMultiCell(c.o)) continue;                 // drawn whole, after the loop
     // a bag mid-refusal deflates; everything else draws at rest
     drawOccupant(c.o, x, y, ph && fx.bx===x && fx.by===y ? 1-ph.burst : 1);
+  }
+  // Multi-cell pieces are drawn per PIECE rather than per cell, so a couch comes out as one
+  // slab with no seam down the middle — which is the only way "one couch" reads differently
+  // from "two couches touching", and the rules very much tell them apart.
+  for(const pid of new Set(s.cells.flat().filter(c => c.pid !== undefined).map(c => c.pid))){
+    const own = pieceCells(s, pid);
+    if(mv && own.some(([x,y]) => mv.hide.has(`${x},${y}`))) continue;
+    drawFurniture(own);
   }
   // the debris of a burst that is being refused: it flies out, reaches the cell that
   // won't take it, and retracts. None of it is board state.
@@ -386,6 +402,7 @@ function render(){
   if(mv){
     const t = mvT() ?? 1;
     for(const p of mv.parts){
+      if(p.what==='body'){ drawFurniture(p.cells, p.dx*t, p.dy*t); continue; }  // one body, one offset
       const x = p.from[0]+(p.to[0]-p.from[0])*t, y = p.from[1]+(p.to[1]-p.from[1])*t;
       if(p.what==='trash')      drawTrash(p.from[0], p.from[1], t, p.src);  // integer cell: stable colours
       else if(p.what==='bag')   drawBag(x, y, p.burst ? 1-t : 1);
@@ -661,6 +678,37 @@ function drawRecycleBin(x,y){
   for(let i=0;i<3;i++){ const a=-Math.PI/2 + i*2*Math.PI/3;
     ctx[i?'lineTo':'moveTo'](cx+Math.cos(a)*r, my+Math.sin(a)*r); }
   ctx.closePath(); ctx.stroke();
+  ctx.restore();
+}
+
+// The couch: one object spanning cells, so it is drawn from the footprint rather than a cell
+// at a time. Fill runs to the cell edge wherever the piece continues and stops short wherever
+// it does not, and only the outer edges are stroked — an internal seam would say "two couches"
+// when the rules say one. `ox`/`oy` are a fractional offset for the slide.
+function drawFurniture(cells, ox=0, oy=0){
+  const has = new Set(cells.map(([x,y])=>`${x},${y}`));
+  const at = (x,y) => has.has(`${x},${y}`);
+  const M = 6;
+  ctx.save();
+  ctx.fillStyle="#9c6249";
+  for(const [cx,cy] of cells){
+    const x0=px(cx+ox), y0=px(cy+oy);
+    const l=at(cx-1,cy), r=at(cx+1,cy), u=at(cx,cy-1), d=at(cx,cy+1);
+    ctx.fillRect(x0+(l?0:M), y0+(u?0:M), CS-(l?0:M)-(r?0:M), CS-(u?0:M)-(d?0:M));
+  }
+  ctx.fillStyle="rgba(255,255,255,.13)";           // one cushion per cell: a long couch reads long
+  for(const [cx,cy] of cells)
+    ctx.fillRect(px(cx+ox)+M+6, px(cy+oy)+M+6, CS-2*M-12, CS-2*M-12);
+  ctx.strokeStyle="#5c382a"; ctx.lineWidth=2.5; ctx.lineCap="round";
+  ctx.beginPath();
+  for(const [cx,cy] of cells){
+    const x0=px(cx+ox), y0=px(cy+oy), a=M, b=CS-M;
+    if(!at(cx,cy-1)){ ctx.moveTo(x0+a,y0+a); ctx.lineTo(x0+b,y0+a); }
+    if(!at(cx,cy+1)){ ctx.moveTo(x0+a,y0+b); ctx.lineTo(x0+b,y0+b); }
+    if(!at(cx-1,cy)){ ctx.moveTo(x0+a,y0+a); ctx.lineTo(x0+a,y0+b); }
+    if(!at(cx+1,cy)){ ctx.moveTo(x0+b,y0+a); ctx.lineTo(x0+b,y0+b); }
+  }
+  ctx.stroke();
   ctx.restore();
 }
 

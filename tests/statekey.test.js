@@ -40,6 +40,20 @@ test('trash on floor and trash on water are different boards', () => {
   assert.notEqual(stateKey(S(['x@E'])), stateKey(S(['=@E'])));
 });
 
+// Multi-cell pieces are the same hazard in a different coat: the occupant codes cannot say
+// where one couch ends and the next begins, and the two boards below push completely
+// differently. One long couch, or two short ones flush together.
+test('one long couch and two short ones are different boards', () => {
+  assert.notEqual(stateKey(S(['FFFF-', '--@--', 'E----'])),
+                  stateKey(S(['FFGG-', '--@--', 'E----'])));
+});
+
+test('the piece lane is canonical — it keys on the partition, not on which ids are in play', () => {
+  const a = S(['FFGG-', '--@--', 'E----']);
+  const b = S(['HHKK-', '--@--', 'E----']);       // same partition, different letters and pids
+  assert.equal(stateKey(a), stateKey(b));
+});
+
 // The failure the water jug introduced, played out. Shove the jug in a circuit and every
 // occupant comes home — the jug to the cell it started on, the raccoon to his. What does
 // not come home is the four cells of water spilled along the way. Key on occupants alone
