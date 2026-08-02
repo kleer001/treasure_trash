@@ -85,9 +85,9 @@ to let anything else occupy.
 - `GAME-SHEET.md` — the player-facing pitch.
 - `SPEC-SHEET.md` — the buildable spec (with the design-gate record).
 - `levels.md` — the authoritative ruleset and the room-by-room design.
-- `LEVEL-GENERATION.md` — how rooms get generated, grouped and measured; the laws a
-  generator selects on, and why the Sokoban literature's difficulty features don't port.
-  Measured by `spike/metrics.mjs`.
+- `LEVEL-GENERATION.md` — how to build the *next* room: the floor budget, the laws a
+  generator selects on, the intent-first pipeline, and the `OLRP` signature to generate to.
+  Forward-looking only; measured by `spike/metrics.mjs`.
 - `REVIEW-LOG.md` — the panel's notes across the design / MVP / release gates.
 - `rules.html` — the Block-Pusher Laws the genre panel argued out, house doc style.
 - `spike/FORMATS.md` — the `.tt`/`.sol` file formats and what the verifier enforces.

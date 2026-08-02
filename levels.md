@@ -237,8 +237,7 @@ free undo** are load-bearing — they teach the inversion, not just polish.
 `wheelie bin`, `water jug` = **6 used**, plus the `bag-on-can stack` — built and unit-tested,
 but it earns no room yet (see the note at the end of this file), so call it **6 spent and a
 seventh parked**. The exit and water are terrain and cost nothing against the budget — but
-note that the jug *is* an object, and it is the piece that spends the water slot the
-[`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md) § 6 argument reserved.
+note that the jug *is* an object, and water itself is the terrain it writes.
 Reserved: the crow's pieces (pinned).
 
 ---
@@ -520,7 +519,7 @@ of board-changing *decisions* stays flat at 3–5, so the ladder is built out of
 L13 have zero coupling between their bags (independent puzzles sharing a grid); and L11 lets you
 keep playing for 34 moves after the room is already unwinnable. The bank cannot supply
 replacements — 0 of its 226 rooms pass the same filters — so these need regenerating rather than
-re-sorting. The laws, the numbers and the generator design are in
+re-sorting. The laws and the generator design are in
 [`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md). Note also that **the generator that produced
 these rooms is not in the repo** — only the bank survived it.
 
@@ -595,14 +594,13 @@ each of the two crossings costs you a whole bag's worth of mess. That is the pie
 it was added to do: making the *order* of your spending the question.
 *Lesson: some bags are doors. Open the door before you open the room behind it.*
 
-**Where it fails its own laws, stated plainly.** `pm` is **12** — you can lose this room on
-move one and keep playing for twelve moves before anything tells you. That misses the working
-target of 8 in [`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md) § 3. It is not a bad pick: a
-sweep of 46,428 layouts produced 86 rooms with this signature and **not one of them scored
-below 12**. The finding is about the target, not the room — a 3-bag board simply has more
-left to wander over than the 1- and 2-bag rooms the figure was set from, so `pm` needs to
-scale with bag count. Flagged for playtest; if the walk-after-death reads as punishing, this
-is the room that proves it.
+**Where it sits against its own laws, stated plainly.** `pm` is **12** — you can lose this
+room on move one and keep playing for twelve moves before anything tells you. That is exactly
+the figure [`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md) now carries for a three-bag room,
+and this room is where it came from: a sweep of 46,428 layouts produced 86 rooms with this
+signature and **not one of them scored below 12**. The original target of 8 was set from 1-
+and 2-bag rooms, and a 3-bag board simply has more left to wander over. Still flagged for
+playtest; if the walk-after-death reads as punishing, this is the room that proves it.
 
 ---
 
