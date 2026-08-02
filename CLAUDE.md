@@ -26,8 +26,8 @@ to let anything else occupy.
   `src/rng.js` is for *cosmetic* variation only, seeded from the level id. A replay is
   the level id plus the move sequence.
 - **The crow is pinned** — parked deliberately until the raccoon-alone game proves fun.
-- Gate status: the design gate is closed (`SPEC-SHEET.md` → *Panel gate*). The MVP gate
-  is next and blocks further building once the slice first plays.
+- Gate status: the design gate is closed. The MVP gate is next and blocks further
+  building once the slice first plays.
 
 ## Run & test
 
@@ -89,12 +89,11 @@ to let anything else occupy.
 ## Docs
 
 - `GAME-SHEET.md` — the player-facing pitch.
-- `SPEC-SHEET.md` — the buildable spec (with the design-gate record).
+- `SPEC-SHEET.md` — the buildable spec.
 - `levels.md` — the authoritative ruleset and the room-by-room design.
 - `LEVEL-GENERATION.md` — how rooms get generated, grouped and measured; the laws a
   generator selects on, and why the Sokoban literature's difficulty features don't port.
   Measured by `spike/metrics.mjs`.
-- `REVIEW-LOG.md` — the panel's notes across the design / MVP / release gates.
 - `rules.html` — the Block-Pusher Laws the genre panel argued out, house doc style.
 - `spike/FORMATS.md` — the `.tt` level format and what the verifier enforces.
 - `MARKETING-PLAN.md`, `promo.html`, `ITCH-PAGE.md` — launch assets, finalized at the

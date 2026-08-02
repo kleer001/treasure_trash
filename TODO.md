@@ -48,21 +48,6 @@ Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset,
   exit is terrain, so it costs nothing against the budget; reserved: water/gap + the
   crow's pieces.
 
-## Gate 1 — CLOSED 2026-07-29
-`SPEC-SHEET.md` (Panel gate block filled) and `REVIEW-LOG.md` (Session 1, four
-personas) are written. **Code may begin.**
-
-What the panel changed:
-- **Slice cut to the 3 verified objects** (bag, can, trash). The other six each need
-  their own spike — see `SPEC-SHEET.md` → Vertical slice.
-- **Solvability check is in the slice** — the positional soft-lock is currently
-  silent, and a dead board must announce itself.
-- **Act 1 opens on L3**, not L1; L1 teaches nothing about direction.
-- **Unresolved, blocks release only:** the title. Treasure was cut, so the name
-  promises loot the game refuses.
-- `GAME-SHEET.md` rewritten and `DESIGN-BIBLE.md` marked superseded — both described
-  the retired real-time two-animal game.
-
 ## NEXT MOVE — build the slice
 The house scaffolding is in place: `index.html`, `run.sh`, `package.json`, `styles.css`,
 `src/` (compositor, logo, rng), `tests/`, and the test + Pages workflows, all running

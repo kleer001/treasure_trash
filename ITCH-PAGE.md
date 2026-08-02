@@ -2,9 +2,8 @@
 
 The itch.io page, authored here and pasted into itch's editor at release. itch's
 description field accepts a subset of HTML; everything else is page metadata you
-set in the dashboard. **Every claim here passes the release gate** — the Archivist
-fact-checks it, the Critic checks it doesn't oversell. See `CLAUDE.md` → "The
-release gate."
+set in the dashboard. **Every claim here has to survive the pre-publish checks** in
+`PUBLISHING-RUNBOOK.md`: fact-checked, nothing oversold, no priority claims.
 
 ---
 

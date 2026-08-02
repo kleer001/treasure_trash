@@ -77,54 +77,38 @@ Three structural facts fall out of the ruleset and drive everything below:
 
 ## 2. What the measurements say about the pack we have
 
-**The 14 shipped rooms are not exemplars, and nothing below treats them as one.** They are
-two piles of non-reference material: L0–L6 are *teaching* rooms, deliberately kept trivial
-(1–3 decisions, par 2–11) so that each introduces one piece in isolation — a good tutorial
-room is a bad puzzle on purpose, so it cannot set an upper bar. L7–L13 are raw search
-output selected on the wrong quantities, as the numbers below show. Neither half is a
-standard to hit. The pack is the patient here; §3's laws come from the ruleset, not from
+**The rooms this doc measures are not exemplars, and nothing below treats them as one.**
+They are two piles of non-reference material: the teaching rooms are deliberately trivial
+(1–3 decisions) so each introduces one piece in isolation — a good tutorial room is a bad
+puzzle on purpose, so it cannot set an upper bar. The searched rooms (L7, and S1–S6 in
+`sketches.tt`) are raw generator output selected on the wrong quantities, as below.
+Neither half is a standard to hit. The pack is the patient here; §3's laws come from the ruleset, not from
 the pack.
 
-`node spike/metrics.mjs`, on the shipped 14 rooms. `decisions` counts board-changing
+`npm run metrics` prints the live table; it is not copied here, because a pasted table
+is a second ledger and this one had already drifted. `decisions` counts board-changing
 actions (tears + pushes); `walkRatio` is plain moves per decision; `opening` is how many
 moves you walk before the first decision is available; `tightness` is `5×bags/floor`;
 `slack` is free cells left standing at the win; `coupling` is the fraction of legal bag
-openings that cost some *other* bag one of its directions; `pm` (post-mortem) is how many
-further moves you can play after the room is already unwinnable.
+openings that cost some *other* bag one of its directions; `bridges` is water cells the
+solve had to fill; `pm` (post-mortem) is how many further moves you can play after the
+room is already unwinnable.
 
-```
-  id par bags decisions walkRatio opening tightness slack coupling solves traps  pm
-  L0   2    0         0         ·       2         0     3        ·      1     0   0
-  L1   4    1         1         3       1       0.5     5        ·      1     0   0
-  L2   7    1         3      1.33       0      0.33     9        ·      1     1   6
-  L3   5    2         2       1.5       0      0.67     5      0.5      2     2   7
-  L4   5    2         2       1.5       0       0.5    10      0.8      1     3  11
-  L5   6    1         2         2       2       0.2    18        ·      1     1   5
-  L6  11    1         3      2.67       0       0.2    19        ·      1     0   0
-  L7  13    3         3      3.33       3       0.6    10     0.89      1    13  17
-  L8  15    2         5         2       1      0.33    18        ·      1     7  24
-  L9  17    2         3      4.67       6      0.28    24      0.5      2     3  11
- L10  19    2         4      3.75       4      0.33    19        ·      1    16  32
- L11  21    3         5       3.2       2      0.42    20        0      1    34  34
- L12  23    2         4      4.75       6      0.28    25        ·      3    12  13
- L13  25    3         5         4       5      0.42    20        0      2    43  25
-```
-
-**The searched ladder is padded, not harder.** L7–L13 were selected on a rising par, few
+**The searched ladder is padded, not harder.** L7 and S1–S6 were selected on a rising par, few
 optimal lines, and few traps. Par rises 13 → 25. `decisions` over those same seven rooms
 goes 3, 5, 3, 4, 5, 4, 5 — **flat.** The twelve extra par points are almost entirely
-walking: `walkRatio` climbs from a hand-authored 1.33–2.67 into 2.0–4.75, and L9 and L12
+walking: `walkRatio` climbs from a hand-authored 1.33–2.67 into 2.0–4.75, and S2 and S5
 each open with **six consecutive walking moves before the player can do anything at all**.
 The ladder rises in the one currency that is free to spend.
 
 Two more things the table says:
 
-- **L11 and L13 have `coupling` 0.** Three bags and two bags respectively, and no bag's
+- **S4 and S6 have `coupling` 0.** Three bags and two bags respectively, and no bag's
   opening constrains any other. Those are independent one-bag puzzles sharing a grid —
   solvable in any order, which is a checklist, not a puzzle. They are also two of the
-  three longest rooms in the pack.
-- **`pm` is out of control in the searched rooms.** L11 lets you keep playing for 34
-  moves after the room is dead; L10, 32. The hand-authored rooms sit at 0–11. A trap you
+  three longest of them.
+- **`pm` is out of control in the searched rooms.** S4 lets you keep playing for 34
+  moves after the room is dead; S3, 32. The hand-authored rooms sit at 0–11. A trap you
   discover 34 moves after you caused it is not a lesson, it is a chore, and free undo does
   not fix it — you still have to work out *which* of the last 34 moves was the mistake.
 
@@ -138,11 +122,9 @@ Applying §3's working targets together (`opening ≤ 2`, `walkRatio ≤ 2.5`, `
 generator that built the bank was sampling boards far too large for their piece count, so
 re-selecting from the bank cannot fix the pack. The generator has to generate differently.
 
-> **Missing artifact.** `levels.md` describes the search that produced L7–L13 — a seeded
-> generator, 24 parallel workers, 1,474 solvable candidates. **That generator is not in
-> the repo**, and the bank it produced has since been deleted too — 0 of its 226 rooms
-> passed these laws, so it was data with no producer and no consumer. Any re-run of the
-> pack starts by writing the generator again, which is the first concrete task below.
+> **The generator does not exist.** The rooms above were produced by a seeded search that
+> was never committed. Re-cutting the pack starts by writing it, which is the first task
+> in §7.
 
 ---
 
@@ -159,7 +141,7 @@ a floor the designer does not control: every container parks the bag it produces
 adjacent to itself, so freeing that bag costs two relocations before a strike is even
 possible (the adjacency tax; it is why L6 is par 11 on three decisions). Par therefore
 measures board geometry at least as much as puzzle content. *Metric:* `decisions`. *Use:*
-a ladder climbs decisions; par is a tiebreak. **Diagnosis:** L7–L13's par runs 13 → 25
+a ladder climbs decisions; par is a tiebreak. **Diagnosis:** the searched rooms' par runs 13 → 25
 while decisions runs 3, 5, 3, 4, 5, 4, 5 — the ladder is flat in the only currency that
 counts.
 
@@ -293,7 +275,7 @@ them.
 ## 5. Grouping — four questions, not one ladder
 
 The pack currently splits into a lesson plan (L0–L6, one new piece per room) and a
-difficulty ladder (L7–L13, par + 2 per room). The lesson plan runs out the moment the
+difficulty ladder (L7 and S1–S6, par + 2 per room). The lesson plan runs out the moment the
 pieces do, and §2 shows the ladder is measuring the wrong thing. Both problems have the
 same fix: **group rooms by the question they ask, not by the piece they contain or the par
 they hit.**
@@ -459,7 +441,7 @@ reports **`bridges`** alongside, and the rule is: **`coupling 0` is only a Law 4
    offline; the shipped rooms remain hand-checked deterministic data.)
 2. **Build the `R` room** — the "bag that must be opened last" that `levels.md` has wanted
    since the sketches. It is the pack's clearest hole and the intent enumeration finds it.
-3. **Re-cut the pack, don't patch it.** L7–L13 are padded and two of them ask nothing;
+3. **Re-cut the pack, don't patch it.** The searched rooms are padded and two ask nothing;
    the bank cannot supply replacements (0 of 226 pass), so they need generating, not
    re-sorting. L0–L6 keep their job — one piece each, in isolation — but they should be
    re-read against Law 2 (L5 opens with a two-step walk) and Law 7, and they are teaching

@@ -22,7 +22,6 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 | `GAME-SHEET.md` | Player-facing pitch (the fantasy, the loop, the hook). |
 | `SPEC-SHEET.md` | **The buildable spec**, plus the design-gate record. Build from this. |
 | `levels.md` | **The live ruleset** + cell-exact verified rooms (L0–L12) and sketches for what comes next. Start here for mechanics. |
-| `REVIEW-LOG.md` | The persona panel's notes across the gates. |
 | `rules.html` | The "Block-Pusher Laws" doc (the 4 panel lists + progression-mutation addendum), house doc style. |
 | `spike/` | **Playable prototype** of L0–L12 + a headless verifier. Throwaway, gate-legal, not the real game. Formats and API: `spike/FORMATS.md`. |
 | `TODO.md` | Where we are, what's locked, what's open, and the next move. **Read this to continue.** |
@@ -40,6 +39,7 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 - **Run the tests:** `npm test` — the rules engine, the compositor, the seeded RNG.
 
 ## Status in one line
-Gate 1 is **closed** — the raccoon's core mechanic is designed and verified in a spike,
-and `SPEC-SHEET.md` is the spec to build from. The real game is **not built yet**; `src/`
-is the next move. See `TODO.md`.
+The rules engine, solver and level format are built, tested and verified in `src/`, and
+`SPEC-SHEET.md` is the spec for the rest. The playable thing is still the prototype shell
+in `spike/`; the real game's board, render and undo layers are the next move. See
+`TODO.md`.

@@ -168,6 +168,21 @@ the game; a real detail invites real answers, where a generic question invites n
 
 ## Pre-publish checks
 
+The build has to be sound and the copy has to be true before any of the itch mechanics
+below matter.
+
+- [ ] Runs clean from a fresh clone (`./run.sh`, no console errors)
+- [ ] `npm test` and `npm run verify` green, and CI green on the release commit
+- [ ] `honest-copy` run against every public-facing document
+- [ ] No fabricated history, spec or citation anywhere — including the store page
+- [ ] No priority claims ("novel", "first", "never been done") in any copy: the
+      scatter-mechanic search cannot prove absence
+- [ ] Title question resolved (`SPEC-SHEET.md` → Open questions)
+- [ ] `LICENSE` present; attribution for any borrowed assets
+- [ ] `promo.html`, `ITCH-PAGE.md` and `MARKETING-PLAN.md` finalized, placeholders gone
+
+Then the page itself:
+
 - [ ] Tagline ≤ 120 characters, counted
 - [ ] Archive has `index.html` at its root, no absolute asset paths, under itch's
       1000-file limit

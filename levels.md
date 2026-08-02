@@ -185,9 +185,9 @@ game's one lesson — *fire your mess away from where you still need to walk* �
 finally applies to the final move too. Cost: one terrain type, no new object (the
 budget stays at 3 of ~8).
 
-**The authoring law that comes with it** (against the Critic's obvious objection —
-that an exit degrades into a walk-back tax): **if the exit's position doesn't rule
-out at least one strike direction or push direction, it's a tax — move it.** Ten
+**The authoring law that comes with it**, because an exit otherwise degrades into a
+walk-back tax: **if the exit's position doesn't rule out at least one strike direction
+or push direction, it's a tax — move it.** Ten
 extra steps of unopposed walking is not a puzzle. L1's exit forbids the down-strike
 (2 refusals); L2's forbids pushing the can left (12); L3's sits in the corridor the
 room already taught you to protect (12). Every room must pay that toll, and
@@ -400,52 +400,35 @@ loaded and once empty. **Zero traps**: nothing here can be lost, only lengthened
 
 ---
 
-## L7, and the retired L8–L13 ladder **[L7 in the pack; L8–L13 archived]**
-
-**Only L7 is still in the game.** L8–L13 were cut from the pack and archived as
-`spike/levels/sketches.tt`, renamed **S1–S6**, still green under
-`node verify.mjs levels/sketches.tt`. The reason is the measurement
-recorded at the end of this section — the ladder is built out of walking rather than
-decisions — and the numbers they used to occupy now carry the water block, **L8–L12** below.
-They are kept rather than deleted because whatever replaces them has to beat something.
-
-These seven were not composed the way L0–L6 were. Each of those rooms exists to teach one
-thing, and the prose above can say what that thing is. These were **found**: a seeded
-generator threw random layouts at the rules engine across 24 parallel workers, 1,474 came
-back solvable inside the target band, and these seven were selected against three
-measurable properties — a rising par, the fewest optimal lines, and the fewest ways to
-quietly lose.
-
-So the honest description is a **difficulty ladder, not a lesson plan.** Par climbs by two
-a room, from 13 to 25, and each room re-uses pieces the pack has already taught rather than
-introducing anything. Four different piece mixes keep them from reading as one room
-stretched seven ways.
-
-| Room | Par | Pieces | Optimal lines | Traps | States |
-|---|---|---|---|---|---|
-| **L7** — Three Bags Full | 13 | three bags | 1 | 13 | 297 |
-| **L8** — Bin Night | 15 | a bag, a full can, a recycle bin | 1 | 7 | 3089 |
-| **L9** — Tight Corner | 17 | two bags, a recycle bin | 2 | 3 | 258 |
-| **L10** — Long Way Round | 19 | a bag, a wheelie bin | 1 | 16 | 1260 |
-| **L11** — Crosstown | 21 | two bags, a wheelie bin | 1 | 34 | 2626 |
-| **L12** — The Far Side | 23 | a bag, a wheelie bin | 3 | 12 | 1537 |
-| **L13** — Closing Time | 25 | two bags, a wheelie bin | 2 | 43 | 2492 |
-
-Two numbers in that table are worth reading. **Optimal lines** is how many distinct
-shortest solutions exist — 1 means the room has exactly one intended answer, and every
-room here has 1, 2 or 3. **Traps** is how many legal actions take a winnable board to an
-unwinnable one; the search turned up rooms with over 1,600 of them, which is a board that
-has stopped telling the player anything, so the selection capped it at 60.
-
-**L7 — "Three Bags Full"** · par 13 · `lldR!ldD!ulluR!l`
+## L7 — "Three Bags Full" **[verified]**
+*New question:* **order, with nothing to relocate.** Three bags, no containers, and every
+strike closes cells the other two still need.
 ```
-----@
-E$-$-
------
---$--
------
+   x=1 2 3 4 5
+y1  .  .  .  .  R
+y2  E  B  .  B  .
+y3  .  .  .  .  .
+y4  .  .  B  .  .
+y5  .  .  .  .  .
 ```
-**L8 — "Bin Night"** · par 15 · `lDldL!rurrdLLdR!l`
+**Solve — `lldR!ldD!ulluR!l`** (par 13). Thirteen traps — the most in the pack — and no
+piece anywhere to move the mess to. The floor you spend is the floor you had.
+*Lesson: with nothing to relocate, the only resource left is which way you face.*
+
+---
+
+## Sketches — S1–S6 **[verified, not in the game]**
+
+Six rooms **found** by a seeded generator rather than composed, and cut from the pack
+because of what `npm run metrics` says about them: par climbs 15 → 25 while
+board-changing `decisions` stays flat at 3–5, so the ladder rises in walking, which is
+free. S4 and S6 also have zero `coupling` — independent one-bag puzzles sharing a grid.
+
+They live in `spike/levels/sketches.tt` and stay verified (`npm run verify
+spike/levels/sketches.tt`) so that whatever replaces them has something to beat. The
+generator that produced them is not in the repo.
+
+**S1 — "Bin Night"** · par 15 · `lDldL!rurrdLLdR!l`
 ```
 -b--@
 ---C-
@@ -454,7 +437,7 @@ E$-$-
 -----
 -----
 ```
-**L9 — "Tight Corner"** · par 17 · `uruullDurrddD!ulU!d`
+**S2 — "Tight Corner"** · par 17 · `uruullDurrddD!ulU!d`
 ```
 ------
 ------
@@ -463,7 +446,7 @@ b$----
 -@$---
 ------
 ```
-**L10 — "Long Way Round"** · par 19 · `uuulDdddlU!drrddLuL!r`
+**S3 — "Long Way Round"** · par 19 · `uuulDdddlU!drrddLuL!r`
 ```
 -----
 ---W-
@@ -472,7 +455,7 @@ b$----
 ----E
 -----
 ```
-**L11 — "Crosstown"** · par 21 · `rrUuurD!ulluuRdR!lulD!ul`
+**S4 — "Crosstown"** · par 21 · `rrUuurD!ulluuRdR!lulD!ul`
 ```
 E-----
 -$----
@@ -481,7 +464,7 @@ E-----
 -@----
 ------
 ```
-**L12 — "The Far Side"** · par 23 · `uuuurrDdL!rddrddLuL!ruuuu`
+**S5 — "The Far Side"** · par 23 · `uuuurrDdL!rddrddLuL!ruuuu`
 ```
 ----E-
 --$W--
@@ -490,7 +473,7 @@ E-----
 -@----
 ------
 ```
-**L13 — "Closing Time"** · par 25 · `uuuulDddlU!ddddRrU!dlllluR!l`
+**S6 — "Closing Time"** · par 25 · `uuuulDddlU!ddddRrU!dlllluR!l`
 ```
 ------
 ---$W-
@@ -499,22 +482,6 @@ E-----
 E$---@
 ------
 ```
-
-**A caveat worth keeping.** A searched room is verified, not designed. Every claim above is
-machine-checked — the par is provably minimal, the solve replays to a win, the trap and
-refusal counts are exact — but nothing checks that a room is *interesting*, and no search
-can. If any of these plays flat, it should be swapped out rather than defended — though the
-candidate bank they were drawn from has been removed, so a swap means regenerating.
-
-**Measured since, and the news is bad.** `spike/metrics.mjs` scores these seven on what they
-cost the player rather than on par, and they do not hold up: par climbs 13 → 25 while the number
-of board-changing *decisions* stays flat at 3–5, so the ladder is built out of walking; L11 and
-L13 have zero coupling between their bags (independent puzzles sharing a grid); and L11 lets you
-keep playing for 34 moves after the room is already unwinnable. The bank cannot supply
-replacements — 0 of its 226 rooms pass the same filters — so these need regenerating rather than
-re-sorting. The laws, the numbers and the generator design are in
-[`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md). Note also that **the generator that produced
-these rooms is not in the repo** — only the bank survived it.
 
 ---
 
