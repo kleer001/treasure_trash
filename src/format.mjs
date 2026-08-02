@@ -1,16 +1,13 @@
-// Treasure Trash — the level file format (.tt). Text in, data out; data in,
-// byte-identical text out. See FORMATS.md for the spec.
+// The .tt level file format. Text in, data out; data in, byte-identical text out.
+// Spec: FORMATS.md.
 
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY,
   DIRS, MOVE, PUSH, TEAR, bridged, openWater,
 } from './rules.mjs';
 
-// --- glyphs -----------------------------------------------------------------
-// Canonical writer emits exactly one glyph per cell state. The reader also accepts
-// the floor aliases, because ' ' loses to trailing-whitespace stripping and '.' reads
-// better inside a markdown doc. Everything else is strict — unknown glyph = throw.
 export const FLOOR_ALIASES = new Set([' ', '-', '.']);
+
 const READ = {
   '#': { wall: true },
   '-': {}, ' ': {}, '.': {},
@@ -19,22 +16,17 @@ const READ = {
   'C': { o: CAN_FULL },
   'c': { o: CAN_EMPTY },
   'x': { o: TRASH },
-  // Case carries load, as it does for the can: UPPER holds a bag, lower does not.
-  'S': { o: STACK },          // a loose bag riding a still-full can
-  'W': { o: WHEELIE },        // wheelie bin with a bag in it
-  'w': { o: WHEELIE_EMPTY },  // wheelie bin, emptied — still rolls
-  'b': { o: BIN },            // recycle bin: drops one cell of trash per shove
+  'S': { o: STACK },
+  'W': { o: WHEELIE },
+  'w': { o: WHEELIE_EMPTY },
+  'b': { o: BIN },
   'E': { exit: true },
-  '+': { exit: true, rac: true },     // raccoon standing on the exit (XSB's player-on-goal)
-  // Water is terrain with two states, and trash is what flips it. `=` reads as the plank
-  // it effectively is; it is written as water-plus-trash, never as a third glyph state.
-  '~': { water: true },               // open water — he will not wet his paws
-  '=': { water: true, o: TRASH },     // filled in: a permanent bridge
-  '*': { water: true, o: TRASH, rac: true },   // raccoon standing on a bridge he made
-  // No glyph for anything else on an exit: nothing else can ever be there. The rules
-  // refuse any action that would put an object on it, so those states are unreachable
-  // and a level file that hand-writes one is invalid input.
+  '+': { exit: true, rac: true },
+  '~': { water: true },
+  '=': { water: true, o: TRASH },
+  '*': { water: true, o: TRASH, rac: true },
 };
+
 export const LEGEND = [
   '# wall', '- floor', '@ raccoon', '$ bag', 'C full can', 'c empty can',
   'x spilled trash', 'E exit', '+ raccoon on exit',
@@ -46,7 +38,7 @@ function glyphFor(c, isRac) {
   if (c.wall) return '#';
   if (c.water) {
     if (bridged(c)) return isRac ? '*' : '=';
-    if (openWater(c)) return '~';          // nothing can stand in open water, raccoon included
+    if (openWater(c)) return '~';
     throw new Error(`occupant ${c.o} in water: water holds trash or nothing`);
   }
   if (!c.exit) {
@@ -56,29 +48,15 @@ function glyphFor(c, isRac) {
   }
   if (isRac) return '+';
   if (c.o === NONE) return 'E';
-  // Unreachable by the rules — if we ever get here, a rule broke. Fail loudly.
   throw new Error(`occupant ${c.o} on an exit cell: the exit must never hold an object`);
 }
 
-// --- level pack -------------------------------------------------------------
-// A directive line starts with ':'. A comment line starts with ';'. Everything
-// between ':grid' and ':end' is taken verbatim, so no glyph can collide with a key.
-
 const INT_KEYS = new Set(['par', 'traps', 'solves']);
-// Two teaching scaffolds, both default OFF, both render/input only — the solver never
-// sees either, so neither can change a par.
-//   :arm on      board-changing actions ask twice in this room.
-//   :preview on  tint the cells a strike would fill, before it is made.
-// Absent means off, which is the normal block-pusher feel: you learn the fan's shape
-// once and then you carry it in your head.
 const BOOL_KEYS = new Set(['arm', 'preview']);
 const BOOLS = { on: true, off: false, true: true, false: false };
+const FIELD_ORDER = ['name', 'teach', 'arm', 'preview', 'par', 'traps', 'solves', 'solve', 'note'];
 
-/**
- * One grammar, one file. Entries collect every directive as a field, plus a verbatim
- * :grid/:end block. A level's `:solve` IS its solution — there is no second file to
- * agree with, and the solver proves the claim minimal rather than a copy confirming it.
- */
+/** Split the text into meta plus one entry per `:level`, keeping each grid verbatim. */
 function parseSections(text) {
   const sectionKey = 'level';
   const pack = { meta: {}, entries: [] };
@@ -142,9 +120,9 @@ export function formatLevelPack(pack) {
   out.push(';', `; legend  ${LEGEND.join('  ')}`, ';', '');
   for (const l of pack.levels) {
     out.push(`:level  ${l.id}`);
-    for (const k of ['name', 'teach', 'arm', 'preview', 'par', 'traps', 'solves', 'solve', 'note']) {
+    for (const k of FIELD_ORDER) {
       if (l[k] === undefined) continue;
-      if (BOOL_KEYS.has(k) && !l[k]) continue;                 // off is the default: don't write it
+      if (BOOL_KEYS.has(k) && !l[k]) continue;
       const v = BOOL_KEYS.has(k) ? 'on' : l[k];
       out.push(`:${k}${' '.repeat(Math.max(1, 7 - k.length))}${v}`);
     }
@@ -163,7 +141,7 @@ export function toState(level) {
   for (let y = 0; y < rows; y++) {
     const row = [];
     for (let x = 0; x < cols; x++) {
-      const ch = level.grid[y][x] ?? '-';        // short rows pad with floor
+      const ch = level.grid[y][x] ?? '-';
       const spec = READ[ch];
       if (!spec) throw new Error(`${level.id}: unknown glyph ${JSON.stringify(ch)} at (${x + 1},${y + 1})`);
       const c = { wall: !!spec.wall, exit: !!spec.exit, water: !!spec.water, o: spec.o ?? NONE };
@@ -182,18 +160,13 @@ export function toState(level) {
   return { cols, rows, cells, rac };
 }
 
-/** Serialise a live state back to grid lines — used for traces and round-trip checks. */
+/** Serialise a live state back to grid lines. */
 export function toGrid(s) {
   return s.cells.map((row, y) =>
     row.map((c, x) => glyphFor(c, s.rac.x === x && s.rac.y === y)).join(''));
 }
 
-// --- solutions --------------------------------------------------------------
-// LURD, extended for a third action class:
-//   lowercase l u r d = move        (step onto empty floor)
-//   uppercase L U R D = push        (shove a can)
-//   uppercase + '!'   = pounce-tear (burst a bag — the irreversible one)
-
+/** Parse extended LURD: lower = move, UPPER = push, UPPER + '!' = tear. */
 export function parseLurd(str, where = 'solution') {
   const actions = [];
   for (let i = 0; i < str.length; i++) {
@@ -212,4 +185,3 @@ export function parseLurd(str, where = 'solution') {
 
 export const formatLurd = actions => actions.map(({ dir, kind }) =>
   kind === MOVE ? dir : kind === PUSH ? dir.toUpperCase() : dir.toUpperCase() + '!').join('');
-

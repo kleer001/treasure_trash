@@ -17,7 +17,6 @@ test('taper peaks at the equator and thins toward the poles', () => {
   const height = LOGO_DEFAULTS.height;
   const bands = scanlineBands(height, LOGO_DEFAULTS);
   const centerOf = (b) => b.y + b.thickness / 2;
-  // Band nearest the vertical center should be (near) the thickest.
   const equator = bands.reduce((a, b) =>
     Math.abs(centerOf(a) - height / 2) < Math.abs(centerOf(b) - height / 2) ? a : b,
   );
@@ -26,7 +25,6 @@ test('taper peaks at the equator and thins toward the poles', () => {
     Math.abs(equator.thickness - maxThickness) < 0.2,
     `equator band (${equator.thickness}) is not near the max (${maxThickness})`,
   );
-  // The very first (pole) band should be thinner than the equator band.
   assert.ok(bands[0].thickness < equator.thickness);
 });
 
@@ -52,9 +50,7 @@ test('scanlineBands is deterministic', () => {
 test('rows are centered as a block on the field', () => {
   const rows = rowLayout(LOGO_DEFAULTS);
   assert.equal(rows.length, LOGO_DEFAULTS.rows.length);
-  // Midpoint of the first and last row centers is the field center.
   const mid = (rows[0].cy + rows[rows.length - 1].cy) / 2;
   assert.ok(Math.abs(mid - LOGO_DEFAULTS.height / 2) < 1e-9, `block not centered: ${mid}`);
-  // Spacing matches rowGap.
   assert.ok(Math.abs(rows[1].cy - rows[0].cy - LOGO_DEFAULTS.rowGap) < 1e-9);
 });

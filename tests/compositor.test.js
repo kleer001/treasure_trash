@@ -2,8 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCompositor, activeLayers } from '../src/compositor.js';
 
-// A stand-in context: the compositor only needs save()/restore() plus whatever the
-// layers use. These fakes record the call order so we can assert on it.
 const recordingCtx = (events) => ({
   save: () => events.push('save'),
   restore: () => events.push('restore'),

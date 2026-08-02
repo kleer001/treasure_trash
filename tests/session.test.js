@@ -1,5 +1,4 @@
-// The play session: undo, arming, room navigation, and the events the view animates from.
-// None of this needs a browser — which is the point of keeping the session pure.
+// The play session: undo, arming, preview, room navigation, and the events it emits.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSession } from '../src/session.js';
@@ -7,7 +6,6 @@ import { BAG, NONE } from '../src/rules.mjs';
 
 const room = (grid, extra = {}) => ({ id: 'T', name: 'test', par: 0, grid, ...extra });
 
-// A bag with clear ground all round it, the raccoon under it, the way out bottom-left.
 const BAG_ROOM = ['-----', '--$--', '--@--', 'E----'];
 
 test('createSession refuses an empty pack at the boundary', () => {

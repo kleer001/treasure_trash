@@ -1,21 +1,15 @@
-// The state key is the solver's identity function: two boards share a key only if they
-// ARE the same board. If that ever fails, the solver silently treats an unvisited state as
-// visited, and "provably minimal par" stops being proven — a wrong answer with no error.
+// The state key is the solver's identity function: distinct boards must key distinctly.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { stateKey } from '../src/rules.mjs';
 
-/** Minimal board carrying nothing but the occupant codes under test. */
 const board = codes => ({
   cols: codes.length, rows: 1, rac: { x: 0, y: 0 },
   cells: [codes.map(o => ({ o }))],
 });
 
 test('distinct boards get distinct keys, for occupant codes past a single digit', () => {
-  // The pair that breaks a delimiter-free decimal join: 1,0,10 and 10,1,0 both render
-  // as "1010". Nothing in the game reaches code 10 yet — this fixes the ceiling in place
-  // so the next piece added cannot quietly reintroduce the collision.
   assert.notEqual(stateKey(board([1, 0, 10])), stateKey(board([10, 1, 0])));
 });
 

@@ -1,5 +1,4 @@
-// Animation timelines. They take elapsed milliseconds and return numbers, so the whole
-// motion layer is testable without a canvas, a clock or a browser.
+// Animation timelines: elapsed milliseconds in, numbers out.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -20,8 +19,6 @@ test('a refusal runs lunge, burst, flash, rewind, and then is over', () => {
 });
 
 test('a refusal with nothing to burst still flashes', () => {
-  // A bump has no burst phase at all, so its burst must read as complete rather than as a
-  // division by zero — the flash is the whole point of a refusal the player cannot see.
   assert.equal(refusalPhase('bump', 80).burst, 1);
   assert.equal(refusalPhase('bump', refusalDuration('bump')), null);
 });

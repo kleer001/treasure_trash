@@ -1,14 +1,9 @@
-// The text around the board: room name, move count, the room strip, and the two badges
-// that say what the rules just refused and what you have aimed. DOM at the boundary — the
-// elements are handed in, so nothing here goes looking for the document.
+// The text around the board: room name, move count, room strip, refusal and aim badges.
 
 import { BAG, cell, inGrid } from './rules.mjs';
 import { WHY, OBSTACLE, ARROW } from './theme.js';
 
-/**
- * Why an action was refused, in words. Names the thing in the way rather than saying
- * "blocked" — the player can already see the red cell; the words add the noun.
- */
+/** Why an action was refused, naming the thing in the way. */
 export function refusalText(state, blocked) {
   const base = WHY[blocked.reason];
   if (blocked.reason !== 'fan' && blocked.reason !== 'canRoom') return base;
@@ -24,20 +19,20 @@ export function refusalText(state, blocked) {
  */
 export function createHud(el, onSelect) {
   for (const k of ['tabs', 'name', 'moves', 'par', 'warn', 'arm'])
-    if (!el?.[k]) throw new Error(`createHud() is missing the "${k}" element`); // boundary
+    if (!el?.[k]) throw new Error(`createHud() is missing the "${k}" element`);
 
   return {
-    /** Build the room strip once, from the pack. */
+    /** Build the room strip from the pack. */
     setLevels(levels) {
       el.tabs.replaceChildren(...levels.map((L, i) => {
-        const b = el.tabs.ownerDocument.createElement('button');   // the handed-in document
+        const b = el.tabs.ownerDocument.createElement('button');
         b.className = 'tab'; b.textContent = L.id;
         b.addEventListener('click', () => onSelect(i));
         return b;
       }));
     },
 
-    /** Reflect the session. Called on every frame the board is redrawn. */
+    /** Reflect the session. Called after every composited frame. */
     update(session) {
       const { level, state, blocked, armed } = session;
       el.name.textContent = `${level.id} — ${level.name}`;

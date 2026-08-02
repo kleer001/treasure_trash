@@ -36,16 +36,13 @@ to let anything else occupy.
 - `npm test` — Node's built-in runner (`node --test`); specs in `tests/*.test.js`.
 - `npm run verify` — proves every claim both level packs make against the engine, and
   that `levels.md` still draws the rooms it documents. Runs in CI beside the tests.
-- `npm run metrics` — the room-quality table (`LEVEL-GENERATION.md`). Prints, never fails.
+- `npm run metrics` — the room-quality table. Prints, never fails.
 - `npm run artifact` — bundles the game into one self-contained HTML file for publishing.
 
 ## Platform
 
 - Vanilla JavaScript, ES modules, **no build step**, runs in the browser.
-- HTML5 Canvas, composited in **ordered layers** (`src/compositor.js`). The
-  character grid is the default base layer, not the whole frame — layering on top
-  of and around it is endorsed (sprites, HUD, logo, overlays, a WebGL CRT pass).
-  WebAudio for sound.
+- HTML5 Canvas, composited in **ordered layers** (`src/compositor.js`). WebAudio for sound.
 - Seeded `mulberry32` (`src/rng.js`) for any randomness — **never `Math.random()`**.
   This game keeps its logic entirely deterministic, so the seed reproduces appearance
   only (see *This game*).
@@ -90,13 +87,8 @@ to let anything else occupy.
 
 ## Docs
 
-- `GAME-SHEET.md` — the player-facing pitch.
 - `SPEC-SHEET.md` — the buildable spec.
 - `levels.md` — the authoritative ruleset and the room-by-room design.
-- `LEVEL-GENERATION.md` — how rooms get generated, grouped and measured; the laws a
-  generator selects on, and why the Sokoban literature's difficulty features don't port.
-  Measured by `tools/metrics.mjs`.
-- `rules.html` — the Block-Pusher Laws the genre panel argued out, house doc style.
 - `FORMATS.md` — the `.tt` level format and what the verifier enforces.
 - `MARKETING-PLAN.md`, `promo.html`, `ITCH-PAGE.md` — launch assets, finalized at the
   release gate. They still carry template placeholders.

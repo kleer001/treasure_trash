@@ -1,52 +1,31 @@
-// Trace ROM Studio wordmark — the house mark, rendered procedurally to Canvas.
-//
-// The look: TRACE / ROM / STUDIO stacked in three width-justified rows, then cut
-// by horizontal scanlines whose thickness tapers thin -> thick -> thin from the
-// poles to the equator (a cos² profile). Flat lines read as one lit, curved
-// surface — the Saul Bass AT&T globe (1983) trick, recast as a CRT readout.
-//
-// House rules honored here:
-//   - Code/data separation: all tuning lives in LOGO_DEFAULTS (data); the
-//     functions below only consume it. Retune the mark without editing logic.
-//   - Pure core, boundary rendering: scanlineBands() and rowLayout() are pure and
-//     testable; only drawLogo() touches a canvas, and it takes the ctx in.
-//   - Deterministic: no Math.random(); same config -> same pixels.
-//   - Fail loudly: drawLogo() validates its context at the boundary.
+// Trace ROM Studio wordmark, drawn procedurally to Canvas: three justified rows cut
+// by scanlines whose thickness follows a cos-squared taper.
 
-/** Tuning for the mark. Tuned against a 900×560 field; scales via options. */
+/** Tuning for the mark. Tuned against a 900x560 field; scales via options. */
 export const LOGO_DEFAULTS = {
   width: 900,
   height: 560,
   background: '#0a0a0a',
-  foreground: '#ffb000', // phosphor amber — recontextualized, not AT&T blue
+  foreground: '#ffb000',
   fontFamily: '"Arial Black", "Helvetica Neue", Helvetica, Arial, sans-serif',
   fontWeight: 900,
   fontSize: 130,
   rows: ['TRACE', 'ROM', 'STUDIO'],
-  targetWidth: 600, // every row is justified (glyph-stretched) to this width
-  rowGap: 100, // center-to-center row spacing; near-touching at fontSize 130
-  pitch: 11, // scanline center-to-center spacing
-  thicknessMax: 9.0, // band thickness at the equator (densest)
-  thicknessMin: 1.4, // band thickness at the poles (airiest)
+  targetWidth: 600,
+  rowGap: 100,
+  pitch: 11,
+  thicknessMax: 9.0,
+  thicknessMin: 1.4,
 };
 
-/**
- * The cos² luminance profile: 1 at the vertical center, 0 at the poles.
- * @param {number} y - pixel row.
- * @param {number} height - field height.
- * @returns {number} taper weight in [0, 1].
- */
 function taperAt(y, height) {
-  const d = (y - height / 2) / (height / 2); // -1..1
+  const d = (y - height / 2) / (height / 2);
   const c = Math.cos((d * Math.PI) / 2);
   return c * c;
 }
 
 /**
- * Horizontal scanline bands for a field of the given height. Pure geometry —
- * no canvas. Each band is the mask stripe that reveals the letters beneath it.
- * @param {number} height
- * @param {object} [cfg] - overrides for pitch / thicknessMin / thicknessMax.
+ * The scanline mask stripes for a field of the given height. Pure geometry.
  * @returns {Array<{y: number, thickness: number}>} top-edge y and height per band.
  */
 export function scanlineBands(height, cfg = LOGO_DEFAULTS) {
@@ -60,8 +39,7 @@ export function scanlineBands(height, cfg = LOGO_DEFAULTS) {
 }
 
 /**
- * Vertical placement of the rows, centered as a block on the field. Pure.
- * @param {object} [cfg]
+ * Vertical placement of the rows, centred as a block. Pure.
  * @returns {Array<{text: string, cy: number}>} each row's text and midline y.
  */
 export function rowLayout(cfg = LOGO_DEFAULTS) {
@@ -70,7 +48,6 @@ export function rowLayout(cfg = LOGO_DEFAULTS) {
   return rows.map((text, i) => ({ text, cy: firstCy + i * rowGap }));
 }
 
-/** Draw one row centered at (width/2, cy), stretched to targetWidth. */
 function drawJustifiedRow(ctx, text, cy, cfg) {
   const natural = ctx.measureText(text).width;
   const scaleX = natural > 0 ? cfg.targetWidth / natural : 1;
@@ -82,14 +59,13 @@ function drawJustifiedRow(ctx, text, cy, cfg) {
 }
 
 /**
- * Render the wordmark to a 2D canvas context. This is the boundary: it owns the
- * canvas so the geometry above can stay pure.
+ * Render the wordmark to a 2D canvas context.
  * @param {CanvasRenderingContext2D} ctx
- * @param {object} [options] - shallow overrides of LOGO_DEFAULTS.
+ * @param {object} [options] shallow overrides of LOGO_DEFAULTS.
  */
 export function drawLogo(ctx, options = {}) {
   if (!ctx || typeof ctx.fillRect !== 'function' || typeof ctx.clip !== 'function') {
-    throw new Error('drawLogo() requires a 2D canvas context'); // boundary check
+    throw new Error('drawLogo() requires a 2D canvas context');
   }
   const cfg = { ...LOGO_DEFAULTS, ...options };
 
@@ -102,8 +78,6 @@ export function drawLogo(ctx, options = {}) {
   ctx.font = `${cfg.fontWeight} ${cfg.fontSize}px ${cfg.fontFamily}`;
 
   const rows = rowLayout(cfg);
-  // Clip to each scanline band and paint the rows through it — the band acts as
-  // the mask, so only the lit stripes of each letter survive.
   for (const band of scanlineBands(cfg.height, cfg)) {
     ctx.save();
     ctx.beginPath();
@@ -114,7 +88,6 @@ export function drawLogo(ctx, options = {}) {
   }
 }
 
-// Auto-render when a <canvas id="logo"> is present (skipped under `node --test`).
 if (typeof document !== 'undefined') {
   const canvas = document.getElementById('logo');
   if (canvas) {

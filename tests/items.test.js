@@ -1,4 +1,4 @@
-// Each new piece, checked against the row it has in the levels.md item table.
+// Each piece, checked against the row it has in the levels.md item table.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { explain, bagsLeft } from '../src/rules.mjs';
@@ -86,10 +86,6 @@ test('the recycle bin bridges one cell — one spent for one gained', () => {
                           ['--=--', '--b--', '--@--', '-----', 'E----']);
 });
 
-// The corollary of that push, and it rules out a whole class of room: the bin lands on
-// the ONLY cell that approaches the bridge it just made, because a water cell's only dry
-// neighbours are the two banks. So the recycle bin can never bridge a canal for the
-// raccoon — only a bag can, since he ends a tear on the bag's cell, behind the fan.
 test('the bin parks itself on the far side of the bridge it just built', () => {
   const r = explain(S(['--~--', '-----', '--b--', '--@--', 'E----']), 'u');
   assert.ok(r.ok);

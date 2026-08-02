@@ -6,7 +6,6 @@
   <title>Treasure Trash</title>
   <meta name="description" content="An untimed Sokoban-family block-pusher: every bag you tear sprays permanent trash, so aim your mess away from your way out." />
   <link rel="stylesheet" href="styles.css" />
-  <!-- The bag, on the house yellow. Inlined so the page never asks for a file it hasn't got. -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23ffcf00'/%3E%3Cpath d='M7 11h18l-2 16H9z' fill='%23161616'/%3E%3Cpath d='M7 11l3-5h12l3 5z' fill='%23161616'/%3E%3C/svg%3E" />
 </head>
 <body>
@@ -25,8 +24,6 @@
 
   <canvas id="board" width="300" height="300" aria-label="the alley"></canvas>
 
-  <!-- Under the board, in the order you reach for them: the d-pad as a WASD triangle, then
-       moving between rooms, then the two that undo what you did inside one. -->
   <div class="controls" id="controls">
     <div class="pad">
       <button class="act key" data-act="up" aria-label="up">↑</button>

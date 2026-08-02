@@ -22,10 +22,8 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 | `levels/` | The rooms, as data — one `.tt` pack per act. Format: `FORMATS.md`. |
 | `tools/` | The verifier, the metrics tool and the publishing bundler. They import `src/`; they own no rules. |
 | `tests/` | `node --test` specs for the engine, the session, the timelines and the compositor. |
-| `GAME-SHEET.md` | Player-facing pitch (the fantasy, the loop, the hook). |
 | `SPEC-SHEET.md` | **The buildable spec.** |
 | `levels.md` | **The live ruleset** + cell-exact verified rooms (L0–L12). Start here for mechanics. |
-| `rules.html` | The "Block-Pusher Laws" doc, house doc style. |
 | `TODO.md` | Where we are, what's locked, what's open, and the next move. **Read this to continue.** |
 
 ## Quickstart
@@ -39,7 +37,7 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
   refusal counts match what the files declare, and `levels.md` still draws the rooms it
   documents.
 - **Run the tests:** `npm test`.
-- **Measure the rooms:** `npm run metrics` — the table `LEVEL-GENERATION.md` explains.
+- **Measure the rooms:** `npm run metrics`.
 
 ## Status in one line
 The game is playable end to end from `src/`, with every room verified against the engine

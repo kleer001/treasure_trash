@@ -1,12 +1,5 @@
-// The board, as compositor layers. Each honors the one contract — { name, draw(ctx, frame) }
-// — and is added with `compositor.add(...)`, so a new pass (a CRT filter, a hint overlay, the
-// studio mark) is a new module rather than an edit to a draw loop.
-//
-// The frame every layer reads:
-//   { state, refusal, motion, blocked, armed, confetti }
-// `state` is the board as the rules left it. The other four are presentation only: none of
-// them is ever a board state, which is exactly why a refusal can show an illegal overlap
-// without the player ever being in one.
+// The board's four compositor passes. Each reads only the frame it is handed:
+// { state, refusal, motion, blocked, armed, preview, confetti }.
 
 import {
   BAG, CAN_FULL, CAN_EMPTY, DIRS, DIR_ORDER, bagsLeft, bridged, cell, fan, inGrid,
@@ -19,12 +12,9 @@ import {
 } from './sprites.js';
 
 const key = (x, y) => `${x},${y}`;
-// How many cells ahead of an armed shove to mark: the can itself, and for a full one the
-// bag it ejects a cell further. Keyed by the engine's codes so the preview cannot disagree
-// with what `explain()` will actually do.
 const LANDINGS = { [CAN_FULL]: 2, [CAN_EMPTY]: 1 };
 
-/** Layer 0: the ground — floor, canal, and the way out. Nothing here ever moves. */
+/** Floor, canal and exit sign. */
 export function createTerrainLayer() {
   return {
     name: 'terrain',
@@ -33,8 +23,6 @@ export function createTerrainLayer() {
       for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) {
         const c = cell(s, x, y);
         if (c.wall) continue;
-        // Water is terrain with two looks, and the second one is the whole lesson: open
-        // canal he won't cross, or the same cell full of his own trash and walkable.
         if (c.water) { drawWater(ctx, x, y, bridged(c)); continue; }
         drawFloor(ctx, x, y);
         if (c.exit) drawExit(ctx, x, y, lit, exitArrowDir(s.cols, s.rows, x, y));
@@ -43,7 +31,7 @@ export function createTerrainLayer() {
   };
 }
 
-/** Layer 1: everything that can be somewhere else next frame, the raccoon included. */
+/** Occupants at rest, pieces in flight, refused debris, and the raccoon. */
 export function createPiecesLayer() {
   return {
     name: 'pieces',
@@ -51,20 +39,15 @@ export function createPiecesLayer() {
       const ph = refusal?.phase ?? null;
       for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) {
         const c = cell(s, x, y);
-        if (c.wall || c.water) continue;                     // water draws its own contents
-        if (motion?.hide.has(key(x, y))) continue;           // in flight — drawn below
-        // A bag mid-refusal deflates as its phantom burst grows; everything else is at rest.
+        if (c.wall || c.water) continue;
+        if (motion?.hide.has(key(x, y))) continue;
         const deflate = ph && refusal.bx === x && refusal.by === y ? 1 - ph.burst : 1;
         drawOccupant(ctx, c.o, x, y, deflate);
       }
 
-      // The debris of a burst that is being refused: it flies out, reaches the cell that
-      // won't take it, and retracts. None of it is board state.
       if (ph) for (const [x, y] of refusal.cells)
         if (inGrid(s, x, y) && !cell(s, x, y).wall) drawTrash(ctx, x, y, ph.burst, [refusal.bx, refusal.by]);
 
-      // Pieces in flight: a torn bag deflating as its fan grows, a shoved can crossing the
-      // gap, an ejected bag sailing past it. Drawn from where they were toward where they are.
       if (motion) for (const p of motion.parts) {
         const x = p.from[0] + (p.to[0] - p.from[0]) * motion.t;
         const y = p.from[1] + (p.to[1] - p.from[1]) * motion.t;
@@ -86,26 +69,17 @@ export function createPiecesLayer() {
   };
 }
 
-/**
- * Layer 2: what the board is telling you — where a strike would land, what you have aimed,
- * and what it just refused. Over everything, including the exit sign: Law 1.7 says a dead
- * end must be foreseeable, and an exit trap only is if you can SEE the trash land.
- */
+/** Fan preview, aim ring, landing markers and the red blame cells, over everything. */
 export function createGuidesLayer() {
   return {
     name: 'guides',
     draw(ctx, { state: s, refusal, motion, blocked, armed, preview }) {
-      // The fan preview belongs to the rooms that teach the fan (`:preview on`, L1-L3).
-      // After that you know the shape, and reading it off the board is the game. Where it
-      // is on, aiming FOCUSES it: while armed, one direction draws, so two adjacent bags
-      // are not ten yellow cells at once. Red is not a second opinion about the fan; it
-      // belongs to the one cell doing the blocking, and only once you have tried.
       const red = new Set((blocked?.cells ?? []).map(([x, y]) => key(x, y)));
       const previews = !preview || refusal || motion ? [] : armed ? [armed] : DIR_ORDER;
       for (const dir of previews) {
         const [dx, dy] = DIRS[dir];
         const bx = s.rac.x + dx, by = s.rac.y + dy;
-        if (!inGrid(s, bx, by) || cell(s, bx, by).o !== BAG) continue;   // bags only
+        if (!inGrid(s, bx, by) || cell(s, bx, by).o !== BAG) continue;
         for (const [fx, fy] of fan(bx, by, dx, dy))
           if (inGrid(s, fx, fy) && !red.has(key(fx, fy))) drawFanTint(ctx, fx, fy);
       }
@@ -113,15 +87,11 @@ export function createGuidesLayer() {
       if (armed) {
         const [dx, dy] = DIRS[armed];
         const ax = s.rac.x + dx, ay = s.rac.y + dy;
-        // A push is as permanent as a tear, so it gets the same look-before-you-commit:
-        // show where the piece lands, and for a full can where its ejected bag lands too.
         for (let n = 1; n <= (LANDINGS[cell(s, ax, ay).o] ?? 0); n++)
           if (inGrid(s, ax + n * dx, ay + n * dy)) drawLanding(ctx, ax + n * dx, ay + n * dy);
         drawAim(ctx, ax, ay, dx, dy);
       }
 
-      // Blocked: you TRIED it and the rules said no. Held back until the refusal animation
-      // reaches its flash, so the mark lands with the sound rather than ahead of the lunge.
       if (blocked && (!refusal?.phase || refusal.phase.flash)) {
         for (const [bx, by] of blocked.cells) drawBlocked(ctx, bx, by);
         if (!blocked.cells.length) drawEdgeBar(ctx, s.rac.x, s.rac.y, DIRS[blocked.dir]);
@@ -130,7 +100,7 @@ export function createGuidesLayer() {
   };
 }
 
-/** Layer 3: the room is finished and nothing else needs reading, so this goes over all of it. */
+/** The win blast. */
 export function createConfettiLayer() {
   return {
     name: 'confetti',
@@ -146,7 +116,7 @@ export function createConfettiLayer() {
   };
 }
 
-/** The stack, in draw order. One call site owns which passes the game runs. */
+/** The stack, in draw order. */
 export const boardLayers = () => [
   createTerrainLayer(), createPiecesLayer(), createGuidesLayer(), createConfettiLayer(),
 ];

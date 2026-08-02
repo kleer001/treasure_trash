@@ -1,5 +1,4 @@
-// Seeded pseudo-random generator. Deterministic: same seed → same sequence.
-// House rule: game logic uses this, never Math.random(), so runs are reproducible.
+// Seeded pseudo-random generator. Never Math.random(), so runs are reproducible.
 
 /**
  * mulberry32 — a fast, seedable 32-bit PRNG.

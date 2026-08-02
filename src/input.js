@@ -1,20 +1,15 @@
-// Input, at the boundary. Keys and taps become named intents; nothing downstream knows
-// whether an action came from an arrow key, WASD, or the on-screen pad.
-//
-// The pad is wired with ONE delegated listener, so rearranging the buttons under the board
-// is a markup change and never a wiring change.
+// Input boundary: keystrokes and taps become named intents.
 
-/** Every key that means a direction. Both arrows and WASD, either case. */
 const KEYS = {
   ArrowUp: 'u', ArrowDown: 'd', ArrowLeft: 'l', ArrowRight: 'r',
   w: 'u', s: 'd', a: 'l', d: 'r', W: 'u', S: 'd', A: 'l', D: 'r',
 };
-/** `data-act` values on the buttons that mean a direction. */
 const PAD_DIRS = { up: 'u', down: 'd', left: 'l', right: 'r' };
 
 /**
+ * Wire keyboard and the on-screen controls to handlers.
  * @param {object} opts
- * @param {EventTarget} opts.keyTarget where to listen for keystrokes (usually `window`).
+ * @param {EventTarget} opts.keyTarget where to listen for keystrokes.
  * @param {Element} opts.controls the container holding every `[data-act]` button.
  * @param {object} opts.on handlers: { move(dir), undo(), restart(), next(), prev() }.
  */

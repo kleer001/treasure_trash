@@ -1,9 +1,4 @@
-// The atlas: one place that knows what each thing on the board looks like. Every function
-// takes the 2D context in and draws in GRID coordinates, which may be fractional — a piece
-// mid-slide is the same sprite at x = 3.4 as it is at rest on x = 3.
-//
-// Nothing here reads game state. That is deliberate: the board loop and the move animation
-// draw through the same functions, so they can never disagree about what a can looks like.
+// Draw primitives for everything on the board. Grid coordinates, fractional allowed.
 
 import { mulberry32 } from './rng.js';
 import {
@@ -11,24 +6,17 @@ import {
 } from './rules.mjs';
 import { BOARD, PALETTE } from './theme.js';
 
-// Local shorthands, declared rather than aliased at the import: the publishing bundler
-// concatenates these modules into one scope, where an import alias would have nothing left
-// to bind to. See tools/build-artifact.mjs.
 const C = PALETTE;
 const CS = BOARD.cell, PAD = BOARD.pad;
 const px = n => n * CS;
 
-// ---------------------------------------------------------------- terrain
 export function drawFloor(ctx, x, y) {
   ctx.fillStyle = '#fff'; ctx.strokeStyle = '#e6e6e2'; ctx.lineWidth = 1;
   ctx.fillRect(px(x) + 1, px(y) + 1, CS - 2, CS - 2);
   ctx.strokeRect(px(x) + 1.5, px(y) + 1.5, CS - 3, CS - 3);
 }
 
-// Open water reads as a hole in the floor — darker than anything else on the board, with
-// ripples, because the one thing the player must believe on sight is "not walkable". A
-// filled cell keeps the dark rim so you can still see it WAS water, and takes the same
-// trash glyph the rest of the board uses: the mess is the bridge.
+/** Open canal, or a filled cell keeping the dark rim under its trash. */
 export function drawWater(ctx, x, y, filled) {
   const x0 = px(x), y0 = px(y);
   ctx.fillStyle = filled ? C.waterFilled : C.water;
@@ -45,14 +33,13 @@ export function drawWater(ctx, x, y, filled) {
   }
 }
 
-/** The board edge the exit points at — the direction he is actually leaving in. Pure. */
+/** The nearest board edge, as a unit vector. */
 export function exitArrowDir(cols, rows, x, y) {
   const d = [[y, [0, -1]], [rows - 1 - y, [0, 1]], [x, [-1, 0]], [cols - 1 - x, [1, 0]]];
   return d.reduce((a, b) => (b[0] < a[0] ? b : a))[1];
 }
 
-// The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
-// "safe condition" coding (ISO 7010 E002). Lit = every bag torn; unlit = work left to do.
+/** ISO 7010 E002 emergency-exit sign; lit once every bag is torn. */
 export function drawExit(ctx, x, y, lit, [dx, dy]) {
   const x0 = px(x), y0 = px(y), m = 8, w = CS - 2 * m, cx = x0 + CS / 2, cy = y0 + CS / 2;
   ctx.save();
@@ -75,8 +62,7 @@ export function drawExit(ctx, x, y, lit, [dx, dy]) {
   ctx.restore();
 }
 
-// ---------------------------------------------------------------- occupants
-/** One switch, so nothing outside this module has to know a piece's code to draw it. */
+/** Dispatch on occupant code, so no caller needs to know the pieces. */
 export function drawOccupant(ctx, o, x, y, k = 1) {
   if (o === TRASH) drawTrash(ctx, x, y);
   else if (o === BAG) drawBag(ctx, x, y, k);
@@ -86,25 +72,22 @@ export function drawOccupant(ctx, o, x, y, k = 1) {
   else if (o === STACK) drawStack(ctx, x, y);
   else if (o === WHEELIE) drawWheelie(ctx, x, y, true);
   else if (o === WHEELIE_EMPTY) drawWheelie(ctx, x, y, false);
-  else if (o !== NONE) throw new Error(`no sprite for occupant ${o}`); // fail loudly
+  else if (o !== NONE) throw new Error(`no sprite for occupant ${o}`);
 }
 
-// Trash is drawn from a stream seeded by the cell, so a given square's specks are the same
-// specks on every frame and every reload without any of it being stored. `src` is the bag
-// this debris came out of: while k < 1 every speck is in flight from that bag's centre to
-// its resting place, so a burst throws its mess outward instead of fading up in place.
 const cellSeed = (x, y) => ((Math.round(x) * 73856093) ^ (Math.round(y) * 19349663)) >>> 0;
 
+/**
+ * Specks seeded by the cell, so a square looks the same on every frame.
+ * `k` < 1 with `src` set flies the debris out from that bag's centre.
+ */
 export function drawTrash(ctx, x, y, k = 1, src = null) {
   if (k <= 0) return;
   const cols = [C.red, C.yel, C.blu, C.tea, C.pnk];
   const rnd = mulberry32(cellSeed(x, y));
-  const x0 = px(x), y0 = px(y), M = 16, R = CS - 2 * M;   // centres stay inside [M, CS-M]
+  const x0 = px(x), y0 = px(y), M = 16, R = CS - 2 * M;
   const flying = k < 1 && src;
   ctx.save();
-  // Settled trash is clipped to its own cell — a hard guarantee it never bleeds. Debris
-  // still in the air has to cross the cells between the bag and where it lands, so the clip
-  // comes off for exactly as long as it is flying.
   if (!flying) { ctx.beginPath(); ctx.rect(x0 + 2, y0 + 2, CS - 4, CS - 4); ctx.clip(); }
   const sx = flying ? px(src[0]) + CS / 2 : x0 + CS / 2;
   const sy = flying ? px(src[1]) + CS / 2 : y0 + CS / 2;
@@ -118,6 +101,7 @@ export function drawTrash(ctx, x, y, k = 1, src = null) {
   ctx.restore();
 }
 
+/** `k` scales the bag about its centre, so a tear deflates it. */
 export function drawBag(ctx, x, y, k = 1) {
   if (k <= 0) return;
   const cx0 = px(x) + CS / 2, cy0 = px(y) + CS / 2;
@@ -131,7 +115,7 @@ export function drawBag(ctx, x, y, k = 1) {
   ctx.quadraticCurveTo(cx + w / 2, top + h, cx + w / 2, top + 8);
   ctx.lineTo(cx + w / 2 - 4, top + 2); ctx.lineTo(cx + 6, top + 6);
   ctx.lineTo(cx - 6, top + 6); ctx.lineTo(cx - w / 2 + 4, top + 2); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = C.yel; star(ctx, cx + 6, top + h * 0.5, 5);   // shiny glint
+  ctx.fillStyle = C.yel; star(ctx, cx + 6, top + h * 0.5, 5);
   ctx.restore();
 }
 
@@ -154,26 +138,23 @@ export function drawCan(ctx, x, y, full) {
   }
   ctx.fillStyle = '#cfd5da'; ctx.strokeStyle = '#7d858c'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.ellipse(cx, top, w / 2, 6, 0, 0, 7); ctx.fill(); ctx.stroke();
-  if (full) {                                    // black bag bulging out
+  if (full) {
     ctx.fillStyle = '#161616';
     ctx.beginPath(); ctx.ellipse(cx, top - 3, w / 2 - 3, 9, 0, 0, 7); ctx.fill();
     ctx.fillStyle = C.yel; star(ctx, cx + 5, top - 4, 4);
-  } else {                                       // open dark mouth
+  } else {
     ctx.fillStyle = '#3a4046';
     ctx.beginPath(); ctx.ellipse(cx, top, w / 2 - 3, 4, 0, 0, 7); ctx.fill();
   }
 }
 
-// The recycle bin: blue, with the chasing-arrows triangle. Blue reads as "recycling" the
-// world over, and it keeps the bin from being mistaken for the grey metal can.
 export function drawRecycleBin(ctx, x, y) {
   const cx = px(x) + CS / 2, w = CS - 2 * PAD - 6, top = px(y) + PAD + 6, h = CS - 2 * PAD - 8;
   ctx.save();
   ctx.fillStyle = '#2d7dd2'; ctx.strokeStyle = '#1b4f86'; ctx.lineWidth = 2;
   ctx.fillRect(cx - w / 2, top, w, h); ctx.strokeRect(cx - w / 2, top, w, h);
-  ctx.fillStyle = '#4a95e0'; ctx.fillRect(cx - w / 2, top, w, 7);        // lid
+  ctx.fillStyle = '#4a95e0'; ctx.fillRect(cx - w / 2, top, w, 7);
   ctx.strokeStyle = '#1b4f86'; ctx.strokeRect(cx - w / 2, top, w, 7);
-  // the mark, as a plain triangle outline — legible at 76px, unlike the real chasing arrows
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.lineJoin = 'round';
   const r = w * 0.26, my = top + h * 0.62;
   ctx.beginPath();
@@ -185,8 +166,7 @@ export function drawRecycleBin(ctx, x, y) {
   ctx.restore();
 }
 
-// A loose bag riding a still-full can. Drawn as exactly that — the can sits low and the bag
-// perches on top, so "two bags in one square" reads before you push it.
+/** A loose bag riding a still-full can. */
 export function drawStack(ctx, x, y) {
   const cx = px(x) + CS / 2, w = CS - 2 * PAD - 14, top = px(y) + CS * 0.46, h = CS * 0.36;
   ctx.save();
@@ -200,8 +180,7 @@ export function drawStack(ctx, x, y) {
   ctx.restore();
 }
 
-// The wheelie bin: taller than the can, on wheels, with a hinged lid. Full = lid propped
-// open by the bag inside; empty = lid down, and it still rolls.
+/** Full = lid propped open by the bag inside; empty = lid down. */
 export function drawWheelie(ctx, x, y, full) {
   const cx = px(x) + CS / 2, w = CS - 2 * PAD - 10, top = px(y) + PAD + 9, h = CS - 2 * PAD - 16;
   ctx.save();
@@ -211,11 +190,11 @@ export function drawWheelie(ctx, x, y, full) {
   for (let i = 1; i < 3; i++) {
     ctx.beginPath(); ctx.moveTo(cx - w / 2, top + i * h / 3); ctx.lineTo(cx + w / 2, top + i * h / 3); ctx.stroke();
   }
-  ctx.fillStyle = '#22252a';   // wheels — the reason it does not stop where you stop pushing
+  ctx.fillStyle = '#22252a';
   ctx.beginPath(); ctx.arc(cx - w / 2 + 5, top + h + 4, 5, 0, 7); ctx.arc(cx + w / 2 - 5, top + h + 4, 5, 0, 7); ctx.fill();
   ctx.save();
   ctx.translate(cx - w / 2, top);
-  if (full) ctx.rotate(-0.42);                   // lid propped open by the bag under it
+  if (full) ctx.rotate(-0.42);
   ctx.fillStyle = '#4f9a63'; ctx.strokeStyle = '#255034'; ctx.lineWidth = 2;
   ctx.fillRect(-2, -8, w + 4, 8); ctx.strokeRect(-2, -8, w + 4, 8);
   ctx.restore();
@@ -228,7 +207,7 @@ export function drawWheelie(ctx, x, y, full) {
 }
 
 export function drawRaccoon(ctx, x, y) {
-  const cx = px(x) + CS / 2, cy = px(y) + CS / 2, r = CS / 2 - PAD - 4;   // may be fractional
+  const cx = px(x) + CS / 2, cy = px(y) + CS / 2, r = CS / 2 - PAD - 4;
   ctx.fillStyle = '#8b8f95'; ctx.beginPath(); ctx.arc(cx + r * 0.7, cy + r * 0.6, r * 0.5, 0, 7); ctx.fill();
   ctx.fillStyle = '#4a4e54'; ctx.beginPath(); ctx.arc(cx + r * 0.95, cy + r * 0.75, r * 0.28, 0, 7); ctx.fill();
   ctx.fillStyle = '#6b7076';
@@ -243,8 +222,7 @@ export function drawRaccoon(ctx, x, y) {
   ctx.beginPath(); ctx.arc(cx, cy + r * 0.35, r * 0.12, 0, 7); ctx.fill();
 }
 
-// ---------------------------------------------------------------- guides
-/** Where a strike would land. Always pale yellow: it answers "where?", not "may I?". */
+/** Where a strike would land. */
 export function drawFanTint(ctx, x, y) {
   ctx.fillStyle = 'rgba(255,207,0,.45)';
   ctx.fillRect(px(x) + 1, px(y) + 1, CS - 2, CS - 2);
@@ -252,7 +230,7 @@ export function drawFanTint(ctx, x, y) {
   ctx.strokeRect(px(x) + 2, px(y) + 2, CS - 4, CS - 4);
 }
 
-/** Where a shoved piece comes to rest — the push is as permanent as the tear. */
+/** Where a shoved piece comes to rest. */
 export function drawLanding(ctx, x, y) {
   ctx.save();
   ctx.fillStyle = 'rgba(255,207,0,.32)'; ctx.fillRect(px(x) + 1, px(y) + 1, CS - 2, CS - 2);
@@ -261,7 +239,7 @@ export function drawLanding(ctx, x, y) {
   ctx.restore();
 }
 
-/** The armed cell: a ring and the direction you are about to commit to. */
+/** Ring and arrow on the cell an armed action would hit. */
 export function drawAim(ctx, x, y, dx, dy) {
   const x0 = px(x), y0 = px(y), cx = x0 + CS / 2, cy = y0 + CS / 2;
   ctx.save();
@@ -278,7 +256,7 @@ export function drawAim(ctx, x, y, dx, dy) {
   ctx.restore();
 }
 
-/** The exact cell to blame. A refused input that looks like no input is a bug. */
+/** The cell that forbade the action. */
 export function drawBlocked(ctx, x, y) {
   const x0 = px(x), y0 = px(y), m = CS * 0.30;
   ctx.save();
@@ -292,7 +270,7 @@ export function drawBlocked(ctx, x, y) {
   ctx.restore();
 }
 
-/** Off-grid: there is no cell to paint, so mark the wall of the alley itself. */
+/** Off-grid refusal: mark the board edge itself. */
 export function drawEdgeBar(ctx, x, y, [dx, dy]) {
   const x0 = px(x), y0 = px(y), T = 9;
   ctx.save(); ctx.fillStyle = C.red;
@@ -303,7 +281,7 @@ export function drawEdgeBar(ctx, x, y, [dx, dy]) {
   ctx.restore();
 }
 
-/** One bit of confetti, already positioned by `anim.confettiAt`. Canvas pixels, not cells. */
+/** One confetti bit, positioned in canvas pixels. */
 export function drawConfettiBit(ctx, bit, cx, cy, rot) {
   ctx.save();
   ctx.translate(cx, cy); ctx.rotate(rot);

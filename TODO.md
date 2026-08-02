@@ -1,7 +1,7 @@
 # TODO / Handoff — Treasure Trash
 
 Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset,
-`SPEC-SHEET.md` for what gets built, and `GAME-SHEET.md` for the pitch.
+and `SPEC-SHEET.md` for what gets built.
 
 ## Where we are
 - Genre + core loop **decided**; the raccoon's core mechanic is **designed and verified**
@@ -68,7 +68,7 @@ preview stops after L3.
   screen. Phosphor/CRT is dead here — it belonged to the retired real-time design.
   Studio docs keep the house doc style either way.
 - **Verb/skill tree.** Deferred by decision (scope). Layer it *after* the base loop
-  proves out. See the addendum in `rules.html`.
+  proves out.
 
 ## Backlog (rooms & content)
 - Verify/cell-exact the sketches: **L4 "Corner Yourself"**, **L5 "Interference"**,

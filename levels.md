@@ -195,7 +195,7 @@ room already taught you to protect (12). Every room must pay that toll, and
 
 **Precedent (this part is real, not invention):** "clear the objective, *then* reach
 the exit" is the standard single-screen puzzle structure, and the two ancestors
-already cited in `rules.html` both use it — *Adventures of Lolo* (HAL Laboratory,
+both use it — *Adventures of Lolo* (HAL Laboratory,
 1989, NES): collect every heart framer, the chest opens, you leave by the door;
 *Chip's Challenge* (Epyx, 1989): collect the required chips, clear the socket, reach
 the exit tile. *Sokoban* (Thinking Rabbit, 1982) is the counter-example — no exit at
@@ -222,8 +222,7 @@ preview + free undo** are load-bearing — they teach the inversion, not just po
 earns no room yet (see the note at the end of this file), so call it **5 spent and a
 sixth parked**. The exit is terrain and costs nothing against the budget.
 **Water is terrain, not an object**, so like the exit it costs nothing against this budget —
-but it was the reserved slot [`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md) § 6 argued for,
-and it is now **spent**: built, unit-tested, and taught across L8–L12. Still reserved: the
+but it was the reserved slot, and it is now **spent**: built, unit-tested, and taught across L8–L12. Still reserved: the
 `gap` (a dry hole, filled the same way but never walkable) and the crow's pieces (pinned).
 
 ---
@@ -630,14 +629,8 @@ each of the two crossings costs you a whole bag's worth of mess. That is the pie
 it was added to do: making the *order* of your spending the question.
 *Lesson: some bags are doors. Open the door before you open the room behind it.*
 
-**Where it fails its own laws, stated plainly.** `pm` is **12** — you can lose this room on
-move one and keep playing for twelve moves before anything tells you. That misses the working
-target of 8 in [`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md) § 3. It is not a bad pick: a
-sweep of 46,428 layouts produced 86 rooms with this signature and **not one of them scored
-below 12**. The finding is about the target, not the room — a 3-bag board simply has more
-left to wander over than the 1- and 2-bag rooms the figure was set from, so `pm` needs to
-scale with bag count. Flagged for playtest; if the walk-after-death reads as punishing, this
-is the room that proves it.
+**Known defect.** `pm` is **12**: you can lose this room on move one and keep playing for
+twelve moves before anything tells you. Flagged for playtest.
 
 ---
 
