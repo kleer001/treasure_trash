@@ -270,5 +270,5 @@ What remains are *stranding* traps — the exit is clear and intact, but your ow
 cut you off from it. Those need connectivity reasoning rather than just reading the fan
 preview, and they are what L4 "Corner Yourself" is built around.
 
-Current pack: 17 levels (L0–L16), 3–3,089 reachable states each, all green. The table above
+Current pack: 18 levels (L0–L17), 3–3,089 reachable states each, all green. The table above
 is the L0–L3 snapshot it was written from and has not been re-measured since.

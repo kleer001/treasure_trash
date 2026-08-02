@@ -45,9 +45,9 @@ is superseded — history only, do not implement from it.)
   genuine soft-lock is **stranding** — your trash walls you off from a clear exit —
   recoverable with **free undo/restart**. **Win = every bag opened *and* the raccoon
   on the exit.**
-- **Deterministic**, no RNG. Object budget **3 of ~8 used** (bag, can, trash) — the
-  exit is terrain, so it costs nothing against the budget; reserved: water/gap + the
-  crow's pieces.
+- **Deterministic**, no RNG. Object budget **7 of ~8 used** (bag, can, trash, recycle bin,
+  wheelie bin, water jug, furniture), plus the bag-on-can stack built but with no room — the
+  exit and water are terrain and cost nothing against the budget. Reserved: the crow's pieces.
 
 ## Gate 1 — CLOSED 2026-07-29
 `SPEC-SHEET.md` (Panel gate block filled) and `REVIEW-LOG.md` (Session 1, four
@@ -104,7 +104,8 @@ green (`npm test`, `cd spike && ./run.sh`). What's left is the game itself, per
 - **Playtest the exit.** It's mechanically verified but not *felt* — the open question
   is whether the walk to `E` reads as tension or as filler. Cheapest test: play L1–L3
   in the spike and see if the last move is ever a decision.
-- New objects toward the ~8 budget: **cans as bridges** (non-dump use), **water/gap**.
+- New objects toward the ~8 budget: the **shopping cart** (a 2-cell wheelie bin) is the
+  only one still specified and unbuilt; the multi-cell state model it needed now exists.
 - Audio (procedural WebAudio), art pass, more rooms → Act 1.
 
 ## How to run / verify (local)

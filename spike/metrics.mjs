@@ -20,7 +20,7 @@ import { dirname, resolve } from 'node:path';
 import { parseLevelPack, parseLurd, toState } from './format.mjs';
 import { analyze } from './solver.mjs';
 import {
-  DIR_ORDER, DIRS, MOVE, TEAR, BAG, TRASH, explain, cell, fan, canStand, isOccupiable, bagsLeft,
+  DIR_ORDER, DIRS, MOVE, TEAR, BAG, explain, cell, fan, canStand, isOccupiable, bagsLeft,
 } from './rules.mjs';
 
 const FAN_CELLS = 5;   // a tear always spends exactly five cells of floor, never fewer

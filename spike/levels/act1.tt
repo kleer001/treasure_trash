@@ -1,10 +1,17 @@
 :pack   Treasure Trash — Act 1 (raccoon only, crow pinned)
 :format 1
 ;
-; legend  # wall  - floor  @ raccoon  $ bag  C full can  c empty can
-;         x spilled trash  E exit  + raccoon on exit
-; There is no glyph for anything else on an exit: the rules refuse any action that would
-; put an object there, so no reachable state needs one.
+;  legend  # wall  - floor  @ raccoon  $ bag  C full can  c empty can  x spilled trash
+;          E exit  + raccoon on exit  b recycle bin  j water jug  S bag-on-can stack
+;          W wheelie bin (full)  w wheelie bin (empty)  F G H K M N furniture
+;
+; Furniture spans cells, so its glyph names a PIECE: a touching blob of one letter is one
+; couch, and two couches shoved flush together are written with two letters.
+;
+; Terrain rides in a separate aligned :water block — ~ open canal, = filled in (which is
+; floor), - dry — because water sits UNDER any occupant and one character per cell cannot
+; say both. There is no glyph for anything on an exit: the rules refuse any action that
+; would put an object there, so no reachable state needs one.
 ;
 ; Every field below is machine-checked by verify.mjs — :par must be the provably
 ; minimal solve, :solve must replay to a win in exactly :par actions, and :traps must

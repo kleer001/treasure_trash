@@ -40,14 +40,9 @@ export const cloneState = s => ({
 export const inGrid = (s, x, y) => x >= 0 && y >= 0 && x < s.cols && y < s.rows;
 export const cell = (s, x, y) => s.cells[y][x];
 
-// WATER IS TERRAIN, not an occupant — a `water` flag on the cell, like `wall` and `exit`.
-// That is the truthful model rather than a saving: water never moves and is never pushed,
-// so nothing about it belongs in the occupant grid. What varies is whether something has
-// been dumped in it, and that is already an occupant on the cell.
-//
-// Terrain, but NOT static: the water jug pours new water mid-room. It is the only piece
-// that writes terrain, and everything that assumed the board's shape was fixed had to
-// learn otherwise — `stateKey` at the bottom of this file most of all.
+// TERRAIN IS NOT AN OCCUPANT, and it is not static either. The water jug writes new water
+// mid-room and any fill converts it, so everything that assumed the board's shape was fixed
+// had to learn otherwise — `stateKey` at the bottom of this file most of all.
 //
 // A cell's terrain is one of three, and only the wall is static:
 //   dry     — ordinary ground
@@ -64,9 +59,6 @@ export const cell = (s, x, y) => s.cells[y][x];
 /** Ordinary dry ground with nothing on it. A bridge counts — it is floor now. */
 export const isClearFloor = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).water && cell(s, x, y).o === NONE;
-
-/** A canal cell somebody filled in. Kept as a predicate because rooms are ABOUT these. */
-export const isBridge = (s, x, y) => inGrid(s, x, y) && !!cell(s, x, y).bridge;
 
 /** Everywhere the raccoon can stand. The exit qualifies — he walks over it freely. */
 export const canStand = isClearFloor;
