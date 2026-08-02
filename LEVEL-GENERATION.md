@@ -33,10 +33,12 @@ A fan must be entirely free to fire, so fans never overlap and the five is alway
 Water is not floor; it is **floor you can buy**, at five fan cells a bag or one a bin. Price
 a bridge as the expensive, deliberate act it is.
 
-**Only walking is reversible.** A tear can never be undone by play. Neither can a full-can
-push. An empty can goes back only by walking round to its far side. So the state graph is
-nearly a DAG, and the game is about committing in the right order and the right direction —
-not about maneuvering room.
+**Only walking leaves the board alone.** Every other verb writes to it, and almost nothing
+writes back: a tear and a full-can push have no inverse at all, and an empty can returns only
+if you can reach its far side. So the state graph is nearly a DAG — walking moves you *within*
+a layer, everything else moves you *down* one. Generation should treat the board as a budget
+being spent, not a space being navigated. (This is a fact about the graph, not about the
+player: undo reverses anything. What it costs the player is covered by Law 6.)
 
 **Each bag is a four-way choice, not a destination.** Nothing is ever pushed *to* anywhere;
 the win is a transformation plus egress. A room's intent space is therefore at most `b!`
@@ -254,14 +256,8 @@ pass all three:
   sits beside it.
 - **It does not violate the pillar.** *Maximum mess, nothing gets cleaned up.* Filling a hole
   with garbage is fine; the board still only ever gets messier. Removing mess is not.
-- **It does not break move-reversibility.** This is the hard one, and it rules out the
-  tempting terrain pieces — one-way curbs, ice, anything that overshoots. Move-reversibility
-  is *why* a plain move can never lose the room, and `verify.mjs` carries a dormant guard that
-  proves it. Terrain looks free because it costs nothing against the object budget; a one-way
-  tile instead creates silent traps by construction, which is the exact failure Law 6 exists
-  to prevent. If one is ever wanted it needs signposting strong enough that the trap is not
-  silent, and that is a bigger cost than the piece is worth.
-
-Multi-cell pieces (furniture, a shopping cart) are additionally blocked on a state-model
-change: the board stores one independent occupant code per cell with no notion of a piece
-spanning cells. Make that change when a room needs it, not before.
+- **Its mistakes stay attributable.** Undo means nothing is truly unrecoverable, so the cost
+  of a bad piece is never "you lost" — it is "you lost twenty moves ago and nothing said so."
+  Measure a candidate piece by what it does to `pm` (Law 6), not by whether its actions can be
+  walked back. A piece whose errors only surface late is the expensive kind, however cheap it
+  looks on the object budget.

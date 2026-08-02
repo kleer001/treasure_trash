@@ -170,12 +170,13 @@ Per level:
 6. The `.sol` entry agrees with the inline `:solve`.
 7. `:traps` and `:solves` match the computed counts.
 8. **GUARD — no lethal plain move.** No plain *move* may take a live board to a dead one.
-   Be honest about this one: under the current ruleset it **cannot fail**, because moving
-   is reversible — you step onto empty floor, and stepping back into the cell you just
-   vacated is always legal, so a move can never change a board's liveness. It is a
-   regression guard, not enforcement. It starts doing real work the day a mechanic breaks
-   move-reversibility, which `DESIGN-BIBLE.md` already plans: World 3's ice, where
-   "everyone overshoots". Left in deliberately, labelled honestly.
+   Be honest about this one: under the current ruleset it **cannot fail**, because walking
+   writes nothing to the board and so cannot change a board's liveness. It is a regression
+   guard, not enforcement, and it fires only if some future verb makes a plain step alter the
+   board — a conveyor, a trapdoor, terrain that carries you further than you asked. It is
+   **not** an argument against irreversible mechanics: undo reverses anything, and what a
+   lost board actually costs the player is how long it stays playable before saying so
+   (`pm`, in `metrics.mjs`).
 9. **INVARIANT — the exit is never occupied.** Across *every reachable state* of every
    room, the exit cell holds no object. Not "our levels avoid it" — the engine makes it
    impossible, and this proves it over the whole state graph.
