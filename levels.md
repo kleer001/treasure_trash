@@ -141,8 +141,9 @@ committed actions, so no flag can change a par.)*
    garbage IS the ground now, which is why a can can be shoved across a crossing and why a
    later fan can bury one. So trash means *blocked* on the floor and *ground* on the water,
    and that inversion is the whole piece. Only two things fill it — a bag's fan (five cells
-   spent, however many happen to be water) and the recycle bin's drop (one for one) — and
-   neither the fan nor the jug may touch a cell already filled. The exit is never water.
+   spent, however many happen to be water) and the recycle bin's drop (one for one). A filled
+   cell is floor, so a **later fan can bury one** and wall your own crossing off again; what it
+   refuses is the *jug*, which pours on bare ground only. The exit is never water.
    Introduced alone in **L14**.
 10. **The water jug `j`** — the recycle bin's mirror, and the only piece that writes
    *terrain*. Shove it and it slides one cell and **spills a single cell of water directly
@@ -784,7 +785,7 @@ goal) **and the raccoon standing on the exit** (get out of the alley you just wr
 | **Water** | — (terrain, not an occupant) | **anything may rest in it; the raccoon may not.** Whatever he shoves in is gone for good — a push leaves him standing where the thing was, and that is now canal. Rollers cross it (he doesn't follow them) and a long couch crosses it (its back end keeps the bank). Trash that lands in it is spent **filling** it: the cell stops being water and becomes ordinary floor, which anything may then rest on and a later fan may bury. Only a bag's fan or the recycle bin's drop fills it. Never the exit. Terrain, but **not static** — the water jug writes more of it mid-room |
 | **Bag-on-can stack** | push → top bag **launches 2** ahead (loose), can **slides 1** (still full); raccoon advances 1 | landing cells clear; launched bag must still be struck; only way to **reposition** a bag |
 | **Recycle bin** | push → slides 1, **drops 1 cell of trash** directly ahead | destination clear (precise obstacle placer) |
-| **Water jug** | push → slides 1, **spills 1 cell of water** directly ahead | the spill needs **bare floor** — water, trash, an object or the exit all refuse it. Never runs dry, and can never be shoved twice running in the same direction: the cell it must slide into next is the water it just poured. Its obstacle is the **soft** one — trash blocks a fan, water accepts one and is bridged by it |
+| **Water jug** | push → slides 1, **spills 1 cell of water** directly ahead | the spill needs **bare floor** — water, trash, an object or the exit all refuse it. Never runs dry. Shoved twice running the same way it drives itself into the puddle it just poured, where nothing can reach it again — legal, and a permanent loss of the piece. Its obstacle is the **soft** one — trash blocks a fan, water accepts one and is bridged by it |
 | **Furniture** (couch/mattress) | rigid **polyomino** (L / Z / T / straight); push → shoves as a unit 1 cell | only if **all** leading cells clear — the cells it *vacates* don't count, so it is cheap along its length and dear across it; **translate-only** (no rotation); multi-cell footprint |
 | **Wheelie bin** | holds a bag; push → **rolls until it hits a wall**, then dumps its bag **1 cell in reverse** (out the back); empty bin still rolls | won't stop unless stopped; reverse cell must be clear (else no-op) |
 | **Shopping cart** | a **2-cell wheelie bin** (rolls + holds a bag + reverse-dump on impact) | as wheelie bin, ×2 footprint |

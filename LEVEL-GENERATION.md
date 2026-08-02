@@ -20,8 +20,11 @@ checker has any.
 
 Four structural facts. Everything below is built on them.
 
-**The floor budget is exact, and known before you place anything.** The board is monotone:
-walkable ground only ever changes by amounts you can compute in advance.
+**The floor budget is exact, and known before you place anything.** Every action's effect on
+walkable ground is computable in advance. Note the budget is *accountable*, not *monotone* —
+it falls on a pour, rises on a fill, and falls again when a fan buries the crossing. What is
+monotone is each cell's permanence rank: `dry → water → bridge → buried`, at most three steps,
+never backwards.
 
 | Action | Walkable cells |
 |---|---|
@@ -30,6 +33,7 @@ walkable ground only ever changes by amounts you can compute in advance.
 | shove the water jug | **−1** — it turns floor into water |
 | shove furniture | **0** — it relocates its own footprint, spending nothing |
 | shove any object into the canal | **+1** — it vacates a floor cell, and the water it lands in was never floor |
+| a fan cell or bin drop landing on a **bridge** | **−1** — a filled cell is floor, so trash buries it like any floor |
 
 That last row is the only way the budget ever goes *up*, and it is worth designing around: the
 canal is the one place an obstacle can be disposed of rather than relocated. The price is that
@@ -41,10 +45,13 @@ a bridge as the expensive, deliberate act it is.
 
 **Only walking leaves the board alone.** Every other verb writes to it, and almost nothing
 writes back: a tear and a full-can push have no inverse at all, and an empty can returns only
-if you can reach its far side. So the state graph is nearly a DAG — walking moves you *within*
-a layer, everything else moves you *down* one. Generation should treat the board as a budget
-being spent, not a space being navigated. (This is a fact about the graph, not about the
-player: undo reverses anything. What it costs the player is covered by Law 6.)
+if you can reach its far side. So the graph is a shallow DAG of strata — a tear, a terrain
+write or a container emptying moves you *down* a stratum, and there are only ever `3·cells +
+bags` such moves. But do not mistake that for a thin graph: an empty can, an empty wheelie bin
+and a couch all shove *within* a stratum, and measured across the shipped pack **97.7% of legal
+edges are within-stratum**. The strata are shallow; all the difficulty lives inside one.
+(A fact about the graph, not about the player: undo reverses anything. What it costs the
+player is covered by Law 6.)
 
 **Each bag is a four-way choice, not a destination.** Nothing is ever pushed *to* anywhere;
 the win is a transformation plus egress. A room's intent space is therefore at most `b!`
