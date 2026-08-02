@@ -8,20 +8,20 @@ import { dirname, resolve } from 'node:path';
 import { parseLevelPack, parseLurd, toState } from '../src/format.mjs';
 import { analyze } from '../src/solver.mjs';
 import {
-  DIR_ORDER, DIRS, MOVE, TEAR, BAG, TRASH, explain, cell, fan, fanBlockers, canStand, bagsLeft,
+  DIR_ORDER, DIRS, MOVE, TEAR, BAG, explain, fan, fanBlockers, canStand, bagsLeft,
+  bridged, countCells, forEachCell,
 } from '../src/rules.mjs';
 
 const FAN_CELLS = fan(0, 0, 1, 0).length;
 
 /** Dry ground: the floor budget a room starts with. Water is not floor. */
-const floorCells = s => s.cells.flat().filter(c => !c.wall && !c.water).length;
+const floorCells = s => countCells(s, c => !c.wall && !c.water);
 
 /** Everywhere the raccoon can still walk, bridges included. */
-const freeCells = (s) => {
-  let n = 0;
-  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) if (canStand(s, x, y)) n++;
-  return n;
-};
+const freeCells = s => countCells(s, (c, x, y) => canStand(s, x, y));
+
+/** Water cells filled in with trash. */
+const bridgeCells = s => countCells(s, bridged);
 
 /**
  * Fraction of legal (bag, direction) choices whose fan costs some other bag a direction.
@@ -29,8 +29,7 @@ const freeCells = (s) => {
  */
 function coupling(s) {
   const bags = [];
-  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++)
-    if (cell(s, x, y).o === BAG) bags.push([x, y]);
+  forEachCell(s, (c, x, y) => { if (c.o === BAG) bags.push([x, y]); });
   if (bags.length < 2) return null;
 
   const needs = (bx, by, dir) => {
@@ -109,7 +108,7 @@ function postMortem(a) {
   return worstDepth;
 }
 
-export function metrics(level) {
+function metrics(level) {
   const start = toState(level);
   const a = analyze(start);
   const actions = a.shortestLurd ? parseLurd(a.shortestLurd) : [];
@@ -121,7 +120,6 @@ export function metrics(level) {
   let opening = 0;
   while (opening < actions.length && actions[opening].kind === MOVE) opening++;
 
-  const bridgeCells = s => s.cells.flat().filter(c => c.water && c.o === TRASH).length;
   let final = start;
   for (const act of actions) final = explain(final, act.dir).next;
   const bridges = bridgeCells(final) - bridgeCells(start);
@@ -157,7 +155,7 @@ const COLS = [
 ];
 const val = (r, k) => r[k] ?? '·';
 
-export function report(levels) {
+function report(levels) {
   console.log(COLS.map(([k, w]) => String(k).padStart(w)).join(''));
   for (const l of levels) {
     const m = metrics(l);

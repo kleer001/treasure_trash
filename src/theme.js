@@ -7,9 +7,25 @@ export const BOARD = { cell: 76, pad: 9 };
 export const PALETTE = {
   red: '#ff4b3e', yel: '#ffcf00', blu: '#2d7dd2', tea: '#17c3b2', pnk: '#ff5da2',
   ink: '#1a1a1a', grn: '#2e9e5b',
-  water: '#2e6f8e', waterFilled: '#7fb7c4',
 };
 export const CONFETTI_COLOURS = [PALETTE.red, PALETTE.yel, PALETTE.blu, PALETTE.tea, PALETTE.pnk];
+
+/** What each thing on the board is made of. Retune a piece without opening a draw call. */
+export const SKIN = {
+  floor: { fill: '#fff', edge: '#e6e6e2' },
+  water: { open: '#2e6f8e', filled: '#7fb7c4', ripple: 'rgba(255,255,255,.45)' },
+  exit: { lit: PALETTE.grn, dim: 'rgba(46,158,91,.12)', dimEdge: 'rgba(46,158,91,.6)',
+          litInk: '#fff', dimInk: 'rgba(46,158,91,.55)' },
+  bag: { body: '#161616', glint: PALETTE.yel },
+  can: { body: '#b9c0c7', edge: '#7d858c', ridge: '#9aa2a9', rim: '#cfd5da', mouth: '#3a4046' },
+  bin: { body: PALETTE.blu, edge: '#1b4f86', lid: '#4a95e0', mark: '#fff' },
+  wheelie: { body: '#3f7d4f', edge: '#255034', ridge: '#2f6a40', lid: '#4f9a63', wheel: '#22252a' },
+  raccoon: { tail: '#8b8f95', tailTip: '#4a4e54', ear: '#6b7076', head: '#9aa0a6',
+             mask: '#2b2f34', muzzle: '#eceef0', eye: '#fff', pupil: '#111' },
+  guide: { fill: 'rgba(255,207,0,.45)', edge: 'rgba(224,170,0,.85)',
+           landFill: 'rgba(255,207,0,.32)', landEdge: 'rgba(224,170,0,.9)', aim: '#e0aa00' },
+  blocked: { fill: 'rgba(255,75,62,.42)', edge: PALETTE.red, cross: '#c8321f', bar: PALETTE.red },
+};
 
 export const REFUSAL_MS = {
   tear: { lunge: 150, burst: 190, hold: 260, rewind: 240 },

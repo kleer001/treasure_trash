@@ -2,7 +2,7 @@
 
 import { createCompositor } from './compositor.js';
 import { boardLayers } from './layers.js';
-import { DIRS, TEAR, PUSH, NONE, cell, fan } from './rules.mjs';
+import { DIRS, TEAR, PUSH, NONE, cell, fan, forEachCell } from './rules.mjs';
 import { BOARD, MOVE_MS, WIN_MS } from './theme.js';
 import { makeConfetti, progress, refusalKindFor, refusalPhase } from './anim.js';
 
@@ -76,12 +76,11 @@ export function createView({ canvas, session, audio, onWinDone, onFrame = () => 
           m.parts.push({ what: 'trash', from: [tx, ty], to: [tx, ty], src: [bx, by] });
         }
       } else if (kind === PUSH) {
-        for (let y = 0; y < to.rows; y++) for (let x = 0; x < to.cols; x++) {
-          const o = cell(to, x, y).o;
-          if (o === NONE || o === cell(from, x, y).o) continue;
+        forEachCell(to, (c, x, y) => {
+          if (c.o === NONE || c.o === cell(from, x, y).o) return;
           m.hide.add(`${x},${y}`);
-          m.parts.push({ what: 'piece', o, from: [bx, by], to: [x, y] });
-        }
+          m.parts.push({ what: 'piece', o: c.o, from: [bx, by], to: [x, y] });
+        });
       }
       motion = m;
       start();

@@ -6,8 +6,6 @@ import {
   DIRS, MOVE, PUSH, TEAR, bridged, openWater,
 } from './rules.mjs';
 
-export const FLOOR_ALIASES = new Set([' ', '-', '.']);
-
 const READ = {
   '#': { wall: true },
   '-': {}, ' ': {}, '.': {},

@@ -6,17 +6,17 @@ Authoritative ruleset: `levels.md`, and — where prose and code disagree — th
 itself, `src/rules.mjs`, which is the single implementation every consumer imports.
 File formats and the verifier's contract: `FORMATS.md`.
 
-## Vertical slice
+## The slice, as built
 
-The smallest playable thing that proves the loop is fun.
-
-**In:**
+**Built and playable:**
 - Grid board, one raccoon, orthogonal step movement, no pull.
-- Three object types: **garbage bag**, **metal can** (full → empty), **spilled trash**.
-- Walls and floor, plus **the exit** — terrain, not an object, exactly one per room. Free
-  against the object budget (still 3 of ~8).
+- Six pieces: **garbage bag**, **metal can** (full → empty), **spilled trash**,
+  **recycle bin**, **wheelie bin**, **bag-on-can stack**.
+- Walls and floor, plus two terrains that cost nothing against the object budget: **the
+  exit** (exactly one per room) and **water** (open, or filled with trash and walkable).
 - Pounce-tear with the 2×3 directional fan; permanent trash; the side-cell corollary.
-- Full-can push (slide 1, eject bag 1 further, can becomes empty).
+- Full-can push (slide 1, eject bag 1 further, can becomes empty); the bin's one-cell
+  trash drop; the wheelie bin's roll-until-stopped with its bag out the back.
 - **Exit protection:** any strike or push that would land trash, a can or a bag on the
   exit is refused. Enforced in `rules`, not by level design.
 - **Performed refusal.** An illegal action animates and rewinds — lunge, burst, debris
@@ -33,19 +33,16 @@ The smallest playable thing that proves the loop is fun.
   teach the fan, and off from L4. Arming focuses it to the aimed direction. Render layer
   only.
 - Unlimited undo, restart, per-level par-move display.
-- Stranding indicator (dead-board warning) — see *Systems* → `solver`.
-- Rooms: **L0, L1, L2, L3** verified from `levels.md` and shipped as data in
-  `levels/act1.tt`, plus **L4** and **L5** once cell-exact and proven solvable.
-  Spine order is an open question.
+- Rooms **L0–L12**, verified against the engine and shipped as data in `levels/act1.tt`.
 - **Win condition: every bag torn open *and* the raccoon standing on the exit.** A full
   can counts as an unopened bag. The exit sign renders unlit while bags remain and lights
   when the last one tears.
 
-**Explicitly out** (each needs its own spike before it enters):
+**Not built, and each needs its own prototype before it enters:**
 - The crow, and any second unit.
-- Bag-on-can stack (bag launch — the only bag *repositioning* verb).
-- Recycle bin, wheelie bin, shopping cart, furniture polyominoes.
-- Water / gaps. Any collecting, shiny, or score. Any timer. Any RNG in logic.
+- Shopping cart, furniture polyominoes, the dry `gap`.
+- A stranding indicator: `solver` computes the dead set, but the game never asks it.
+- Any collecting, shiny, or score. Any timer. Any RNG in logic.
 - Level editor, community levels, verb/skill tree, bosses, story, hazards.
 
 ## Systems
@@ -60,24 +57,23 @@ certifies nothing.
 
 - **`explain(state, dir)` is the one decision point.** Returns `{ok: true, kind, next}`
   or `{ok: false, reason, blame}`, where `kind` ∈ `move` | `push` | `tear`, `next` is a
-  fresh state, `reason` ∈ `edge` | `wall` | `trash` | `fan` | `canRoom` | `exit`, and
+  fresh state, `reason` ∈ `edge` | `wall` | `trash` | `water` | `fan` | `canRoom` | `exit`, and
   `blame` is exactly the cells that forbid the action — the list the renderer paints red
   and the tests assert on. Every caller goes through it; nothing re-derives legality.
 - `step(state, dir)` → the next state, or `null` if illegal. `explain` with the reason
   discarded.
-- `applyAction(state, {dir, kind})` → throws unless the board produces *exactly* that
-  kind. This is what makes a solution file self-checking rather than a hint: a solve that
-  reaches the exit for the wrong reason fails loudly instead of quietly passing.
 - `fan(bx, by, dx, dy)` → the **5** cells a tear fills: the bag's two cells perpendicular
   to the strike direction, plus the three cells one step ahead spanning perpendicular
   offsets −1, 0, +1. Nothing sprays backward; the came-from cell stays clear.
-- **Two different clearance questions, two predicates** — the exit is the only cell where
-  they disagree, and keeping them separate is what makes exit protection an engine
-  property instead of a level-design habit:
-  - `isClearFloor(s, x, y)` — *may the raccoon stand here?* In-grid, not a wall, no
-    occupant. **The exit qualifies.**
-  - `isOccupiable(s, x, y)` — *may an object come to rest here?* `isClearFloor` **and not
-    the exit.** Trash, a shoved can and an ejected bag all test against this.
+- **Three clearance questions, three predicates.** Keeping them separate is what makes
+  exit protection and the water rule engine properties rather than level-design habits:
+  - `canStand(s, x, y)` — *may the raccoon stand here?* In-grid, not a wall, empty — or
+    water he has already filled in. **The exit qualifies.**
+  - `canHoldTrash(s, x, y)` — *may trash land here?* Empty, not a wall, **not the exit**.
+    Water qualifies, which is how a fan builds a bridge.
+  - `isOccupiable(s, x, y)` — *may an object come to rest here?* `canHoldTrash` **and not
+    water.** A shoved can and an ejected bag test against this, so nothing but trash ever
+    enters the canal.
 - `bagsLeft(s)` counts `BAG` and `CAN_FULL` together — a full can still holds an unopened
   bag. `atExit(s)` is the raccoon's cell being the exit. **`isWon(s) = bagsLeft(s) === 0
   && atExit(s)`.**
@@ -85,10 +81,10 @@ certifies nothing.
   static. The solver's identity function, so it belongs here.
 - **Where it fails loudly, and where it doesn't.** `explain` never throws on an illegal
   action — reporting *why* is its job, and the renderer needs the reason to perform the
-  refusal. `step` returns `null`. The loud failures are `applyAction` (a declared kind the
-  board won't produce) and `format`'s boundary validation, both of which mean a *bug in the
-  data or the caller*, not a player mistake. An illegal player input is a refusal; an
-  illegal declared action is a defect. Never silently no-op either.
+  refusal. `step` returns `null`. The loud failures are `solver.replay` (a declared kind
+  the board won't produce) and `format`'s boundary validation, both of which mean a *bug
+  in the data or the caller*, not a player mistake. An illegal player input is a refusal;
+  an illegal declared action is a defect. Never silently no-op either.
 
 Transitions, where the raccoon at `R` steps in direction `D` into target cell `T`
 (`T = R + D`):
@@ -96,12 +92,17 @@ Transitions, where the raccoon at `R` steps in direction `D` into target cell `T
 | Contents of `T` | Precondition | Effect | Refusal `reason` |
 |---|---|---|---|
 | empty floor (**incl. the exit**) | — | raccoon → `T` | — |
+| filled water (a bridge) | — | raccoon → `T` | — |
 | off-grid | — | **refused** | `edge` |
 | wall | — | **refused** | `wall` |
 | spilled trash | — | **refused** (inert, permanent) | `trash` |
-| bag | all 5 `fan(T, D)` cells `isOccupiable` | those 5 become trash; `T` clears; raccoon → `T` | `fan`, or `exit` if any blocker is the exit |
-| full can | `T+D` and `T+2D` both `isOccupiable` | bag → `T+2D`; empty can → `T+D`; raccoon → `T` | `canRoom`, or `exit` |
+| open water | — | **refused** (fill it first) | `water` |
+| bag | all 5 `fan(T, D)` cells `canHoldTrash` | those 5 become trash; `T` clears; raccoon → `T` | `fan`, or `exit`/`water` if a blocker is one |
+| full can | `T+D` and `T+2D` both `isOccupiable` | bag → `T+2D`; empty can → `T+D`; raccoon → `T` | `canRoom`, or `exit`/`water` |
+| bag-on-can stack | as the full can | loose bag → `T+2D`; full can → `T+D`; raccoon → `T` | `canRoom`, or `exit`/`water` |
+| recycle bin | `T+D` `isOccupiable`, `T+2D` `canHoldTrash` | trash → `T+2D`; bin → `T+D`; raccoon → `T` | `canRoom`, or `exit`/`water` |
 | empty can | `T+D` is `isOccupiable` | can → `T+D`; raccoon → `T` | `canRoom`, or `exit` |
+| wheelie bin | at least one `isOccupiable` cell ahead | rolls to the last one; a full bin drops its bag behind it; **the raccoon does not follow** | `canRoom`, or `exit`/`water` |
 
 Because the object predicate excludes the exit, a fan or a push destination that includes
 the exit is refused by the same code path that refuses a wall. An exit-caused refusal
@@ -110,11 +111,6 @@ lesson from *"there's no room"*, and the HUD says the right one.
 
 A refusal is not a loss: no state changes and no move is spent. The genuine soft-lock
 that remains is **stranding** — positional, and `solver`'s job.
-
-**`board`** — the state shape and the queries the engine doesn't need: dimensions, the
-bag/can inventories, and HUD-facing counts. Cell access and bounds checking (`cell`,
-`inGrid`, `cloneState`) live in `rules`, because the engine depends on them and one
-definition beats two. Owns no rules.
 
 **`format`** — text ⇄ data, in `src/format.mjs`. Parses level
 packs, `toState` **validates at the boundary** — exactly one raccoon, exactly one exit,
@@ -276,7 +272,7 @@ Engine unit tests:
 - The side-cell corollary: a can adjacent to a bag blocks **every** strike direction.
 - Full-can push ejects the bag one cell beyond the can and empties it.
 - Permanence: no operation ever removes a trash cell.
-- `isClearFloor` vs `isOccupiable` disagree on the exit and nowhere else.
+- `canStand`, `canHoldTrash` and `isOccupiable` disagree only on the exit and on water.
 - An exit-caused refusal reports `reason: 'exit'`, not the generic `fan`/`canRoom`.
 
 Per shipped room:

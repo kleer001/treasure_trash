@@ -2,7 +2,7 @@
 // { state, refusal, motion, blocked, armed, preview, confetti }.
 
 import {
-  BAG, CAN_FULL, CAN_EMPTY, DIRS, DIR_ORDER, bagsLeft, bridged, cell, fan, inGrid,
+  BAG, CAN_FULL, CAN_EMPTY, DIRS, DIR_ORDER, bagsLeft, bridged, cell, fan, forEachCell, inGrid,
 } from './rules.mjs';
 import { BOARD } from './theme.js';
 import { confettiAt, confettiAlpha } from './anim.js';
@@ -20,13 +20,12 @@ export function createTerrainLayer() {
     name: 'terrain',
     draw(ctx, { state: s }) {
       const lit = bagsLeft(s) === 0;
-      for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) {
-        const c = cell(s, x, y);
-        if (c.wall) continue;
-        if (c.water) { drawWater(ctx, x, y, bridged(c)); continue; }
+      forEachCell(s, (c, x, y) => {
+        if (c.wall) return;
+        if (c.water) { drawWater(ctx, x, y, bridged(c)); return; }
         drawFloor(ctx, x, y);
         if (c.exit) drawExit(ctx, x, y, lit, exitArrowDir(s.cols, s.rows, x, y));
-      }
+      });
     },
   };
 }
@@ -37,13 +36,11 @@ export function createPiecesLayer() {
     name: 'pieces',
     draw(ctx, { state: s, refusal, motion }) {
       const ph = refusal?.phase ?? null;
-      for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) {
-        const c = cell(s, x, y);
-        if (c.wall || c.water) continue;
-        if (motion?.hide.has(key(x, y))) continue;
+      forEachCell(s, (c, x, y) => {
+        if (c.wall || c.water || motion?.hide.has(key(x, y))) return;
         const deflate = ph && refusal.bx === x && refusal.by === y ? 1 - ph.burst : 1;
         drawOccupant(ctx, c.o, x, y, deflate);
-      }
+      });
 
       if (ph) for (const [x, y] of refusal.cells)
         if (inGrid(s, x, y) && !cell(s, x, y).wall) drawTrash(ctx, x, y, ph.burst, [refusal.bx, refusal.by]);

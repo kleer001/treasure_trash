@@ -9,7 +9,7 @@ import {
   parseLevelPack, formatLevelPack, parseLurd, formatLurd, toState, toGrid,
 } from '../src/format.mjs';
 import { analyze, replay } from '../src/solver.mjs';
-import { isWon, bagsLeft } from '../src/rules.mjs';
+import { isWon, bagsLeft, cell, forEachCell, NONE } from '../src/rules.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const levelPath = process.argv[2]
@@ -44,9 +44,10 @@ for (const level of pack.levels) {
   const start = toState(level);
   const bags = bagsLeft(start);
 
-  const exitCell = start.cells.flat().find(c => c.exit);
-  check('exit starts empty', exitCell.o === 0);
-  check('raccoon does not start on the exit', !start.cells[start.rac.y][start.rac.x].exit);
+  let exitCell = null;
+  forEachCell(start, c => { if (c.exit) exitCell = c; });
+  check('exit starts empty', exitCell.o === NONE);
+  check('raccoon does not start on the exit', !cell(start, start.rac.x, start.rac.y).exit);
   check('grid round-trips through the serialiser', toGrid(start).join('\n') === level.grid.join('\n'));
 
   const a = analyze(start);
@@ -69,8 +70,11 @@ for (const level of pack.levels) {
       `found ${a.shortestCount}`);
   else console.log(`    · ${a.shortestCount} distinct shortest solve(s)`);
 
-  const occupied = [...a.states.values()].find(n =>
-    n.state.cells.some(row => row.some(c => c.exit && c.o !== 0)));
+  const occupied = [...a.states.values()].find((n) => {
+    let bad = false;
+    forEachCell(n.state, c => { if (c.exit && c.o !== NONE) bad = true; });
+    return bad;
+  });
   check('the exit is never occupied, in any reachable state', !occupied,
     `${a.reachable} states searched`);
 

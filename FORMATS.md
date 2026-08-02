@@ -122,7 +122,7 @@ that is the whole reason for encoding the kind rather than just the direction.
 ## 3. The API
 
 ```js
-import { explain, step, applyAction, isWon, bagsLeft, fan } from '../src/rules.mjs';
+import { explain, step, isWon, bagsLeft, fan } from '../src/rules.mjs';
 import { parseLevelPack, toState, toGrid, parseLurd, formatLurd } from '../src/format.mjs';
 import { analyze, replay } from '../src/solver.mjs';
 ```

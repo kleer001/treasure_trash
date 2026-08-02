@@ -67,7 +67,7 @@ to let anything else occupy.
   (`src/compositor.js`). The board runs four (`src/layers.js`): `terrain`, `pieces`,
   `guides`, `confetti`. Each layer is a small module honoring one contract,
   `{ name, draw(ctx, frame) }`, added with `compositor.add(...)`, and reads only the
-  frame it is handed. Anything else — a CRT pass, a HUD overlay, the studio logo — is
+  frame it is handed. Anything else — a CRT pass, a hint overlay, a title card — is
   another layer *on top of or under* those. Reach for a new layer before you reach into
   the loop.
 - **DRY.** One source of truth for every rule and constant. If a value or a piece

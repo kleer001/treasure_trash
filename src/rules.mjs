@@ -17,6 +17,18 @@ export const cloneState = s => ({
 export const inGrid = (s, x, y) => x >= 0 && y >= 0 && x < s.cols && y < s.rows;
 export const cell = (s, x, y) => s.cells[y][x];
 
+/** Visit every cell in row-major order. */
+export function forEachCell(s, fn) {
+  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) fn(cell(s, x, y), x, y);
+}
+
+/** Count the cells satisfying a predicate over (cell, x, y). */
+export function countCells(s, pred) {
+  let n = 0;
+  forEachCell(s, (c, x, y) => { if (pred(c, x, y)) n++; });
+  return n;
+}
+
 /** Water filled with trash: walkable, permanently. */
 export const bridged = c => c.water && c.o === TRASH;
 /** Water still open: impassable, and only trash may land in it. */
@@ -149,20 +161,12 @@ export function step(s, dir) {
   return r.ok ? r.next : null;
 }
 
-/** Apply a declared action. Throws unless the board produces exactly that kind. */
-export function applyAction(s, { dir, kind }) {
-  const r = explain(s, dir);
-  if (!r.ok) throw new Error(`illegal ${kind} ${dir}: blocked by ${r.reason}`);
-  if (r.kind !== kind) throw new Error(`declared ${kind} ${dir} but the board gives ${r.kind}`);
-  return r.next;
-}
-
 const BAGS_IN = { [BAG]: 1, [CAN_FULL]: 1, [WHEELIE]: 1, [STACK]: 2 };
 
 /** Bags still to be torn, wherever they sit. A stack holds two. */
 export function bagsLeft(s) {
   let k = 0;
-  for (const row of s.cells) for (const c of row) k += BAGS_IN[c.o] ?? 0;
+  forEachCell(s, c => { k += BAGS_IN[c.o] ?? 0; });
   return k;
 }
 
