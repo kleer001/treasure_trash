@@ -1,8 +1,8 @@
 // Each new piece, checked against the row it has in the levels.md item table.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, bagsLeft } from '../spike/rules.mjs';
-import { toState, toGrid } from '../spike/format.mjs';
+import { explain, bagsLeft } from '../src/rules.mjs';
+import { toState, toGrid } from '../src/format.mjs';
 
 const S = grid => toState({ id: 't', grid });
 const after = (grid, dir) => {

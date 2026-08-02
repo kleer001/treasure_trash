@@ -12,14 +12,16 @@ opening every bag **and** standing on the exit, which is terrain the engine refu
 to let anything else occupy.
 
 - **The ruleset lives in `levels.md`; what to build lives in `SPEC-SHEET.md`.** Where
-  prose and code disagree, `spike/rules.mjs` is the engine of record.
-- **`spike/` is a throwaway prototype, not the game.** It holds a working rules engine,
-  an exhaustive solver, the `.tt`/`.sol` level formats (`spike/FORMATS.md`) and a
-  verifier that proves every claim a level file makes. Port it into `src/`; don't grow
-  the spike into the product, and don't write a second implementation of the rules —
-  one engine, imported by the game, the solver and the tests alike.
-- **`DESIGN-BIBLE.md` is superseded — history only.** It specifies a retired real-time
-  two-animal design. Never implement from it.
+  prose and code disagree, `src/rules.mjs` is the engine of record.
+- **The engine lives in `src/` and there is exactly one of it.** `src/rules.mjs` (the
+  rules), `src/solver.mjs` (exhaustive analysis) and `src/format.mjs` (the `.tt` level
+  format, `spike/FORMATS.md`) are imported by the game, the verifier, the metrics tool
+  and the tests alike. **Never re-author these in a second place.** If they need to
+  change shape, move and edit them — a rewrite is how a codebase ends up with two
+  engines that disagree.
+- **`spike/` is the prototype *shell*, not a second game.** It holds the playable
+  renderer and input layer (`spike/index.html`), the verifier, the metrics tool and the
+  level packs. It owns no rules. Grow the shell or replace it; leave the engine alone.
 - **No randomness in logic at all.** Every room is hand-authored and deterministic;
   `src/rng.js` is for *cosmetic* variation only, seeded from the level id. A replay is
   the level id plus the move sequence.
@@ -31,6 +33,10 @@ to let anything else occupy.
 
 - `./run.sh [port]` — no-cache dev server (default 8000). Open the URL.
 - `npm test` — Node's built-in runner (`node --test`); specs in `tests/*.test.js`.
+- `npm run verify` — proves every claim both level packs make against the engine, and
+  that `levels.md` still draws the rooms it documents. Runs in CI beside the tests.
+- `npm run metrics` — the room-quality table (`LEVEL-GENERATION.md`). Prints, never fails.
+- `npm run artifact` — bundles the prototype into one self-contained HTML file.
 
 ## Platform
 
@@ -90,10 +96,9 @@ to let anything else occupy.
   Measured by `spike/metrics.mjs`.
 - `REVIEW-LOG.md` — the panel's notes across the design / MVP / release gates.
 - `rules.html` — the Block-Pusher Laws the genre panel argued out, house doc style.
-- `spike/FORMATS.md` — the `.tt`/`.sol` file formats and what the verifier enforces.
+- `spike/FORMATS.md` — the `.tt` level format and what the verifier enforces.
 - `MARKETING-PLAN.md`, `promo.html`, `ITCH-PAGE.md` — launch assets, finalized at the
   release gate. They still carry template placeholders.
-- `DESIGN-BIBLE.md` — superseded, kept as history.
 
 ## Staying in sync with the studio
 

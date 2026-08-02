@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stateKey } from '../spike/rules.mjs';
+import { stateKey } from '../src/rules.mjs';
 
 /** Minimal board carrying nothing but the occupant codes under test. */
 const board = codes => ({

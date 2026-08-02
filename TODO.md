@@ -1,8 +1,7 @@
 # TODO / Handoff — Treasure Trash
 
 Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset,
-`SPEC-SHEET.md` for what gets built, and `GAME-SHEET.md` for the pitch. (`DESIGN-BIBLE.md`
-is superseded — history only, do not implement from it.)
+`SPEC-SHEET.md` for what gets built, and `GAME-SHEET.md` for the pitch.
 
 ## Where we are
 - Genre + core loop **decided**; the raccoon's core mechanic is **designed and
@@ -11,8 +10,8 @@ is superseded — history only, do not implement from it.)
 - Crow is **pinned** — deliberately parked until the raccoon-alone game proves fun.
 - **No real game code yet.** `spike/` is a throwaway prototype (the studio gate's one
   allowed pre-gate artifact). `src/` does not exist on purpose.
-- **Levels are data with a real toolchain** — `spike/levels/*.tt` + `*.sol`, one rules
-  module (`spike/rules.mjs`) shared by the player and the verifier, and a solver that
+- **Levels are data with a real toolchain** — `spike/levels/*.tt`, one rules
+  module (`src/rules.mjs`) shared by the player and the verifier, and a solver that
   proves par minimal rather than trusting it. Spec: `spike/FORMATS.md`.
 
 ## Locked mechanics (verified in the spike)
@@ -69,13 +68,13 @@ The house scaffolding is in place: `index.html`, `run.sh`, `package.json`, `styl
 `src/` (compositor, logo, rng), `tests/`, and the test + Pages workflows, all running
 green (`npm test`, `cd spike && ./run.sh`). What's left is the game itself, per
 `SPEC-SHEET.md` → *Systems*:
-- `src/` modules: `rules` (port `spike/rules.mjs` — do not write a second engine),
-  `board`, `format`, `solver` (port `spike/solver.mjs`), `undo`, `render` via
+- `src/` modules: `rules`, `format` and `solver` are **already there** — import them,
+  never re-author them. Still to build: `board`, `undo`, `render` via
   `compositor.js` ordered layers, `input` (owns arming), `audio`.
 - `tests/*.test.js` (`node --test`) — port `spike/verify.mjs`: every shipped room
   provably solvable in its stated par, the exit unoccupied across every reachable state,
   and the refusal/trap counts the level files declare.
-- Levels stay **data** — the `.tt`/`.sol` pack in `spike/levels/`, per `spike/FORMATS.md`.
+- Levels stay **data** — the `.tt` packs in `spike/levels/`, per `spike/FORMATS.md`.
 - Delete `spike/` only once `src/` covers it; until then it is the reference engine.
 
 ## Open decisions (need a call)
@@ -86,8 +85,8 @@ green (`npm test`, `cd spike && ./run.sh`). What's left is the game itself, per
   Bright flat geometry, chosen for legibility: the mess must read at a glance or the
   puzzle isn't fair. The Critic objected that it argues against a game about grime and
   decay; consciously accepted, revisited at the MVP gate with a full board of trash on
-  screen. Phosphor/CRT is dead here — `DESIGN-BIBLE.md` is superseded. Studio docs
-  keep the house doc style either way.
+  screen. Phosphor/CRT is dead here — it belonged to the retired real-time design.
+  Studio docs keep the house doc style either way.
 - **Verb/skill tree.** Deferred by decision (scope). Layer it *after* the base loop
   proves out. See the addendum in `rules.html`.
 

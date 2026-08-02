@@ -2,7 +2,7 @@
 // Treasure Trash — pack verifier. Every claim a level file makes is checked against
 // the rules engine. No claim in levels.md is allowed to be hand-asserted.
 //
-//   node verify.mjs [levels/act1.tt] [levels/act1.sol]
+//   node verify.mjs [levels/act1.tt]
 //
 // Exits non-zero on the first failing check, so it drops straight into CI.
 
@@ -10,15 +10,18 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import {
-  parseLevelPack, formatLevelPack, parseSolutionPack, formatSolutionPack,
-  parseLurd, formatLurd, toState, toGrid,
-} from './format.mjs';
-import { analyze, replay } from './solver.mjs';
-import { isWon, bagsLeft } from './rules.mjs';
+  parseLevelPack, formatLevelPack, parseLurd, formatLurd, toState, toGrid,
+} from '../src/format.mjs';
+import { analyze, replay } from '../src/solver.mjs';
+import { isWon, bagsLeft } from '../src/rules.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const levelPath = resolve(here, process.argv[2] ?? 'levels/act1.tt');
-const solPath = resolve(here, process.argv[3] ?? 'levels/act1.sol');
+// An explicit path is the caller's, so resolve it where they typed it; the default is
+// this script's own neighbour. Without that split, `npm run verify` from the repo root
+// would look for spike/spike/levels/.
+const levelPath = process.argv[2]
+  ? resolve(process.cwd(), process.argv[2])
+  : resolve(here, 'levels/act1.tt');
 
 let failures = 0;
 const check = (label, ok, detail = '') => {
@@ -35,11 +38,6 @@ check('level pack parses', pack.levels.length > 0, `${pack.levels.length} levels
 check('level pack round-trips',
   formatLevelPack(parseLevelPack(formatLevelPack(pack))) === formatLevelPack(pack));
 
-const solText = readFileSync(solPath, 'utf8');
-const solPack = parseSolutionPack(solText);
-check('solution pack round-trips',
-  formatSolutionPack(parseSolutionPack(formatSolutionPack(solPack))) === formatSolutionPack(solPack));
-
 for (const l of pack.levels)
   check(`LURD round-trips (${l.id})`, formatLurd(parseLurd(l.solve, l.id)) === l.solve, l.solve);
 
@@ -50,8 +48,6 @@ for (const bad of ['q', 'u!', 'U!!', 'z']) {
 }
 
 // ---------------------------------------------------------------- per level
-const byId = new Map(solPack.solutions.map(s => [s.id, s]));
-
 for (const level of pack.levels) {
   section(`${level.id} — ${level.name ?? ''}`);
   const start = toState(level);
@@ -79,11 +75,6 @@ for (const level of pack.levels) {
     check('declared :solve is exactly par', parseLurd(level.solve).length === level.par);
   }
 
-  // the .sol file must agree with the level's inline claim
-  const sol = byId.get(level.id);
-  check('solution file has an entry', !!sol);
-  if (sol) check('solution file agrees with :solve', sol.moves === level.solve, `${sol.moves} vs ${level.solve}`);
-
   if (level.solves !== undefined)
     check('distinct shortest solves as declared', a.shortestCount === level.solves,
       `found ${a.shortestCount}`);
@@ -108,7 +99,7 @@ for (const level of pack.levels) {
   // GUARD, not a law: a plain move can never lose the room, because moving is reversible
   // (you step onto empty floor; stepping back into the cell you just left is always legal).
   // So this cannot fail under the current ruleset — it is here to fire the day someone adds
-  // a mechanic that breaks move-reversibility. DESIGN-BIBLE's World 3 ice, where "everyone
+  // a mechanic that breaks move-reversibility. An ice floor, where "everyone
   // overshoots", is exactly that mechanic. Keep the guard; don't mistake it for enforcement.
   check('guard: no lethal plain move (vacuous while movement is reversible)',
     a.silentTraps.length === 0,
@@ -135,9 +126,29 @@ section('docs');
 const docPath = resolve(here, '../levels.md');
 let doc = null;
 try { doc = readFileSync(docPath, 'utf8'); } catch { /* doc is optional */ }
+// levels.md draws its boards in a second, prose-readable notation, so a hand-transcribed
+// diagram could drift from the room it documents. It can't now: both notations are
+// generated from the level file here and required to appear verbatim.
+//   raw     — the .tt glyphs in a fenced block, as the searched rooms are shown
+//   diagram — the doc's coordinate grid, over the PLAYABLE AREA: a room walled all the
+//             way round implies its border ring rather than drawing it.
+const DOC_GLYPH = { '-': '.', '@': 'R', '$': 'B' };
+const ringed = g => g.length > 2 && g[0].length > 2 &&
+  [...g[0]].every(c => c === '#') && [...g[g.length - 1]].every(c => c === '#') &&
+  g.every(r => r[0] === '#' && r[r.length - 1] === '#');
+const playable = g => ringed(g) ? g.slice(1, -1).map(r => r.slice(1, -1)) : g;
+const diagramOf = g => playable(g).map((row, i) =>
+  `y${i + 1}` + [...row].map(ch => '  ' + (DOC_GLYPH[ch] ?? ch)).join(''));
+
 if (doc === null) console.log('  · ../levels.md not found, skipping');
-else for (const l of pack.levels)
+else for (const l of pack.levels) {
   check(`levels.md quotes ${l.id}'s solve`, doc.includes(l.solve), `\`${l.solve}\``);
+  const grid = toGrid(toState(l));
+  const diagram = diagramOf(grid);
+  const missing = diagram.find(d => !doc.includes(d));
+  check(`levels.md draws ${l.id}'s board`, doc.includes(grid.join('\n')) || !missing,
+    missing ? `no line ${JSON.stringify(missing)}` : '');
+}
 
 section(failures ? `FAIL — ${failures} check(s)` : 'ALL PASS');
 process.exit(failures ? 1 : 0);

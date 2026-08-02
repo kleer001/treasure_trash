@@ -17,11 +17,11 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { parseLevelPack, parseLurd, toState } from './format.mjs';
-import { analyze } from './solver.mjs';
+import { parseLevelPack, parseLurd, toState } from '../src/format.mjs';
+import { analyze } from '../src/solver.mjs';
 import {
   DIR_ORDER, DIRS, MOVE, TEAR, BAG, TRASH, explain, cell, fan, fanBlockers, canStand, bagsLeft,
-} from './rules.mjs';
+} from '../src/rules.mjs';
 
 // A tear always spends exactly the cells its fan covers, so ask the fan rather than
 // restating the number here and letting the two drift apart.
@@ -216,6 +216,10 @@ export function report(levels) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const here = dirname(fileURLToPath(import.meta.url));
-  const path = resolve(here, process.argv[2] ?? 'levels/act1.tt');
+  // An explicit path is the caller's, resolved where they typed it; the default is this
+  // script's own neighbour. See the same split in verify.mjs.
+  const path = process.argv[2]
+    ? resolve(process.cwd(), process.argv[2])
+    : resolve(here, 'levels/act1.tt');
   report(parseLevelPack(readFileSync(path, 'utf8')).levels);
 }

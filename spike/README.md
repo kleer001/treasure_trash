@@ -21,11 +21,10 @@ to protect. If it still reads as a tax in play, that's the finding.
 | File | What it is |
 |---|---|
 | `rules.mjs` | **the rules.** Pure, deterministic, no DOM. One implementation, imported by everything else |
-| `format.mjs` | `.tt` / `.sol` parse + serialise, LURD, glyphs |
+| `../src/format.mjs` | `.tt` parse + serialise, LURD, glyphs |
 | `solver.mjs` | exhaustive state-graph analysis: minimal par, liveness, traps |
 | `verify.mjs` | the CLI that checks every claim the level files make |
 | `levels/act1.tt` | the levels, as **data** |
-| `levels/act1.sol` | the par solutions, as **data** |
 | `index.html` | presentation + input only. Owns no rules |
 | `FORMATS.md` | the spec for all of the above |
 | `build-artifact.mjs` | bundles the whole spike into one self-contained HTML for publishing |
@@ -60,12 +59,12 @@ Arrows / WASD to move-strike-push · **U** undo · **R** restart · level tabs.
 
 ## Verify
 ```
-node verify.mjs                          # defaults to levels/act1.tt + levels/act1.sol
-node verify.mjs levels/act1.tt levels/act1.sol
+node verify.mjs                          # defaults to levels/act1.tt
+node verify.mjs levels/sketches.tt        # the retired ladder
 ```
 Exit code 0 or 1. It checks, per level: solvable; **`:par` is provably minimal** (BFS
 over the whole reachable graph, not an assertion); `:solve` replays to a win in exactly
-par with every action's declared *kind* matching the board; the `.sol` file agrees; the
+par with every action's declared *kind* matching the board; the
 trap and distinct-solution counts match; **the exit is never occupied in any reachable
 state** (the engine makes it impossible, and this proves it over the whole state graph);
 and in any room with a bag, **the exit must refuse at least one action** (or it's a

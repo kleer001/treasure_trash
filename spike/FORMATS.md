@@ -1,6 +1,6 @@
-# FORMATS — Treasure Trash level & solution files
+# FORMATS — Treasure Trash level files
 
-Two text formats and a four-module API. Everything a level file claims about itself is
+One text format and a four-module API. Everything a level file claims about itself is
 checked against the rules engine by `verify.mjs`; nothing is asserted by hand.
 
 Design rule: **one implementation of the rules.** `rules.mjs` is imported by the browser
@@ -84,17 +84,13 @@ one character per cell, so a tenth would silently collide two different boards.
 
 ---
 
-## 2. Solution file — `.sol`
+## 2. Solutions — extended LURD
 
-Same grammar, `:solution` sections carrying `:moves` instead of a grid.
+A level's `:solve` **is** its solution. There is no second file: a solution file could only
+ever restate what the level already claims, and the solver proves that claim minimal, so a
+copy would be one more ledger to keep in step rather than evidence of anything.
 
-```
-:solution L1
-:label  par
-:moves  uU!dr
-```
-
-### LURD, extended
+### The alphabet
 
 Sokoban's convention is lowercase = move, uppercase = push. Treasure Trash has a **third**
 action class, so it gets a third case:
@@ -112,8 +108,8 @@ solution string *is* the par claim.
 armed with one press and committed with a second — but arming changes no state and spends
 no move, so it is an input-layer affordance, not an action. One `U!` token is one tear,
 one `U` is one push, in an arming room and a plain one alike. The rules engine, the solver
-and every par are unaffected by the flag, which is why the same solution file replays
-against either.
+and every par are unaffected by the flag, which is why the same `:solve` replays against
+either.
 
 The kind is part of the token, and the verifier replays each action against the board and
 **rejects a solution whose declared kind disagrees with what actually happens**. A solution
@@ -125,35 +121,35 @@ that is the whole reason for encoding the kind rather than just the direction.
 ## 3. The API
 
 ```js
-import { explain, step, applyAction, isWon, bagsLeft, fan } from './rules.mjs';
-import { parseLevelPack, toState, toGrid, parseLurd, formatLurd } from './format.mjs';
-import { analyze, replay } from './solver.mjs';
+import { explain, step, applyAction, isWon, bagsLeft, fan } from '../src/rules.mjs';
+import { parseLevelPack, toState, toGrid, parseLurd, formatLurd } from '../src/format.mjs';
+import { analyze, replay } from '../src/solver.mjs';
 ```
 
-**`rules.mjs`** — pure, deterministic, no DOM, no I/O.
+**`src/rules.mjs`** — pure, deterministic, no DOM, no I/O.
 `explain(state, dir)` is the one decision point: it returns `{ok:true, kind, next}` or
 `{ok:false, reason, blame:[[x,y]…]}`. `blame` is exactly the cells that forbid the action —
 the renderer paints those red, and the verifier can assert them. Nothing anywhere
 re-derives legality.
 
-**`format.mjs`** — text ⇄ data. `toState` validates at the boundary (exactly one raccoon,
+**`src/format.mjs`** — text ⇄ data. `toState` validates at the boundary (exactly one raccoon,
 exactly one exit). `toGrid` serialises any live state back to glyphs, so a mid-solve board
 can be dropped into a bug report.
 
-**`solver.mjs`** — `analyze(state)` enumerates the **entire** reachable state graph and
+**`src/solver.mjs`** — `analyze(state)` enumerates the **entire** reachable state graph and
 computes liveness exactly, returning `minMoves`, a canonical `shortestLurd`,
 `shortestCount`, the `dead` set, and every `trap` (a legal action from a live state to a
 dead one). This is the small-board version of what a Sokoban solver approximates with
 deadlock tables — the rooms run 3 to 137 states, so there is no need to estimate anything.
 
-**`verify.mjs`** — the CLI. `node verify.mjs [levels/act1.tt] [levels/act1.sol]`, exit code
+**`verify.mjs`** — the CLI. `node verify.mjs [levels/act1.tt]`, exit code
 0 or 1.
 
 ---
 
 ## 4. What the verifier enforces
 
-Per pack: level and solution files round-trip through parse→format→parse unchanged, and
+Per pack: the level file round-trips through parse→format→parse unchanged, and
 LURD round-trips exactly (including rejecting `u!`, `U!!`, and unknown letters).
 
 Per level:
@@ -164,14 +160,15 @@ Per level:
 3. **Solvable** — a win is reachable.
 4. **`:par` is provably minimal** — BFS depth to the nearest win equals the declared par.
 5. **`:solve` replays to a win in exactly par actions**, with every declared kind matching.
-6. The `.sol` entry agrees with the inline `:solve`.
+6. **`levels.md` draws the board** — the doc's own notation is generated from the level
+   file and required to appear verbatim, so a hand-drawn diagram cannot drift.
 7. `:traps` and `:solves` match the computed counts.
 8. **GUARD — no lethal plain move.** No plain *move* may take a live board to a dead one.
    Be honest about this one: under the current ruleset it **cannot fail**, because moving
    is reversible — you step onto empty floor, and stepping back into the cell you just
    vacated is always legal, so a move can never change a board's liveness. It is a
    regression guard, not enforcement. It starts doing real work the day a mechanic breaks
-   move-reversibility, which `DESIGN-BIBLE.md` already plans: World 3's ice, where
+   move-reversibility — an ice floor, where
    "everyone overshoots". Left in deliberately, labelled honestly.
 9. **INVARIANT — the exit is never occupied.** Across *every reachable state* of every
    room, the exit cell holds no object. Not "our levels avoid it" — the engine makes it
@@ -199,4 +196,5 @@ What remains are *stranding* traps — the exit is clear and intact, but your ow
 cut you off from it. Those need connectivity reasoning rather than just reading the fan
 preview, and they are what L4 "Corner Yourself" is built around.
 
-Current pack: 4 levels, 3–137 reachable states each, all green.
+Current packs: `act1.tt` (13 rooms, 3–695 reachable states) and `sketches.tt` (6 retired
+rooms), both green.

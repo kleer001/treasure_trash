@@ -128,8 +128,8 @@ Two more things the table says:
   discover 34 moves after you caused it is not a lesson, it is a chore, and free undo does
   not fix it — you still have to work out *which* of the last 34 moves was the mistake.
 
-**The candidate bank is the wrong shape, not just badly sorted.** Scanning all 226 rooms
-in `spike/levels/bank.jsonl` with the same metrics: median `opening` 4, median `walkRatio`
+**The candidate bank was the wrong shape, not just badly sorted.** Scanned across all 226
+rooms before it was deleted, the same metrics gave: median `opening` 4, median `walkRatio`
 3.75, median `pm` 23, `tightness` never above 0.6 and usually 0.33, `slack` median 20.
 Applying §3's working targets together (`opening ≤ 2`, `walkRatio ≤ 2.5`, `pm ≤ 8`,
 `decisions ≥ 4`, `coupling ≥ 0.4`) leaves **0 of 226**; relaxing to `walkRatio ≤ 3`,
@@ -140,8 +140,9 @@ re-selecting from the bank cannot fix the pack. The generator has to generate di
 
 > **Missing artifact.** `levels.md` describes the search that produced L7–L13 — a seeded
 > generator, 24 parallel workers, 1,474 solvable candidates. **That generator is not in
-> the repo.** Only `bank.jsonl` survived. Any re-run of the pack has to start by writing
-> it again, which is the first concrete task below.
+> the repo**, and the bank it produced has since been deleted too — 0 of its 226 rooms
+> passed these laws, so it was data with no producer and no consumer. Any re-run of the
+> pack starts by writing the generator again, which is the first concrete task below.
 
 ---
 

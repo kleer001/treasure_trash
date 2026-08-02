@@ -10,3 +10,6 @@ jobs:
           node-version: '22'
       # No dependencies to install — tests use Node's built-in runner.
       - run: npm test
+      # The verifier is what makes every par, trap count and diagram in levels.md a
+      # proven claim rather than an asserted one. Unrun, those laws protect nothing.
+      - run: npm run verify

@@ -1,5 +1,5 @@
-// Treasure Trash — the file formats. Parse and serialise levels (.tt) and solutions (.sol).
-// Text in, data out; data in, byte-identical text out. See FORMATS.md for the spec.
+// Treasure Trash — the level file format (.tt). Text in, data out; data in,
+// byte-identical text out. See FORMATS.md for the spec.
 
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY,
@@ -72,10 +72,12 @@ const BOOL_KEYS = new Set(['arm']);
 const BOOLS = { on: true, off: false, true: true, false: false };
 
 /**
- * One grammar, two files. `sectionKey` is 'level' or 'solution'; entries collect every
- * other directive as a field, plus an optional verbatim :grid/:end block.
+ * One grammar, one file. Entries collect every directive as a field, plus a verbatim
+ * :grid/:end block. A level's `:solve` IS its solution — there is no second file to
+ * agree with, and the solver proves the claim minimal rather than a copy confirming it.
  */
-export function parseSections(text, sectionKey) {
+function parseSections(text) {
+  const sectionKey = 'level';
   const pack = { meta: {}, entries: [] };
   let cur = null, grid = null;
 
@@ -104,7 +106,6 @@ export function parseSections(text, sectionKey) {
     }
     if (key === 'end') throw new Error(`${at}: :end without :grid`);
     if (key === sectionKey) { cur = { id: val }; pack.entries.push(cur); return; }
-    if (key === 'level' || key === 'solution') throw new Error(`${at}: :${key} in a :${sectionKey} file`);
 
     const target = cur || pack.meta;
     if (target[key] !== undefined) throw new Error(`${at}: duplicate :${key}`);
@@ -122,22 +123,13 @@ export function parseSections(text, sectionKey) {
 }
 
 export function parseLevelPack(text) {
-  const pack = parseSections(text, 'level');
+  const pack = parseSections(text);
   for (const l of pack.entries) {
     if (!l.grid) throw new Error(`level ${l.id}: no :grid`);
     if (l.par === undefined) throw new Error(`level ${l.id}: no :par`);
     if (!l.solve) throw new Error(`level ${l.id}: no :solve`);
   }
   return { meta: pack.meta, levels: pack.entries };
-}
-
-export function parseSolutionPack(text) {
-  const pack = parseSections(text, 'solution');
-  for (const s of pack.entries) {
-    if (!s.moves) throw new Error(`solution ${s.id}: no :moves`);
-    if (s.grid) throw new Error(`solution ${s.id}: a solution has no :grid`);
-  }
-  return { meta: pack.meta, solutions: pack.entries };
 }
 
 export function formatLevelPack(pack) {
@@ -218,17 +210,3 @@ export function parseLurd(str, where = 'solution') {
 export const formatLurd = actions => actions.map(({ dir, kind }) =>
   kind === MOVE ? dir : kind === PUSH ? dir.toUpperCase() : dir.toUpperCase() + '!').join('');
 
-export function formatSolutionPack(pack) {
-  const out = [];
-  if (pack.meta.pack) out.push(`:pack   ${pack.meta.pack}`);
-  if (pack.meta.format) out.push(`:format ${pack.meta.format}`);
-  out.push('');
-  for (const s of pack.solutions) {
-    out.push(`:solution ${s.id}`);
-    for (const k of ['label', 'moves', 'note']) {
-      if (s[k] !== undefined) out.push(`:${k}${' '.repeat(Math.max(1, 7 - k.length))}${s[k]}`);
-    }
-    out.push('');
-  }
-  return out.join('\n').replace(/\n+$/, '\n');
-}

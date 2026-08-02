@@ -76,9 +76,9 @@ const LEVEL_PACK = ${asciiScript(JSON.stringify(pack))};
 const WIN_CHIME_B64 = ${JSON.stringify(chime)};
 
 // ---- rules.mjs ----
-${asciiScript(demodule(read('rules.mjs')))}
+${asciiScript(demodule(read('../src/rules.mjs')))}
 // ---- format.mjs ----
-${asciiScript(demodule(read('format.mjs')))}
+${asciiScript(demodule(read('../src/format.mjs')))}
 // ---- spike ----
 ${asciiScript(inlined)}
 

@@ -7,8 +7,9 @@
 
 > **The data is canonical, this doc is commentary.** Every room below lives as a level
 > file in [`spike/levels/act1.tt`](./spike/levels/act1.tt), and every par and solve here
-> is checked against the rules engine by `spike/verify.mjs` — including a check that the
-> solve strings quoted below appear verbatim, so the prose can't drift from the game.
+> is checked against the rules engine by `spike/verify.mjs` — including checks that the
+> solve strings **and the board diagrams** below are generated from the level files and
+> appear verbatim, so this doc cannot drift from the game. `npm run verify`.
 > Formats and API: [`spike/FORMATS.md`](./spike/FORMATS.md).
 >
 > Solutions are written in **extended LURD**: lowercase = move, UPPERCASE = push,
@@ -251,7 +252,7 @@ onto E**, so from here on the player is already asking "can I still get there?"
 y1  .  .  .
 y2  .  B  .
 y3  .  .  E
-       R      (start cell at (2,4), floor, walls either side)
+y4  #  R  #    the start cell: plain floor, walled either side
 ```
 **Solve — `uU!dr`** (par 4): Up → (2,3). Up → strikes B(2,2) going **up**; fan fills
 all of y1 plus the side cells (1,2)/(3,2); all clear → bag opens, R ends on (2,2).
@@ -403,7 +404,7 @@ loaded and once empty. **Zero traps**: nothing here can be lost, only lengthened
 
 **Only L7 is still in the game.** L8–L13 were cut from the pack and archived as
 `spike/levels/sketches.tt`, renamed **S1–S6**, still green under
-`node verify.mjs levels/sketches.tt levels/sketches.sol`. The reason is the measurement
+`node verify.mjs levels/sketches.tt`. The reason is the measurement
 recorded at the end of this section — the ladder is built out of walking rather than
 decisions — and the numbers they used to occupy now carry the water block, **L8–L12** below.
 They are kept rather than deleted because whatever replaces them has to beat something.
@@ -502,8 +503,8 @@ E$---@
 **A caveat worth keeping.** A searched room is verified, not designed. Every claim above is
 machine-checked — the par is provably minimal, the solve replays to a win, the trap and
 refusal counts are exact — but nothing checks that a room is *interesting*, and no search
-can. If any of these plays flat, it should be swapped out rather than defended: the bank of
-candidates it came from is in `spike/levels/bank.jsonl`, several hundred rooms deep.
+can. If any of these plays flat, it should be swapped out rather than defended — though the
+candidate bank they were drawn from has been removed, so a swap means regenerating.
 
 **Measured since, and the news is bad.** `spike/metrics.mjs` scores these seven on what they
 cost the player rather than on par, and they do not hold up: par climbs 13 → 25 while the number
@@ -615,7 +616,7 @@ nowhere.
 y1  .  .  .  .  .  .  .  .
 y2  .  .  .  .  .  B  E  .    bag A, beside the exit on the far bank
 y3  .  .  .  .  .  .  .  .
-y4  #  #  #  #  #  G  #  #    the gate — the only way off the canal
+y4  #  #  #  #  #  .  #  #    the gate — the only way off the canal
 y5  ~  ~  ~  ~  ~  ~  ~  ~    the canal
 y6  .  .  .  .  .  .  B  .    bag B
 y7  .  .  R  .  .  .  .  .

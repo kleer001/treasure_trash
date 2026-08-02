@@ -4,10 +4,8 @@ The buildable spec — precise enough to implement from. Written **after** the p
 gate clears, from what survived the review.
 
 Authoritative ruleset: `levels.md`, and — where prose and code disagree — the engine
-itself, `spike/rules.mjs`, which is the single implementation every consumer imports.
-File formats and the verifier's contract: `spike/FORMATS.md`. Where this file and
-`DESIGN-BIBLE.md` disagree, this file wins — the bible documents a superseded
-real-time design and is retained as history only.
+itself, `src/rules.mjs`, which is the single implementation every consumer imports.
+File formats and the verifier's contract: `spike/FORMATS.md`.
 
 ## Panel gate 🔒
 
@@ -94,7 +92,7 @@ became a performed animation — which lands on two of those resolutions. What c
 what it does to each:
 
 - **The exit is terrain, and it cannot be buried.** Any strike or push that would put an
-  object on the exit is refused at the keypress; `spike/rules.mjs` splits *where the
+  object on the exit is refused at the keypress; `src/rules.mjs` splits *where the
   raccoon may stand* (`isClearFloor` — the exit qualifies) from *where an object may come
   to rest* (`isOccupiable` — it does not). Win is now transformation **plus egress**.
 - **The Superfan's dead-board concern narrows.** Protecting the exit converted a whole
@@ -158,7 +156,7 @@ One responsibility each. Core logic is pure — no DOM, canvas, or audio reached
 from inside it.
 
 **`rules`** — the sim. Pure functions over a board state; the whole testable half. The
-API below is the shipped prototype engine (`spike/rules.mjs`), which the browser spike,
+API below is the shipped prototype engine (`src/rules.mjs`), which the browser spike,
 the solver and the verifier all import; port it, don't re-derive it. **One implementation
 of the rules** — a second one drifts, and a drifted verifier certifies nothing.
 
@@ -220,7 +218,7 @@ bag/can inventories, and HUD-facing counts. Cell access and bounds checking (`ce
 `inGrid`, `cloneState`) live in `rules`, because the engine depends on them and one
 definition beats two. Owns no rules.
 
-**`format`** — text ⇄ data, ported from `spike/format.mjs`. Parses level and solution
+**`format`** — text ⇄ data, in `src/format.mjs`. Parses level
 packs, `toState` **validates at the boundary** — exactly one raccoon, exactly one exit,
 every glyph known, short rows padded with floor — and `toGrid` serialises any live
 state back to glyphs so a mid-solve board can be pasted into a bug report. It throws
@@ -270,7 +268,7 @@ win.
 
 Levels are data, never hard-coded in logic — and the data is **canonical, the prose is
 commentary**. Two line-oriented text formats, both specified in `spike/FORMATS.md` and
-already carrying the shipped pack (`spike/levels/act1.tt` + `act1.sol`). Port the format,
+already carrying the shipped pack (`spike/levels/act1.tt`). Port the format,
 don't invent a second one: `verify.mjs` checks that every solve string quoted in
 `levels.md` appears verbatim in the data, which is what keeps the design doc from
 drifting from the game.
@@ -313,7 +311,7 @@ There is **no glyph for anything else on the exit**, because no such state exist
 there entry-stub terrain: the raccoon's start cell is plain floor, and a room that wants
 the entrance to read as one walls it in on either side (L1 does).
 
-Solutions are **extended LURD**, in `.tt` inline as `:solve` and in `.sol` as `:moves`:
+Solutions are **extended LURD**, inline in the `.tt` as `:solve`:
 lowercase = move, UPPERCASE = push, UPPERCASE + `!` = pounce-tear. Sokoban's convention
 has two cases because it has two action classes; Treasure Trash has three. **Par is the
 token count**, so the solution string *is* the par claim, and the walk to the exit is part
@@ -376,7 +374,7 @@ Per shipped room:
 - **Solvable**, and **`:par` is provably minimal** — BFS depth to the nearest win equals
   the declared par.
 - `:solve` replays to a win in exactly par actions with every declared kind matching, and
-  the `.sol` entry agrees with the inline `:solve`.
+  every board levels.md draws matches the level file it documents.
 - `:traps` and `:solves` match the computed counts.
 - **INVARIANT — the exit is never occupied**, across *every reachable state*. Not "our
   levels avoid it": the engine makes it impossible and this proves it over the whole graph.

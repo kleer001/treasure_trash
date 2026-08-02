@@ -26,7 +26,6 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 | `rules.html` | The "Block-Pusher Laws" doc (the 4 panel lists + progression-mutation addendum), house doc style. |
 | `spike/` | **Playable prototype** of L0–L12 + a headless verifier. Throwaway, gate-legal, not the real game. Formats and API: `spike/FORMATS.md`. |
 | `TODO.md` | Where we are, what's locked, what's open, and the next move. **Read this to continue.** |
-| `DESIGN-BIBLE.md` | **Superseded — history only.** Describes a retired real-time two-animal design. Do not implement from it. |
 
 ## Quickstart
 - **Play it online:** <https://kleer001.github.io/treasure_trash/spike/> — deployed from
