@@ -12,8 +12,8 @@ drift, and a drifted verifier certifies nothing.
 ## 1. Level file — `.tt`
 
 Line-oriented. A line beginning `;` is a comment, a line beginning `:` is a directive,
-and everything between `:grid` and `:end` is taken **verbatim** — so no map glyph can
-ever collide with a key.
+and everything inside a block — `:grid` or `:water`, each closed by `:end` — is taken
+**verbatim**, so no map glyph can ever collide with a key.
 
 ```
 :pack   Treasure Trash — Act 1 (raccoon only)
@@ -45,10 +45,11 @@ ever collide with a key.
 | `:traps` | int | count of legal actions that lead to an unwinnable board |
 | `:solves` | int | count of distinct shortest solutions (`>1` = unintended solves) |
 | `:solve` | LURD | the par solution, replayed by the verifier |
-| `:grid` … `:end` | glyphs | the board |
+| `:grid` … `:end` | glyphs | the occupants, walls and exit |
+| `:water` … `:end` | `~`/`-` | optional terrain mask laid over the grid |
 
-A duplicate key, an unknown glyph, a non-integer where an int is wanted, or an unclosed
-`:grid` is an **error**, not a warning. Validate at the boundary, fail loudly.
+A duplicate key or block, an unknown glyph, a non-integer where an int is wanted, or an
+unclosed block is an **error**, not a warning. Validate at the boundary, fail loudly.
 
 ### Glyphs
 
@@ -70,20 +71,45 @@ roughly right instead of nonsense.
 | `b` | recycle bin — shove it and it drops a cell of trash ahead |
 | `j` | water jug — shove it and it spills a cell of water ahead |
 | `F` `G` `H` `K` `M` `N` | furniture — **one letter per piece**, see below |
-| `~` | water — impassable, and no object may rest in it |
-| `=` | water filled with trash: a permanent bridge, walkable like floor |
-| `*` | raccoon standing on a bridge |
+
+Water is **not** in this table. It is terrain that sits *under* an occupant, so it lives in
+its own `:water` block — see below.
 
 **Divergence to know about:** in XSB, `.` is a *goal square* and a space is floor. Treasure
 Trash has no goal squares at all — the win is transformation plus egress — so `.` is free,
 and we spend it on floor for doc readability. Rows shorter than the widest row pad with
 floor. **There is no glyph for anything else on the exit**, because no such state exists:
 the rules refuse any action that would put an object there, so the writer throws rather
-than invent a glyph for the unreachable. **Water is the same story with one exception:** it
-is terrain carrying at most one occupant, and that occupant can only ever be trash, so `~`
-and `=` are the complete set and anything else in water makes the writer throw. Note that
-water is a cell *flag*, not an occupant code, because it is terrain — but unlike the wall
-it is **not static**: the water jug writes new water mid-room, which is why `stateKey`
+than invent a glyph for the unreachable.
+
+### The `:water` block
+
+Water takes **anything** — a can, a bag, a bin, a couch — so a single character per cell
+cannot spell it. `~` alone would have to mean "empty canal", "a can in the canal", and
+"couch G in the canal" all at once. So water is a **second aligned block** over the same
+grid: `~` is wet, floor glyphs are dry, and a room without a canal simply omits it.
+
+```
+:grid                   :water
+----                    ----
+-E$-                    ----
+----                    ----
+----                    ~~~~
+-@$-                    ----
+----                    ----
+:end                    :end
+```
+*(shown side by side; in the file the two blocks follow one another.)*
+
+That costs one block and buys the property that **no combination of terrain and occupant
+ever needs a new glyph** — including combinations added later. The occupant grid says what
+is standing in a cell and nothing else, so `x` is trash whether it is blocking a floor or
+bridging a canal, and `@` is the raccoon whether he is on dry ground or on a bridge he made.
+The reader rejects a mask that marks a wall or the exit as water, or that starts the raccoon
+in open water.
+
+Water is a cell *flag* rather than an occupant code because it is terrain — but unlike the
+wall it is **not static**: the water jug writes new water mid-room, which is why `stateKey`
 encodes the (water, occupant) pair rather than the occupant alone.
 
 ### Multi-cell pieces
@@ -194,7 +220,7 @@ Per level:
 
 1. Exactly one raccoon, exactly one exit; the exit starts empty; the raccoon does not
    start on it.
-2. The grid round-trips through the serialiser.
+2. The grid and the water mask both round-trip through the serialiser.
 3. **Solvable** — a win is reachable.
 4. **`:par` is provably minimal** — BFS depth to the nearest win equals the declared par.
 5. **`:solve` replays to a win in exactly par actions**, with every declared kind matching.

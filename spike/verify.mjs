@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import {
   parseLevelPack, formatLevelPack, parseSolutionPack, formatSolutionPack,
-  parseLurd, formatLurd, toState, toGrid,
+  parseLurd, formatLurd, toState, toGrid, toWater,
 } from './format.mjs';
 import { analyze, replay } from './solver.mjs';
 import { isWon, bagsLeft } from './rules.mjs';
@@ -62,6 +62,9 @@ for (const level of pack.levels) {
   check('exit starts empty', exitCell.o === 0);
   check('raccoon does not start on the exit', !start.cells[start.rac.y][start.rac.x].exit);
   check('grid round-trips through the serialiser', toGrid(start).join('\n') === level.grid.join('\n'));
+  check('water mask round-trips through the serialiser',
+    (toWater(start) ?? []).join('\n') === (level.water ?? []).join('\n'),
+    level.water ? `${level.water.length} rows` : 'no water');
 
   const a = analyze(start);
   check('solvable', a.minMoves !== null, `${a.reachable} reachable states`);

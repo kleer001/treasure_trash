@@ -66,21 +66,23 @@ export const isBridge = (s, x, y) =>
 /** Everywhere the raccoon can stand. The exit qualifies — he walks over it freely. */
 export const canStand = (s, x, y) => isClearFloor(s, x, y) || isBridge(s, x, y);
 
-// Somewhere an OBJECT can come to rest. The exit does not qualify: you cannot bury
-// your own way out. Water does not qualify either — a can shoved into the canal would be
-// a second way to build a bridge, and the piece is clearer with exactly one. A shoved can
-// and an ejected bag test against this, so any action that would put something on the
-// exit, or in the water, is refused outright rather than allowed and then regretted.
-export const isOccupiable = (s, x, y) => isClearFloor(s, x, y) && !cell(s, x, y).exit;
+// Somewhere an OBJECT can come to rest: any empty cell that is not a wall and not the exit.
+// WATER QUALIFIES. Things go in the canal — a can, a bag, a bin, a couch — and the asymmetry
+// that makes that interesting is not a rule about water at all, it is that the raccoon does
+// not follow. He shoves from the bank and stays on it; to shove the same thing a second time
+// he would have to stand where it was, which is now open water. So the canal takes anything
+// and gives nothing back, and it does that without a single clause about which pieces float.
+//
+// The exit still does not qualify: you cannot bury your own way out.
+export const isOccupiable = (s, x, y) =>
+  inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).exit && cell(s, x, y).o === NONE;
 
 /**
- * Somewhere TRASH can land — which is strictly more places than an object can rest.
- * Trash is the only thing water accepts, and accepting it is what turns the cell into
- * ground. Fans and the recycle bin's drop test against this; cans and bags do not.
+ * Where the water jug may spill. Its load is the one thing that needs *dry* ground to land
+ * on: pouring into water changes nothing, and pouring onto trash would turn a permanent
+ * blocker back into walkable ground, which is the one thing this game never does.
  */
-export const canHoldTrash = (s, x, y) =>
-  isOccupiable(s, x, y) ||
-  (inGrid(s, x, y) && cell(s, x, y).water && cell(s, x, y).o === NONE);
+export const canPour = (s, x, y) => isOccupiable(s, x, y) && !cell(s, x, y).water;
 
 /** The 2x3 fan: the bag's two perpendicular side cells + the three cells one step ahead. */
 export function fan(bx, by, dx, dy) {
@@ -91,15 +93,15 @@ export function fan(bx, by, dx, dy) {
   ];
 }
 
-// A fan lays trash, so it clears against `canHoldTrash` — a bag CAN be fired into water,
-// and that is the point of the piece.
+// A fan lays trash, and trash rests anywhere an object does — including water, where it
+// becomes a bridge rather than an obstacle. That inversion is the point of the piece.
 export const fanBlockers = (s, bx, by, dx, dy) =>
-  fan(bx, by, dx, dy).filter(([x, y]) => !canHoldTrash(s, x, y));
+  fan(bx, by, dx, dy).filter(([x, y]) => !isOccupiable(s, x, y));
 
 // A refusal caused by the exit gets its own reason, because "you can't dump on your
 // way out" is a different lesson from "there's no room". Water earns one for the same
-// reason: "it would sink" is not "there's no room", and the player has to learn that
-// water takes trash and nothing else.
+// reason: what it refuses is the raccoon himself, and "he won't wet his paws" is a
+// different lesson from "there's no room".
 const reasonFor = (s, blockers, fallback) => {
   const is = pred => blockers.some(([x, y]) => inGrid(s, x, y) && pred(cell(s, x, y)));
   if (is(c => c.exit)) return 'exit';
@@ -129,10 +131,17 @@ export function explain(s, dir) {
     return { ok: true, kind: MOVE, next };
   };
 
-  // Water holds nothing but trash, so this branch is total: empty, or bridged.
-  // He will not wet his paws — but he will happily walk over what he threw in there.
-  if (target.water)
-    return isBridge(s, tx, ty) ? stepOnto() : { ok: false, reason: 'water', blame: [[tx, ty]] };
+  // Water holds anything. The raccoon is not one of the things it holds.
+  if (target.water) {
+    if (isBridge(s, tx, ty)) return stepOnto();     // his own mess, filled in and walkable
+    if (target.o === NONE) return { ok: false, reason: 'water', blame: [[tx, ty]] };
+    // Something is floating in it. Every action he takes finishes with him standing in the
+    // cell he acted on — except a roller, which leaves from under the shove while he stays
+    // on the bank. So everything else in the canal is beyond reach, and THAT is why shoving
+    // a thing off the bank cannot be taken back: not a rule about water, a rule about him.
+    if (target.o !== WHEELIE && target.o !== WHEELIE_EMPTY)
+      return { ok: false, reason: 'water', blame: [[tx, ty]] };
+  }
 
   const o = target.o;
 
@@ -183,16 +192,11 @@ export function explain(s, dir) {
   if (TWO_CELL[o]) {
     const { slides, drops, pours } = TWO_CELL[o];
     const c1 = [tx + dx, ty + dy], c2 = [tx + 2 * dx, ty + 2 * dy];
-    // The piece itself needs dry ground; what it drops is only held to the looser test
-    // when that thing is trash. So the recycle bin can bridge a single cell of water —
-    // one cell of floor for one cell spent, against the bag's five — and the full can
-    // still cannot eject its bag into the canal.
-    //
-    // The jug takes the strict test for the opposite reason. Its spill needs somewhere
-    // DRY to become water: pouring onto water changes nothing, and pouring onto spilled
-    // trash would quietly turn a permanent blocker back into walkable ground, which is
-    // the one thing this game never does. So it wets bare floor or it is refused.
-    const fits = drops === TRASH ? canHoldTrash : isOccupiable;
+    // The piece and its load both rest anywhere empty, canal included — a full can will
+    // eject its bag into the water, and that bag can then never be opened, because opening
+    // one means stepping onto it. The exception is the jug, whose spill is the one load
+    // that needs dry ground: see `canPour`.
+    const fits = pours ? canPour : isOccupiable;
     const blame = [];
     if (!isOccupiable(s, c1[0], c1[1])) blame.push(c1);
     if (!fits(s, c2[0], c2[1])) blame.push(c2);

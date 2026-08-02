@@ -32,15 +32,18 @@ const READ = {
   // The letters carry no meaning beyond "same letter, touching = same piece" — see FURN_POOL.
   ...Object.fromEntries([...'FGHKMN'].map(ch => [ch, { o: FURNITURE }])),
   '+': { exit: true, rac: true },     // raccoon standing on the exit (XSB's player-on-goal)
-  // Water is terrain with two states, and trash is what flips it. `=` reads as the plank
-  // it effectively is; it is written as water-plus-trash, never as a third glyph state.
-  '~': { water: true },               // open water — he will not wet his paws
-  '=': { water: true, o: TRASH },     // filled in: a permanent bridge
-  '*': { water: true, o: TRASH, rac: true },   // raccoon standing on a bridge he made
-  // No glyph for anything else on an exit: nothing else can ever be there. The rules
+  // WATER IS NOT IN HERE ANY MORE. It is terrain, it sits under ANY occupant, and one
+  // character per cell cannot say "empty canal", "a can in the canal" and "couch G in the
+  // canal" at once. It gets its own aligned `:water` block, which needs no new glyph for
+  // any combination, ever — including combinations added later. See FORMATS.md.
+  //
+  // No glyph for anything on an exit either: nothing else can ever be there. The rules
   // refuse any action that would put an object on it, so those states are unreachable
   // and a level file that hand-writes one is invalid input.
 };
+
+/** The `:water` mask alphabet: `~` is wet, the floor aliases are dry, anything else throws. */
+const WET = '~';
 // The pool of letters furniture pieces are written with. The writer hands them out in raster
 // order of each piece's first cell, so a board's lettering is canonical and the grid round-trips.
 // Six is far more couches than a room should ever hold; past that, throw rather than wrap.
@@ -50,8 +53,9 @@ export const LEGEND = [
   '# wall', '- floor', '@ raccoon', '$ bag', 'C full can', 'c empty can',
   'x spilled trash', 'E exit', '+ raccoon on exit',
   'S bag-on-can stack', 'W wheelie bin (full)', 'w wheelie bin (empty)', 'b recycle bin',
-  'j water jug', '~ water', '= water filled with trash (a bridge)', '* raccoon on a bridge',
+  'j water jug',
   `${FURN_POOL.join('/')} furniture — one letter per piece, a touching same-letter blob is one couch`,
+  'water lives in its own :water block, ~ wet and - dry',
 ];
 
 /**
@@ -93,13 +97,11 @@ function furnitureLetters(s) {
   return letters;
 }
 
+// The occupant grid says nothing about terrain except walls and the exit, which never carry
+// an occupant. Water rides in the mask, so a cell is spelled by what is standing in it and
+// nothing else — `x` is trash whether it is blocking a floor or bridging a canal.
 function glyphFor(c, isRac, letters) {
   if (c.wall) return '#';
-  if (c.water) {
-    if (c.o === TRASH) return isRac ? '*' : '=';
-    if (c.o === NONE) return '~';          // nothing can stand in open water, raccoon included
-    throw new Error(`occupant ${c.o} in water: water holds trash or nothing`);
-  }
   if (!c.exit) {
     if (isRac) return '@';
     if (c.o === FURNITURE) return letters.get(c.pid);
@@ -127,19 +129,24 @@ const BOOLS = { on: true, off: false, true: true, false: false };
  * One grammar, two files. `sectionKey` is 'level' or 'solution'; entries collect every
  * other directive as a field, plus an optional verbatim :grid/:end block.
  */
+// Two directives open a verbatim block, each closed by `:end`: the occupant `:grid`, and the
+// optional `:water` mask laid over it. Terrain that can sit under any occupant cannot share
+// one character per cell with the occupant, so it gets its own layer instead of its own glyphs.
+const BLOCK_KEYS = new Set(['grid', 'water']);
+
 export function parseSections(text, sectionKey) {
   const pack = { meta: {}, entries: [] };
-  let cur = null, grid = null;
+  let cur = null, block = null, blockKey = null;
 
   text.split('\n').forEach((raw, i) => {
     const line = raw.replace(/\r$/, '');
     const at = `line ${i + 1}`;
 
-    if (grid !== null) {
+    if (block !== null) {
       if (line.trim() === ':end') {
-        if (!grid.length) throw new Error(`${at}: empty :grid in ${cur.id}`);
-        cur.grid = grid; grid = null;
-      } else grid.push(line);
+        if (!block.length) throw new Error(`${at}: empty :${blockKey} in ${cur.id}`);
+        cur[blockKey] = block; block = null; blockKey = null;
+      } else block.push(line);
       return;
     }
     if (!line.trim() || line.startsWith(';')) return;
@@ -150,11 +157,12 @@ export function parseSections(text, sectionKey) {
     const [, key, rest] = m;
     const val = rest.trim();
 
-    if (key === 'grid') {
-      if (!cur) throw new Error(`${at}: :grid outside a :${sectionKey}`);
-      grid = []; return;
+    if (BLOCK_KEYS.has(key)) {
+      if (!cur) throw new Error(`${at}: :${key} outside a :${sectionKey}`);
+      if (cur[key] !== undefined) throw new Error(`${at}: duplicate :${key}`);
+      block = []; blockKey = key; return;
     }
-    if (key === 'end') throw new Error(`${at}: :end without :grid`);
+    if (key === 'end') throw new Error(`${at}: :end without :grid or :water`);
     if (key === sectionKey) { cur = { id: val }; pack.entries.push(cur); return; }
     if (key === 'level' || key === 'solution') throw new Error(`${at}: :${key} in a :${sectionKey} file`);
 
@@ -169,7 +177,7 @@ export function parseSections(text, sectionKey) {
     } else target[key] = val;
   });
 
-  if (grid !== null) throw new Error(':grid never closed with :end');
+  if (block !== null) throw new Error(`:${blockKey} never closed with :end`);
   return pack;
 }
 
@@ -187,7 +195,7 @@ export function parseSolutionPack(text) {
   const pack = parseSections(text, 'solution');
   for (const s of pack.entries) {
     if (!s.moves) throw new Error(`solution ${s.id}: no :moves`);
-    if (s.grid) throw new Error(`solution ${s.id}: a solution has no :grid`);
+    if (s.grid || s.water) throw new Error(`solution ${s.id}: a solution has no :grid or :water`);
   }
   return { meta: pack.meta, solutions: pack.entries };
 }
@@ -205,7 +213,9 @@ export function formatLevelPack(pack) {
       const v = BOOL_KEYS.has(k) ? 'on' : l[k];
       out.push(`:${k}${' '.repeat(Math.max(1, 7 - k.length))}${v}`);
     }
-    out.push(':grid', ...l.grid, ':end', '');
+    out.push(':grid', ...l.grid, ':end');
+    if (l.water) out.push(':water', ...l.water, ':end');
+    out.push('');
   }
   return out.join('\n').replace(/\n+$/, '\n');
 }
@@ -223,8 +233,7 @@ export function toState(level) {
       const ch = level.grid[y][x] ?? '-';        // short rows pad with floor
       const spec = READ[ch];
       if (!spec) throw new Error(`${level.id}: unknown glyph ${JSON.stringify(ch)} at (${x + 1},${y + 1})`);
-      const c = { wall: !!spec.wall, exit: !!spec.exit, water: !!spec.water, o: spec.o ?? NONE };
-      if (c.exit && c.water) throw new Error(`${level.id}: the exit cannot be water at (${x + 1},${y + 1})`);
+      const c = { wall: !!spec.wall, exit: !!spec.exit, water: false, o: spec.o ?? NONE };
       if (spec.rac) {
         if (rac) throw new Error(`${level.id}: more than one raccoon`);
         rac = { x, y };
@@ -238,14 +247,39 @@ export function toState(level) {
   if (!rac) throw new Error(`${level.id}: no raccoon`);
   if (exits !== 1) throw new Error(`${level.id}: needs exactly one exit, found ${exits}`);
   labelPieces(cells, glyphs, level.id);
+
+  // The water mask, laid over the occupant grid. Optional — a room with no canal omits it.
+  if (level.water) {
+    if (level.water.length > rows)
+      throw new Error(`${level.id}: :water has ${level.water.length} rows, :grid has ${rows}`);
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      const ch = level.water[y]?.[x] ?? '-';
+      if (ch !== WET) {
+        if (!FLOOR_ALIASES.has(ch)) throw new Error(`${level.id}: :water takes '${WET}' or floor, got ${JSON.stringify(ch)} at (${x + 1},${y + 1})`);
+        continue;
+      }
+      const c = cells[y][x];
+      if (c.wall) throw new Error(`${level.id}: (${x + 1},${y + 1}) is both wall and water`);
+      if (c.exit) throw new Error(`${level.id}: the exit cannot be water at (${x + 1},${y + 1})`);
+      c.water = true;
+    }
+    if (cells[rac.y][rac.x].water && cells[rac.y][rac.x].o !== TRASH)
+      throw new Error(`${level.id}: the raccoon starts in open water at (${rac.x + 1},${rac.y + 1})`);
+  }
   return { cols, rows, cells, rac };
 }
 
-/** Serialise a live state back to grid lines — used for traces and round-trip checks. */
+/** Serialise a live state back to occupant glyphs — used for traces and round-trip checks. */
 export function toGrid(s) {
   const letters = furnitureLetters(s);
   return s.cells.map((row, y) =>
     row.map((c, x) => glyphFor(c, s.rac.x === x && s.rac.y === y, letters)).join(''));
+}
+
+/** The matching water mask, or null if the board has no water at all. */
+export function toWater(s) {
+  if (!s.cells.some(row => row.some(c => c.water))) return null;
+  return s.cells.map(row => row.map(c => (c.water ? WET : '-')).join(''));
 }
 
 // --- solutions --------------------------------------------------------------

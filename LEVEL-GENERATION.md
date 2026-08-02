@@ -29,6 +29,11 @@ walkable ground only ever changes by amounts you can compute in advance.
 | shove the recycle bin | **−1** on dry floor, **+1** into water |
 | shove the water jug | **−1** — it turns floor into water |
 | shove furniture | **0** — it relocates its own footprint, spending nothing |
+| shove any object into the canal | **+1** — it vacates a floor cell, and the water it lands in was never floor |
+
+That last row is the only way the budget ever goes *up*, and it is worth designing around: the
+canal is the one place an obstacle can be disposed of rather than relocated. The price is that
+whatever goes in is gone — he shoves from the bank and stays on it, so there is no second shove.
 
 A fan must be entirely free to fire, so fans never overlap and the five is always five.
 Water is not floor; it is **floor you can buy**, at five fan cells a bag or one a bin. Price

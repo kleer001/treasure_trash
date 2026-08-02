@@ -107,7 +107,8 @@ const WHY = {
   canRoom: "no room to shove it",
   exit:    "that's your way out — you can't dump on it",
   water:   "he's not wetting his paws — fill it in first",
-  waterDrop: "open water — it takes trash and nothing else",
+  afloat:  "that's out in the canal — he's not wading in after it",
+  pour:    "it only pours on dry ground",
 };
 // Name the thing in the way rather than saying "blocked". The player can see the red
 // cell; the words should add the noun, not repeat the colour.
@@ -116,13 +117,15 @@ const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"
   [WHEELIE_EMPTY]:"an empty wheelie bin", [JUG]:"the water jug", [FURNITURE]:"the couch" };
 function whyText(b){
   const base = WHY[b.reason];
-  // 'water' covers two different noes, and the paws line only fits one of them. If the
-  // cell that refused is the one he stepped at, he was the thing being turned away;
-  // otherwise something he shoved was, and water takes nothing but trash.
+  // 'water' covers three different noes now that the canal takes objects: he won't wade in,
+  // he won't wade in AFTER something, and the jug won't pour on anything but dry ground.
+  // Which one it is depends on where the blame landed and what is sitting there.
   if(b.reason === 'water'){
     const [bx,by] = b.cells[0] ?? [];
+    if(bx === undefined || !inGrid(state,bx,by)) return base;
     const [dx,dy] = DIRS[b.dir];
-    return (bx === state.rac.x+dx && by === state.rac.y+dy) ? base : WHY.waterDrop;
+    if(bx !== state.rac.x+dx || by !== state.rac.y+dy) return WHY.pour;
+    return cell(state,bx,by).o === NONE ? WHY.water : WHY.afloat;
   }
   if(b.reason !== 'fan' && b.reason !== 'canRoom') return base;
   const [x,y] = b.cells[0] ?? [];
@@ -374,10 +377,12 @@ function render(){
   ctx.clearRect(0,0,cv.width,cv.height);
   for(let y=0;y<s.rows;y++) for(let x=0;x<s.cols;x++){
     const c=cell(s,x,y); if(c.wall) continue;
-    // Water is terrain with two looks, and the second one is the whole lesson: open
-    // canal he won't cross, or the same cell full of his own trash and walkable.
-    if(c.water){ drawWater(x,y, c.o===TRASH); continue; }
-    drawFloor(x,y);
+    // Water is terrain UNDER the occupant, not instead of it — anything can end up in the
+    // canal. Trash is the one that changes what the cell IS (a bridge, walkable); everything
+    // else just floats there, drawn on top of the water like it is on top of floor.
+    if(c.water) drawWater(x,y, c.o===TRASH);
+    else drawFloor(x,y);
+    if(c.water && c.o===TRASH) continue;           // drawWater already laid the trash on it
     if(c.exit) drawExit(x,y, bagsLeft(s)===0);
     if(mv && mv.hide.has(`${x},${y}`)) continue;   // in flight — the move animation draws it
     if(isMultiCell(c.o)) continue;                 // drawn whole, after the loop
