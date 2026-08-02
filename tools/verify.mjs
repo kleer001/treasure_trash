@@ -15,13 +15,12 @@ import {
 import { analyze, replay } from '../src/solver.mjs';
 import { isWon, bagsLeft } from '../src/rules.mjs';
 
-const here = dirname(fileURLToPath(import.meta.url));
-// An explicit path is the caller's, so resolve it where they typed it; the default is
-// this script's own neighbour. Without that split, `npm run verify` from the repo root
-// would look for spike/spike/levels/.
+const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// An explicit path is the caller's, so resolve it where they typed it; the default is the
+// repo's own pack, so the tool works from any directory.
 const levelPath = process.argv[2]
   ? resolve(process.cwd(), process.argv[2])
-  : resolve(here, 'levels/act1.tt');
+  : resolve(repo, 'levels/act1.tt');
 
 let failures = 0;
 const check = (label, ok, detail = '') => {
@@ -123,7 +122,7 @@ for (const level of pack.levels) {
 // levels.md is prose ABOUT the pack; the pack is the data. The doc is allowed to explain
 // a solve, not to disagree with it — so every :solve must appear there verbatim.
 section('docs');
-const docPath = resolve(here, '../levels.md');
+const docPath = resolve(repo, 'levels.md');
 let doc = null;
 try { doc = readFileSync(docPath, 'utf8'); } catch { /* doc is optional */ }
 // levels.md draws its boards in a second, prose-readable notation, so a hand-transcribed

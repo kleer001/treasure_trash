@@ -4,17 +4,16 @@ Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset,
 `SPEC-SHEET.md` for what gets built, and `GAME-SHEET.md` for the pitch.
 
 ## Where we are
-- Genre + core loop **decided**; the raccoon's core mechanic is **designed and
-  verified** in `spike/` (L0–L12 solvable in provably-minimal par, proven by an
-  exhaustive solver, not asserted).
+- Genre + core loop **decided**; the raccoon's core mechanic is **designed and verified**
+  (L0–L12 solvable in provably-minimal par, proven by an exhaustive solver, not asserted).
 - Crow is **pinned** — deliberately parked until the raccoon-alone game proves fun.
-- **No real game code yet.** `spike/` is a throwaway prototype (the studio gate's one
-  allowed pre-gate artifact). `src/` does not exist on purpose.
-- **Levels are data with a real toolchain** — `spike/levels/*.tt`, one rules
+- **The game is built and plays end to end from `src/`.** Engine (`rules`, `solver`,
+  `format`), session, view, four compositor layers, sprites, timelines, input, audio, HUD.
+- **Levels are data with a real toolchain** — `levels/*.tt`, one rules
   module (`src/rules.mjs`) shared by the player and the verifier, and a solver that
-  proves par minimal rather than trusting it. Spec: `spike/FORMATS.md`.
+  proves par minimal rather than trusting it. Spec: `FORMATS.md`.
 
-## Locked mechanics (verified in the spike)
+## Locked mechanics (verified)
 - Untimed, **grid step-move**; one raccoon controlled directly.
 - **Pounce-tear:** step into a bag = tear it. Bursts a **2×3 directional fan** — the
   bag's two perpendicular **side** cells + the **three cells one row ahead** in the
@@ -48,19 +47,14 @@ Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset,
   exit is terrain, so it costs nothing against the budget; reserved: water/gap + the
   crow's pieces.
 
-## NEXT MOVE — build the slice
-The house scaffolding is in place: `index.html`, `run.sh`, `package.json`, `styles.css`,
-`src/` (compositor, logo, rng), `tests/`, and the test + Pages workflows, all running
-green (`npm test`, `cd spike && ./run.sh`). What's left is the game itself, per
-`SPEC-SHEET.md` → *Systems*:
-- `src/` modules: `rules`, `format` and `solver` are **already there** — import them,
-  never re-author them. Still to build: `board`, `undo`, `render` via
-  `compositor.js` ordered layers, `input` (owns arming), `audio`.
-- `tests/*.test.js` (`node --test`) — port `spike/verify.mjs`: every shipped room
-  provably solvable in its stated par, the exit unoccupied across every reachable state,
-  and the refusal/trap counts the level files declare.
-- Levels stay **data** — the `.tt` packs in `spike/levels/`, per `spike/FORMATS.md`.
-- Delete `spike/` only once `src/` covers it; until then it is the reference engine.
+## NEXT MOVE — the MVP gate
+The slice is built and green (`npm test`, `npm run verify`, `./run.sh`). The gate is a
+question code cannot answer: **play all thirteen rooms and decide whether the
+raccoon-alone game is fun.** Nothing new gets built until that has a verdict.
+
+Two things to watch while playing, both already written down below: whether the walk to
+the exit reads as tension or filler, and whether the passive fan preview misleads when two
+bags are in reach at once.
 
 ## Open decisions (need a call)
 - **The crow.** Un-pin and design its powers — the "separation of powers" wasn't
@@ -86,22 +80,22 @@ green (`npm test`, `cd spike && ./run.sh`). What's left is the game itself, per
   luck, not design. If it misleads in a later room, options are to preview only the last-
   moved direction, or to tint the two fans differently.
 - **Playtest the exit.** It's mechanically verified but not *felt* — the open question
-  is whether the walk to `E` reads as tension or as filler. Cheapest test: play L1–L3
-  in the spike and see if the last move is ever a decision.
+  is whether the walk to `E` reads as tension or as filler. Cheapest test: play L1–L3 and
+  see if the last move is ever a decision.
 - New objects toward the ~8 budget: **cans as bridges** (non-dump use), **water/gap**.
 - Audio (procedural WebAudio), art pass, more rooms → Act 1.
 
 ## How to run / verify (local)
 ```
-# play the prototype (ES modules need http://, so serve it)
-cd trash_treasure/spike && ./run.sh 8000   # then open http://localhost:8000
+# play it (ES modules need http://, so serve it)
+./run.sh 8000              # then open http://localhost:8000
 
-# check every claim the level files make
-cd trash_treasure/spike && node verify.mjs
+# check every claim the level files make, and run the specs
+npm run verify && npm test
 ```
 
 ## Handy links
-- Playable spike (Artifact): https://claude.ai/code/artifact/10ed938d-a736-4251-a501-cafa78653bda
-  Rebuild + republish after any spike change: `cd trash_treasure/spike && node build-artifact.mjs`,
-  then publish the output to that same URL (a new URL means the old link goes stale).
+- Playable (Artifact): https://claude.ai/code/artifact/c0a035dc-eeb0-4e6f-895a-96af004b3d8a
+  Rebuild + republish after any change: `npm run artifact`, then publish the output to that
+  same URL (a new URL means the old link goes stale).
 - Block-Pusher Laws (Artifact): https://claude.ai/code/artifact/438adc6f-d6f1-470e-b273-97b084ba2a71

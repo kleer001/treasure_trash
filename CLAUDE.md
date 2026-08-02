@@ -13,15 +13,16 @@ to let anything else occupy.
 
 - **The ruleset lives in `levels.md`; what to build lives in `SPEC-SHEET.md`.** Where
   prose and code disagree, `src/rules.mjs` is the engine of record.
-- **The engine lives in `src/` and there is exactly one of it.** `src/rules.mjs` (the
+- **The game lives in `src/` and there is exactly one of it.** `src/rules.mjs` (the
   rules), `src/solver.mjs` (exhaustive analysis) and `src/format.mjs` (the `.tt` level
-  format, `spike/FORMATS.md`) are imported by the game, the verifier, the metrics tool
-  and the tests alike. **Never re-author these in a second place.** If they need to
-  change shape, move and edit them — a rewrite is how a codebase ends up with two
-  engines that disagree.
-- **`spike/` is the prototype *shell*, not a second game.** It holds the playable
-  renderer and input layer (`spike/index.html`), the verifier, the metrics tool and the
-  level packs. It owns no rules. Grow the shell or replace it; leave the engine alone.
+  format, `FORMATS.md`) are imported by the game, the verifier, the metrics tool
+  and the tests alike; the presentation modules around them (`session`, `view`, `layers`,
+  `sprites`, `anim`, `input`, `audio`, `hud`, `theme`) are the game itself, wired by
+  `src/main.js`. **Never re-author any of it in a second place.** If it needs to change
+  shape, move and edit it — a rewrite is how a codebase ends up with two engines that
+  disagree.
+- **`tools/` owns no rules and no rendering.** The verifier, the metrics tool and the
+  publishing bundler import `src/`; they never restate it. Levels are data in `levels/`.
 - **No randomness in logic at all.** Every room is hand-authored and deterministic;
   `src/rng.js` is for *cosmetic* variation only, seeded from the level id. A replay is
   the level id plus the move sequence.
@@ -36,7 +37,7 @@ to let anything else occupy.
 - `npm run verify` — proves every claim both level packs make against the engine, and
   that `levels.md` still draws the rooms it documents. Runs in CI beside the tests.
 - `npm run metrics` — the room-quality table (`LEVEL-GENERATION.md`). Prints, never fails.
-- `npm run artifact` — bundles the prototype into one self-contained HTML file.
+- `npm run artifact` — bundles the game into one self-contained HTML file for publishing.
 
 ## Platform
 
@@ -66,11 +67,12 @@ to let anything else occupy.
   data modules), never hard-coded in functions. You should be able to retune or add
   content without editing logic.
 - **Layered rendering.** The canvas is composited in ordered passes
-  (`src/compositor.js`): the character grid is layer 0, and everything else — a
-  scanline/CRT overlay, sprites, HUD, the studio logo — is another layer *on top of
-  or under* it. Each layer is a small module honoring one contract,
-  `{ name, draw(ctx, frame) }`, added with `compositor.add(...)`. Reach for a new
-  layer before you reach into the loop; the grid is a starting point, not a ceiling.
+  (`src/compositor.js`). The board runs four (`src/layers.js`): `terrain`, `pieces`,
+  `guides`, `confetti`. Each layer is a small module honoring one contract,
+  `{ name, draw(ctx, frame) }`, added with `compositor.add(...)`, and reads only the
+  frame it is handed. Anything else — a CRT pass, a HUD overlay, the studio logo — is
+  another layer *on top of or under* those. Reach for a new layer before you reach into
+  the loop.
 - **DRY.** One source of truth for every rule and constant. If a value or a piece
   of logic appears twice, hoist it — copy-paste is a bug waiting to drift.
 - **SOLID, pragmatically** (this is a small game, not an enterprise app):
@@ -93,9 +95,9 @@ to let anything else occupy.
 - `levels.md` — the authoritative ruleset and the room-by-room design.
 - `LEVEL-GENERATION.md` — how rooms get generated, grouped and measured; the laws a
   generator selects on, and why the Sokoban literature's difficulty features don't port.
-  Measured by `spike/metrics.mjs`.
+  Measured by `tools/metrics.mjs`.
 - `rules.html` — the Block-Pusher Laws the genre panel argued out, house doc style.
-- `spike/FORMATS.md` — the `.tt` level format and what the verifier enforces.
+- `FORMATS.md` — the `.tt` level format and what the verifier enforces.
 - `MARKETING-PLAN.md`, `promo.html`, `ITCH-PAGE.md` — launch assets, finalized at the
   release gate. They still carry template placeholders.
 

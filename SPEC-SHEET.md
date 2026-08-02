@@ -4,7 +4,7 @@ The buildable spec — precise enough to implement from.
 
 Authoritative ruleset: `levels.md`, and — where prose and code disagree — the engine
 itself, `src/rules.mjs`, which is the single implementation every consumer imports.
-File formats and the verifier's contract: `spike/FORMATS.md`.
+File formats and the verifier's contract: `FORMATS.md`.
 
 ## Vertical slice
 
@@ -34,7 +34,7 @@ The smallest playable thing that proves the loop is fun.
 - Unlimited undo, restart, per-level par-move display.
 - Stranding indicator (dead-board warning) — see *Systems* → `solver`.
 - Rooms: **L0, L1, L2, L3** verified from `levels.md` and shipped as data in
-  `spike/levels/act1.tt`, plus **L4** and **L5** once cell-exact and proven solvable.
+  `levels/act1.tt`, plus **L4** and **L5** once cell-exact and proven solvable.
   Spine order is an open question.
 - **Win condition: every bag torn open *and* the raccoon standing on the exit.** A full
   can counts as an unopened bag. The exit sign renders unlit while bags remain and lights
@@ -53,9 +53,9 @@ One responsibility each. Core logic is pure — no DOM, canvas, or audio reached
 from inside it.
 
 **`rules`** — the sim. Pure functions over a board state; the whole testable half. The
-API below is the shipped prototype engine (`src/rules.mjs`), which the browser spike,
-the solver and the verifier all import; port it, don't re-derive it. **One implementation
-of the rules** — a second one drifts, and a drifted verifier certifies nothing.
+API below is `src/rules.mjs`, which the game, the solver and the verifier all import.
+**One implementation of the rules** — a second one drifts, and a drifted verifier
+certifies nothing.
 
 - **`explain(state, dir)` is the one decision point.** Returns `{ok: true, kind, next}`
   or `{ok: false, reason, blame}`, where `kind` ∈ `move` | `push` | `tear`, `next` is a
@@ -120,7 +120,7 @@ packs, `toState` **validates at the boundary** — exactly one raccoon, exactly 
 every glyph known, short rows padded with floor — and `toGrid` serialises any live
 state back to glyphs so a mid-solve board can be pasted into a bug report. It throws
 rather than emit a glyph for an object on the exit, because no such state exists. Format
-spec: `spike/FORMATS.md`.
+spec: `FORMATS.md`.
 
 **`solver`** — `analyze(state)` enumerates the **entire** reachable state graph and
 computes liveness exactly: forward BFS from the start, then reverse-reachability from
@@ -136,12 +136,19 @@ walks a declared solution through `explain` and throws on the first disagreement
 **`undo`** — a stack of prior states. `explain` returning fresh states makes this a
 push/pop, not a diff.
 
-**`render`** — ordered layers via `src/compositor.js`, each `{ name, draw(ctx, frame) }`:
-`grid` (floor/walls) → `exit` (the sign — unlit while bags remain, lit when the last one
-tears) → `objects` (bags, cans, trash) → `preview` (candidate fan tint, focused to the
-aimed direction while armed) → `raccoon` → `refusal` (the lunge/burst/rewind sequence and
-the red blame cells) → `hud` (room name, moves, par, refusal reason, stranding indicator).
-The preview draws **above** the floor, not under it.
+**`render`** — ordered layers via `src/compositor.js`, each `{ name, draw(ctx, frame) }`,
+built in `src/layers.js`: `terrain` (floor, canal, and the exit sign — unlit while bags
+remain, lit when the last one tears) → `pieces` (every occupant, the pieces in flight, the
+debris of a refused burst, and the raccoon) → `guides` (fan preview, aim ring and landing
+markers, the red blame cells) → `confetti`.
+
+The split is by **what moves**, not by what it is: terrain never changes within a room,
+pieces change every action, guides answer a question about the next one, and the confetti
+is over a room already finished. That is what keeps a layer's `draw` a straight read of
+the frame it was handed. Guides draw **above** everything, including the exit sign — Law
+1.7 says a dead end must be foreseeable, and an exit trap only is if you can see where the
+trash would land. The room name, move count, par and the two badges are DOM, not a canvas
+pass (`src/hud.js`); text belongs in text.
 
 The exit reads as an **emergency exit sign**: white legend and arrow on green, the arrow
 pointing at the nearest board edge. Green is borrowed, not invented — ISO 3864 codes green
@@ -151,24 +158,31 @@ one non-Memphis color on the board and a signal color on purpose: nothing else i
 palette is that green.
 
 **`input`** — keyboard (arrows / WASD, `U` undo, `R` restart) and the on-screen d-pad,
-translated to a direction intent. Owns **arming**: in a room flagged `arm on`, the first
-press on a board-changing direction aims (focuses the preview, spends nothing) and the
-second commits; any other direction or undo cancels. It also owns skipping a refusal
-animation. Knows nothing about rules beyond asking `explain`. Because arming lives here,
-it can never change a par — the rules engine and the solver never see the flag, and the
-same solution file replays against an arming room and a plain one alike.
+translated to a direction intent (`src/input.js`). It knows nothing else: the pad is one
+delegated listener over `[data-act]`, so rearranging the buttons is a markup change.
 
-**`audio`** — procedural WebAudio: step, tear burst, blocked-push clunk, refusal buzz,
-win.
+**`session`** — the play state around a board: which room, the undo stack, the move count,
+and **arming**. In a room flagged `arm on`, the first press on a board-changing direction
+aims (focuses the preview, spends nothing) and the second commits; any other direction or
+undo cancels. Because arming lives above the rules, it can never change a par — the engine
+and the solver never see the flag, and the same solution replays against an arming room and
+a plain one alike. `act(dir)` returns an *event*, never a drawing: the view decides what a
+refusal looks like, the session decides only what happened. Pure, so the whole thing is
+driven from `tests/session.test.js` without a browser.
+
+**`audio`** — WebAudio at the boundary (`src/audio.js`), four verbs: `unlock`, `confirm`,
+`refuse`, `win`. The first three are procedural tones; the win is a sample, fired and
+forgotten so it rings over the hand-over into the next room. The one place the house
+"fail loudly" rule is suspended on purpose — a browser that will not make a sound must
+never be a browser that will not take an input.
 
 ## Data
 
 Levels are data, never hard-coded in logic — and the data is **canonical, the prose is
-commentary**. Two line-oriented text formats, both specified in `spike/FORMATS.md` and
-already carrying the shipped pack (`spike/levels/act1.tt`). Port the format,
-don't invent a second one: `verify.mjs` checks that every solve string quoted in
-`levels.md` appears verbatim in the data, which is what keeps the design doc from
-drifting from the game.
+commentary**. One line-oriented text format, specified in `FORMATS.md` and carrying the
+shipped pack (`levels/act1.tt`). One format, never a second: `tools/verify.mjs` checks
+that every solve string and every room diagram quoted in `levels.md` appears verbatim in
+the data, which is what keeps the design doc from drifting from the game.
 
 A line beginning `;` is a comment, a line beginning `:` a directive, and everything
 between `:grid` and `:end` is verbatim — so no map glyph can collide with a key.
@@ -248,7 +262,7 @@ the move sequence, which is enough to reproduce a solve exactly.
 
 ## Tests
 
-`tests/*.test.js`, `node --test`. Ported from `spike/verify.mjs`, which already proves
+`tests/*.test.js`, `node --test`. Ported from `tools/verify.mjs`, which already proves
 these headlessly across the whole shipped pack; `FORMATS.md` §4 is the full list. The
 verifier's discipline carries over: **every claim a level file makes about itself is
 checked against the engine, never asserted by hand.**

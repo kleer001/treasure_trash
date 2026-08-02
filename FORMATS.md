@@ -1,11 +1,11 @@
 # FORMATS — Treasure Trash level files
 
 One text format and a four-module API. Everything a level file claims about itself is
-checked against the rules engine by `verify.mjs`; nothing is asserted by hand.
+checked against the rules engine by `tools/verify.mjs`; nothing is asserted by hand.
 
-Design rule: **one implementation of the rules.** `rules.mjs` is imported by the browser
-spike, the solver, and the verifier. A second implementation in another language would
-drift, and a drifted verifier certifies nothing.
+Design rule: **one implementation of the rules.** `src/rules.mjs` is imported by the game,
+the solver, and the verifier. A second implementation in another language would drift, and
+a drifted verifier certifies nothing.
 
 ---
 
@@ -140,10 +140,10 @@ can be dropped into a bug report.
 computes liveness exactly, returning `minMoves`, a canonical `shortestLurd`,
 `shortestCount`, the `dead` set, and every `trap` (a legal action from a live state to a
 dead one). This is the small-board version of what a Sokoban solver approximates with
-deadlock tables — the rooms run 3 to 137 states, so there is no need to estimate anything.
+deadlock tables — the rooms run 3 to 695 states, so there is no need to estimate anything.
 
-**`verify.mjs`** — the CLI. `node verify.mjs [levels/act1.tt]`, exit code
-0 or 1.
+**`tools/verify.mjs`** — the CLI. `npm run verify`, or
+`node tools/verify.mjs [levels/act1.tt]`; exit code 0 or 1.
 
 ---
 
@@ -179,7 +179,7 @@ Per level:
 11. **A room with `:arm on` declares what it teaches.** Arming is a scaffold for
     introducing a piece; a room that arms but teaches nothing is charging the player an
     extra press for no reason.
-12. Every `:solve` string appears verbatim in `../levels.md`, so the prose cannot drift
+12. Every `:solve` string appears verbatim in `levels.md`, so the prose cannot drift
     from the data.
 
 ### Refusals vs. traps

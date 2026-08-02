@@ -4,12 +4,12 @@ How rooms get made, how they get grouped, and what a generator should select on.
 `levels.md` is the ruleset and the room-by-room design; this is the layer above it —
 the authoring theory, and the numbers that back it.
 
-Everything numeric here is produced by `spike/metrics.mjs`, which replays each room
+Everything numeric here is produced by `tools/metrics.mjs`, which replays each room
 through the rules engine. Run it:
 
 ```sh
-cd spike && node metrics.mjs            # the shipped pack
-cd spike && node metrics.mjs levels/other.tt
+npm run metrics            # the shipped pack
+npm run metrics -- levels/other.tt
 ```
 
 `verify.mjs` asks *is this room legal?* and fails a build. `metrics.mjs` asks *is this
@@ -28,7 +28,7 @@ exhaustive solver, keep it only if the solver says it is solvable, and use the s
 optimal line as the level's par. Taylor & Parberry's generator does exactly this and
 lists the criteria any such system owes — *novelty, structure, interest, controllability,
 speed*. Kartal, Sohre & Guy's MCTS generator does it by simulated play, which guarantees
-solvability by construction. The spike already works this way, and the fact that our
+solvability by construction. The game already works this way, and the fact that our
 rooms are tiny means we get something those papers can only approximate: the **whole
 reachable state graph**, so liveness is computed exactly rather than pattern-matched.
 Their deadlock tables and our `dead` set are the same idea at different scales.
@@ -435,7 +435,7 @@ reports **`bridges`** alongside, and the rule is: **`coupling 0` is only a Law 4
 
 ## 7. What to do next, in order
 
-1. **Write `spike/generate.mjs`** — the missing artifact, rebuilt around §4's
+1. **Write `tools/generate.mjs`** — the missing artifact, rebuilt around §4's
    intent-first pipeline rather than layout sampling. Seeded, so a room id reproduces a
    room. (Note the house rule this does *not* violate: generation is an authoring tool run
    offline; the shipped rooms remain hand-checked deterministic data.)

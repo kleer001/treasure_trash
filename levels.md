@@ -6,11 +6,11 @@
 > out.** Coordinates: **(x,y), top-left = (1,1)**, x → right, y ↓ down.
 
 > **The data is canonical, this doc is commentary.** Every room below lives as a level
-> file in [`spike/levels/act1.tt`](./spike/levels/act1.tt), and every par and solve here
-> is checked against the rules engine by `spike/verify.mjs` — including checks that the
+> file in [`levels/act1.tt`](./levels/act1.tt), and every par and solve here
+> is checked against the rules engine by `tools/verify.mjs` — including checks that the
 > solve strings **and the board diagrams** below are generated from the level files and
 > appear verbatim, so this doc cannot drift from the game. `npm run verify`.
-> Formats and API: [`spike/FORMATS.md`](./spike/FORMATS.md).
+> Formats and API: [`FORMATS.md`](./FORMATS.md).
 >
 > Solutions are written in **extended LURD**: lowercase = move, UPPERCASE = push,
 > UPPERCASE + `!` = pounce-tear. `uU!dr` is *step up, tear upward, step down, step right*,
@@ -19,7 +19,7 @@
 ## Legend
 These are the letters the **diagrams in this doc** use, chosen to be readable in prose.
 The level files use the XSB-compatible glyph set instead (`-` floor, `@` raccoon, `$` bag,
-`+` raccoon on the exit) — see [`spike/FORMATS.md`](./spike/FORMATS.md). Same cells, two
+`+` raccoon on the exit) — see [`FORMATS.md`](./FORMATS.md). Same cells, two
 notations; the files are canonical.
 ```
 .  floor            R  raccoon (start)      B  garbage bag
@@ -424,8 +424,8 @@ because of what `npm run metrics` says about them: par climbs 15 → 25 while
 board-changing `decisions` stays flat at 3–5, so the ladder rises in walking, which is
 free. S4 and S6 also have zero `coupling` — independent one-bag puzzles sharing a grid.
 
-They live in `spike/levels/sketches.tt` and stay verified (`npm run verify
-spike/levels/sketches.tt`) so that whatever replaces them has something to beat. The
+They live in `levels/sketches.tt` and stay verified (`npm run verify
+levels/sketches.tt`) so that whatever replaces them has something to beat. The
 generator that produced them is not in the repo.
 
 **S1 — "Bin Night"** · par 15 · `lDldL!rurrdLLdR!l`
@@ -676,7 +676,7 @@ one** — move it to free the bag, then move it again to free the strike. That i
 under these rooms' pars, and it is why the wheelie bin's room is par 11 rather than 6.
 
 ## Authoring checklist (every new room)
-**Items 1, 3, 4 and 5 are now enforced by `spike/verify.mjs` — a room that violates
+**Items 1, 3, 4 and 5 are now enforced by `tools/verify.mjs` — a room that violates
 them fails the build rather than reaching a player.**
 
 1. Exactly **one** `E`, and nothing starts on it (no bag, no can, no raccoon). *(checked)*
@@ -723,7 +723,7 @@ bag open **and** the raccoon on the exit.
 **Cut:** shiny/treasure & any collecting · aerosol · leaky sack/bag · cardboard box (= empty can)
 · dumpster · gum/tar · oil slick · glass bottle.
 
-**Implemented and verified in `spike/`:** bag, metal can, exit, spilled trash, **recycle
+**Implemented and verified:** bag, metal can, exit, spilled trash, **recycle
 bin**, **wheelie bin**, **water** — L0–L6 at pars 2/4/7/5/5/6/11 and the water block L8–L12
 at pars 8/9/7/13/10, every one
 a provably minimal solve.

@@ -6,9 +6,9 @@
   "license": "MIT",
   "scripts": {
     "test": "node --test",
-    "verify": "node spike/verify.mjs spike/levels/act1.tt && node spike/verify.mjs spike/levels/sketches.tt",
-    "metrics": "node spike/metrics.mjs spike/levels/act1.tt",
-    "artifact": "node spike/build-artifact.mjs",
+    "verify": "node tools/verify.mjs levels/act1.tt && node tools/verify.mjs levels/sketches.tt",
+    "metrics": "node tools/metrics.mjs levels/act1.tt",
+    "artifact": "node tools/build-artifact.mjs",
     "start": "./run.sh"
   }
 }

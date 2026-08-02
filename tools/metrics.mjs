@@ -215,11 +215,10 @@ export function report(levels) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const here = dirname(fileURLToPath(import.meta.url));
-  // An explicit path is the caller's, resolved where they typed it; the default is this
-  // script's own neighbour. See the same split in verify.mjs.
+  // An explicit path is the caller's, resolved where they typed it; the default is the
+  // repo's own pack. See the same split in verify.mjs.
   const path = process.argv[2]
     ? resolve(process.cwd(), process.argv[2])
-    : resolve(here, 'levels/act1.tt');
+    : resolve(dirname(fileURLToPath(import.meta.url)), '../levels/act1.tt');
   report(parseLevelPack(readFileSync(path, 'utf8')).levels);
 }
