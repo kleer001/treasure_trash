@@ -6,7 +6,7 @@
 // list is not near any ceiling. Whether a new piece belongs here is a design question about
 // the piece, never a budget question about this list.
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
-             BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8;
+             BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9;
 
 // Direction letters are the solution format's alphabet — see FORMATS.md.
 export const DIRS = { l: [-1, 0], u: [0, -1], r: [1, 0], d: [0, 1] };
@@ -28,6 +28,10 @@ export const cell = (s, x, y) => s.cells[y][x];
 // That is the truthful model rather than a saving: water never moves and is never pushed,
 // so nothing about it belongs in the occupant grid. What varies is whether something has
 // been dumped in it, and that is already an occupant on the cell.
+//
+// Terrain, but NOT static: the water jug pours new water mid-room. It is the only piece
+// that writes terrain, and everything that assumed the board's shape was fixed had to
+// learn otherwise — `stateKey` at the bottom of this file most of all.
 //
 // A water cell has exactly two states, and they are opposites for the raccoon:
 //   empty  (o === NONE)  — he will not wet his paws. Impassable.
@@ -130,27 +134,34 @@ export function explain(s, dir) {
     return { ok: true, kind: TEAR, next };
   }
 
-  // Three pieces share one shape of shove: the piece slides one cell and something lands
+  // Four pieces share one shape of shove: the piece slides one cell and something lands
   // one cell further. Only what lands differs, so the clearance test lives in one place.
   const TWO_CELL = {
     [CAN_FULL]: { slides: CAN_EMPTY, drops: BAG },     // ejects its bag and empties
     [STACK]:    { slides: CAN_FULL,  drops: BAG },     // launches the loose bag; the can stays full
     [BIN]:      { slides: BIN,       drops: TRASH },   // the precise obstacle placer
+    [JUG]:      { slides: JUG,       pours: true },    // the bin's mirror: it places a hole, not a wall
   };
   if (TWO_CELL[o]) {
-    const { slides, drops } = TWO_CELL[o];
+    const { slides, drops, pours } = TWO_CELL[o];
     const c1 = [tx + dx, ty + dy], c2 = [tx + 2 * dx, ty + 2 * dy];
     // The piece itself needs dry ground; what it drops is only held to the looser test
     // when that thing is trash. So the recycle bin can bridge a single cell of water —
     // one cell of floor for one cell spent, against the bag's five — and the full can
     // still cannot eject its bag into the canal.
+    //
+    // The jug takes the strict test for the opposite reason. Its spill needs somewhere
+    // DRY to become water: pouring onto water changes nothing, and pouring onto spilled
+    // trash would quietly turn a permanent blocker back into walkable ground, which is
+    // the one thing this game never does. So it wets bare floor or it is refused.
     const fits = drops === TRASH ? canHoldTrash : isOccupiable;
     const blame = [];
     if (!isOccupiable(s, c1[0], c1[1])) blame.push(c1);
     if (!fits(s, c2[0], c2[1])) blame.push(c2);
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
     const next = cloneState(s);
-    cell(next, c2[0], c2[1]).o = drops;
+    if (pours) cell(next, c2[0], c2[1]).water = true;
+    else cell(next, c2[0], c2[1]).o = drops;
     cell(next, c1[0], c1[1]).o = slides;
     cell(next, tx, ty).o = NONE;
     next.rac = { x: tx, y: ty };
@@ -226,17 +237,23 @@ export function bagsLeft(s) {
 export const atExit = s => cell(s, s.rac.x, s.rac.y).exit;
 export const isWon = s => bagsLeft(s) === 0 && atExit(s);
 
-/** Canonical state key — walls are static, so only occupants + raccoon vary.
+/** Canonical state key — walls are static, so only occupants, WATER and the raccoon vary.
  *
- * One character per cell, but the character is the code OFFSET INTO PRINTABLE ASCII rather
- * than its decimal digits. Joining decimals with no delimiter is ambiguous the moment a
- * code reaches two digits — `1,0,10` and `10,1,0` both render as "1010" — and the failure
- * is silent: the solver reads the second board as already visited and its "minimal" par is
- * no longer minimal. Offsetting sidesteps that without lengthening the key, which matters
- * because `analyze()` holds one key per reachable state and rooms reach tens of thousands.
+ * Water is in here because the jug pours it. Leave it out and a jug shoved in a loop around
+ * the board returns every occupant to where it started, keys identical to the opening
+ * position, and the solver declares a board it has never seen already visited. Worse, the
+ * occupant code alone does not say what a cell IS: trash on floor blocks and the same trash
+ * on water walks, so two boards differing only in that are genuinely different boards.
+ *
+ * One character per cell still, because `analyze()` holds one key per reachable state and
+ * rooms reach tens of thousands. The character is the (water, occupant) pair packed as a
+ * single number and OFFSET INTO PRINTABLE ASCII rather than written in decimal. Joining
+ * decimals with no delimiter is ambiguous the moment a code reaches two digits — `1,0,10`
+ * and `10,1,0` both render as "1010" — and that failure is silent in exactly the same way.
+ * Packing as `o * 2 + water` stays injective however many occupant codes get added.
  *
  * The key is opaque. Nothing parses it; `solver.mjs` only ever uses it as a Map key.
  */
 export const stateKey = s =>
-  s.cells.map(r => r.map(c => String.fromCharCode(65 + c.o)).join('')).join('/')
+  s.cells.map(r => r.map(c => String.fromCharCode(65 + c.o * 2 + (c.water ? 1 : 0))).join('')).join('/')
   + `|${s.rac.x},${s.rac.y}`;

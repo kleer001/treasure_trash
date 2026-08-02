@@ -101,7 +101,58 @@ test('a wheelie bin will not roll into the canal', () => {
                           ['--~--', '--w--', '-----', '--@--', 'E----']);
 });
 
+// The water jug: the recycle bin's mirror. Same two-cell shove, but what lands two ahead
+// is terrain rather than an occupant — a hole instead of a wall. It never runs dry, for the
+// same reason the bin never does: the interesting question is where you put the obstacle.
+test('water jug slides one and spills a cell of water directly ahead', () => {
+  assert.deepEqual(after(['-----', '-----', '--j--', '--@--', 'E----'], 'u'),
+                          ['--~--', '--j--', '--@--', '-----', 'E----']);
+});
+
+// The jug's adjacency tax, and it is total: whichever way you shove it, the cell it must
+// slide into next is the water it just poured. It can never be shoved twice running in the
+// same direction — the piece walls off its own line of travel.
+test('a jug shoved twice the same way pours into its own path and is refused', () => {
+  const once = after(['-----', '-----', '-----', '--j--', '--@--', 'E----'], 'u');
+  assert.deepEqual(once, ['-----', '--~--', '--j--', '--@--', '-----', 'E----']);
+  assert.equal(refused(once, 'u'), 'water');
+});
+
+// It never runs dry, for the same reason the recycle bin never does: the question the
+// piece asks is where you put the obstacle, not how many you have left.
+test('the jug never runs dry — walk round and it spills again', () => {
+  const once = after(['-----', '-----', '-----', '--j--', '--@--', 'E----'], 'u');
+  assert.deepEqual(after(after(after(once, 'l'), 'u'), 'r'),
+    ['-----', '--~--', '--@j~', '-----', '-----', 'E----']);
+});
+
+test('the jug is refused when its water would land on the exit', () => {
+  assert.equal(refused(['--E--', '-----', '--j--', '--@--', '-----'], 'u'), 'exit');
+});
+
+// Water is the only thing that goes onto DRY ground and makes it worse, so it is held to
+// the strict test rather than trash's loose one: it needs bare floor.
+test('the jug will not pour into water it has already spilled', () => {
+  assert.equal(refused(['--~--', '-----', '--j--', '--@--', 'E----'], 'u'), 'water');
+});
+
+test('the jug will not pour onto spilled trash — nothing in this game un-blocks a cell', () => {
+  assert.equal(refused(['--x--', '-----', '--j--', '--@--', 'E----'], 'u'), 'canRoom');
+});
+
+test('the jug itself needs dry ground — it will not be shoved into the canal', () => {
+  assert.equal(refused(['-----', '--~--', '--j--', '--@--', 'E----'], 'u'), 'water');
+});
+
+// The piece's whole point: the jug's obstacle is the only one in the game you can take
+// back, because trash — which blocks everywhere else — is what makes water walkable.
+test('a fan bridges water the jug poured, and the raccoon walks over it', () => {
+  const bridged = after(['-----', '-~---', '-$---', '-@---', 'E----'], 'u');
+  assert.deepEqual(bridged, ['-----', 'x=x--', 'x@x--', '-----', 'E----']);
+  assert.deepEqual(after(bridged, 'u'), ['-----', 'x*x--', 'x-x--', '-----', 'E----']);
+});
+
 test('glyphs round-trip through the serialiser', () => {
-  const g = ['Sb---', '-Ww--', '--@--', 'E-~=-'];
+  const g = ['Sb---', '-Wwj-', '--@--', 'E-~=-'];
   assert.deepEqual(toGrid(S(g)), g);
 });

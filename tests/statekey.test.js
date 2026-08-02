@@ -4,7 +4,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stateKey } from '../spike/rules.mjs';
+import { stateKey, step } from '../spike/rules.mjs';
+import { toState, toGrid } from '../spike/format.mjs';
 
 /** Minimal board carrying nothing but the occupant codes under test. */
 const board = codes => ({
@@ -29,4 +30,29 @@ test('the same board always keys the same, and a moved raccoon does not', () => 
   const moved = board([0, 1, 2]);
   moved.rac = { x: 2, y: 0 };
   assert.notEqual(stateKey(board([0, 1, 2])), stateKey(moved));
+});
+
+const S = grid => toState({ id: 't', grid });
+
+// Trash is the one occupant whose MEANING depends on the terrain under it: a blocker on
+// floor, walkable ground on water. Same code, opposite boards.
+test('trash on floor and trash on water are different boards', () => {
+  assert.notEqual(stateKey(S(['x@E'])), stateKey(S(['=@E'])));
+});
+
+// The failure the water jug introduced, played out. Shove the jug in a circuit and every
+// occupant comes home — the jug to the cell it started on, the raccoon to his. What does
+// not come home is the four cells of water spilled along the way. Key on occupants alone
+// and this is the opening position; the solver would stop exploring here and call whatever
+// par it had already found "provably minimal", with nothing to indicate it had been fooled.
+test('a jug shoved in a circuit returns every occupant but not the board', () => {
+  const start = S(['-------', '-------', '-------', '---j---', '---@---', '-------', 'E------']);
+  let s = start;
+  for (const dir of 'urulruullddulldd' + 'rrlddrru') {
+    s = step(s, dir);
+    assert.ok(s, `the circuit went illegal at '${dir}'`);
+  }
+  const occupants = g => g.map(r => r.replace(/[~=]/g, '-'));   // read past the terrain
+  assert.deepEqual(occupants(toGrid(s)), occupants(toGrid(start)), 'the circuit should close');
+  assert.notEqual(stateKey(s), stateKey(start));
 });

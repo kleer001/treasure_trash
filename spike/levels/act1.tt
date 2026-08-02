@@ -284,3 +284,20 @@ E$---@
 -$@$-
 -----
 :end
+
+:level  L16
+:name   Wet the Landing
+:teach  the water jug — wet the cell your own fan is about to hit, and the trash lands as floor
+:arm    on
+:par    6
+:traps  5
+:solves 1
+:solve  UruU!ll
+:note   The fan is going to hit (3,2) whichever way you play it. Leave it dry and that cell becomes trash, a wall between you and the door; shove the jug up first and it becomes water, and the same fan fills it in as a bridge. Two moves cheaper than walking round, and the whole piece in one strike.
+:grid
+-----
+-E-$-
+-----
+--j--
+--@--
+:end

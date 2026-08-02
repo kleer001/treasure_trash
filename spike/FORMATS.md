@@ -67,6 +67,8 @@ roughly right instead of nonsense.
 | `x` | spilled trash |
 | `E` | the exit |
 | `+` | raccoon standing on the exit |
+| `b` | recycle bin — shove it and it drops a cell of trash ahead |
+| `j` | water jug — shove it and it spills a cell of water ahead |
 | `~` | water — impassable, and no object may rest in it |
 | `=` | water filled with trash: a permanent bridge, walkable like floor |
 | `*` | raccoon standing on a bridge |
@@ -79,8 +81,9 @@ the rules refuse any action that would put an object there, so the writer throws
 than invent a glyph for the unreachable. **Water is the same story with one exception:** it
 is terrain carrying at most one occupant, and that occupant can only ever be trash, so `~`
 and `=` are the complete set and anything else in water makes the writer throw. Note that
-water is a cell *flag*, not an occupant code — the codes are at nine and `stateKey` packs
-one character per cell, so a tenth would silently collide two different boards.
+water is a cell *flag*, not an occupant code, because it is terrain — but unlike the wall
+it is **not static**: the water jug writes new water mid-room, which is why `stateKey`
+encodes the (water, occupant) pair rather than the occupant alone.
 
 ---
 
@@ -199,4 +202,5 @@ What remains are *stranding* traps — the exit is clear and intact, but your ow
 cut you off from it. Those need connectivity reasoning rather than just reading the fan
 preview, and they are what L4 "Corner Yourself" is built around.
 
-Current pack: 4 levels, 3–137 reachable states each, all green.
+Current pack: 17 levels (L0–L16), 3–3,089 reachable states each, all green. The table above
+is the L0–L3 snapshot it was written from and has not been re-measured since.

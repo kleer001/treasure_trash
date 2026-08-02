@@ -76,3 +76,7 @@
 :solution L15
 :label  par
 :moves  R!uulL!dD!uur
+
+:solution L16
+:label  par
+:moves  UruU!ll

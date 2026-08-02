@@ -27,6 +27,7 @@ E  the exit (always walkable by the raccoon, never occupiable by anything else;
    counts only when every bag is torn)
 C  full can (has a bag)                     c  empty can (pushable)
 ~  water (impassable)                       =  water filled with trash (a bridge)
+b  recycle bin (drops a cell of trash)      j  water jug (spills a cell of water)
 ```
 The raccoon's starting cell is **plain floor** — there is no entry-stub terrain. A room
 may wall it in on either side to make the entrance read as an entrance (L1 does), but the
@@ -126,6 +127,22 @@ committed actions, so no flag can change a par.)*
    inversion is the whole piece. Only two things can fill it — a bag's fan (five cells
    spent, however many of them happen to be water) and the recycle bin's drop (one for
    one). The exit is never water. Introduced alone in **L14**.
+10. **The water jug `j`** — the recycle bin's mirror, and the only piece that writes
+   *terrain*. Shove it and it slides one cell and **spills a single cell of water directly
+   ahead of itself**, exactly where the bin would have dropped trash. Three things follow,
+   and they are the whole piece:
+   - **It pours onto bare floor or not at all.** Water already there, spilled trash, a can,
+     the exit — all **refused**. The one that matters is the trash: letting water land on
+     trash would turn a permanent blocker back into walkable ground, and nothing in this
+     game un-blocks a cell.
+   - **It cannot be shoved twice running in the same direction.** The cell it must slide
+     into next is the water it just poured. The bin parks itself past its own drop; the jug
+     dead-ends into its own spill. Same adjacency tax, sharper.
+   - **Its obstacle is the only one you can take back** — and it is the *softer* obstacle
+     besides. Trash refuses a fan that would land on it; water **accepts** one, and is
+     bridged by it. So the bin bills you a cell of floor permanently, and the jug bills you
+     a cell of floor that a bag can buy back. It never runs dry, for the same reason the
+     bin never does: the question is where you put the obstacle, not how many you have left.
 
 **Core proposition:** *choose each strike's direction and order so your persistent
 trash never blocks your path, your way out, or another bag's fan.*
@@ -217,11 +234,12 @@ expect "explosion = opens space"; our burst *closes* space, so the **fan preview
 free undo** are load-bearing — they teach the inversion, not just polish.
 
 **Object budget (aim ~8):** `bag`, `can` (full/empty), `spilled trash`, `recycle bin`,
-`wheelie bin` = **5 used**, plus the `bag-on-can stack` — built and unit-tested, but it
-earns no room yet (see the note at the end of this file), so call it **5 spent and a
-sixth parked**. The exit is terrain and costs nothing against the budget.
-Reserved: water/gap, and the crow's pieces (pinned). Which to spend the next slot on, and
-why it should be water/gap: [`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md) § 6.
+`wheelie bin`, `water jug` = **6 used**, plus the `bag-on-can stack` — built and unit-tested,
+but it earns no room yet (see the note at the end of this file), so call it **6 spent and a
+seventh parked**. The exit and water are terrain and cost nothing against the budget — but
+note that the jug *is* an object, and it is the piece that spends the water slot the
+[`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md) § 6 argument reserved.
+Reserved: the crow's pieces (pinned).
 
 ---
 
@@ -588,6 +606,50 @@ is the room that proves it.
 
 ---
 
+## L16 — "Wet the Landing" **[verified — found by a targeted search]**
+*New object:* the **water jug** `j` — shove it and it slides one cell and **spills a single
+cell of water directly ahead**, exactly where the recycle bin would have dropped trash. Same
+delivery, opposite material: the bin's obstacle is permanent, and the jug's is the only one
+in the game you can take back.
+```
+   x=1 2 3 4 5
+y1  .  .  .  .  .
+y2  .  E  .  B  .    the exit and the bag, three cells apart along the top
+y3  .  .  .  .  .
+y4  .  .  j  .  .    the jug
+y5  .  .  R  .  .
+```
+**Solve — `UruU!ll`** (par 6): Up → shove the jug from (3,4) to (3,3); it spills a cell of
+water at (3,2) as it goes, and you take the cell it left. Right, Up to (4,3). Up → strike the
+bag at (4,2) upward; its fan is the side cells (3,2)/(5,2) plus the y1 row — and **(3,2) is
+the water you just poured, so that fan cell lands as a bridge instead of a wall**. Left onto
+it, Left → E → win.
+
+**The room turns on one cell, and you cannot avoid spending it.** (3,2) sits between the bag
+and the door, and every way of opening that bag consumes it: three of the four strike
+directions drop fan trash on it, and the fourth is struck from it. So the question is never
+*whether* to spend (3,2) — it is **what it is made of when the trash arrives.** Dry, it
+becomes a wall and you detour round through y3: **8 moves, measured**, against the jug line's
+6. Wet first, and the same trash lands as floor.
+
+*Lesson: the bin decides where your mess goes. The jug decides what your mess is worth.*
+
+**The refusals and the traps.** The exit refuses **8** actions across the room. There are
+**5** ways to lose it: one is shoving the jug **right**, into (4,3) — the only cell the bag
+can be struck from, which puts the bag beyond opening forever. The other four are the pack's
+oldest mistake in new clothing — fire the bag before you have poured, and its own trash walls
+you off from the door.
+
+**What the search found, stated plainly.** This is the *only* room of its kind on a 5×5 open
+board: of 303,600 four-piece layouts, exactly one — up to its 8 rotations and reflections —
+has a unique shortest solve that pours water, bridges it, walks it, and still leaves the exit
+forbidding something. On 6×4, **255,024 layouts produced none at all.** So the room is not a
+pick among many; it is the shape the piece admits. Its 5 traps are high for an introduction
+(L5 introduces the bin with 1, L14 introduces water with 0), and that is the honest cost of
+the constraint being this tight. Flagged for playtest alongside L15.
+
+---
+
 ## Proposed next rooms **[sketch — not verified]**
 - **L2-redux — the can, rebuilt** per the rework note above.
 - **A room that fences you in on the long axis.** L5 cuts the board because it is three
@@ -656,9 +718,10 @@ goal) **and the raccoon standing on the exit** (get out of the alley you just wr
 | **Empty can / plain block** | push → slides 1 (plain Sokoban block) | destination clear; **never removable**; may start on the board as a plain block |
 | **Exit** | — (terrain, not an occupant) | walkable at all times; **wins the room** only while standing on it with zero bags left; **protected by the engine** — any strike or push that would land trash, a can or a bag on it is refused, so it can never be sealed; exactly one per room |
 | **Spilled trash** | — (inert) | **permanent** obstacle; never moves, never clears — **except in water, where the same trash is walkable ground** |
-| **Water** | — (terrain, not an occupant) | the raccoon won't cross it and **nothing may come to rest in it**; trash that lands in it **fills it permanently** and the cell becomes ordinary floor. Only a bag's fan or the recycle bin's drop can fill it. Never the exit |
+| **Water** | — (terrain, not an occupant) | the raccoon won't cross it and **nothing may come to rest in it**; trash that lands in it **fills it permanently** and the cell becomes ordinary floor. Only a bag's fan or the recycle bin's drop can fill it. Never the exit. Terrain, but **not static** — the water jug writes more of it mid-room |
 | **Bag-on-can stack** | push → top bag **launches 2** ahead (loose), can **slides 1** (still full); raccoon advances 1 | landing cells clear; launched bag must still be struck; only way to **reposition** a bag |
 | **Recycle bin** | push → slides 1, **drops 1 cell of trash** directly ahead | destination clear (precise obstacle placer) |
+| **Water jug** | push → slides 1, **spills 1 cell of water** directly ahead | the spill needs **bare floor** — water, trash, an object or the exit all refuse it. Never runs dry, and can never be shoved twice running in the same direction: the cell it must slide into next is the water it just poured. Its obstacle is the **soft** one — trash blocks a fan, water accepts one and is bridged by it |
 | **Furniture** (couch/mattress) | rigid **polyomino** (L / Z / T / straight); push → shoves as a unit 1 cell | only if **all** leading cells clear; **translate-only** (no rotation); multi-cell footprint |
 | **Wheelie bin** | holds a bag; push → **rolls until it hits a wall**, then dumps its bag **1 cell in reverse** (out the back); empty bin still rolls | won't stop unless stopped; reverse cell must be clear (else no-op) |
 | **Shopping cart** | a **2-cell wheelie bin** (rolls + holds a bag + reverse-dump on impact) | as wheelie bin, ×2 footprint |
@@ -671,8 +734,8 @@ bag open **and** the raccoon on the exit.
 · dumpster · gum/tar · oil slick · glass bottle.
 
 **Implemented and verified in `spike/`:** bag, metal can, exit, spilled trash, **recycle
-bin**, **wheelie bin**, **water** — L0–L6 at pars 2/4/7/5/5/6/11 and L14 at par 7, every one
-a provably minimal solve.
+bin**, **wheelie bin**, **water**, **water jug** — L0–L6 at pars 2/4/7/5/5/6/11, L14 at par 7
+and L16 at par 6, every one a provably minimal solve.
 The two failure classes stay separate: **refusals** (an action the exit or a blocked fan
 will not accept, played out and rewound at no cost) and **stranding traps** (legal, and
 they lose you the room). Each piece's rule has a unit test in `tests/items.test.js`.

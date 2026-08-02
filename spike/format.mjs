@@ -2,7 +2,7 @@
 // Text in, data out; data in, byte-identical text out. See FORMATS.md for the spec.
 
 import {
-  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY,
+  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
   DIRS, MOVE, PUSH, TEAR,
 } from './rules.mjs';
 
@@ -24,6 +24,7 @@ const READ = {
   'W': { o: WHEELIE },        // wheelie bin with a bag in it
   'w': { o: WHEELIE_EMPTY },  // wheelie bin, emptied — still rolls
   'b': { o: BIN },            // recycle bin: drops one cell of trash per shove
+  'j': { o: JUG },            // water jug: spills one cell of water per shove
   'E': { exit: true },
   '+': { exit: true, rac: true },     // raccoon standing on the exit (XSB's player-on-goal)
   // Water is terrain with two states, and trash is what flips it. `=` reads as the plank
@@ -39,7 +40,7 @@ export const LEGEND = [
   '# wall', '- floor', '@ raccoon', '$ bag', 'C full can', 'c empty can',
   'x spilled trash', 'E exit', '+ raccoon on exit',
   'S bag-on-can stack', 'W wheelie bin (full)', 'w wheelie bin (empty)', 'b recycle bin',
-  '~ water', '= water filled with trash (a bridge)', '* raccoon on a bridge',
+  'j water jug', '~ water', '= water filled with trash (a bridge)', '* raccoon on a bridge',
 ];
 
 function glyphFor(c, isRac) {
@@ -52,7 +53,7 @@ function glyphFor(c, isRac) {
   if (!c.exit) {
     if (isRac) return '@';
     return { [NONE]: '-', [BAG]: '$', [CAN_FULL]: 'C', [CAN_EMPTY]: 'c', [TRASH]: 'x',
-             [STACK]: 'S', [WHEELIE]: 'W', [WHEELIE_EMPTY]: 'w', [BIN]: 'b' }[c.o];
+             [STACK]: 'S', [WHEELIE]: 'W', [WHEELIE_EMPTY]: 'w', [BIN]: 'b', [JUG]: 'j' }[c.o];
   }
   if (isRac) return '+';
   if (c.o === NONE) return 'E';

@@ -320,6 +320,9 @@ Reading the current pack this way:
   (0.89).
 - **L14** `O` — the water introduction; two decisions, no traps, nothing losable.
 - **L15** `RP` — order and path, the first room where *which bag* is the question.
+- **L16** `OP` — the water jug's introduction. One bag, one decision that matters, and it is
+  a *material* choice rather than a positional one: the fan hits the same cell either way,
+  and the jug decides whether that cell lands as wall or as floor.
 - **L11, L13** — nominally `R`, but `coupling` 0 means the order question is not actually
   asked. Their signature is `L` with extra walking.
 
@@ -431,6 +434,36 @@ actually being maximally coupled — its first bag's fan *creates the route to t
 That is coupling through terrain, which is the strongest kind there is. `metrics.mjs` now
 reports **`bridges`** alongside, and the rule is: **`coupling 0` is only a Law 4 failure when
 `bridges` is also 0.**
+
+**The water jug, and the objection above that it has to answer.** The section opens by
+saying a seventh piece adds inventory, not questions, if all it brings is another delivery
+curve. The **water jug** is a seventh piece, so state the case against it first: its
+delivery curve is *identical* to the recycle bin's — slide 1, place 1 cell directly ahead,
+repeatable, never runs out. On the table above it would be a duplicate row.
+
+That is deliberate, and it is the argument for it. The jug does not add a curve; it adds a
+**material**. Every obstacle in the game up to here is permanent, which is the pillar. Water
+is the first one that is *reversible* — not cleaned up, **filled in**, which is the same
+distinction water already earned in L14. So the jug asks a question no existing piece asks:
+*is this obstacle worth a bag?* The bin's cost is settled the moment you pay it; the jug's
+cost stays open, priced at five fan cells, for the rest of the room.
+
+Two smaller consequences, both falling out of the geometry rather than designed in:
+
+- **Water is the soft obstacle.** A fan refuses to land on trash and is refused; a fan lands
+  on water and bridges it. So the bin can lock a bag out of a direction permanently and the
+  jug cannot — put the jug's spill in a fan's path and you have made that strike *expensive*,
+  not *illegal*. That is the difference between a wall and a toll.
+- **The jug cannot be shoved twice running in the same direction.** The cell it must slide
+  into next is the water it just poured. This is the adjacency tax from *Only a bag can
+  bridge a canal* in its sharpest form: where the bin merely parks past its own drop, the
+  jug dead-ends into its own spill. Unit-tested, for the same reason.
+
+One thing it costs, recorded so no one has to rediscover it: **water is no longer static
+terrain**, so `stateKey` had to start encoding it. Key on occupants alone and a jug shoved
+in a circuit returns every piece to its starting cell, keys as the opening position, and the
+solver declares a board it has never seen already visited — reporting a par it cannot
+actually reach, with no error. There is a regression test that runs exactly that circuit.
 
 **Two calls in the other direction.**
 
