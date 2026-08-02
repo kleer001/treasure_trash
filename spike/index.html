@@ -377,12 +377,12 @@ function render(){
   ctx.clearRect(0,0,cv.width,cv.height);
   for(let y=0;y<s.rows;y++) for(let x=0;x<s.cols;x++){
     const c=cell(s,x,y); if(c.wall) continue;
-    // Water is terrain UNDER the occupant, not instead of it — anything can end up in the
-    // canal. Trash is the one that changes what the cell IS (a bridge, walkable); everything
-    // else just floats there, drawn on top of the water like it is on top of floor.
-    if(c.water) drawWater(x,y, c.o===TRASH);
-    else drawFloor(x,y);
-    if(c.water && c.o===TRASH) continue;           // drawWater already laid the trash on it
+    // Three terrains, and the occupant draws on top of whichever it is. A filled cell is
+    // floor now — things rest on it, he walks it — but it keeps the canal's dark rim so you
+    // can still see where the water was and what it cost to cross.
+    if(c.water)       drawWater(x,y,false);
+    else if(c.bridge) drawWater(x,y,true);
+    else              drawFloor(x,y);
     if(c.exit) drawExit(x,y, bagsLeft(s)===0);
     if(mv && mv.hide.has(`${x},${y}`)) continue;   // in flight — the move animation draws it
     if(isMultiCell(c.o)) continue;                 // drawn whole, after the loop

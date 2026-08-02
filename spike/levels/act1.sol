@@ -75,7 +75,7 @@
 
 :solution L15
 :label  par
-:moves  R!uulL!dD!uur
+:moves  L!rR!uulL!r
 
 :solution L16
 :label  par

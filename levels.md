@@ -28,7 +28,7 @@ and one character per cell cannot say which. There it is a separate `:water` blo
 E  the exit (always walkable by the raccoon, never occupiable by anything else;
    counts only when every bag is torn)
 C  full can (has a bag)                     c  empty can (pushable)
-~  water (the raccoon won't cross it)       =  water filled with trash (a bridge)
+~  water (the raccoon won't cross it)       =  a filled-in canal cell (floor now)
 b  recycle bin (drops a cell of trash)      j  water jug (spills a cell of water)
 F  furniture — one letter per piece; a touching same-letter blob is ONE couch, so two
    couches shoved flush together are written F and G (the level files use F G H K M N)
@@ -136,11 +136,14 @@ committed actions, so no flag can change a par.)*
      its back end is still on the bank while its front end is afloat, so he always has
      somewhere to stand for the next shove. Nothing in the rules names either case.
 
-   **Filled:** trash that lands in water stays there permanently and the cell becomes
-   **ordinary walkable ground**. So trash means *blocked* on the floor and *walkable* on the
-   water, and that inversion is the whole piece. Only two things can fill it — a bag's fan
-   (five cells spent, however many happen to be water) and the recycle bin's drop (one for
-   one). The exit is never water. Introduced alone in **L14**.
+   **Filled:** trash that lands in water is *spent filling it*, and the cell stops being
+   water — it becomes **ordinary floor**, permanently. Not trash sitting on a hole: the
+   garbage IS the ground now, which is why a can can be shoved across a crossing and why a
+   later fan can bury one. So trash means *blocked* on the floor and *ground* on the water,
+   and that inversion is the whole piece. Only two things fill it — a bag's fan (five cells
+   spent, however many happen to be water) and the recycle bin's drop (one for one) — and
+   neither the fan nor the jug may touch a cell already filled. The exit is never water.
+   Introduced alone in **L14**.
 10. **The water jug `j`** — the recycle bin's mirror, and the only piece that writes
    *terrain*. Shove it and it slides one cell and **spills a single cell of water directly
    ahead of itself**, exactly where the bin would have dropped trash. Three things follow,
@@ -595,9 +598,9 @@ can be lost, only lengthened.
 
 ---
 
-## L15 — "Two Crossings" **[verified — found by a targeted search]**
-*New question:* **order.** Every room before this one asks *which way*; this one asks
-*which bag*. Three bags, and two of them get spent on the canal.
+## L15 — "Two Crossings" **[verified — but see the note below: this room changed]**
+*What it is now:* three bags, two of them spent on the canal, so the fans you have left are
+the whole budget.
 ```
    x=1 2 3 4 5
 y1  .  .  .  .  .
@@ -606,30 +609,28 @@ y3  ~  ~  ~  ~  ~    the canal
 y4  .  B  R  B  .    bags B (left) and C (right)
 y5  .  .  .  .  .
 ```
-**Solve — `R!uulL!dD!uur`** (par 10): Right → strike **C**(4,4) rightward; two of its five fan
-cells land in the canal at (4,3)/(5,3), and the east crossing exists. Up, Up over it to (4,2).
-Left → (3,2), the exit, with three bags still out. Left → strike **A**(2,2) *leftward*, away
-from the door as L4 taught — and its fan drops two more cells into the canal at (2,3)/(1,3),
-which is the west crossing. Down onto it, Down → strike **B**(2,4) downward. Up, Up, Right →
-E → win.
-**The order is the puzzle, and it is enforced by consequence rather than by refusal.** Open
-**B** first — the left bag, the one right next to you — and the room is lost **in all three of
-its legal directions**: its fan puts trash on (3,4), the only dry cell joining you to C, and C
-is the bag that builds your way across. Every direction, measured: *first tear at B → 0 live,
-3 dead. First tear at C → 1 live, 2 dead.* One bag of three may go first, and only one of its
-four directions survives.
-**What the water is for.** A fan spent on the canal is a fan you cannot spend on a bag, and
-each of the two crossings costs you a whole bag's worth of mess. That is the piece doing what
-it was added to do: making the *order* of your spending the question.
-*Lesson: some bags are doors. Open the door before you open the room behind it.*
+**Solve — `L!rR!uulL!r`** (par 8): Left → strike **B**(2,4) *leftward*; two of its five fan
+cells land in the canal at (1,3)/(2,3) and the west crossing exists. Right → (3,4). Right →
+strike **C**(4,4) rightward, dropping two more cells into the canal at (4,3)/(5,3): the east
+crossing. Up onto it, Up to (4,2), Left onto the exit at (3,2) with a bag still out. Left →
+strike **A**(2,2) *leftward*, away from the door as L4 taught — and its fan lands squarely on
+the west crossing you built four moves ago, burying it. Right → E → win.
+*Lesson: the crossing you build first is the one you can afford to wreck.*
 
-**Where it sits against its own laws, stated plainly.** `pm` is **12** — you can lose this
-room on move one and keep playing for twelve moves before anything tells you. That is exactly
-the figure [`LEVEL-GENERATION.md`](./LEVEL-GENERATION.md) now carries for a three-bag room,
-and this room is where it came from: a sweep of 46,428 layouts produced 86 rooms with this
-signature and **not one of them scored below 12**. The original target of 8 was set from 1-
-and 2-bag rooms, and a 3-bag board simply has more left to wander over. Still flagged for
-playtest; if the walk-after-death reads as punishing, this is the room that proves it.
+**Where it sits against its own laws, and what it lost.** This room was built to ask **order**
+— *which bag first* — and it no longer does. It was the pack's only room that did.
+
+The cause is a deliberate rules change, recorded here rather than quietly absorbed: a filled
+canal cell used to be *water carrying trash*, which meant a later fan could not land on it. It
+is now **ordinary floor**, so a later fan can, and burying your own crossing became legal. That
+is what opened the eight-move line above, and with it the order metric went **1/2 → 2/2**:
+both reachable bags can now go first and both leave a winnable board.
+
+What the room kept: `coupling` 0.89, `solves` 1, `walkRatio` improved 2.33 → 1.67, `pm` down
+12 → 10, `bridges` 4. It is a decent path-and-orientation room. It is not an order room, and
+`R` is an open gap in the pack again — the sweep that produced this one (46,428 layouts) would
+have to be re-run against the new rules to fill it.
+
 
 ---
 
@@ -780,7 +781,7 @@ goal) **and the raccoon standing on the exit** (get out of the alley you just wr
 | **Empty can / plain block** | push → slides 1 (plain Sokoban block) | destination clear; **never removable**; may start on the board as a plain block |
 | **Exit** | — (terrain, not an occupant) | walkable at all times; **wins the room** only while standing on it with zero bags left; **protected by the engine** — any strike or push that would land trash, a can or a bag on it is refused, so it can never be sealed; exactly one per room |
 | **Spilled trash** | — (inert) | **permanent** obstacle; never moves, never clears — **except in water, where the same trash is walkable ground** |
-| **Water** | — (terrain, not an occupant) | **anything may rest in it; the raccoon may not.** Whatever he shoves in is gone for good — a push leaves him standing where the thing was, and that is now canal. Rollers cross it (he doesn't follow them) and a long couch crosses it (its back end keeps the bank). Trash that lands in it **fills it permanently** and the cell becomes ordinary floor; only a bag's fan or the recycle bin's drop can do that. Never the exit. Terrain, but **not static** — the water jug writes more of it mid-room |
+| **Water** | — (terrain, not an occupant) | **anything may rest in it; the raccoon may not.** Whatever he shoves in is gone for good — a push leaves him standing where the thing was, and that is now canal. Rollers cross it (he doesn't follow them) and a long couch crosses it (its back end keeps the bank). Trash that lands in it is spent **filling** it: the cell stops being water and becomes ordinary floor, which anything may then rest on and a later fan may bury. Only a bag's fan or the recycle bin's drop fills it. Never the exit. Terrain, but **not static** — the water jug writes more of it mid-room |
 | **Bag-on-can stack** | push → top bag **launches 2** ahead (loose), can **slides 1** (still full); raccoon advances 1 | landing cells clear; launched bag must still be struck; only way to **reposition** a bag |
 | **Recycle bin** | push → slides 1, **drops 1 cell of trash** directly ahead | destination clear (precise obstacle placer) |
 | **Water jug** | push → slides 1, **spills 1 cell of water** directly ahead | the spill needs **bare floor** — water, trash, an object or the exit all refuse it. Never runs dry, and can never be shoved twice running in the same direction: the cell it must slide into next is the water it just poured. Its obstacle is the **soft** one — trash blocks a fan, water accepts one and is bridged by it |

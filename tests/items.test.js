@@ -72,15 +72,36 @@ test('the raccoon will not step into open water', () => {
                        ['-----', '--~--', '-----', '-----']), 'water');
 });
 
-test('a fan fires into water and fills it — trash on water is a bridge', () => {
+// A fan that reaches the canal FILLS it. The trash is spent doing that, so the cell comes
+// out as floor — terrain, no occupant — which is what lets anything stand on it afterwards.
+test('a fan fires into water and fills it — a filled cell is floor', () => {
   const g = ['-----', '-----', '--$--', '--@--', 'E----'];
-  assert.deepEqual(after(g, 'u', CANAL), ['-----', '-xxx-', '-x@x-', '-----', 'E----']);
-  assert.deepEqual(afterWet(g, 'u', CANAL), CANAL);        // the canal is still a canal
+  assert.deepEqual(after(g, 'u', CANAL), ['-----', '-----', '-x@x-', '-----', 'E----']);
+  assert.deepEqual(afterWet(g, 'u', CANAL), ['-----', '~===~', '-----', '-----', '-----']);
 });
 
 test('a bridge is walkable, and stays walkable', () => {
-  assert.deepEqual(after(['-----', '-xxx-', '-x@x-', '-----', 'E----'], 'u', CANAL),
-                          ['-----', '-x@x-', '-x-x-', '-----', 'E----']);
+  const w = ['-----', '~===~', '-----', '-----', '-----'];
+  assert.deepEqual(after(['-----', '-----', '-x@x-', '-----', 'E----'], 'u', w),
+                          ['-----', '--@--', '-x-x-', '-----', 'E----']);
+});
+
+// The point of making a filled cell terrain rather than an occupant: there is room on it for
+// something else. A bridge is floor, so a can rolls over it exactly as it would over floor.
+test('an object can be shoved across a bridge, because a bridge is floor', () => {
+  const w = ['-----', '~===~', '-----', '-----', '-----'];
+  const g = ['-----', '-----', '--c--', '--@--', 'E----'];
+  assert.deepEqual(after(g, 'u', w), ['-----', '--c--', '--@--', '-----', 'E----']);
+  assert.deepEqual(afterWet(g, 'u', w), w);        // the crossing is unchanged under it
+});
+
+// And it cuts both ways: floor takes trash, so a later fan can re-block a crossing you made.
+test('a fan can land on a bridge and wall your own crossing off again', () => {
+  const w = ['-----', '~===~', '-----', '-----', '-----'];
+  const s = act(['-----', '-----', '--$--', '--@--', 'E----'], 'u', w);
+  assert.deepEqual(toGrid(s), ['-----', '-xxx-', '-x@x-', '-----', 'E----']);
+  assert.deepEqual(toWater(s), w);                 // still a bridge underneath…
+  assert.equal(explain(s, 'u').reason, 'trash');   // …and now unwalkable, like any floor
 });
 
 // He can shove things off the bank all day. What he cannot do is follow them, and a push
@@ -103,8 +124,9 @@ test('a full can ejects its bag into the water, and that bag can never be opened
 
 test('the recycle bin bridges one cell — one spent for one gained', () => {
   const w = ['--~--', '-----', '-----', '-----', '-----'];
-  assert.deepEqual(after(['-----', '-----', '--b--', '--@--', 'E----'], 'u', w),
-                          ['--x--', '--b--', '--@--', '-----', 'E----']);
+  const g = ['-----', '-----', '--b--', '--@--', 'E----'];
+  assert.deepEqual(after(g, 'u', w), ['-----', '--b--', '--@--', '-----', 'E----']);
+  assert.deepEqual(afterWet(g, 'u', w), ['--=--', '-----', '-----', '-----', '-----']);
 });
 
 // The corollary, and it rules out a whole class of room: the bin lands on the ONLY cell that
@@ -177,10 +199,14 @@ test('the jug will not pour onto spilled trash — nothing in this game un-block
 test('a fan bridges water the jug poured, and the raccoon walks over it', () => {
   const w = ['-----', '-~---', '-----', '-----', '-----'];
   const bridged = act(['-----', '-----', '-$---', '-@---', 'E----'], 'u', w);
-  assert.deepEqual(toGrid(bridged), ['-----', 'xxx--', 'x@x--', '-----', 'E----']);
-  assert.deepEqual(toWater(bridged), w);
+  assert.deepEqual(toGrid(bridged), ['-----', 'x-x--', 'x@x--', '-----', 'E----']);
+  assert.deepEqual(toWater(bridged), ['-----', '-=---', '-----', '-----', '-----']);
   assert.deepEqual(toGrid(explain(bridged, 'u').next),
                           ['-----', 'x@x--', 'x-x--', '-----', 'E----']);
+});
+
+test('the jug will not pour on a bridge — nothing in this game reverses a fill', () => {
+  assert.equal(refused(JUGBOARD, 'u', ['--=--', '-----', '-----', '-----', '-----']), 'canRoom');
 });
 
 // Furniture: the first piece that spans cells. A rigid polyomino, translate-only, and the

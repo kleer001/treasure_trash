@@ -42,8 +42,10 @@ const READ = {
   // and a level file that hand-writes one is invalid input.
 };
 
-/** The `:water` mask alphabet: `~` is wet, the floor aliases are dry, anything else throws. */
-const WET = '~';
+// The `:water` mask alphabet. Three terrains, one character each, and the floor aliases read
+// as dry so a mask can be written with `-` or `.` like any other block.
+const WET = '~';        // open canal
+const FILLED = '=';     // a canal cell somebody filled in: floor, and drawn as the plank it is
 // The pool of letters furniture pieces are written with. The writer hands them out in raster
 // order of each piece's first cell, so a board's lettering is canonical and the grid round-trips.
 // Six is far more couches than a room should ever hold; past that, throw rather than wrap.
@@ -55,7 +57,7 @@ export const LEGEND = [
   'S bag-on-can stack', 'W wheelie bin (full)', 'w wheelie bin (empty)', 'b recycle bin',
   'j water jug',
   `${FURN_POOL.join('/')} furniture — one letter per piece, a touching same-letter blob is one couch`,
-  'water lives in its own :water block, ~ wet and - dry',
+  'terrain lives in its own :water block — ~ open canal, = filled in (floor), - dry',
 ];
 
 /**
@@ -254,16 +256,16 @@ export function toState(level) {
       throw new Error(`${level.id}: :water has ${level.water.length} rows, :grid has ${rows}`);
     for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
       const ch = level.water[y]?.[x] ?? '-';
-      if (ch !== WET) {
-        if (!FLOOR_ALIASES.has(ch)) throw new Error(`${level.id}: :water takes '${WET}' or floor, got ${JSON.stringify(ch)} at (${x + 1},${y + 1})`);
+      if (ch !== WET && ch !== FILLED) {
+        if (!FLOOR_ALIASES.has(ch)) throw new Error(`${level.id}: :water takes '${WET}', '${FILLED}' or floor, got ${JSON.stringify(ch)} at (${x + 1},${y + 1})`);
         continue;
       }
       const c = cells[y][x];
       if (c.wall) throw new Error(`${level.id}: (${x + 1},${y + 1}) is both wall and water`);
       if (c.exit) throw new Error(`${level.id}: the exit cannot be water at (${x + 1},${y + 1})`);
-      c.water = true;
+      if (ch === WET) c.water = true; else c.bridge = true;
     }
-    if (cells[rac.y][rac.x].water && cells[rac.y][rac.x].o !== TRASH)
+    if (cells[rac.y][rac.x].water)
       throw new Error(`${level.id}: the raccoon starts in open water at (${rac.x + 1},${rac.y + 1})`);
   }
   return { cols, rows, cells, rac };
@@ -276,10 +278,11 @@ export function toGrid(s) {
     row.map((c, x) => glyphFor(c, s.rac.x === x && s.rac.y === y, letters)).join(''));
 }
 
-/** The matching water mask, or null if the board has no water at all. */
+/** The matching terrain mask, or null if the board never had a canal at all. */
 export function toWater(s) {
-  if (!s.cells.some(row => row.some(c => c.water))) return null;
-  return s.cells.map(row => row.map(c => (c.water ? WET : '-')).join(''));
+  if (!s.cells.some(row => row.some(c => c.water || c.bridge))) return null;
+  return s.cells.map(row =>
+    row.map(c => (c.water ? WET : c.bridge ? FILLED : '-')).join(''));
 }
 
 // --- solutions --------------------------------------------------------------

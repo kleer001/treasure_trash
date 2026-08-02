@@ -27,7 +27,7 @@ const FAN_CELLS = 5;   // a tear always spends exactly five cells of floor, neve
 
 /** Dry ground: the floor budget a room starts with, before anything stands on it.
  *  Water is not floor — it is floor you can buy, at five cells a bag or one a bin. */
-const floorCells = s => s.cells.flat().filter(c => !c.wall && !c.water).length;
+const floorCells = s => s.cells.flat().filter(c => !c.wall && !c.water).length;   // bridges count: they are floor
 
 /** Everywhere the raccoon can still walk, bridges included. */
 const freeCells = (s) => {
@@ -162,10 +162,9 @@ export function metrics(level) {
     const before = final;
     final = explain(final, act.dir).next;
     for (let y = 0; y < final.rows; y++) for (let x = 0; x < final.cols; x++)
-      // Only TRASH landing in water is a bridge. Anything else that ends up in the canal is
-      // an object he shoved off the bank and can no longer reach, which is the opposite.
-      if (cell(final, x, y).water && cell(final, x, y).o === TRASH
-          && cell(before, x, y).o !== TRASH) bridges++;
+      // A canal cell that became a bridge. Objects shoved into the water are the opposite of
+      // this — they kill the cell rather than fill it — and they never set `bridge`.
+      if (cell(final, x, y).bridge && !cell(before, x, y).bridge) bridges++;
   }
 
   const floor = floorCells(start);

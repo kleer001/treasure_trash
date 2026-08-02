@@ -46,7 +46,7 @@ and everything inside a block — `:grid` or `:water`, each closed by `:end` —
 | `:solves` | int | count of distinct shortest solutions (`>1` = unintended solves) |
 | `:solve` | LURD | the par solution, replayed by the verifier |
 | `:grid` … `:end` | glyphs | the occupants, walls and exit |
-| `:water` … `:end` | `~`/`-` | optional terrain mask laid over the grid |
+| `:water` … `:end` | `~`/`=`/`-` | optional terrain mask laid over the grid |
 
 A duplicate key or block, an unknown glyph, a non-integer where an int is wanted, or an
 unclosed block is an **error**, not a warning. Validate at the boundary, fail loudly.
@@ -86,8 +86,14 @@ than invent a glyph for the unreachable.
 
 Water takes **anything** — a can, a bag, a bin, a couch — so a single character per cell
 cannot spell it. `~` alone would have to mean "empty canal", "a can in the canal", and
-"couch G in the canal" all at once. So water is a **second aligned block** over the same
-grid: `~` is wet, floor glyphs are dry, and a room without a canal simply omits it.
+"couch G in the canal" all at once. So terrain is a **second aligned block** over the same
+grid, with three values, and a room that never had a canal simply omits it:
+
+| Mask glyph | Terrain |
+|---|---|
+| `~` | open canal — objects rest in it, the raccoon will not |
+| `=` | filled in — **floor**, and it stays floor |
+| `-` (or a floor alias) | dry ground |
 
 ```
 :grid                   :water
@@ -103,14 +109,18 @@ grid: `~` is wet, floor glyphs are dry, and a room without a canal simply omits 
 
 That costs one block and buys the property that **no combination of terrain and occupant
 ever needs a new glyph** — including combinations added later. The occupant grid says what
-is standing in a cell and nothing else, so `x` is trash whether it is blocking a floor or
-bridging a canal, and `@` is the raccoon whether he is on dry ground or on a bridge he made.
+is standing in a cell and nothing else, so `@` is the raccoon whether he is on dry ground or
+on a crossing he made, and a can reads `c` wherever it has ended up.
 The reader rejects a mask that marks a wall or the exit as water, or that starts the raccoon
 in open water.
 
-Water is a cell *flag* rather than an occupant code because it is terrain — but unlike the
-wall it is **not static**: the water jug writes new water mid-room, which is why `stateKey`
-encodes the (water, occupant) pair rather than the occupant alone.
+**A filled cell is terrain, not "water carrying trash".** That distinction is the whole reason
+a can can be shoved across a crossing: a cell holds one occupant, so while the fill counted as
+that occupant there was no room for anything else to be there. The garbage does not sit on the
+hole — once it goes in, it *is* the ground, and the cell behaves like the floor it has become.
+
+Terrain is **not static**: the jug writes new water and any fill converts it, which is why
+`stateKey` encodes the (terrain, occupant) pair rather than the occupant alone.
 
 ### Multi-cell pieces
 

@@ -279,12 +279,12 @@ E$---@
 
 :level  L15
 :name   Two Crossings
-:teach  order — one bag builds the way to another, so the wrong first tear strands you
-:par    10
-:traps  8
+:teach  both crossings, and that the one you built first is the one you can afford to bury
+:par    8
+:traps  7
 :solves 1
-:solve  R!uulL!dD!uur
-:note   Three bags, two of them spent on the canal. Opening the left bag first loses the room in every direction — its fan seals the only route to the bag that builds your crossing. The first room in the pack where WHICH bag, not which way, is the question.
+:solve  L!rR!uulL!r
+:note   Three bags and two of them are spent on the canal, so the fans you have left are the whole budget. You build both crossings, walk over the east one, and then bury the west one with the last tear because by then you are done with it. NOTE: this room asked WHICH BAG FIRST until bridges became ordinary floor; the order metric now reads 2/2 and the question is gone. It wants re-picking.
 :grid
 -----
 -$E--
