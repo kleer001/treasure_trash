@@ -65,6 +65,16 @@ test('aiming somewhere else re-aims rather than firing', () => {
   assert.equal(s.armed, null);
 });
 
+test('the fan preview is per-room data, not a global', () => {
+  const s = createSession([
+    room(BAG_ROOM, { id: 'teaching', preview: true }),
+    room(BAG_ROOM, { id: 'plain' }),
+  ]);
+  assert.equal(s.preview, true);
+  s.next();
+  assert.equal(s.preview, false, 'absent means off — the scaffold comes off by default');
+});
+
 test('a refusal clears an aim', () => {
   const s = createSession([room(['-----', '--$--', '#-@--', 'E----'], { arm: true })]);
   s.act('u');

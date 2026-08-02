@@ -60,9 +60,9 @@ forever, and you win by routing through the wreckage — never by tidying it.
 
 Bright, flat, geometric — bold blocks and hard color on a light field, closer to a
 board game than a simulation. The alley reads as a clean grid; garbage reads as
-solid shapes stacking up in it, so the mess is legible at a glance. When you line up
-a tear, a preview tints the cells the trash is about to fill, so you always see the
-wall before you build it. The one exception to the flat bright palette is the exit: a
+solid shapes stacking up in it, so the mess is legible at a glance. The first rooms
+tint the cells a tear is about to fill, so you learn the shape of the spray before you
+have to picture it. The one exception to the flat bright palette is the exit: a
 real white-on-green EXIT sign, dark while bags remain, lit the moment the last one
 tears. Procedural WebAudio: a dry step, a paper-and-plastic burst on the tear, a flat
 clunk when a can won't budge, and a short buzz when the alley refuses you.

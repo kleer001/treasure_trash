@@ -65,10 +65,13 @@ function glyphFor(c, isRac) {
 // between ':grid' and ':end' is taken verbatim, so no glyph can collide with a key.
 
 const INT_KEYS = new Set(['par', 'traps', 'solves']);
-// `:arm on` makes board-changing actions ask twice in this room. It is a TEACHING
-// SCAFFOLD for a room that introduces a new piece, not an input mode — absent means off,
-// which is the default and the normal Sokoban feel.
-const BOOL_KEYS = new Set(['arm']);
+// Two teaching scaffolds, both default OFF, both render/input only — the solver never
+// sees either, so neither can change a par.
+//   :arm on      board-changing actions ask twice in this room.
+//   :preview on  tint the cells a strike would fill, before it is made.
+// Absent means off, which is the normal block-pusher feel: you learn the fan's shape
+// once and then you carry it in your head.
+const BOOL_KEYS = new Set(['arm', 'preview']);
 const BOOLS = { on: true, off: false, true: true, false: false };
 
 /**
@@ -139,7 +142,7 @@ export function formatLevelPack(pack) {
   out.push(';', `; legend  ${LEGEND.join('  ')}`, ';', '');
   for (const l of pack.levels) {
     out.push(`:level  ${l.id}`);
-    for (const k of ['name', 'teach', 'arm', 'par', 'traps', 'solves', 'solve', 'note']) {
+    for (const k of ['name', 'teach', 'arm', 'preview', 'par', 'traps', 'solves', 'solve', 'note']) {
       if (l[k] === undefined) continue;
       if (BOOL_KEYS.has(k) && !l[k]) continue;                 // off is the default: don't write it
       const v = BOOL_KEYS.has(k) ? 'on' : l[k];

@@ -37,6 +37,12 @@ export function createSession(levels) {
   // par: aiming is not a move.
   const arming = () => levels[index].arm === true;
 
+  // `:preview on` tints the cells a strike would fill before you make it. Like arming, it
+  // is a scaffold on the rooms that teach the fan (L1-L3) and comes off afterwards: from
+  // L4 on, knowing the fan's shape is part of playing the game. Also like arming, it lives
+  // above the rules — the solver never sees it, so it cannot change a par.
+  const previewing = () => levels[index].preview === true;
+
   /** The occupant one step ahead — NONE off-grid, so callers never have to bounds-check. */
   const ahead = (dir) => {
     const [dx, dy] = DIRS[dir];
@@ -53,6 +59,7 @@ export function createSession(levels) {
     get won() { return won; },
     get blocked() { return blocked; },
     get armed() { return armed; },
+    get preview() { return previewing(); },
     get canUndo() { return history.length > 0; },
     /** What the aimed action would do to, so the HUD can name it. */
     get armedTarget() { return armed ? ahead(armed) : NONE; },

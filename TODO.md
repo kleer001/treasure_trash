@@ -31,10 +31,11 @@ Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset,
 - **No pull, so everything but walking is permanent.** Measured on the shipped pack:
   moves are 100% reversible by play, tears 0%, full-can pushes 0%, empty-can pushes 44%
   (and only by walking round to the far side).
-- **Arming (`:arm on`) is a per-room teaching scaffold, default OFF.** In a room that
-  *introduces a piece*, board-changing actions ask twice — first press aims and previews,
-  second commits. On in L1 (the bag) and L2 (the can); off elsewhere, where the game plays
-  like the block-pusher it is. Input-layer only: it can never change a par.
+- **Two per-room teaching scaffolds, both default OFF, neither able to change a par.**
+  `:arm on` makes board-changing actions ask twice — on in whichever room introduces a
+  piece (L1 bag, L2 can, L5 recycle bin, L6 wheelie bin, L8 water, L10 trash-on-water),
+  off everywhere else. `:preview on` tints where a strike would land — on in L1-L3, off
+  from L4, because by then the fan's shape is something you carry rather than read.
 - **Refusal, not punishment — and it's performed.** An illegal action plays out and
   rewinds: raccoon lunges, bag bursts, debris reaches the cell that won't take it, red
   flash + buzz, then the whole sequence reverses. The board never changes and no move is
@@ -53,8 +54,8 @@ question code cannot answer: **play all thirteen rooms and decide whether the
 raccoon-alone game is fun.** Nothing new gets built until that has a verdict.
 
 Two things to watch while playing, both already written down below: whether the walk to
-the exit reads as tension or filler, and whether the passive fan preview misleads when two
-bags are in reach at once.
+the exit reads as tension or filler, and whether L4 lands as a cliff now that the fan
+preview stops after L3.
 
 ## Open decisions (need a call)
 - **The crow.** Un-pin and design its powers — the "separation of powers" wasn't
@@ -74,11 +75,9 @@ bags are in reach at once.
   and rebuild the can room variants. Each must satisfy the **authoring checklist** at
   the end of `levels.md` (one exit, exit reachable after the last strike, and the exit
   must forbid at least one strike/push direction — otherwise it's a walk-back tax).
-- **Passive fan preview can be ambiguous.** With arming off and the raccoon between two
-  bags (L3), both fans light and the player can't tell which cell belongs to which strike.
-  In L3 it happens to *be* the lesson — the corridor is the only unlit row — but that's
-  luck, not design. If it misleads in a later room, options are to preview only the last-
-  moved direction, or to tint the two fans differently.
+- **Does the fan preview come off at the right room?** It runs L1-L3 and stops. L3 is
+  also where two bags light at once, so the last room with any help is the busiest one.
+  If L4 lands as a cliff, run the preview one room further rather than bringing it back.
 - **Playtest the exit.** It's mechanically verified but not *felt* — the open question
   is whether the walk to `E` reads as tension or as filler. Cheapest test: play L1–L3 and
   see if the last move is ever a decision.

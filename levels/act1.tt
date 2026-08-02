@@ -35,6 +35,7 @@
 :name   Pounce
 :teach  directional pounce, the fan, permanent mess
 :arm    on
+:preview on
 :par    4
 :traps  0
 :solves 1
@@ -51,6 +52,7 @@
 :name   Heavy Can
 :teach  the can, and that where you park your junk is half the job
 :arm    on
+:preview on
 :par    7
 :traps  1
 :solves 1
@@ -67,6 +69,7 @@ E--
 :level  L3
 :name   Fire Away From the Path
 :teach  fire your mess away from where you still need to walk
+:preview on
 :par    5
 :traps  2
 :solves 2

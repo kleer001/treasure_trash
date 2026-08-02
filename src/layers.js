@@ -9,7 +9,7 @@
 // without the player ever being in one.
 
 import {
-  BAG, CAN_FULL, CAN_EMPTY, DIRS, bagsLeft, bridged, cell, fan, inGrid,
+  BAG, CAN_FULL, CAN_EMPTY, DIRS, DIR_ORDER, bagsLeft, bridged, cell, fan, inGrid,
 } from './rules.mjs';
 import { BOARD } from './theme.js';
 import { confettiAt, confettiAlpha } from './anim.js';
@@ -94,15 +94,14 @@ export function createPiecesLayer() {
 export function createGuidesLayer() {
   return {
     name: 'guides',
-    draw(ctx, { state: s, refusal, motion, blocked, armed }) {
-      // The fan preview is INFORMATION and is always available — it answers "where would
-      // this land", which the player is entitled to know in a full-information puzzle and
-      // which never stops being true whether or not the strike is legal. Aiming only
-      // FOCUSES it: while armed, one direction draws, so two adjacent bags are not ten
-      // yellow cells at once. Red is not a second opinion about the fan; it belongs to the
-      // one cell doing the blocking, and only once you have tried.
+    draw(ctx, { state: s, refusal, motion, blocked, armed, preview }) {
+      // The fan preview belongs to the rooms that teach the fan (`:preview on`, L1-L3).
+      // After that you know the shape, and reading it off the board is the game. Where it
+      // is on, aiming FOCUSES it: while armed, one direction draws, so two adjacent bags
+      // are not ten yellow cells at once. Red is not a second opinion about the fan; it
+      // belongs to the one cell doing the blocking, and only once you have tried.
       const red = new Set((blocked?.cells ?? []).map(([x, y]) => key(x, y)));
-      const previews = refusal || motion ? [] : armed ? [armed] : ['u', 'd', 'l', 'r'];
+      const previews = !preview || refusal || motion ? [] : armed ? [armed] : DIR_ORDER;
       for (const dir of previews) {
         const [dx, dy] = DIRS[dir];
         const bx = s.rac.x + dx, by = s.rac.y + dy;

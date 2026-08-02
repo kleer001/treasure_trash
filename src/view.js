@@ -134,6 +134,7 @@ export function createView({ canvas, session, audio, onWinDone, onFrame = () => 
         motion: motion ? { ...motion, t: progress(t - motion.t0, motion.dur) ?? 1 } : null,
         blocked: session.blocked,
         armed: session.armed,
+        preview: session.preview,
         confetti: confetti ? { ...confetti, t: (t - confetti.t0) / 1000 } : null,
       });
       onFrame();

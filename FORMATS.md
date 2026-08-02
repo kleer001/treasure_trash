@@ -41,6 +41,7 @@ ever collide with a key.
 | `:level` | text | starts a level; the value is its id |
 | `:name` `:teach` `:note` | text | documentation; never affects play |
 | `:arm` | `on`/`off` | **default off.** Board-changing actions ask twice in this room — a scaffold for the room that introduces a piece. Input-only: it can never change a par |
+| `:preview` | `on`/`off` | **default off.** Tint the cells a strike would fill, before it is made — a scaffold for the rooms that teach the fan (L1-L3). Render-only: it can never change a par |
 | `:par` | int | **the provably minimal solve length.** Verified, not declared |
 | `:traps` | int | count of legal actions that lead to an unwinnable board |
 | `:solves` | int | count of distinct shortest solutions (`>1` = unintended solves) |

@@ -104,14 +104,14 @@ replaying each whole state graph and asking whether the previous state is reacha
 
 So the line is **move vs. everything else**, never tear vs. everything else.
 
-**Arming is not the fan preview, and they have different lifetimes.** The preview is
-*information* — "where would this land" — and a full-information puzzle owes the player
-that answer forever; it is on in every room. Arming is *ceremony*, and ceremony is a
-teaching aid you remove. Aiming only **focuses** the preview: while armed, just the aimed
-direction draws, instead of every adjacent bag at once.
+**Fan preview — a per-room scaffold, `:preview on`, default OFF.** Where it is on, the
+cells a strike would fill are tinted before the strike is made. It is on in **L1-L3**, the
+rooms that teach the fan, and off from L4. After three rooms you know the shape, and
+reading it off the board is the game. Where both are on, aiming focuses the preview to the
+aimed direction.
 
-*(All input-layer: the rules engine and the solver never see arming, and `:par` counts
-committed actions, so no flag can change a par.)*
+*(Both flags are render/input only: the rules engine and the solver never see them, and
+`:par` counts committed actions, so neither can change a par.)*
 7. **The exit `E`** — one per room. It is **plain floor you can always walk over**;
    it just *counts* when you're standing on it and every bag is torn. **Nothing else may
    ever occupy it.** A strike whose fan would land on the exit, or a push that would
@@ -214,8 +214,8 @@ turned up nothing that does both traits together. Nearest cousins, all distinct:
   hole), not a burst.
 So the scatter is **uncommon, plausibly novel** (caveat: the PuzzleScript/itch long
 tail is huge and unindexed — can't prove absence). *Design consequence:* players
-expect "explosion = opens space"; our burst *closes* space, so the **fan preview +
-free undo** are load-bearing — they teach the inversion, not just polish.
+expect "explosion = opens space"; our burst *closes* space, so the opening rooms' **fan
+preview + free undo** are load-bearing — they teach the inversion, not just polish.
 
 **Object budget (aim ~8):** `bag`, `can` (full/empty), `spilled trash`, `recycle bin`,
 `wheelie bin` = **5 used**, plus the `bag-on-can stack` — built and unit-tested, but it

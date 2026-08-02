@@ -28,9 +28,10 @@ The smallest playable thing that proves the loop is fun.
 - **Arming**, per-room, default off: in a room that introduces a piece, board-changing
   actions ask twice — first press aims and focuses the preview, second commits. Aiming is
   free, and any other direction or undo cancels. Input layer only.
-- Fan preview on the four candidate directions from the raccoon's current cell — on in
-  every room, since a full-information puzzle owes the player that answer. Arming only
-  *focuses* it to the aimed direction.
+- **Fan preview**, per-room, default off (`:preview on`): the four candidate directions
+  from the raccoon's cell tint where their trash would land. On in L1-L3, the rooms that
+  teach the fan, and off from L4. Arming focuses it to the aimed direction. Render layer
+  only.
 - Unlimited undo, restart, per-level par-move display.
 - Stranding indicator (dead-board warning) — see *Systems* → `solver`.
 - Rooms: **L0, L1, L2, L3** verified from `levels.md` and shipped as data in
@@ -326,11 +327,11 @@ Needs a spike or a playtest to answer:
 6. **The crow.** Un-pinned only after the raccoon-alone game proves fun. Its powers
    are undesigned; the earlier "separation of powers" framing was unsatisfying and
    the superseded scrap-on-adjacency twist is not carried forward.
-7. **The passive fan preview can be ambiguous.** With arming off and the raccoon between
-   two bags (L3), both fans light and there's no telling which cell belongs to which
-   strike. In L3 that happens to *be* the lesson — the corridor is the only unlit row —
-   but it's luck, not design. If a later room misleads, the options are to preview only
-   the last-moved direction or to tint the two fans differently. Bears on `render`.
+7. **Does the fan preview come off at the right room?** It runs L1-L3 and stops. L3 is
+   the room where two bags light at once and the unlit corridor is the answer, so it also
+   has to carry "read two fans together" in the same room it is the last time you get any
+   help. If L4 lands as a cliff, the fix is to run the preview one room further, not to
+   bring it back. Bears on `render`.
 8. **Does the walk to the exit read as tension or as filler?** Mechanically verified, not
    felt. Cheapest test: play the pack and see whether the last move is ever a decision.
    If it is filler, the authoring law (the exit must forbid at least one direction) is the
