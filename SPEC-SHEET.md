@@ -9,7 +9,7 @@ File formats and the verifier's contract: `FORMATS.md`. Where this file and
 `DESIGN-BIBLE.md` disagree, this file wins — the bible documents a superseded
 real-time design and is retained as history only.
 
-## Design decisions 🔒
+## Design decisions
 
 - [x] `GAME-SHEET.md` written — rewritten 2026-07-29 to the untimed one-raccoon
       design, replacing a pitch for the superseded real-time two-animal game.
@@ -72,7 +72,7 @@ nothing past the last room, and a level editor with community sharing was asked 
 **Out of the slice**, on scope. Levels are data (see *Data*), so an editor stays
 cheap to add later, and par-move counts ship as the mastery hook. — 2026-07-29
 
-- [x] **Gate cleared — 2026-07-29.**
+- [x] **Decisions recorded — 2026-07-29.**
 
 ## Post-gate ruleset changes
 
