@@ -4,7 +4,7 @@
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
   DIRS, MOVE, PUSH, TEAR,
-} from './rules.mjs';
+} from './rules.js';
 
 // --- glyphs -----------------------------------------------------------------
 // Canonical writer emits exactly one glyph per cell state. The reader also accepts

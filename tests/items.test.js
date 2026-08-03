@@ -1,11 +1,11 @@
 // Each new piece, checked against the row it has in the levels.md item table.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, bagsLeft } from '../spike/rules.mjs';
-import { toState, toGrid, toWater } from '../spike/format.mjs';
+import { explain, bagsLeft } from '../src/rules.js';
+import { toState, toGrid, toWater } from '../src/format.js';
 
 // Water is a layer over the occupant grid, not a glyph in it — so a board under test is a
-// grid and, when it has a canal, a mask the same shape. See spike/FORMATS.md.
+// grid and, when it has a canal, a mask the same shape. See FORMATS.md.
 const S = (grid, water) => toState({ id: 't', grid, water });
 const act = (grid, dir, water) => {
   const r = explain(S(grid, water), dir);

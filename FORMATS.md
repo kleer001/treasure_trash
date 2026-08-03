@@ -4,7 +4,7 @@ Two text formats and a four-module API. Everything a level file claims about its
 checked against the rules engine by `verify.mjs`; nothing is asserted by hand.
 
 Design rule: **one implementation of the rules.** `rules.mjs` is imported by the browser
-spike, the solver, and the verifier. A second implementation in another language would
+game, the solver, and the verifier. A second implementation in another language would
 drift, and a drifted verifier certifies nothing.
 
 ---

@@ -1,5 +1,5 @@
 // Treasure Trash — THE RULES. Pure, deterministic, no DOM, no I/O.
-// This module is the single source of truth for what is legal. The browser spike,
+// This module is the single source of truth for what is legal. The browser game,
 // the solver, and the verifier all import it; nothing re-implements a rule.
 
 // Occupant codes. Add freely — `stateKey` encodes each as one printable character, so the

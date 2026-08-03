@@ -12,20 +12,20 @@ opening every bag **and** standing on the exit, which is terrain the engine refu
 to let anything else occupy.
 
 - **The ruleset lives in `levels.md`; what to build lives in `SPEC-SHEET.md`.** Where
-  prose and code disagree, `spike/rules.mjs` is the engine of record.
-- **`spike/` is a throwaway prototype, not the game.** It holds a working rules engine,
-  an exhaustive solver, the `.tt`/`.sol` level formats (`spike/FORMATS.md`) and a
-  verifier that proves every claim a level file makes. Port it into `src/`; don't grow
-  the spike into the product, and don't write a second implementation of the rules —
-  one engine, imported by the game, the solver and the tests alike.
+  prose and code disagree, `src/rules.js` is the engine of record.
+- **One engine, imported by everything.** `src/rules.js` is the only implementation of
+  the rules; the game, the solver and the tests all import it, and `tools/verify.mjs`
+  proves every claim a level file makes against that same module. Never write a second
+  implementation — a rule that exists twice is a rule that will disagree with itself.
 - **`DESIGN-BIBLE.md` is superseded — history only.** It specifies a retired real-time
   two-animal design. Never implement from it.
 - **No randomness in logic at all.** Every room is hand-authored and deterministic;
   `src/rng.js` is for *cosmetic* variation only, seeded from the level id. A replay is
   the level id plus the move sequence.
 - **The crow is pinned** — parked deliberately until the raccoon-alone game proves fun.
-- Gate status: the design decisions are recorded (`SPEC-SHEET.md` → *Design
-  decisions*). The game itself is not built — see *State*, below.
+- **The core mechanic is built and playable.** `./run.sh`, then play L0–L17. What is
+  missing is everything around it — art, audio, progression, and the solvability
+  indicator the spec calls for. See `TODO.md`.
 
 ## Run & test
 
@@ -55,10 +55,10 @@ to let anything else occupy.
 
 ## Architecture
 
-- **Separate code from data.** Logic lives in `src/`; the numbers that tune the
-  game — levels, tables, tuning constants, content — live as data (JSON or plain
-  data modules), never hard-coded in functions. You should be able to retune or add
-  content without editing logic.
+- **Separate code from data.** Logic lives in `src/`; the rooms live in `levels/` as
+  `.tt`/`.sol` data. You should be able to add or retune a room without editing logic.
+- **`src/` never imports `tools/`.** `tools/` is offline-only (it reaches for
+  `node:fs`); the shared logic lives in `src/` and `tools/` imports *up* into it.
 - **Layered rendering.** The canvas is composited in ordered passes
   (`src/compositor.js`): the character grid is layer 0, and everything else — a
   scanline/CRT overlay, sprites, HUD, the studio logo — is another layer *on top of
@@ -83,13 +83,13 @@ to let anything else occupy.
 ## Docs
 
 - `GAME-SHEET.md` — the player-facing pitch.
-- `SPEC-SHEET.md` — the buildable spec (with the design-gate record).
+- `SPEC-SHEET.md` — the buildable spec and the recorded design decisions.
 - `levels.md` — the authoritative ruleset and the room-by-room design.
 - `LEVEL-GENERATION.md` — how to build the *next* room: the floor budget, the laws a
   generator selects on, the intent-first pipeline, and the `OLRP` signature to generate to.
-  Forward-looking only; measured by `spike/metrics.mjs`.
+  Forward-looking only; measured by `tools/metrics.mjs`.
 - `rules.html` — the Block-Pusher Laws, house doc style.
-- `spike/FORMATS.md` — the `.tt`/`.sol` file formats and what the verifier enforces.
+- `FORMATS.md` — the `.tt`/`.sol` file formats and what the verifier enforces.
 - `MARKETING-PLAN.md`, `promo.html`, `ITCH-PAGE.md` — launch assets, finalized at the
   release gate. They still carry template placeholders.
 - `DESIGN-BIBLE.md` — superseded, kept as history.

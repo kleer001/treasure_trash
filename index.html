@@ -1,15 +1,47 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Treasure Trash</title>
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Treasure Trash</title>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main>
-    <canvas id="screen" width="800" height="400" aria-label="game screen"></canvas>
-  </main>
-  <script type="module" src="src/main.js"></script>
+<div class="wrap">
+<header>
+  <h1>Treasure Trash</h1>
+</header>
+
+<div class="tabs" id="tabs"></div>
+<div class="hud">
+  <span class="name" id="lvlname"></span>
+  <span class="moves">moves <b id="moves">0</b> · par <b id="par">0</b></span>
+  <span class="warn" id="warn"></span>
+  <span class="arm" id="arm"></span>
+</div>
+
+<canvas id="cv" width="300" height="300"></canvas>
+
+<div class="controls" id="controls">
+  <div class="pad">
+    <button class="act key" data-act="up" aria-label="up">↑</button>
+    <div class="padrow">
+      <button class="act key" data-act="left" aria-label="left">←</button>
+      <button class="act key" data-act="down" aria-label="down">↓</button>
+      <button class="act key" data-act="right" aria-label="right">→</button>
+    </div>
+  </div>
+  <div class="row">
+    <button class="act" data-act="prev">‹ Prev</button>
+    <button class="act" data-act="next">Next ›</button>
+  </div>
+  <div class="row">
+    <button class="act" data-act="undo">⟲ Undo (U)</button>
+    <button class="act" data-act="restart">↺ Restart (R)</button>
+  </div>
+</div>
+
+</div>
+<script type="module" src="src/main.js"></script>
 </body>
 </html>

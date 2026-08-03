@@ -12,13 +12,14 @@ import { dirname, resolve } from 'node:path';
 import {
   parseLevelPack, formatLevelPack, parseSolutionPack, formatSolutionPack,
   parseLurd, formatLurd, toState, toGrid, toWater,
-} from './format.mjs';
-import { analyze, replay } from './solver.mjs';
-import { isWon, bagsLeft } from './rules.mjs';
+} from '../src/format.js';
+import { analyze, replay } from '../src/solver.js';
+import { isWon, bagsLeft } from '../src/rules.js';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const levelPath = resolve(here, process.argv[2] ?? 'levels/act1.tt');
-const solPath = resolve(here, process.argv[3] ?? 'levels/act1.sol');
+// Levels, and the doc this cross-checks, live at the repo root — one level up.
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const levelPath = resolve(root, process.argv[2] ?? 'levels/act1.tt');
+const solPath = resolve(root, process.argv[3] ?? 'levels/act1.sol');
 
 let failures = 0;
 const check = (label, ok, detail = '') => {
@@ -138,7 +139,7 @@ for (const level of pack.levels) {
 // levels.md is prose ABOUT the pack; the pack is the data. The doc is allowed to explain
 // a solve, not to disagree with it — so every :solve must appear there verbatim.
 section('docs');
-const docPath = resolve(here, '../levels.md');
+const docPath = resolve(root, 'levels.md');
 let doc = null;
 try { doc = readFileSync(docPath, 'utf8'); } catch { /* doc is optional */ }
 if (doc === null) console.log('  · ../levels.md not found, skipping');

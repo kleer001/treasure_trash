@@ -1,28 +1,42 @@
-/* Retro-terminal / phosphor look. Swap the palette per game. */
-:root {
-  --bg: #000;
-  --phosphor: #33ff66;
-}
-
-html, body {
-  margin: 0;
-  height: 100%;
-  background: var(--bg);
-  color: var(--phosphor);
-  font-family: monospace;
-}
-
-main {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100%;
-}
-
-#screen {
-  max-width: 100%;
-  height: auto;
-  image-rendering: pixelated;
-  /* Cheap CRT glow until the WebGL filter is wired in. */
-  box-shadow: 0 0 8px rgba(51, 255, 102, 0.35);
-}
+/* Treasure Trash: bright flat Memphis geometry, chosen for legibility.
+   The mess must read at a glance or the puzzle isn't fair. */
+  :root{
+    --bg:#ffffff; --ink:#1a1a1a; --muted:#5a5a5a; --line:#dcdcdc; --panel:#f5f5f2;
+    --link:#1a3fd0; --red:#ff4b3e; --yel:#ffcf00; --blu:#2d7dd2; --tea:#17c3b2; --pnk:#ff5da2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,Helvetica,sans-serif;padding:0 0 3rem}
+  body::before{content:"";display:block;height:8px;
+    background:repeating-linear-gradient(90deg,var(--red) 0 28px,var(--yel) 28px 56px,var(--blu) 56px 84px,var(--tea) 84px 112px,var(--pnk) 112px 140px)}
+  .wrap{max-width:720px;margin:0 auto;padding:0 1.1rem}
+  header{padding:1.4rem 0 .6rem;border-bottom:2px solid var(--ink);margin-bottom:1rem}
+  h1{font-size:1.7rem;margin:0;font-weight:800;letter-spacing:-.5px;display:inline;box-shadow:inset 0 -.4em 0 var(--yel)}
+  .tabs{display:flex;gap:.4rem;margin:1rem 0 .6rem;flex-wrap:wrap}
+  .tab{font-weight:700;border:2px solid var(--ink);background:#fff;padding:.25rem .8rem;border-radius:4px;cursor:pointer;transform:rotate(-1deg)}
+  /* The five house colours cycle, so the strip keeps reading as a strip however many
+     rooms the pack grows to. */
+  .tab.on{background:var(--blu);color:#fff}
+  .tab:nth-child(5n+2).on{background:var(--red)}
+  .tab:nth-child(5n+3).on{background:var(--tea);color:#063}
+  .tab:nth-child(5n+4).on{background:var(--pnk)}
+  .tab:nth-child(5n+5).on{background:var(--yel);color:#5a4500}
+  .hud{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin:.5rem 0}
+  .name{font-weight:800}
+  .moves{color:var(--muted)}
+  .moves b{color:var(--ink)}
+  .warn{display:none;font-weight:800;color:#fff;background:var(--red);padding:.15rem .7rem;border-radius:4px;transform:rotate(1deg)}
+  .warn.show{display:inline-block}
+  .arm{display:none;font-weight:800;color:#5a4500;background:var(--yel);padding:.15rem .7rem;border-radius:4px;transform:rotate(-1deg)}
+  .arm.show{display:inline-block}
+  canvas{display:block;margin:.4rem 0 1rem;image-rendering:auto;max-width:100%;height:auto;border:2px solid var(--ink);background:var(--panel)}
+  /* Under the board, in the order you reach for them: the d-pad as a WASD triangle, then
+     moving between rooms, then the two that undo what you did inside one. */
+  .controls{display:flex;flex-direction:column;align-items:flex-start;gap:.5rem;margin:.6rem 0 1rem}
+  .pad{display:flex;flex-direction:column;align-items:center;gap:.4rem;margin-bottom:.35rem}
+  .padrow{display:flex;gap:.4rem}
+  .row{display:flex;gap:.5rem;flex-wrap:wrap}
+  button.act{font-weight:700;border:2px solid var(--ink);background:#fff;padding:.3rem .8rem;border-radius:4px;cursor:pointer}
+  button.act:hover{background:var(--yel)}
+  button.act:active{transform:translateY(1px)}
+  button.key{width:3.1rem;padding:.5rem 0;font-size:1.2rem;line-height:1}

@@ -17,11 +17,11 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { parseLevelPack, parseLurd, toState } from './format.mjs';
-import { analyze } from './solver.mjs';
+import { parseLevelPack, parseLurd, toState } from '../src/format.js';
+import { analyze } from '../src/solver.js';
 import {
   DIR_ORDER, DIRS, MOVE, TEAR, BAG, explain, cell, fan, canStand, isOccupiable, bagsLeft,
-} from './rules.mjs';
+} from '../src/rules.js';
 
 const FAN_CELLS = 5;   // a tear always spends exactly five cells of floor, never fewer
 
@@ -211,7 +211,7 @@ export function report(levels) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const path = resolve(here, process.argv[2] ?? 'levels/act1.tt');
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const path = resolve(root, process.argv[2] ?? 'levels/act1.tt');
   report(parseLevelPack(readFileSync(path, 'utf8')).levels);
 }

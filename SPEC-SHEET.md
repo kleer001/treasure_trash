@@ -4,8 +4,8 @@ The buildable spec — precise enough to implement from. Written from what survi
 the review.
 
 Authoritative ruleset: `levels.md`, and — where prose and code disagree — the engine
-itself, `spike/rules.mjs`, which is the single implementation every consumer imports.
-File formats and the verifier's contract: `spike/FORMATS.md`. Where this file and
+itself, `src/rules.js`, which is the single implementation every consumer imports.
+File formats and the verifier's contract: `FORMATS.md`. Where this file and
 `DESIGN-BIBLE.md` disagree, this file wins — the bible documents a superseded
 real-time design and is retained as history only.
 
@@ -64,7 +64,7 @@ is stranded) and the game stays silent about it, so the player can walk many mov
 past a dead board. This genre's audience treats that as a defect even with free
 undo. **In slice:** a **solvability check** (see *Systems* → `solver`) runs after
 every state change and surfaces a non-blocking "this board can no longer be won"
-indicator. The existing `verify.mjs` search is the basis; it already detects L3's
+indicator. The existing `tools/verify.mjs` search is the basis; it already detects L3's
 dead state offline.
 
 No mastery tail: deterministic hand-authored rooms with par counts give the hardcore
@@ -81,7 +81,7 @@ arming was added, and refusal became a performed animation — which lands on tw
 them. What changed, and what it does to each:
 
 - **The exit is terrain, and it cannot be buried.** Any strike or push that would put an
-  object on the exit is refused at the keypress; `spike/rules.mjs` splits *where the
+  object on the exit is refused at the keypress; `src/rules.js` splits *where the
   raccoon may stand* (`isClearFloor` — the exit qualifies) from *where an object may come
   to rest* (`isOccupiable` — it does not). Win is now transformation **plus egress**.
 - **The dead-board concern narrows.** Protecting the exit converted a whole
@@ -126,13 +126,13 @@ The smallest playable thing that proves the loop is fun.
 - Unlimited undo, restart, per-level par-move display.
 - Stranding indicator (dead-board warning) — see *Systems* → `solver`.
 - Rooms: **L0, L1, L2, L3** verified from `levels.md` and shipped as data in
-  `spike/levels/act1.tt`, plus **L4** and **L5** once cell-exact and proven solvable.
+  `levels/act1.tt`, plus **L4** and **L5** once cell-exact and proven solvable.
   Spine order is an open question.
 - **Win condition: every bag torn open *and* the raccoon standing on the exit.** A full
   can counts as an unopened bag. The exit sign renders unlit while bags remain and lights
   when the last one tears.
 
-**Explicitly out** (each needs its own spike before it enters):
+**Explicitly out** (each needs its own prototype before it enters):
 - The crow, and any second unit.
 - Bag-on-can stack (bag launch — the only bag *repositioning* verb).
 - Recycle bin, wheelie bin, shopping cart, furniture polyominoes.
@@ -145,7 +145,7 @@ One responsibility each. Core logic is pure — no DOM, canvas, or audio reached
 from inside it.
 
 **`rules`** — the sim. Pure functions over a board state; the whole testable half. The
-API below is the shipped prototype engine (`spike/rules.mjs`), which the browser spike,
+API below is the shipped engine (`src/rules.js`), which the browser,
 the solver and the verifier all import; port it, don't re-derive it. **One implementation
 of the rules** — a second one drifts, and a drifted verifier certifies nothing.
 
@@ -207,12 +207,12 @@ bag/can inventories, and HUD-facing counts. Cell access and bounds checking (`ce
 `inGrid`, `cloneState`) live in `rules`, because the engine depends on them and one
 definition beats two. Owns no rules.
 
-**`format`** — text ⇄ data, ported from `spike/format.mjs`. Parses level and solution
+**`format`** — text ⇄ data, `src/format.js`. Parses level and solution
 packs, `toState` **validates at the boundary** — exactly one raccoon, exactly one exit,
 every glyph known, short rows padded with floor — and `toGrid` serialises any live
 state back to glyphs so a mid-solve board can be pasted into a bug report. It throws
 rather than emit a glyph for an object on the exit, because no such state exists. Format
-spec: `spike/FORMATS.md`.
+spec: `FORMATS.md`.
 
 **`solver`** — `analyze(state)` enumerates the **entire** reachable state graph and
 computes liveness exactly: forward BFS from the start, then reverse-reachability from
@@ -256,9 +256,9 @@ win.
 ## Data
 
 Levels are data, never hard-coded in logic — and the data is **canonical, the prose is
-commentary**. Two line-oriented text formats, both specified in `spike/FORMATS.md` and
-already carrying the shipped pack (`spike/levels/act1.tt` + `act1.sol`). Port the format,
-don't invent a second one: `verify.mjs` checks that every solve string quoted in
+commentary**. Two line-oriented text formats, both specified in `FORMATS.md` and
+already carrying the shipped pack (`levels/act1.tt` + `act1.sol`). One format, never a
+second one: `tools/verify.mjs` checks that every solve string quoted in
 `levels.md` appears verbatim in the data, which is what keeps the design doc from
 drifting from the game.
 
@@ -340,7 +340,7 @@ the move sequence, which is enough to reproduce a solve exactly.
 
 ## Tests
 
-`tests/*.test.js`, `node --test`. Ported from `spike/verify.mjs`, which already proves
+`tests/*.test.js`, `node --test`, alongside `tools/verify.mjs`, which proves
 these headlessly across the whole shipped pack; `FORMATS.md` §4 is the full list. The
 verifier's discipline carries over: **every claim a level file makes about itself is
 checked against the engine, never asserted by hand.**
@@ -383,7 +383,7 @@ Per shipped room:
 
 ## Open questions
 
-Needs a spike or a playtest to answer:
+Needs a prototype or a playtest to answer:
 
 1. **Room order — an owner call, not just a playtest.** `levels.md` runs the Act 1 spine
    **L0 → L1 → L3 → L4 → L5**; the panel demoted L1 and opened on **L3**. The panel's

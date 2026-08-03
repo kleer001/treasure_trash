@@ -1,21 +1,22 @@
 #!/usr/bin/env node
-// Bundle the spike into ONE self-contained HTML file for publishing.
+// Bundle the game into ONE self-contained HTML file for publishing.
 //
-// The spike is ES modules + a fetched level pack, which needs a server. An Artifact is a
+// The game is ES modules + a fetched level pack, which needs a server. An Artifact is a
 // single file behind a CSP that blocks every external request, so this inlines the module
 // sources and the level data into one script. It is a PUBLISHING step, not a build step:
-// spike/ is still the source of truth and still runs unbundled via ./run.sh, and this
+// the repo is still the source of truth and still runs unbundled via ./run.sh, and this
 // script only ever concatenates — it never edits logic.
 //
-//   node build-artifact.mjs [out.html]
+//   node tools/build-artifact.mjs [out.html]
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const read = f => readFileSync(resolve(here, f), 'utf8');
-const out = process.argv[2] ?? resolve(here, 'artifact.html');
+// Everything it reads lives at the repo root, one level up from tools/.
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const read = f => readFileSync(resolve(root, f), 'utf8');
+const out = process.argv[2] ?? resolve(root, 'artifact.html');
 
 // Strip module syntax so the sources can share one script scope.
 const demodule = src => src
@@ -34,16 +35,17 @@ const asciiMarkup = s => s.replace(/[^\x00-\x7F]/gu, c => `&#x${c.codePointAt(0)
 const asciiScript = s => s.replace(/[^\x00-\x7F]/g, c => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
 
 const page = read('index.html');
-const style = /<style>([\s\S]*?)<\/style>/.exec(page)[1];
-const body = /<body>\s*([\s\S]*?)\s*<script type="module">/.exec(page)[1];
-const script = /<script type="module">([\s\S]*?)<\/script>/.exec(page)[1];
+const style = read('styles.css');
+const body = /<body>\s*([\s\S]*?)\s*<script type="module"/.exec(page)[1];
+// The page now loads its module from src/main.js rather than carrying it inline.
+const script = read('src/main.js');
 
 // Levels are data on disk; inline them verbatim so the pack stays the single source.
 const pack = read('levels/act1.tt');
 // The win chime is the one binary asset. It stays an .mp3 in the repo — playable, editable,
 // diffable as a file — and only becomes base64 here, because the artifact is one document
 // behind a CSP that blocks every request, data: URIs included.
-const chime = readFileSync(resolve(here, 'sfx/win-chime.mp3')).toString('base64');
+const chime = readFileSync(resolve(root, 'sfx/win-chime.mp3')).toString('base64');
 
 const inlined = demodule(script)
   .replace(/const res = await fetch\([^)]*\);[\s\S]*?LEVELS = parseLevelPack\(await res\.text\(\)\)\.levels;/,
@@ -56,7 +58,7 @@ if (/^\s*(import|export)\s/m.test(inlined)) throw new Error('module syntax survi
 
 const page_out = `<style>
 ${style}
-/* Artifact-only: the spike normally owns the whole page. Inside the viewer it sits in a
+/* Artifact-only: the game normally owns the whole page. Inside the viewer it sits in a
    themed frame, so pin the ground it was designed against rather than half-inherit a dark
    one. The house doc style is deliberately light; this commits to it instead of shipping
    a broken-looking inversion. */
@@ -75,11 +77,11 @@ ${asciiMarkup(body.replace('<canvas id="cv"', '<p class="focusnote" id="focusnot
 const LEVEL_PACK = ${asciiScript(JSON.stringify(pack))};
 const WIN_CHIME_B64 = ${JSON.stringify(chime)};
 
-// ---- rules.mjs ----
-${asciiScript(demodule(read('rules.mjs')))}
-// ---- format.mjs ----
-${asciiScript(demodule(read('format.mjs')))}
-// ---- spike ----
+// ---- src/rules.js ----
+${asciiScript(demodule(read('src/rules.js')))}
+// ---- src/format.js ----
+${asciiScript(demodule(read('src/format.js')))}
+// ---- src/main.js ----
 ${asciiScript(inlined)}
 
 // Artifacts render in an iframe, so keystrokes go nowhere until the frame has focus.

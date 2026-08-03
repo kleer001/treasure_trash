@@ -5,22 +5,19 @@ Snapshot to continue on a local machine. Read `levels.md` for the exact ruleset,
 is superseded — history only, do not implement from it.)
 
 ## Where we are
-- Genre + core loop **decided**; the raccoon's core mechanic is **designed and
-  verified** in `spike/` (L0–L13 solvable in provably-minimal par, proven by an
-  exhaustive solver, not asserted).
+- Genre + core loop **decided**; the raccoon's core mechanic is **built and playable**
+  (L0–L17 solvable in provably-minimal par, proven by an exhaustive solver, not
+  asserted).
 - Crow is **pinned** — deliberately parked until the raccoon-alone game proves fun.
-- **The game is in `spike/`, and `src/` is still unmodified template.** Byte-identical
-  to `trace_rom_studio/template/src/` — no authored game code has ever landed there.
-  `spike/` holds a working rules engine, an exhaustive solver, two file formats, a
-  verifier and 14 rooms. It was called a throwaway only because the old studio gate
-  forbade code before a design review, and `spike/` was the one place anything
-  executable was allowed to grow. **That gate is retired** (studio 0.8.0): the next
-  move is to promote `spike/` into `src/`, not to rewrite it.
-- **Levels are data with a real toolchain** — `spike/levels/*.tt` + `*.sol`, one rules
-  module (`spike/rules.mjs`) shared by the player and the verifier, and a solver that
-  proves par minimal rather than trusting it. Spec: `spike/FORMATS.md`.
+- **The game lives in `src/`.** `rules.js` is the engine of record, `format.js` the
+  `.tt`/`.sol` parser, `solver.js` the exhaustive search, `main.js` presentation and
+  input. `tools/` is offline only — `verify.mjs`, `metrics.mjs`, `build-artifact.mjs`
+  — and `src/` never imports it.
+- **Levels are data with a real toolchain** — `levels/*.tt` + `*.sol`, one rules module
+  shared by the player, the solver and the tests, and a verifier that proves par
+  minimal rather than trusting it. Spec: `FORMATS.md`.
 
-## Locked mechanics (verified in the spike)
+## Locked mechanics (verified against the engine)
 - Untimed, **grid step-move**; one raccoon controlled directly.
 - **Pounce-tear:** step into a bag = tear it. Bursts a **2×3 directional fan** — the
   bag's two perpendicular **side** cells + the **three cells one row ahead** in the
@@ -59,7 +56,7 @@ is superseded — history only, do not implement from it.)
 
 What the review changed:
 - **Slice cut to the 3 verified objects** (bag, can, trash). The other six each need
-  their own spike — see `SPEC-SHEET.md` → Vertical slice.
+  their own prototype — see `SPEC-SHEET.md` → Vertical slice.
 - **Solvability check is in the slice** — the positional soft-lock is currently
   silent, and a dead board must announce itself.
 - **Act 1 opens on L3**, not L1; L1 teaches nothing about direction.
@@ -68,19 +65,20 @@ What the review changed:
 - `GAME-SHEET.md` rewritten and `DESIGN-BIBLE.md` marked superseded — both described
   the retired real-time two-animal game.
 
-## NEXT MOVE — build the slice
-The house scaffolding is in place: `index.html`, `run.sh`, `package.json`, `styles.css`,
-`src/` (compositor, logo, rng), `tests/`, and the test + Pages workflows, all running
-green (`npm test`, `cd spike && ./run.sh`). What's left is the game itself, per
-`SPEC-SHEET.md` → *Systems*:
-- `src/` modules: `rules` (port `spike/rules.mjs` — do not write a second engine),
-  `board`, `format`, `solver` (port `spike/solver.mjs`), `undo`, `render` via
-  `compositor.js` ordered layers, `input` (owns arming), `audio`.
-- `tests/*.test.js` (`node --test`) — port `spike/verify.mjs`: every shipped room
-  provably solvable in its stated par, the exit unoccupied across every reachable state,
-  and the refusal/trap counts the level files declare.
-- Levels stay **data** — the `.tt`/`.sol` pack in `spike/levels/`, per `spike/FORMATS.md`.
-- Delete `spike/` only once `src/` covers it; until then it is the reference engine.
+## NEXT MOVE — everything around the mechanic
+The mechanic is built and plays: `./run.sh`, then L0–L17. `npm test` and
+`node tools/verify.mjs` are green. What's left, per `SPEC-SHEET.md` → *Systems*:
+- **The solvability indicator.** `solver.js` already detects a dead board offline; wire
+  it to run after each state change and surface a non-blocking "can no longer be won."
+  This is the one slice commitment not yet built.
+- **Render through the compositor.** `main.js` draws straight to the canvas; the house
+  pattern is ordered layers via `src/compositor.js`. Worth doing before the art pass,
+  not after.
+- **Audio** — procedural WebAudio. The only sound today is the win chime.
+- **Art pass**, and more rooms toward a full Act 1.
+- `src/rng.js`, `src/logo.js` and `src/compositor.js` are template scaffolding the game
+  does not import yet. They are tested and harmless; wire them in or drop them
+  deliberately, but don't leave the question open forever.
 
 ## Open decisions (need a call)
 - **The crow.** Un-pin and design its powers — the "separation of powers" wasn't
@@ -106,22 +104,22 @@ green (`npm test`, `cd spike && ./run.sh`). What's left is the game itself, per
   moved direction, or to tint the two fans differently.
 - **Playtest the exit.** It's mechanically verified but not *felt* — the open question
   is whether the walk to `E` reads as tension or as filler. Cheapest test: play L1–L3
-  in the spike and see if the last move is ever a decision.
+  and see if the last move is ever a decision.
 - New objects toward the ~8 budget: the **shopping cart** (a 2-cell wheelie bin) is the
   only one still specified and unbuilt; the multi-cell state model it needed now exists.
 - Audio (procedural WebAudio), art pass, more rooms → Act 1.
 
 ## How to run / verify (local)
 ```
-# play the prototype (ES modules need http://, so serve it)
-cd trash_treasure/spike && ./run.sh 8000   # then open http://localhost:8000
+# play it (ES modules need http://, so serve it)
+./run.sh 8000                 # then open http://localhost:8000
 
 # check every claim the level files make
-cd trash_treasure/spike && node verify.mjs
+node tools/verify.mjs
 ```
 
 ## Handy links
-- Playable spike (Artifact): https://claude.ai/code/artifact/10ed938d-a736-4251-a501-cafa78653bda
-  Rebuild + republish after any spike change: `cd trash_treasure/spike && node build-artifact.mjs`,
-  then publish the output to that same URL (a new URL means the old link goes stale).
+- Playable build (Artifact): https://claude.ai/code/artifact/10ed938d-a736-4251-a501-cafa78653bda
+  Rebuild + republish after any game change: `node tools/build-artifact.mjs`, then publish
+  the output to that same URL (a new URL means the old link goes stale).
 - Block-Pusher Laws (Artifact): https://claude.ai/code/artifact/438adc6f-d6f1-470e-b273-97b084ba2a71

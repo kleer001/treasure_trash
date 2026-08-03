@@ -5,8 +5,8 @@
 // tables (Junghanns & Schaeffer, Rolling Stone): rather than pattern-matching a 5x4
 // window, we label the whole reachable graph live-or-dead and read the answers off it.
 
-import { DIR_ORDER, MOVE, explain, isWon, stateKey, cloneState, cell } from './rules.mjs';
-import { formatLurd } from './format.mjs';
+import { DIR_ORDER, MOVE, explain, isWon, stateKey, cloneState, cell } from './rules.js';
+import { formatLurd } from './format.js';
 
 /**
  * Enumerate the level's whole state graph.

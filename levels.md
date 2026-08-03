@@ -6,10 +6,10 @@
 > out.** Coordinates: **(x,y), top-left = (1,1)**, x → right, y ↓ down.
 
 > **The data is canonical, this doc is commentary.** Every room below lives as a level
-> file in [`spike/levels/act1.tt`](./spike/levels/act1.tt), and every par and solve here
-> is checked against the rules engine by `spike/verify.mjs` — including a check that the
+> file in [`levels/act1.tt`](./levels/act1.tt), and every par and solve here
+> is checked against the rules engine by `tools/verify.mjs` — including a check that the
 > solve strings quoted below appear verbatim, so the prose can't drift from the game.
-> Formats and API: [`spike/FORMATS.md`](./spike/FORMATS.md).
+> Formats and API: [`FORMATS.md`](./FORMATS.md).
 >
 > Solutions are written in **extended LURD**: lowercase = move, UPPERCASE = push,
 > UPPERCASE + `!` = pounce-tear. `uU!dr` is *step up, tear upward, step down, step right*,
@@ -18,7 +18,7 @@
 ## Legend
 These are the letters the **diagrams in this doc** use, chosen to be readable in prose.
 The level files use the XSB-compatible glyph set instead (`-` floor, `@` raccoon, `$` bag,
-`+` raccoon on the exit) — see [`spike/FORMATS.md`](./spike/FORMATS.md). Same cells, two
+`+` raccoon on the exit) — see [`FORMATS.md`](./FORMATS.md). Same cells, two
 notations; the files are canonical. **Water is the one that diverges properly:** these
 diagrams overlay it on the occupant, and the files cannot, because water takes any occupant
 and one character per cell cannot say which. There it is a separate `:water` block.
@@ -542,9 +542,9 @@ E$---@
 machine-checked — the par is provably minimal, the solve replays to a win, the trap and
 refusal counts are exact — but nothing checks that a room is *interesting*, and no search
 can. If any of these plays flat, it should be swapped out rather than defended: the bank of
-candidates it came from is in `spike/levels/bank.jsonl`, several hundred rooms deep.
+candidates it came from is in `levels/bank.jsonl`, several hundred rooms deep.
 
-**Measured since, and the news is bad.** `spike/metrics.mjs` scores these seven on what they
+**Measured since, and the news is bad.** `tools/metrics.mjs` scores these seven on what they
 cost the player rather than on par, and they do not hold up: par climbs 13 → 25 while the number
 of board-changing *decisions* stays flat at 3–5, so the ladder is built out of walking; L11 and
 L13 have zero coupling between their bags (independent puzzles sharing a grid); and L11 lets you
@@ -749,7 +749,7 @@ one** — move it to free the bag, then move it again to free the strike. That i
 under these rooms' pars, and it is why the wheelie bin's room is par 11 rather than 6.
 
 ## Authoring checklist (every new room)
-**Items 1, 3, 4 and 5 are now enforced by `spike/verify.mjs` — a room that violates
+**Items 1, 3, 4 and 5 are now enforced by `tools/verify.mjs` — a room that violates
 them fails the build rather than reaching a player.**
 
 1. Exactly **one** `E`, and nothing starts on it (no bag, no can, no raccoon). *(checked)*
@@ -797,7 +797,7 @@ bag open **and** the raccoon on the exit.
 **Cut:** shiny/treasure & any collecting · aerosol · leaky sack/bag · cardboard box (= empty can)
 · dumpster · gum/tar · oil slick · glass bottle.
 
-**Implemented and verified in `spike/`:** bag, metal can, exit, spilled trash, **recycle
+**Implemented and verified in `src/`:** bag, metal can, exit, spilled trash, **recycle
 bin**, **wheelie bin**, **water**, **water jug** — L0–L6 at pars 2/4/7/5/5/6/11, L14 at par 7
 and L16 at par 6, every one a provably minimal solve.
 The two failure classes stay separate: **refusals** (an action the exit or a blocked fan

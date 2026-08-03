@@ -3,11 +3,11 @@
 How to build the next room: what the ruleset makes possible, what to select on, and the
 pipeline that gets from an idea to a verified level.
 
-Numbers come from `spike/metrics.mjs`, which replays a room through the rules engine:
+Numbers come from `tools/metrics.mjs`, which replays a room through the rules engine:
 
 ```sh
-cd spike && node metrics.mjs                  # the shipped pack
-cd spike && node metrics.mjs levels/new.tt    # a candidate
+node tools/metrics.mjs                  # the shipped pack
+node tools/metrics.mjs levels/new.tt    # a candidate
 ```
 
 `verify.mjs` asks *is this room legal?* and fails a build. `metrics.mjs` asks *is this room

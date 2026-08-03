@@ -1,83 +1,773 @@
-// Entry point for the vertical slice. Keep it small; grow it into a real loop.
-// House rule: validate at boundaries, then trust internal functions. Fail loudly.
-//
-// Rendering here is LAYERED by default (see compositor.js): the character grid is
-// layer 0, and a scanline overlay composites on top of it. That's the house stance
-// in miniature — the grid is one layer, not the whole frame. Add sprites, a HUD,
-// the studio logo, or a real WebGL CRT pass by writing another layer and calling
-// `scene.add(...)` — no edit to `start()` required (open/closed).
+// Presentation and input only — the rules live in src/rules.js, which the
+// verifier imports too, so the game and the proof can never disagree.
+// ES modules need http://, so run ./run.sh rather than opening the file.
+// This file no longer owns the rules — src/rules.js does, and the verifier imports the same
+// module. This file is presentation and input only. ES modules need http://, so run ./run.sh.
+import {
+  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
+  MOVE, PUSH, TEAR, DIRS,
+  explain, isWon, bagsLeft, fan, inGrid, cell, cloneState, pieceCells, isMultiCell,
+} from './rules.js';
+import { parseLevelPack, toState } from './format.js';
 
-import { mulberry32 } from './rng.js';
-import { createCompositor } from './compositor.js';
+const CANF = CAN_FULL, CANE = CAN_EMPTY;
+const CS=76, PAD=9;
+const C = { red:"#ff4b3e", yel:"#ffcf00", blu:"#2d7dd2", tea:"#17c3b2", pnk:"#ff5da2", ink:"#1a1a1a",
+  grn:"#2e9e5b" };   // exit-sign green — ISO 3864 "safe condition", not a Memphis accent
 
-const SEED = 1983;
-
-// --- data: tuning for the placeholder layers (code/data separation) ---------
-const GRID = { cols: 80, rows: 40, glyphs: '.:-=+*#%@', bg: '#001100', fg: '#33ff66' };
-const SCANLINES = { color: 'rgba(0, 0, 0, 0.25)', gap: 3 };
-
-// --- layers: each honors the { name, draw(ctx, frame) } contract ------------
-
-/** Layer 0: a seeded character grid — the house default base, not the whole show. */
-export function createGridLayer(cfg = GRID) {
-  return {
-    name: 'grid',
-    draw(ctx, frame) {
-      const rand = mulberry32(frame.seed ?? SEED);
-      const cellW = frame.width / cfg.cols;
-      const cellH = frame.height / cfg.rows;
-      ctx.fillStyle = cfg.bg;
-      ctx.fillRect(0, 0, frame.width, frame.height);
-      ctx.fillStyle = cfg.fg;
-      ctx.font = `${cellH}px monospace`;
-      ctx.textBaseline = 'top';
-      for (let row = 0; row < cfg.rows; row++) {
-        for (let col = 0; col < cfg.cols; col++) {
-          const glyph = cfg.glyphs[Math.floor(rand() * cfg.glyphs.length)];
-          ctx.fillText(glyph, col * cellW, row * cellH);
-        }
-      }
-    },
-  };
-}
-
-/** Overlay: faint scanlines drawn *over* everything below — proof that layers
- *  composite on top of the grid, and a stand-in for the future WebGL CRT pass. */
-export function createScanlineLayer(cfg = SCANLINES) {
-  return {
-    name: 'scanlines',
-    draw(ctx, frame) {
-      ctx.fillStyle = cfg.color;
-      for (let y = 0; y < frame.height; y += cfg.gap) {
-        ctx.fillRect(0, y, frame.width, 1);
-      }
-    },
-  };
-}
-
-/**
- * Wire up the canvas and composite one frame.
- * @param {HTMLCanvasElement} canvas
- */
-export function start(canvas) {
-  if (!(canvas instanceof HTMLCanvasElement)) {
-    throw new Error('start() requires a <canvas> element'); // boundary check
+const WHY = {
+  edge:    "that's the edge of the alley",
+  wall:    "wall",
+  trash:   "your own trash — permanent",
+  fan:     "no room to burst",
+  canRoom: "no room to shove it",
+  exit:    "that's your way out — you can't dump on it",
+  water:   "he's not wetting his paws — fill it in first",
+  afloat:  "that's out in the canal — he's not wading in after it",
+  pour:    "it only pours on dry ground",
+};
+// Name the thing in the way rather than saying "blocked". The player can see the red
+// cell; the words should add the noun, not repeat the colour.
+const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"your own trash",
+  [BIN]:"the recycle bin", [STACK]:"a bag on a can", [WHEELIE]:"a wheelie bin",
+  [WHEELIE_EMPTY]:"an empty wheelie bin", [JUG]:"the water jug", [FURNITURE]:"the couch" };
+function whyText(b){
+  const base = WHY[b.reason];
+  // 'water' covers three different noes now that the canal takes objects: he won't wade in,
+  // he won't wade in AFTER something, and the jug won't pour on anything but dry ground.
+  // Which one it is depends on where the blame landed and what is sitting there.
+  if(b.reason === 'water'){
+    const [bx,by] = b.cells[0] ?? [];
+    if(bx === undefined || !inGrid(state,bx,by)) return base;
+    const [dx,dy] = DIRS[b.dir];
+    if(bx !== state.rac.x+dx || by !== state.rac.y+dy) return WHY.pour;
+    return cell(state,bx,by).o === NONE ? WHY.water : WHY.afloat;
   }
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('2D canvas context unavailable');
-
-  const scene = createCompositor()
-    .add(createGridLayer())
-    .add(createScanlineLayer());
-
-  const frame = { width: canvas.width, height: canvas.height, seed: SEED };
-  scene.render(ctx, frame);
-  // Growing into an animation? Call scene.render(ctx, { ...frame, tick }) from a
-  // requestAnimationFrame loop — the compositor and its layers stay the same.
+  if(b.reason !== 'fan' && b.reason !== 'canRoom') return base;
+  const [x,y] = b.cells[0] ?? [];
+  if(x === undefined || !inGrid(state,x,y)) return `${base} — the wall's in the way`;
+  const c = cell(state,x,y);
+  const what = c.wall ? "the wall" : (OBSTACLE[c.o] ?? "something");
+  return `${base} — ${what} is in the way`;
 }
 
-// Auto-start when loaded in the browser (skipped under `node --test`).
-if (typeof document !== 'undefined') {
-  const canvas = document.getElementById('screen');
-  if (canvas) start(canvas);
+let LEVELS = [], cur=0, state=null, start=null, history=[], moves=0, won=false;
+let blocked = null;   // { cells, reason, dir } — cleared by the next legal action
+let armed = null;     // direction of a tear that is aimed but not yet committed
+
+// ---- the rejection animation ---------------------------------------------------------
+// THE STATE NEVER CHANGES. This is a refusal played out in full: the raccoon lunges, the
+// bag bursts, the debris reaches the cell that won't take it, everything flashes, and the
+// whole thing rewinds itself. The player spends no move and is never left in a position
+// they have to escape — the invalid overlap is a frame in a rejection, not a board state.
+//
+// Scaled to what there is to show: a refused tear gets the full sequence, a refused shove
+// a short lunge, a refused step a quick knock. And it degrades — the second time you make
+// the same mistake in a room you get the short version, because by then you know.
+const FX = {
+  tear: { lunge:150, burst:190, hold:260, rewind:240 },
+  push: { lunge:130, burst:0,   hold:170, rewind:140 },
+  bump: { lunge:70,  burst:0,   hold:110, rewind:80  },
+};
+let fx = null, fxSeen = new Set(), raf = 0;
+
+function startFx(dir, r){
+  const [dx,dy] = ({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
+  const tx = state.rac.x+dx, ty = state.rac.y+dy;
+  const o = inGrid(state,tx,ty) ? cell(state,tx,ty).o : NONE;
+  let kind = o===BAG ? 'tear' : (o===CANF||o===CANE||isMultiCell(o)) ? 'push' : 'bump';
+  const key = `${kind}:${r.reason}`;
+  if(fxSeen.has(key)) kind = 'bump';          // you've seen it; don't make you sit through it
+  fxSeen.add(key);
+  fx = { kind, dx, dy, bx:tx, by:ty, showBurst: kind==='tear',
+         cells: kind==='tear' ? fan(tx,ty,dx,dy) : [], blame:r.blame, t0:performance.now(), beeped:false };
+  if(!raf) raf = requestAnimationFrame(tick);
 }
+function fxPhase(){
+  const d = FX[fx.kind], e = performance.now() - fx.t0;
+  const t1=d.lunge, t2=t1+d.burst, t3=t2+d.hold, t4=t3+d.rewind;
+  if(e < t1)  return { lunge:e/t1, burst:0, flash:0 };
+  if(e < t2)  return { lunge:1, burst:d.burst ? (e-t1)/d.burst : 1, flash:0 };
+  if(e < t3)  return { lunge:1, burst:1, flash:1 };
+  if(e < t4){ const k = 1-(e-t3)/d.rewind; return { lunge:k, burst:k, flash:0 }; }
+  return null;                                 // done
+}
+// ---- the move animation --------------------------------------------------------------
+// An accepted action is already committed to `state` by the time this runs; the animation
+// only remembers where the pieces WERE, so nothing ever teleports between cells. `hide`
+// names the cells whose occupant the animation draws itself, so nothing is painted twice.
+const MV = { [MOVE]:120, [PUSH]:175, [TEAR]:230 };
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+let mv = null;
+
+function startMv(prev, kind, dir){
+  const [dx,dy] = DIRS[dir];
+  const bx = prev.rac.x + dx, by = prev.rac.y + dy;      // the cell he acts into
+  const m = { t0: performance.now(), dur: MV[kind], hide: new Set(), parts: [],
+              rac: [prev.rac.x, prev.rac.y, state.rac.x, state.rac.y] };
+  if(kind === TEAR){
+    m.parts.push({ what:'bag', from:[bx,by], to:[bx,by], burst:true });
+    for(const [tx,ty] of fan(bx,by,dx,dy)){
+      m.hide.add(`${tx},${ty}`);
+      m.parts.push({ what:'trash', from:[tx,ty], to:[tx,ty], src:[bx,by] });
+    }
+  } else if(kind === PUSH && isMultiCell(cell(prev,bx,by).o)){
+    // A multi-cell piece is one body, so it slides as one. The per-cell diff below would
+    // read a translated couch as several unrelated pieces all flying out of the shove cell,
+    // which is the one shape it cannot describe.
+    const pc = cell(prev,bx,by), own = pieceCells(prev, pc.pid);
+    for(const [x,y] of own){ m.hide.add(`${x},${y}`); m.hide.add(`${x+dx},${y+dy}`); }
+    m.parts.push({ what:'body', o:pc.o, cells:own, dx, dy });
+  } else if(kind === PUSH){
+    // Whatever the shove produced, slide it out of the cell that was shoved. Reading the
+    // two boards rather than naming the piece keeps this correct for every pushable —
+    // a can and its ejected bag, a bin and the trash it drops, a wheelie bin that rolls
+    // clean across the room and leaves its bag behind.
+    for(let y=0; y<state.rows; y++) for(let x=0; x<state.cols; x++){
+      const now = cell(state,x,y).o;
+      if(now === NONE || now === cell(prev,x,y).o) continue;
+      m.hide.add(`${x},${y}`);
+      m.parts.push({ what:'piece', o:now, from:[bx,by], to:[x,y] });
+    }
+  }
+  mv = m;
+  if(!raf) raf = requestAnimationFrame(tick);
+}
+/** Eased progress of the running move, or null once it has played out. */
+function mvT(){ const e = (performance.now() - mv.t0) / mv.dur; return e >= 1 ? null : easeOut(e); }
+
+// ---- the win: a short confetti blast, then straight on to the next room ----------------
+// Seeded from the level index, never Math.random() — a replay of the same room throws the
+// same confetti. It is cosmetic, so the seed only has to be stable, not secret.
+const WIN_MS = 1400, GRAV = 1500;
+let party = null;
+
+function startParty(){
+  playWinChime();
+  let h = ((cur + 1) * 2654435761) >>> 0;
+  const rnd = () => ((h = (h * 1103515245 + 12345) >>> 0) / 4294967296);
+  const cols = [C.red, C.yel, C.blu, C.tea, C.pnk];
+  party = {
+    t0: performance.now(), cx: (state.rac.x + .5) * CS, cy: (state.rac.y + .5) * CS,
+    bits: Array.from({ length: 90 }, () => {
+      const a = rnd() * Math.PI * 2, sp = 90 + rnd() * 330;
+      return { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 260, col: cols[(rnd() * 5) | 0],
+               w: 4 + rnd() * 7, h: 3 + rnd() * 6, rot: rnd() * 6.3, vr: (rnd() - .5) * 16 };
+    }),
+  };
+  if(!raf) raf = requestAnimationFrame(tick);
+}
+function drawParty(){
+  const t = (performance.now() - party.t0) / 1000;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, Math.max(0, (WIN_MS / 1000 - t) / .45));   // fade on the way out
+  for(const b of party.bits){
+    ctx.save();
+    ctx.translate(party.cx + b.vx * t, party.cy + b.vy * t + .5 * GRAV * t * t);
+    ctx.rotate(b.rot + b.vr * t);
+    ctx.fillStyle = b.col; ctx.fillRect(-b.w/2, -b.h/2, b.w, b.h);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// One ticker for all three animations. They are driven from the same frame so they can
+// never fight over `raf` — a rejection, a slide and a win blast all end up here.
+function tick(){
+  raf = 0;
+  if(fx){
+    const ph = fxPhase();
+    if(ph && ph.flash && !fx.beeped){ fx.beeped = true; beep(false); }
+    if(!ph) fx = null;
+  }
+  if(mv && mvT() === null) mv = null;
+  if(party && performance.now() - party.t0 >= WIN_MS){ handOver(); return; }
+  render();
+  if(fx || mv || party) raf = requestAnimationFrame(tick);
+}
+
+// The reward IS the progression: the blast ends and the next room is already up. The
+// chime is not consulted — it is still ringing, and that is the point.
+function handOver(){
+  party = null;
+  if(cur < LEVELS.length - 1) load(cur + 1); else render();
+}
+const cancelAnim = () => { if(raf) cancelAnimationFrame(raf); raf = 0; fx = null; mv = null; party = null; };
+
+// ---- audio: a two-tone "no" for a refused input. Procedural, per the house stack.
+let ac = null;
+/** The context, created on first input — browsers refuse to start one before a gesture. */
+function audio(){
+  ac ??= new (window.AudioContext || window.webkitAudioContext)();
+  if(ac.state === 'suspended') ac.resume();
+  return ac;
+}
+function beep(ok){
+  try {
+    audio();
+    const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+    o.type = ok ? 'triangle' : 'square';
+    o.frequency.setValueAtTime(ok ? 520 : 190, t);
+    if(!ok) o.frequency.setValueAtTime(140, t + .07);          // the downward "nope"
+    g.gain.setValueAtTime(ok ? .045 : .09, t);
+    g.gain.exponentialRampToValueAtTime(.0001, t + (ok ? .07 : .16));
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + (ok ? .08 : .17));
+  } catch { /* audio is a nicety; never let it break input */ }
+}
+
+// The win chime is a sample rather than a tone — the one place the game reaches for
+// recorded audio. It is FIRE AND FORGET on purpose: nothing holds a handle to it, so it
+// is never cancelled, never waited on, and rings straight over the hand-over into the
+// next room. Sound must never be a thing the player waits for.
+const WIN_GAIN = 0.35;                 // sits above the beeps without shouting
+let winBytes = null, winBuf = null;
+
+/** Decode once, on first input, so the buffer is ready long before anyone wins. */
+function primeWinChime(){
+  if(winBuf || !winBytes) return;
+  const bytes = winBytes; winBytes = null;     // decodeAudioData detaches it — only one go
+  audio().decodeAudioData(bytes).then(b => { winBuf = b; });
+}
+function playWinChime(){
+  if(!winBuf) return;                          // not decoded yet: the room still hands over
+  const src = audio().createBufferSource(), g = audio().createGain();
+  src.buffer = winBuf;
+  g.gain.value = WIN_GAIN;
+  src.connect(g); g.connect(ac.destination);
+  src.start();                                 // no handle kept: it finishes on its own
+}
+
+// ---- input ----
+// ARMING IS A SCAFFOLD, NOT AN INPUT MODE. `:arm on` in the level file makes
+// board-changing actions ask twice, and it belongs on the room that INTRODUCES a piece —
+// the bag in L1, the can in L2. Everywhere else it's off, which is the default and the
+// normal Sokoban feel: one press, one action, undo if you hate it.
+//
+// Which actions it covers, when it's on, is settled by Sokoban's root law — you cannot
+// pull, so anything that touches the board is permanent. Measured over the pack: moves
+// 100% reversible by play, tears 0%, full-can pushes 0%, empty-can pushes 44% and only
+// by walking round to the far side. So: walking is free, everything else arms.
+//
+// This lives entirely in the input layer. rules.mjs does not know about arming, the
+// solver never sees it, and it cannot change a par: aiming is not a move.
+const arming = () => LEVELS[cur].arm === true;
+
+function act(dir){
+  audio(); primeWinChime();              // first input is the gesture that unlocks audio
+  if(won){ handOver(); return; }         // done admiring it? go straight to the next room
+  if(fx || mv){ cancelAnim(); render(); }   // any input skips an animation already playing
+  const r = explain(state, dir);
+
+  if(!r.ok){                       // refused — play the whole no, then rewind it
+    blocked = { cells:r.blame, reason:r.reason, dir };
+    armed = null; startFx(dir, r); render(); return;
+  }
+  if(arming() && r.kind !== MOVE && armed !== dir){
+    armed = dir; blocked = null;    // aimed, not committed
+    beep(true); render(); return;
+  }
+  const prev = state;
+  history.push(cloneState(state)); state = r.next; moves++;
+  blocked = null; armed = null;
+  startMv(prev, r.kind, dir);
+  if(isWon(state)){ won = true; startParty(); }
+  render();
+}
+function undo(){ cancelAnim(); if(history.length){ state=history.pop(); moves--; won=false; blocked=null; armed=null; render(); } }
+function restart(){ load(cur); }
+function load(i){
+  cancelAnim(); fxSeen = new Set();         // a new room earns the full explanation again
+  cur=(i+LEVELS.length)%LEVELS.length;
+  state=toState(LEVELS[cur]); start=state; history=[]; moves=0; won=false;
+  blocked=null; armed=null;
+  render();
+}
+
+// ---- render ----
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+function render(){
+  const s=state;
+  const ph = fx ? fxPhase() : null;
+  const fxCells = new Set((ph && fx.showBurst ? fx.cells : []).map(([x,y])=>`${x},${y}`));
+  cv.width=s.cols*CS; cv.height=s.rows*CS;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  for(let y=0;y<s.rows;y++) for(let x=0;x<s.cols;x++){
+    const c=cell(s,x,y); if(c.wall) continue;
+    // Three terrains, and the occupant draws on top of whichever it is. A filled cell is
+    // floor now — things rest on it, he walks it — but it keeps the canal's dark rim so you
+    // can still see where the water was and what it cost to cross.
+    if(c.water)       drawWater(x,y,false);
+    else if(c.bridge) drawWater(x,y,true);
+    else              drawFloor(x,y);
+    if(c.exit) drawExit(x,y, bagsLeft(s)===0);
+    if(mv && mv.hide.has(`${x},${y}`)) continue;   // in flight — the move animation draws it
+    if(isMultiCell(c.o)) continue;                 // drawn whole, after the loop
+    // a bag mid-refusal deflates; everything else draws at rest
+    drawOccupant(c.o, x, y, ph && fx.bx===x && fx.by===y ? 1-ph.burst : 1);
+  }
+  // Multi-cell pieces are drawn per PIECE rather than per cell, so a couch comes out as one
+  // slab with no seam down the middle — which is the only way "one couch" reads differently
+  // from "two couches touching", and the rules very much tell them apart.
+  for(const pid of new Set(s.cells.flat().filter(c => c.pid !== undefined).map(c => c.pid))){
+    const own = pieceCells(s, pid);
+    if(mv && own.some(([x,y]) => mv.hide.has(`${x},${y}`))) continue;
+    drawFurniture(own);
+  }
+  // the debris of a burst that is being refused: it flies out, reaches the cell that
+  // won't take it, and retracts. None of it is board state.
+  if(ph) for(const [fxx,fxy] of (fx.showBurst ? fx.cells : []))
+    if(inGrid(s,fxx,fxy) && !cell(s,fxx,fxy).wall) drawTrash(fxx,fxy, ph.burst, [fx.bx,fx.by]);
+
+  // Pieces in flight: a torn bag deflating as its fan grows, a shoved can crossing the gap,
+  // an ejected bag sailing past it. Drawn from where they were toward where they now are.
+  if(mv){
+    const t = mvT() ?? 1;
+    for(const p of mv.parts){
+      if(p.what==='body'){ drawFurniture(p.cells, p.dx*t, p.dy*t); continue; }  // one body, one offset
+      const x = p.from[0]+(p.to[0]-p.from[0])*t, y = p.from[1]+(p.to[1]-p.from[1])*t;
+      if(p.what==='trash')      drawTrash(p.from[0], p.from[1], t, p.src);  // integer cell: stable colours
+      else if(p.what==='bag')   drawBag(x, y, p.burst ? 1-t : 1);
+      else if(p.what==='piece') drawOccupant(p.o, x, y);
+    }
+  }
+
+  if(ph){
+    const k = ph.lunge*0.42;
+    drawRaccoon(s.rac.x+fx.dx*k, s.rac.y+fx.dy*k);
+  } else if(mv){
+    const t = mvT() ?? 1, [ax,ay,bx,by] = mv.rac;
+    drawRaccoon(ax+(bx-ax)*t, ay+(by-ay)*t);
+  } else drawRaccoon(s.rac.x,s.rac.y);
+
+  // Fan preview, over everything including the exit sign. Law 1.7 says a dead-end must be
+  // foreseeable, and the exit traps only are if you can SEE the trash land on your way out.
+  // The fan is ALWAYS pale yellow — it answers "where would this land?", which has the same
+  // answer whether or not the strike is legal. Red is not a second opinion about the fan;
+  // it belongs to one cell only, the one doing the blocking, and only once you've tried.
+  // The fan preview is INFORMATION and is always available — it answers "where would
+  // this land", which the player is entitled to know in a full-information puzzle and
+  // which never stops being true. Aiming only FOCUSES it: while armed, just the aimed
+  // direction draws, so a room with two adjacent bags isn't ten yellow cells at once.
+  const red = new Set((blocked?.cells ?? []).map(([x,y])=>`${x},${y}`));
+  for(const dir of (ph || mv ? [] : armed ? [armed] : ['u','d','l','r'])){
+    const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
+    const bx=s.rac.x+dx, by=s.rac.y+dy;
+    if(!inGrid(s,bx,by) || cell(s,bx,by).o!==BAG) continue;   // fan preview: bags only
+    for(const [fx,fy] of fan(bx,by,dx,dy)){
+      if(!inGrid(s,fx,fy) || red.has(`${fx},${fy}`)) continue;   // never tint under the red
+      ctx.fillStyle="rgba(255,207,0,.45)";
+      ctx.fillRect(fx*CS+1,fy*CS+1,CS-2,CS-2);
+      ctx.strokeStyle="rgba(224,170,0,.85)"; ctx.lineWidth=2;
+      ctx.strokeRect(fx*CS+2,fy*CS+2,CS-4,CS-4);
+    }
+  }
+
+  // The armed bag gets a ring + a direction arrow, so "what am I about to do" is on the
+  // board and not only in the HUD.
+  if(armed){
+    const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[armed];
+    const ax=s.rac.x+dx, ay=s.rac.y+dy, o=cell(s,ax,ay).o;
+    // For a push, show where the can lands (and, for a full can, where its bag lands) —
+    // the push is as permanent as the tear, so it gets the same look-before-you-commit.
+    if(o===CANE||o===CANF){
+      drawLanding(ax+dx, ay+dy);
+      if(o===CANF) drawLanding(ax+2*dx, ay+2*dy);
+    }
+    drawAim(ax, ay, dx, dy);
+  }
+
+  // Blocked: you TRIED it and the rules said no. Mark the exact cells to blame, in red,
+  // and say why. A refused input that looks identical to no input is a bug, not a puzzle.
+  if(blocked && (!ph || ph.flash)){
+    for(const [bx,by] of blocked.cells) drawBlocked(bx,by);
+    if(!blocked.cells.length) drawEdgeBar(s.rac.x, s.rac.y, blocked.dir);
+  }
+
+  if(party) drawParty();   // over everything: the room is finished, nothing else needs reading
+
+  document.getElementById('moves').textContent=moves;
+  document.getElementById('par').textContent=LEVELS[cur].par;
+  document.getElementById('lvlname').textContent=`${LEVELS[cur].id} — ${LEVELS[cur].name}`;
+  const w=document.getElementById('warn');
+  w.textContent = blocked ? `✕ ${whyText(blocked)}` : '';
+  w.className = 'warn'+(blocked?' show':'');
+  const am=document.getElementById('arm');
+  am.textContent = armed ? `${({u:'↑',d:'↓',l:'←',r:'→'})[armed]} again to ${armedVerb()}` : '';
+  am.className = 'arm'+(armed?' show':'');
+  document.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(i===cur?' on':''));
+}
+
+function drawLanding(x,y){
+  if(!inGrid(state,x,y)) return;
+  ctx.save();
+  ctx.fillStyle="rgba(255,207,0,.32)"; ctx.fillRect(x*CS+1,y*CS+1,CS-2,CS-2);
+  ctx.strokeStyle="rgba(224,170,0,.9)"; ctx.lineWidth=3; ctx.setLineDash([6,4]);
+  ctx.strokeRect(x*CS+3,y*CS+3,CS-6,CS-6); ctx.setLineDash([]);
+  ctx.restore();
+}
+function armedVerb(){
+  const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[armed];
+  const c = cell(state, state.rac.x+dx, state.rac.y+dy);
+  return c.o===BAG ? 'tear' : 'shove';
+}
+function drawAim(x,y,dx,dy){
+  const x0=px(x), y0=px(y), cx=x0+CS/2, cy=y0+CS/2;
+  ctx.save();
+  ctx.strokeStyle="#e0aa00"; ctx.lineWidth=4; ctx.setLineDash([7,5]);
+  ctx.strokeRect(x0+3,y0+3,CS-6,CS-6); ctx.setLineDash([]);
+  ctx.strokeStyle="#e0aa00"; ctx.lineWidth=5; ctx.lineCap="round"; ctx.lineJoin="round";
+  const a=CS*0.24;
+  ctx.beginPath();
+  ctx.moveTo(cx-dx*a, cy-dy*a); ctx.lineTo(cx+dx*a, cy+dy*a);
+  ctx.moveTo(cx+dx*a-(dx+dy)*8, cy+dy*a-(dy+dx)*8);
+  ctx.lineTo(cx+dx*a, cy+dy*a);
+  ctx.lineTo(cx+dx*a-(dx-dy)*8, cy+dy*a-(dy-dx)*8);
+  ctx.stroke();
+  ctx.restore();
+}
+function drawBlocked(x,y){
+  const x0=px(x), y0=px(y);
+  ctx.save();
+  ctx.fillStyle="rgba(255,75,62,.42)"; ctx.fillRect(x0+1,y0+1,CS-2,CS-2);
+  ctx.strokeStyle=C.red; ctx.lineWidth=4; ctx.strokeRect(x0+3,y0+3,CS-6,CS-6);
+  ctx.lineCap="round"; ctx.lineWidth=7; ctx.strokeStyle="#c8321f";
+  const m=CS*0.30;
+  ctx.beginPath();
+  ctx.moveTo(x0+m,y0+m); ctx.lineTo(x0+CS-m,y0+CS-m);
+  ctx.moveTo(x0+CS-m,y0+m); ctx.lineTo(x0+m,y0+CS-m);
+  ctx.stroke();
+  ctx.restore();
+}
+// off-grid: there is no cell to paint, so mark the wall of the alley itself
+function drawEdgeBar(x,y,dir){
+  const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
+  const x0=px(x), y0=px(y), T=9;
+  ctx.save(); ctx.fillStyle=C.red;
+  if(dy<0) ctx.fillRect(x0+2,y0+1,CS-4,T);
+  if(dy>0) ctx.fillRect(x0+2,y0+CS-1-T,CS-4,T);
+  if(dx<0) ctx.fillRect(x0+1,y0+2,T,CS-4);
+  if(dx>0) ctx.fillRect(x0+CS-1-T,y0+2,T,CS-4);
+  ctx.restore();
+}
+
+// One place that knows how to draw an occupant, so the board loop and the move animation
+// can never disagree about what a piece looks like. Coordinates may be fractional.
+function drawOccupant(o, x, y, k=1){
+  if(o===TRASH)              drawTrash(x,y);
+  else if(o===BAG)           drawBag(x,y,k);
+  else if(o===CANF)          drawCan(x,y,true);
+  else if(o===CANE)          drawCan(x,y,false);
+  else if(o===BIN)           drawRecycleBin(x,y);
+  else if(o===STACK)         drawStack(x,y);
+  else if(o===WHEELIE)       drawWheelie(x,y,true);
+  else if(o===WHEELIE_EMPTY) drawWheelie(x,y,false);
+  else if(o===JUG)           drawJug(x,y);
+}
+
+function px(x){return x*CS}
+function drawFloor(x,y){ ctx.fillStyle="#fff"; ctx.strokeStyle="#e6e6e2"; ctx.lineWidth=1;
+  ctx.fillRect(px(x)+1,px(y)+1,CS-2,CS-2); ctx.strokeRect(px(x)+1.5,px(y)+1.5,CS-3,CS-3); }
+// Open water reads as a hole in the floor — darker than anything else on the board, with
+// ripples, because the one thing the player must believe on sight is "not walkable". A
+// filled cell keeps the dark rim so you can still see it WAS water, and takes the same
+// trash glyph the rest of the board uses: the mess is the bridge.
+function drawWater(x,y,filled){
+  const x0=px(x), y0=px(y);
+  ctx.fillStyle = filled ? "#7fb7c4" : "#2e6f8e";
+  ctx.fillRect(x0+1,y0+1,CS-2,CS-2);
+  if(filled){ drawTrash(x,y); return; }
+  ctx.strokeStyle="rgba(255,255,255,.45)"; ctx.lineWidth=2; ctx.lineCap="round";
+  for(let i=1;i<=2;i++){
+    const yy=y0+CS*(i/3);
+    ctx.beginPath();
+    ctx.moveTo(x0+6,yy);
+    ctx.quadraticCurveTo(x0+CS/3,yy-4, x0+CS/2,yy);
+    ctx.quadraticCurveTo(x0+2*CS/3,yy+4, x0+CS-6,yy);
+    ctx.stroke();
+  }
+}
+// The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
+// "safe condition" coding (ISO 7010 E002). Lit = every bag torn; unlit = work left to do.
+// The arrow points at the nearest board edge — the direction he's actually leaving in.
+function exitArrowDir(s,x,y){
+  const d=[[y,[0,-1]],[s.rows-1-y,[0,1]],[x,[-1,0]],[s.cols-1-x,[1,0]]];
+  return d.reduce((a,b)=>b[0]<a[0]?b:a)[1];
+}
+function drawExit(x,y,lit){
+  const s=state, [dx,dy]=exitArrowDir(s,x,y);
+  const x0=px(x), y0=px(y), m=8, w=CS-2*m, cx=x0+CS/2, cy=y0+CS/2;
+  ctx.save();
+  // the sign plate
+  ctx.fillStyle = lit ? C.grn : "rgba(46,158,91,.12)";
+  ctx.fillRect(x0+m, y0+m, w, w);
+  if(!lit){
+    ctx.strokeStyle="rgba(46,158,91,.6)"; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+    ctx.strokeRect(x0+m+1, y0+m+1, w-2, w-2); ctx.setLineDash([]);
+  }
+  const fg = lit ? "#fff" : "rgba(46,158,91,.55)";
+  // legend
+  ctx.fillStyle=fg;
+  ctx.font="700 12px -apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText("EXIT", cx, y0+m+11);
+  // arrow, rotated to point out of the room
+  ctx.translate(cx, cy+7); ctx.rotate(Math.atan2(dy,dx));
+  const a=w*0.30, H=w*0.24, h=w*0.09;
+  ctx.beginPath();
+  ctx.moveTo(a,0); ctx.lineTo(0,-H); ctx.lineTo(0,-h); ctx.lineTo(-a,-h);
+  ctx.lineTo(-a,h); ctx.lineTo(0,h); ctx.lineTo(0,H); ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+function hash(x,y){ return ((x*73856093)^(y*19349663))>>>0; }
+// `src` is the cell of the bag this debris came out of. While k<1 every speck is in
+// flight from that bag's centre to its resting place, so a burst throws its mess outward
+// across the board instead of fading up in place. At rest (k=1) src is irrelevant.
+function drawTrash(x,y,k=1,src=null){
+  if(k<=0) return;
+  const cols=[C.red,C.yel,C.blu,C.tea,C.pnk]; let h=hash(x,y);
+  const x0=px(x), y0=px(y), M=16, R=CS-2*M;   // M = margin from cell edge; dot centers stay inside [M, CS-M]
+  const flying = k<1 && src;
+  ctx.save();
+  // Settled trash is clipped to its own cell — a hard guarantee it never bleeds. Debris
+  // still in the air must cross the cells between the bag and where it lands, so the clip
+  // comes off for exactly as long as it is flying.
+  if(!flying){ ctx.beginPath(); ctx.rect(x0+2, y0+2, CS-4, CS-4); ctx.clip(); }
+  const sx = flying ? px(src[0])+CS/2 : x0+CS/2;
+  const sy = flying ? px(src[1])+CS/2 : y0+CS/2;
+  for(let i=0;i<6;i++){ h=(h*1103515245+12345)>>>0;
+    const ox=M+(h%R), oy=M+((h>>8)%R), r=3+((h>>16)%3);          // center in [16,59], radius 3–5 -> span [11,64] of 76
+    ctx.fillStyle=cols[(h>>4)%5];
+    const ax=sx+(x0+ox-sx)*k, ay=sy+(y0+oy-sy)*k;
+    ctx.beginPath(); ctx.arc(ax, ay, r*Math.max(.25,k), 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawBag(x,y,k=1){
+  if(k<=0) return;
+  const cx0=px(x)+CS/2, cy0=px(y)+CS/2;
+  ctx.save(); ctx.translate(cx0,cy0); ctx.scale(k,k); ctx.translate(-cx0,-cy0);
+  drawBagBody(x,y);
+  ctx.restore();
+}
+function drawBagBody(x,y){
+  const cx=px(x)+CS/2, top=px(y)+PAD+8, w=CS-2*PAD-6, h=CS-2*PAD-8;
+  ctx.fillStyle="#161616";
+  ctx.beginPath();
+  ctx.moveTo(cx-w/2, top+8);
+  ctx.quadraticCurveTo(cx-w/2, top+h, cx, top+h);
+  ctx.quadraticCurveTo(cx+w/2, top+h, cx+w/2, top+8);
+  ctx.lineTo(cx+w/2-4, top+2); ctx.lineTo(cx+6, top+6);
+  ctx.lineTo(cx-6, top+6); ctx.lineTo(cx-w/2+4, top+2); ctx.closePath(); ctx.fill();
+  // shiny glint
+  ctx.fillStyle=C.yel; drawStar(cx+6, top+h*0.5, 5);
+}
+function drawStar(cx,cy,r){ ctx.beginPath();
+  for(let i=0;i<8;i++){ const a=i*Math.PI/4, rr=i%2?r*.4:r; ctx.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr);} ctx.closePath(); ctx.fill(); }
+function drawCan(x,y,full){
+  const cx=px(x)+CS/2, w=CS-2*PAD-8, top=px(y)+PAD+6, h=CS-2*PAD-6;
+  // body
+  ctx.fillStyle="#b9c0c7"; ctx.strokeStyle="#7d858c"; ctx.lineWidth=2;
+  ctx.fillRect(cx-w/2, top, w, h); ctx.strokeRect(cx-w/2, top, w, h);
+  // ridges
+  ctx.strokeStyle="#9aa2a9"; ctx.lineWidth=1;
+  for(let i=1;i<3;i++){ ctx.beginPath(); ctx.moveTo(cx-w/2, top+i*h/3); ctx.lineTo(cx+w/2, top+i*h/3); ctx.stroke(); }
+  // rim / top
+  ctx.fillStyle="#cfd5da"; ctx.strokeStyle="#7d858c"; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.ellipse(cx, top, w/2, 6, 0,0,7); ctx.fill(); ctx.stroke();
+  if(full){ // black bag bulging out
+    ctx.fillStyle="#161616";
+    ctx.beginPath(); ctx.ellipse(cx, top-3, w/2-3, 9, 0, 0, 7); ctx.fill();
+    ctx.fillStyle=C.yel; drawStar(cx+5, top-4, 4);
+  } else { // open dark mouth
+    ctx.fillStyle="#3a4046"; ctx.beginPath(); ctx.ellipse(cx, top, w/2-3, 4, 0,0,7); ctx.fill();
+  }
+}
+// The recycle bin: blue, with the chasing-arrows triangle. Blue reads as "recycling" the
+// world over, and it keeps the bin from being mistaken for the grey metal can.
+function drawRecycleBin(x,y){
+  const cx=px(x)+CS/2, w=CS-2*PAD-6, top=px(y)+PAD+6, h=CS-2*PAD-8;
+  ctx.save();
+  ctx.fillStyle="#2d7dd2"; ctx.strokeStyle="#1b4f86"; ctx.lineWidth=2;
+  ctx.fillRect(cx-w/2, top, w, h); ctx.strokeRect(cx-w/2, top, w, h);
+  ctx.fillStyle="#4a95e0"; ctx.fillRect(cx-w/2, top, w, 7);        // lid
+  ctx.strokeStyle="#1b4f86"; ctx.strokeRect(cx-w/2, top, w, 7);
+  // chasing arrows, drawn as a plain triangle outline — legible at 76px, unlike the real mark
+  ctx.strokeStyle="#fff"; ctx.lineWidth=3; ctx.lineJoin="round";
+  const r=w*0.26, my=top+h*0.62;
+  ctx.beginPath();
+  for(let i=0;i<3;i++){ const a=-Math.PI/2 + i*2*Math.PI/3;
+    ctx[i?'lineTo':'moveTo'](cx+Math.cos(a)*r, my+Math.sin(a)*r); }
+  ctx.closePath(); ctx.stroke();
+  ctx.restore();
+}
+
+// The couch: one object spanning cells, so it is drawn from the footprint rather than a cell
+// at a time. Fill runs to the cell edge wherever the piece continues and stops short wherever
+// it does not, and only the outer edges are stroked — an internal seam would say "two couches"
+// when the rules say one. `ox`/`oy` are a fractional offset for the slide.
+function drawFurniture(cells, ox=0, oy=0){
+  const has = new Set(cells.map(([x,y])=>`${x},${y}`));
+  const at = (x,y) => has.has(`${x},${y}`);
+  const M = 6;
+  ctx.save();
+  ctx.fillStyle="#9c6249";
+  for(const [cx,cy] of cells){
+    const x0=px(cx+ox), y0=px(cy+oy);
+    const l=at(cx-1,cy), r=at(cx+1,cy), u=at(cx,cy-1), d=at(cx,cy+1);
+    ctx.fillRect(x0+(l?0:M), y0+(u?0:M), CS-(l?0:M)-(r?0:M), CS-(u?0:M)-(d?0:M));
+  }
+  ctx.fillStyle="rgba(255,255,255,.13)";           // one cushion per cell: a long couch reads long
+  for(const [cx,cy] of cells)
+    ctx.fillRect(px(cx+ox)+M+6, px(cy+oy)+M+6, CS-2*M-12, CS-2*M-12);
+  ctx.strokeStyle="#5c382a"; ctx.lineWidth=2.5; ctx.lineCap="round";
+  ctx.beginPath();
+  for(const [cx,cy] of cells){
+    const x0=px(cx+ox), y0=px(cy+oy), a=M, b=CS-M;
+    if(!at(cx,cy-1)){ ctx.moveTo(x0+a,y0+a); ctx.lineTo(x0+b,y0+a); }
+    if(!at(cx,cy+1)){ ctx.moveTo(x0+a,y0+b); ctx.lineTo(x0+b,y0+b); }
+    if(!at(cx-1,cy)){ ctx.moveTo(x0+a,y0+a); ctx.lineTo(x0+a,y0+b); }
+    if(!at(cx+1,cy)){ ctx.moveTo(x0+b,y0+a); ctx.lineTo(x0+b,y0+b); }
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+// The water jug: a cooler bottle, not a milk jug. Sloped shoulders to a capped neck, an air
+// gap of pale cyan above the waterline, moulded ribs across the belly, and the water itself in
+// the canal's exact blue — the player should read "this is where that water comes from" the
+// first time it spills. The thin white rim inside the outline is what keeps it reading as
+// translucent plastic against both the white floor and the dark canal it can end up in.
+function drawJug(x,y){
+  const bx=px(x)+CS/2-4, w=CS-2*PAD-16, top=px(y)+PAD+5, h=CS-2*PAD-8;
+  const neck=w*0.32, shoulder=top+10, wl=top+h*0.34, bot=top+h;
+  const L=bx-w/2, R=bx+w/2;
+  const body=()=>{                                       // shoulders in to a short neck
+    ctx.beginPath();
+    ctx.moveTo(bx-neck/2, top); ctx.lineTo(bx+neck/2, top);
+    ctx.lineTo(bx+neck/2, shoulder-4); ctx.lineTo(R, shoulder);
+    ctx.lineTo(R, bot); ctx.lineTo(L, bot);
+    ctx.lineTo(L, shoulder); ctx.lineTo(bx-neck/2, shoulder-4);
+    ctx.closePath();
+  };
+  ctx.save();
+  ctx.lineJoin="round"; ctx.lineCap="round";
+  ctx.strokeStyle="#1b4f86"; ctx.lineWidth=2;
+  // the handle first, so the body's fill covers where it meets the shoulder
+  ctx.beginPath(); ctx.moveTo(R-2, shoulder+8);
+  ctx.quadraticCurveTo(R+12, top+h*0.48, R-2, top+h*0.74); ctx.stroke();
+  ctx.fillStyle="#1b4f86";                               // the cap, sitting on the neck
+  ctx.fillRect(bx-neck/2-2, top-4, neck+4, 5);
+
+  body();
+  ctx.fillStyle="#cdeef9"; ctx.fill();                   // the air above the water: the light bit
+  ctx.save(); ctx.clip();
+  ctx.fillStyle="#2e6f8e"; ctx.fillRect(L, wl, w, bot-wl);
+  // two moulded ribs, the way a ten-gallon bottle is banded
+  ctx.strokeStyle="rgba(255,255,255,.65)"; ctx.lineWidth=2;
+  for(const t of [0.60, 0.82]){
+    const yy=top+h*t;
+    ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(R, yy); ctx.stroke();
+  }
+  ctx.strokeStyle="rgba(255,255,255,.9)"; ctx.lineWidth=2;   // the waterline, brightest
+  ctx.beginPath(); ctx.moveTo(L, wl+2); ctx.quadraticCurveTo(bx, wl-4, R, wl+2); ctx.stroke();
+  ctx.strokeStyle="rgba(255,255,255,.85)"; ctx.lineWidth=4;  // clipped, so only the inner half lands
+  body(); ctx.stroke();
+  ctx.restore();
+  ctx.strokeStyle="#1b4f86"; ctx.lineWidth=2;
+  body(); ctx.stroke();
+  ctx.restore();
+}
+
+// A loose bag riding a still-full can. Drawn as exactly that — the can sits low and the
+// bag perches on top, so "two bags in one square" reads before you push it.
+function drawStack(x,y){
+  const cx=px(x)+CS/2, w=CS-2*PAD-14, top=px(y)+CS*0.46, h=CS*0.36;
+  ctx.save();
+  ctx.fillStyle="#b9c0c7"; ctx.strokeStyle="#7d858c"; ctx.lineWidth=2;
+  ctx.fillRect(cx-w/2, top, w, h); ctx.strokeRect(cx-w/2, top, w, h);
+  ctx.fillStyle="#cfd5da"; ctx.beginPath(); ctx.ellipse(cx, top, w/2, 5, 0,0,7); ctx.fill(); ctx.stroke();
+  // the bag on top
+  ctx.fillStyle="#161616";
+  ctx.beginPath(); ctx.ellipse(cx, top-11, w/2+3, 11, 0, 0, 7); ctx.fill();
+  ctx.fillStyle=C.yel; drawStar(cx+6, top-13, 4);
+  ctx.restore();
+}
+
+// The wheelie bin: taller than the can, on wheels, with a hinged lid. Full = lid propped
+// open by the bag inside; empty = lid down, and it still rolls.
+function drawWheelie(x,y,full){
+  const cx=px(x)+CS/2, w=CS-2*PAD-10, top=px(y)+PAD+9, h=CS-2*PAD-16;
+  ctx.save();
+  ctx.fillStyle="#3f7d4f"; ctx.strokeStyle="#255034"; ctx.lineWidth=2;
+  ctx.fillRect(cx-w/2, top, w, h); ctx.strokeRect(cx-w/2, top, w, h);
+  ctx.strokeStyle="#2f6a40"; ctx.lineWidth=1;
+  for(let i=1;i<3;i++){ ctx.beginPath(); ctx.moveTo(cx-w/2, top+i*h/3); ctx.lineTo(cx+w/2, top+i*h/3); ctx.stroke(); }
+  // wheels — the reason it does not stop where you stop pushing
+  ctx.fillStyle="#22252a";
+  ctx.beginPath(); ctx.arc(cx-w/2+5, top+h+4, 5, 0,7); ctx.arc(cx+w/2-5, top+h+4, 5, 0,7); ctx.fill();
+  // lid, tilted open when there is a bag under it
+  ctx.save();
+  ctx.translate(cx-w/2, top);
+  if(full) ctx.rotate(-0.42);
+  ctx.fillStyle="#4f9a63"; ctx.strokeStyle="#255034"; ctx.lineWidth=2;
+  ctx.fillRect(-2, -8, w+4, 8); ctx.strokeRect(-2, -8, w+4, 8);
+  ctx.restore();
+  if(full){                                    // the bag showing through the gap
+    ctx.fillStyle="#161616";
+    ctx.beginPath(); ctx.ellipse(cx+3, top-2, w/2-4, 7, 0, 0, 7); ctx.fill();
+    ctx.fillStyle=C.yel; drawStar(cx+8, top-3, 4);
+  }
+  ctx.restore();
+}
+
+function drawRaccoon(x,y){
+  const cx=x*CS+CS/2, cy=y*CS+CS/2, r=CS/2-PAD-4;   // x,y may be fractional mid-lunge
+  // tail hint
+  ctx.fillStyle="#8b8f95"; ctx.beginPath(); ctx.arc(cx+r*0.7, cy+r*0.6, r*0.5, 0,7); ctx.fill();
+  ctx.fillStyle="#4a4e54"; ctx.beginPath(); ctx.arc(cx+r*0.95, cy+r*0.75, r*0.28, 0,7); ctx.fill();
+  // ears
+  ctx.fillStyle="#6b7076"; ctx.beginPath(); ctx.arc(cx-r*0.6,cy-r*0.7,r*0.32,0,7); ctx.arc(cx+r*0.6,cy-r*0.7,r*0.32,0,7); ctx.fill();
+  // head
+  ctx.fillStyle="#9aa0a6"; ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill();
+  // mask band
+  ctx.fillStyle="#2b2f34"; ctx.beginPath(); ctx.ellipse(cx,cy-r*0.05,r*0.95,r*0.42,0,0,7); ctx.fill();
+  // muzzle
+  ctx.fillStyle="#eceef0"; ctx.beginPath(); ctx.ellipse(cx,cy+r*0.45,r*0.5,r*0.35,0,0,7); ctx.fill();
+  // eyes
+  ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(cx-r*0.35,cy-r*0.05,r*0.2,0,7); ctx.arc(cx+r*0.35,cy-r*0.05,r*0.2,0,7); ctx.fill();
+  ctx.fillStyle="#111"; ctx.beginPath(); ctx.arc(cx-r*0.35,cy-r*0.02,r*0.1,0,7); ctx.arc(cx+r*0.35,cy-r*0.02,r*0.1,0,7); ctx.fill();
+  // nose
+  ctx.fillStyle="#111"; ctx.beginPath(); ctx.arc(cx,cy+r*0.35,r*0.12,0,7); ctx.fill();
+}
+
+// ---- wire up ----
+const KEY={ArrowUp:'u',ArrowDown:'d',ArrowLeft:'l',ArrowRight:'r',
+  w:'u',s:'d',a:'l',d:'r',W:'u',S:'d',A:'l',D:'r'};
+addEventListener('keydown',e=>{
+  if(e.key in KEY){ e.preventDefault(); act(KEY[e.key]); }
+  else if(e.key==='u'||e.key==='U'){ undo(); }
+  else if(e.key==='r'||e.key==='R'){ restart(); }
+});
+// One delegated listener for every button under the board, so rearranging the layout is a
+// markup change and never a wiring change.
+const MOVEACT={up:'u',down:'d',left:'l',right:'r'};
+document.getElementById('controls').addEventListener('click',e=>{
+  const btn=e.target.closest('[data-act]'); if(!btn) return;
+  const a=btn.dataset.act;
+  if(a in MOVEACT){ act(MOVEACT[a]); }
+  else if(a==='undo')undo(); else if(a==='restart')restart();
+  else if(a==='next')load(cur+1); else if(a==='prev')load(cur-1);
+});
+
+// Levels are data on disk, in the same pack the verifier checks. Fail loudly.
+const res = await fetch('../levels/act1.tt');
+if(!res.ok) throw new Error(`cannot load levels/act1.tt (${res.status}) — serve with ./run.sh`);
+LEVELS = parseLevelPack(await res.text()).levels;
+const sfx = await fetch('../sfx/win-chime.mp3');
+if(!sfx.ok) throw new Error(`cannot load sfx/win-chime.mp3 (${sfx.status}) — serve with ./run.sh`);
+winBytes = await sfx.arrayBuffer();
+const tabs=document.getElementById('tabs');
+LEVELS.forEach((L,i)=>{ const b=document.createElement('button'); b.className='tab'; b.textContent=L.id;
+  b.onclick=()=>load(i); tabs.appendChild(b); });
+load(0);
