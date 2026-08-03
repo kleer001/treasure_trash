@@ -26,20 +26,16 @@ const READ = {
   'b': { o: BIN },            // recycle bin: drops one cell of trash per shove
   'j': { o: JUG },            // water jug: spills one cell of water per shove
   'E': { exit: true },
-  // Furniture is multi-cell, so its glyphs name a PIECE rather than a kind of thing. Any
-  // 4-connected blob of the same letter is one couch; two couches shoved flush together are
-  // told apart by using two letters, which is why there is a pool rather than one glyph.
-  // The letters carry no meaning beyond "same letter, touching = same piece" — see FURN_POOL.
+  // Furniture glyphs name a PIECE, not a kind of thing: a 4-connected blob of one letter is
+  // one couch, so two flush couches need two letters. Hence a pool — see FURN_POOL.
   ...Object.fromEntries([...'FGHKMN'].map(ch => [ch, { o: FURNITURE }])),
   '+': { exit: true, rac: true },     // raccoon standing on the exit (XSB's player-on-goal)
-  // WATER IS NOT IN HERE ANY MORE. It is terrain, it sits under ANY occupant, and one
-  // character per cell cannot say "empty canal", "a can in the canal" and "couch G in the
-  // canal" at once. It gets its own aligned `:water` block, which needs no new glyph for
-  // any combination, ever — including combinations added later. See FORMATS.md.
+  // No water glyph: water is terrain and sits under any occupant, and one character per
+  // cell cannot say "empty canal", "a can in the canal" and "couch G in the canal" at once.
+  // It gets its own aligned `:water` block, which needs no new glyph for any combination.
   //
-  // No glyph for anything on an exit either: nothing else can ever be there. The rules
-  // refuse any action that would put an object on it, so those states are unreachable
-  // and a level file that hand-writes one is invalid input.
+  // No glyph for anything on an exit either. The rules refuse any action that would put an
+  // object there, so those states are unreachable and a file that writes one is invalid.
 };
 
 // The `:water` mask alphabet. Three terrains, one character each, and the floor aliases read
@@ -47,8 +43,8 @@ const READ = {
 const WET = '~';        // open canal
 const FILLED = '=';     // a canal cell somebody filled in: floor, and drawn as the plank it is
 // The pool of letters furniture pieces are written with. The writer hands them out in raster
-// order of each piece's first cell, so a board's lettering is canonical and the grid round-trips.
-// Six is far more couches than a room should ever hold; past that, throw rather than wrap.
+// order of each piece's first cell, so a board's lettering is canonical and the grid
+// round-trips. Past the end of the pool, throw rather than wrap.
 export const FURN_POOL = [...'FGHKMN'];
 
 export const LEGEND = [
@@ -80,8 +76,8 @@ function labelPieces(cells, glyphs, id) {
       cells[cy][cx].pid = pid; size.push([cx, cy]);
       stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
     }
-    // A one-cell couch is an empty can wearing a hat. Refuse it rather than ship two names
-    // for one behaviour — the whole point of the piece is that it spans cells.
+    // A one-cell couch would behave exactly like an empty can; refuse it rather than carry
+    // two names for one behaviour.
     if (size.length < 2)
       throw new Error(`${id}: furniture '${ch}' at (${x + 1},${y + 1}) is a single cell; use a can, or give it a second cell`);
   }
@@ -100,8 +96,8 @@ function furnitureLetters(s) {
 }
 
 // The occupant grid says nothing about terrain except walls and the exit, which never carry
-// an occupant. Water rides in the mask, so a cell is spelled by what is standing in it and
-// nothing else — `x` is trash whether it is blocking a floor or bridging a canal.
+// an occupant. Water rides in the mask, so `x` is trash whether it blocks floor or bridges
+// a canal.
 function glyphFor(c, isRac, letters) {
   if (c.wall) return '#';
   if (!c.exit) {
@@ -121,21 +117,20 @@ function glyphFor(c, isRac, letters) {
 // between ':grid' and ':end' is taken verbatim, so no glyph can collide with a key.
 
 const INT_KEYS = new Set(['par', 'traps', 'solves']);
-// `:arm on` makes board-changing actions ask twice in this room. It is a TEACHING
-// SCAFFOLD for a room that introduces a new piece, not an input mode — absent means off,
-// which is the default and the normal Sokoban feel.
+// `:arm on` makes board-changing actions ask twice in this room — a scaffold for a room
+// that introduces a new piece. Absent means off. Input-layer only: it never reaches the
+// rules engine or the solver, so it cannot change a par.
 const BOOL_KEYS = new Set(['arm']);
 const BOOLS = { on: true, off: false, true: true, false: false };
+
+// Two directives open a verbatim block, each closed by `:end`: the occupant `:grid`, and
+// the optional `:water` mask laid over it.
+const BLOCK_KEYS = new Set(['grid', 'water']);
 
 /**
  * One grammar, two files. `sectionKey` is 'level' or 'solution'; entries collect every
  * other directive as a field, plus an optional verbatim :grid/:end block.
  */
-// Two directives open a verbatim block, each closed by `:end`: the occupant `:grid`, and the
-// optional `:water` mask laid over it. Terrain that can sit under any occupant cannot share
-// one character per cell with the occupant, so it gets its own layer instead of its own glyphs.
-const BLOCK_KEYS = new Set(['grid', 'water']);
-
 export function parseSections(text, sectionKey) {
   const pack = { meta: {}, entries: [] };
   let cur = null, block = null, blockKey = null;

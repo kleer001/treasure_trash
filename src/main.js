@@ -1,8 +1,5 @@
-// Presentation and input only — the rules live in src/rules.js, which the
-// verifier imports too, so the game and the proof can never disagree.
+// Presentation and input only — the rules live in src/rules.js.
 // ES modules need http://, so run ./run.sh rather than opening the file.
-// This file no longer owns the rules — src/rules.js does, and the verifier imports the same
-// module. This file is presentation and input only. ES modules need http://, so run ./run.sh.
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
   MOVE, PUSH, TEAR, DIRS,
@@ -26,8 +23,7 @@ const WHY = {
   afloat:  "that's out in the canal — he's not wading in after it",
   pour:    "it only pours on dry ground",
 };
-// Name the thing in the way rather than saying "blocked". The player can see the red
-// cell; the words should add the noun, not repeat the colour.
+// Name the thing in the way rather than saying "blocked": the red cell already carries that.
 const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"your own trash",
   [BIN]:"the recycle bin", [STACK]:"a bag on a can", [WHEELIE]:"a wheelie bin",
   [WHEELIE_EMPTY]:"an empty wheelie bin", [JUG]:"the water jug", [FURNITURE]:"the couch" };
@@ -56,14 +52,9 @@ let blocked = null;   // { cells, reason, dir } — cleared by the next legal ac
 let armed = null;     // direction of a tear that is aimed but not yet committed
 
 // ---- the rejection animation ---------------------------------------------------------
-// THE STATE NEVER CHANGES. This is a refusal played out in full: the raccoon lunges, the
-// bag bursts, the debris reaches the cell that won't take it, everything flashes, and the
-// whole thing rewinds itself. The player spends no move and is never left in a position
-// they have to escape — the invalid overlap is a frame in a rejection, not a board state.
-//
-// Scaled to what there is to show: a refused tear gets the full sequence, a refused shove
-// a short lunge, a refused step a quick knock. And it degrades — the second time you make
-// the same mistake in a room you get the short version, because by then you know.
+// The state never changes here: the sequence plays out and rewinds itself, so the invalid
+// overlap is a frame in an animation and never a board state. Durations are per action
+// kind, and drop to `bump` on a repeat of the same mistake in the same room.
 const FX = {
   tear: { lunge:150, burst:190, hold:260, rewind:240 },
   push: { lunge:130, burst:0,   hold:170, rewind:140 },
@@ -137,8 +128,7 @@ function startMv(prev, kind, dir){
 function mvT(){ const e = (performance.now() - mv.t0) / mv.dur; return e >= 1 ? null : easeOut(e); }
 
 // ---- the win: a short confetti blast, then straight on to the next room ----------------
-// Seeded from the level index, never Math.random() — a replay of the same room throws the
-// same confetti. It is cosmetic, so the seed only has to be stable, not secret.
+// Seeded from the level index, so a replay of the same room throws the same confetti.
 const WIN_MS = 1400, GRAV = 1500;
 let party = null;
 
@@ -171,8 +161,8 @@ function drawParty(){
   ctx.restore();
 }
 
-// One ticker for all three animations. They are driven from the same frame so they can
-// never fight over `raf` — a rejection, a slide and a win blast all end up here.
+// One ticker for all three animations, so a rejection, a slide and a win blast cannot
+// fight over `raf`.
 function tick(){
   raf = 0;
   if(fx){
@@ -186,15 +176,14 @@ function tick(){
   if(fx || mv || party) raf = requestAnimationFrame(tick);
 }
 
-// The reward IS the progression: the blast ends and the next room is already up. The
-// chime is not consulted — it is still ringing, and that is the point.
+// The blast ends and the next room loads; the chime is not consulted and keeps ringing.
 function handOver(){
   party = null;
   if(cur < LEVELS.length - 1) load(cur + 1); else render();
 }
 const cancelAnim = () => { if(raf) cancelAnimationFrame(raf); raf = 0; fx = null; mv = null; party = null; };
 
-// ---- audio: a two-tone "no" for a refused input. Procedural, per the house stack.
+// ---- audio: a procedural two-tone "no" for a refused input.
 let ac = null;
 /** The context, created on first input — browsers refuse to start one before a gesture. */
 function audio(){
@@ -215,10 +204,8 @@ function beep(ok){
   } catch { /* audio is a nicety; never let it break input */ }
 }
 
-// The win chime is a sample rather than a tone — the one place the game reaches for
-// recorded audio. It is FIRE AND FORGET on purpose: nothing holds a handle to it, so it
-// is never cancelled, never waited on, and rings straight over the hand-over into the
-// next room. Sound must never be a thing the player waits for.
+// The win chime is the one recorded sample. Fire and forget: nothing holds a handle to it,
+// so it is never cancelled or waited on and rings over the hand-over into the next room.
 const WIN_GAIN = 0.35;                 // sits above the beeps without shouting
 let winBytes = null, winBuf = null;
 
@@ -238,18 +225,8 @@ function playWinChime(){
 }
 
 // ---- input ----
-// ARMING IS A SCAFFOLD, NOT AN INPUT MODE. `:arm on` in the level file makes
-// board-changing actions ask twice, and it belongs on the room that INTRODUCES a piece —
-// the bag in L1, the can in L2. Everywhere else it's off, which is the default and the
-// normal Sokoban feel: one press, one action, undo if you hate it.
-//
-// Which actions it covers, when it's on, is settled by Sokoban's root law — you cannot
-// pull, so anything that touches the board is permanent. Measured over the pack: moves
-// 100% reversible by play, tears 0%, full-can pushes 0%, empty-can pushes 44% and only
-// by walking round to the far side. So: walking is free, everything else arms.
-//
-// This lives entirely in the input layer. rules.mjs does not know about arming, the
-// solver never sees it, and it cannot change a par: aiming is not a move.
+// Arming (`:arm on`, per level) makes every board-changing action ask twice; walking is
+// never armed, because it is the only verb that writes nothing to the board. See format.js.
 const arming = () => LEVELS[cur].arm === true;
 
 function act(dir){
@@ -339,15 +316,10 @@ function render(){
     drawRaccoon(ax+(bx-ax)*t, ay+(by-ay)*t);
   } else drawRaccoon(s.rac.x,s.rac.y);
 
-  // Fan preview, over everything including the exit sign. Law 1.7 says a dead-end must be
-  // foreseeable, and the exit traps only are if you can SEE the trash land on your way out.
-  // The fan is ALWAYS pale yellow — it answers "where would this land?", which has the same
-  // answer whether or not the strike is legal. Red is not a second opinion about the fan;
-  // it belongs to one cell only, the one doing the blocking, and only once you've tried.
-  // The fan preview is INFORMATION and is always available — it answers "where would
-  // this land", which the player is entitled to know in a full-information puzzle and
-  // which never stops being true. Aiming only FOCUSES it: while armed, just the aimed
-  // direction draws, so a room with two adjacent bags isn't ten yellow cells at once.
+  // Fan preview, over everything including the exit sign. Always pale yellow: it answers
+  // "where would this land", which has the same answer whether or not the strike is legal.
+  // Red belongs to the blocking cell alone, and only once you have tried. Arming narrows
+  // the preview to the aimed direction so two adjacent bags do not light ten cells at once.
   const red = new Set((blocked?.cells ?? []).map(([x,y])=>`${x},${y}`));
   for(const dir of (ph || mv ? [] : armed ? [armed] : ['u','d','l','r'])){
     const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
@@ -376,14 +348,13 @@ function render(){
     drawAim(ax, ay, dx, dy);
   }
 
-  // Blocked: you TRIED it and the rules said no. Mark the exact cells to blame, in red,
-  // and say why. A refused input that looks identical to no input is a bug, not a puzzle.
+  // Blocked: mark the exact cells to blame, in red, and say why.
   if(blocked && (!ph || ph.flash)){
     for(const [bx,by] of blocked.cells) drawBlocked(bx,by);
     if(!blocked.cells.length) drawEdgeBar(s.rac.x, s.rac.y, blocked.dir);
   }
 
-  if(party) drawParty();   // over everything: the room is finished, nothing else needs reading
+  if(party) drawParty();   // over everything
 
   document.getElementById('moves').textContent=moves;
   document.getElementById('par').textContent=LEVELS[cur].par;
@@ -450,8 +421,8 @@ function drawEdgeBar(x,y,dir){
   ctx.restore();
 }
 
-// One place that knows how to draw an occupant, so the board loop and the move animation
-// can never disagree about what a piece looks like. Coordinates may be fractional.
+// One place that draws an occupant, shared by the board loop and the move animation.
+// Coordinates may be fractional.
 function drawOccupant(o, x, y, k=1){
   if(o===TRASH)              drawTrash(x,y);
   else if(o===BAG)           drawBag(x,y,k);
@@ -467,10 +438,8 @@ function drawOccupant(o, x, y, k=1){
 function px(x){return x*CS}
 function drawFloor(x,y){ ctx.fillStyle="#fff"; ctx.strokeStyle="#e6e6e2"; ctx.lineWidth=1;
   ctx.fillRect(px(x)+1,px(y)+1,CS-2,CS-2); ctx.strokeRect(px(x)+1.5,px(y)+1.5,CS-3,CS-3); }
-// Open water reads as a hole in the floor — darker than anything else on the board, with
-// ripples, because the one thing the player must believe on sight is "not walkable". A
-// filled cell keeps the dark rim so you can still see it WAS water, and takes the same
-// trash glyph the rest of the board uses: the mess is the bridge.
+// Open water is drawn darker than anything else on the board, with ripples, so it reads as
+// not-walkable. A filled cell keeps the dark rim and takes the ordinary trash glyph.
 function drawWater(x,y,filled){
   const x0=px(x), y0=px(y);
   ctx.fillStyle = filled ? "#7fb7c4" : "#2e6f8e";
@@ -602,10 +571,8 @@ function drawRecycleBin(x,y){
   ctx.restore();
 }
 
-// The couch: one object spanning cells, so it is drawn from the footprint rather than a cell
-// at a time. Fill runs to the cell edge wherever the piece continues and stops short wherever
-// it does not, and only the outer edges are stroked — an internal seam would say "two couches"
-// when the rules say one. `ox`/`oy` are a fractional offset for the slide.
+// The couch is drawn from its whole footprint, not a cell at a time: only the outer edges
+// are stroked, because an internal seam would read as two couches. `ox`/`oy` offset the slide.
 function drawFurniture(cells, ox=0, oy=0){
   const has = new Set(cells.map(([x,y])=>`${x},${y}`));
   const at = (x,y) => has.has(`${x},${y}`);
@@ -617,7 +584,7 @@ function drawFurniture(cells, ox=0, oy=0){
     const l=at(cx-1,cy), r=at(cx+1,cy), u=at(cx,cy-1), d=at(cx,cy+1);
     ctx.fillRect(x0+(l?0:M), y0+(u?0:M), CS-(l?0:M)-(r?0:M), CS-(u?0:M)-(d?0:M));
   }
-  ctx.fillStyle="rgba(255,255,255,.13)";           // one cushion per cell: a long couch reads long
+  ctx.fillStyle="rgba(255,255,255,.13)";           // one cushion per cell
   for(const [cx,cy] of cells)
     ctx.fillRect(px(cx+ox)+M+6, px(cy+oy)+M+6, CS-2*M-12, CS-2*M-12);
   ctx.strokeStyle="#5c382a"; ctx.lineWidth=2.5; ctx.lineCap="round";
@@ -633,11 +600,8 @@ function drawFurniture(cells, ox=0, oy=0){
   ctx.restore();
 }
 
-// The water jug: a cooler bottle, not a milk jug. Sloped shoulders to a capped neck, an air
-// gap of pale cyan above the waterline, moulded ribs across the belly, and the water itself in
-// the canal's exact blue — the player should read "this is where that water comes from" the
-// first time it spills. The thin white rim inside the outline is what keeps it reading as
-// translucent plastic against both the white floor and the dark canal it can end up in.
+// The water jug, drawn as a cooler bottle. Its water uses the canal's exact blue; the thin
+// white inner rim keeps it reading as translucent plastic against both floor and canal.
 function drawJug(x,y){
   const bx=px(x)+CS/2-4, w=CS-2*PAD-16, top=px(y)+PAD+5, h=CS-2*PAD-8;
   const neck=w*0.32, shoulder=top+10, wl=top+h*0.34, bot=top+h;
@@ -679,8 +643,7 @@ function drawJug(x,y){
   ctx.restore();
 }
 
-// A loose bag riding a still-full can. Drawn as exactly that — the can sits low and the
-// bag perches on top, so "two bags in one square" reads before you push it.
+// A loose bag riding a still-full can: the can sits low, the bag perches on top.
 function drawStack(x,y){
   const cx=px(x)+CS/2, w=CS-2*PAD-14, top=px(y)+CS*0.46, h=CS*0.36;
   ctx.save();
@@ -694,8 +657,7 @@ function drawStack(x,y){
   ctx.restore();
 }
 
-// The wheelie bin: taller than the can, on wheels, with a hinged lid. Full = lid propped
-// open by the bag inside; empty = lid down, and it still rolls.
+// The wheelie bin: taller than the can, on wheels. Full = lid propped open by the bag inside.
 function drawWheelie(x,y,full){
   const cx=px(x)+CS/2, w=CS-2*PAD-10, top=px(y)+PAD+9, h=CS-2*PAD-16;
   ctx.save();
@@ -703,7 +665,7 @@ function drawWheelie(x,y,full){
   ctx.fillRect(cx-w/2, top, w, h); ctx.strokeRect(cx-w/2, top, w, h);
   ctx.strokeStyle="#2f6a40"; ctx.lineWidth=1;
   for(let i=1;i<3;i++){ ctx.beginPath(); ctx.moveTo(cx-w/2, top+i*h/3); ctx.lineTo(cx+w/2, top+i*h/3); ctx.stroke(); }
-  // wheels — the reason it does not stop where you stop pushing
+  // wheels
   ctx.fillStyle="#22252a";
   ctx.beginPath(); ctx.arc(cx-w/2+5, top+h+4, 5, 0,7); ctx.arc(cx+w/2-5, top+h+4, 5, 0,7); ctx.fill();
   // lid, tilted open when there is a bag under it
@@ -749,8 +711,7 @@ addEventListener('keydown',e=>{
   else if(e.key==='u'||e.key==='U'){ undo(); }
   else if(e.key==='r'||e.key==='R'){ restart(); }
 });
-// One delegated listener for every button under the board, so rearranging the layout is a
-// markup change and never a wiring change.
+// One delegated listener for every button under the board, so the layout is markup-only.
 const MOVEACT={up:'u',down:'d',left:'l',right:'r'};
 document.getElementById('controls').addEventListener('click',e=>{
   const btn=e.target.closest('[data-act]'); if(!btn) return;

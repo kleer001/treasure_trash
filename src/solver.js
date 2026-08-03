@@ -17,7 +17,7 @@ import { formatLurd } from './format.js';
  *   shortestCount how many distinct shortest action-sequences exist (>1 = unintended solves)
  *   dead         Set of keys from which no win is reachable
  *   traps        [{ lurd, dir, kind, buriesExit }] live -> dead transitions
- *   silentTraps  subset of traps whose action is a plain MOVE (see LAW below)
+ *   silentTraps  subset of traps whose action is a plain MOVE
  */
 export function analyze(start) {
   const states = new Map();
@@ -82,10 +82,8 @@ export function analyze(start) {
       });
     }
   }
-  // How often does the exit itself refuse an action? This is what replaced the
-  // exit-burying trap: the room's way out no longer punishes you after the fact, it
-  // says no at the moment you try. A room where this is zero has an exit that forbids
-  // nothing — a walk-back tax.
+  // How often the exit itself refuses an action, over the whole graph. verify.mjs
+  // asserts this is non-zero in any room that has a bag.
   let exitRefusals = 0;
   for (const [, node] of states)
     for (const dir of DIR_ORDER) {

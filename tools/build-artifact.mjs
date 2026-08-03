@@ -3,9 +3,8 @@
 //
 // The game is ES modules + a fetched level pack, which needs a server. An Artifact is a
 // single file behind a CSP that blocks every external request, so this inlines the module
-// sources and the level data into one script. It is a PUBLISHING step, not a build step:
-// the repo is still the source of truth and still runs unbundled via ./run.sh, and this
-// script only ever concatenates — it never edits logic.
+// sources and the level data into one script. It is a publishing step, not a build step —
+// the repo still runs unbundled via ./run.sh.
 //
 //   node tools/build-artifact.mjs [out.html]
 
@@ -30,10 +29,8 @@ const demodule = src => src
 // becomes numeric character references, script text becomes \u escapes. Both mean exactly
 // the same character under every encoding.
 //
-// The rule applies to what a reader sees, not to what an author wrote. Comments are not
-// prose for posting — a mangled em dash in a CSS comment is invisible to everyone — so
-// they are dropped here rather than held to the same standard. Source stays readable and
-// keeps its punctuation; the artifact ships without the commentary either way.
+// The rule covers what a reader sees, so comments are dropped from the bundle rather than
+// held to it — source keeps its punctuation and the artifact ships without the commentary.
 const asciiMarkup = s => s.replace(/[^\x00-\x7F]/gu, c => `&#x${c.codePointAt(0).toString(16)};`);
 // No `u` flag here on purpose: iterating UTF-16 code units turns an astral character into
 // the surrogate pair JS source actually wants.
@@ -50,9 +47,8 @@ const script = read('src/main.js');
 
 // Levels are data on disk; inline them verbatim so the pack stays the single source.
 const pack = read('levels/act1.tt');
-// The win chime is the one binary asset. It stays an .mp3 in the repo — playable, editable,
-// diffable as a file — and only becomes base64 here, because the artifact is one document
-// behind a CSP that blocks every request, data: URIs included.
+// The win chime is the one binary asset. It stays an .mp3 in the repo and only becomes
+// base64 here, because the artifact is one document behind a CSP that blocks every request.
 const chime = readFileSync(resolve(root, 'sfx/win-chime.mp3')).toString('base64');
 
 const inlined = demodule(script)
@@ -64,10 +60,8 @@ const inlined = demodule(script)
 if (inlined.includes('fetch(')) throw new Error('a fetch survived bundling — the CSP would block it');
 if (/^\s*(import|export)\s/m.test(inlined)) throw new Error('module syntax survived bundling');
 
-// Artifact-only: the game normally owns the whole page. Inside the viewer it sits in a
-// themed frame, so pin the ground it was designed against rather than half-inherit a dark
-// one. The house doc style is deliberately light; this commits to it instead of shipping
-// a broken-looking inversion.
+// Artifact-only: the game normally owns the whole page, but inside the viewer it sits in a
+// themed frame. Pin the light ground it was designed against rather than half-inherit one.
 const page_out = `<style>
 ${style}
 :root, :root[data-theme="dark"], :root[data-theme="light"]{ color-scheme: light; }

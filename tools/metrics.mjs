@@ -4,15 +4,12 @@
 //
 //   node metrics.mjs [levels/act1.tt]
 //
-// `verify.mjs` asks "is this room legal?". This asks "is this room worth playing?" —
-// which no checker can answer, so it answers the measurable half and leaves the taste
-// to a person. Nothing here fails a build; it prints a table.
+// `verify.mjs` checks a room is legal; this measures what it costs the player. Nothing
+// here fails a build — it prints a table.
 //
-// Why these numbers and not Sokoban's: the standard Sokoban difficulty features are
-// box-to-goal features (goal distance, congestion along a box's path to its goal).
-// This game has no goals — winning is a transformation, not an assignment — so those
-// features have nothing to attach to. What replaces them is below: the board is a
-// monotonically shrinking floor budget, and the choices are order and orientation.
+// Why not Sokoban's difficulty features: those are box-to-goal features (goal distance,
+// congestion along a box's path to its goal), and this game has no goals, so they have
+// nothing to attach to. What replaces them is below.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -38,8 +35,7 @@ const freeCells = (s) => {
 
 /**
  * Static coupling between bags: does opening bag A in some direction cost bag B one of
- * its own directions? A room where this is zero is N independent one-bag rooms sharing
- * a grid — solvable in any order, which is a checklist, not a puzzle.
+ * its own directions? Zero means the room is N independent one-bag rooms sharing a grid.
  * Returns the fraction of ordered (A,dirA) choices that constrain some other bag.
  */
 function coupling(s) {
@@ -70,9 +66,8 @@ function coupling(s) {
 }
 
 /**
- * The Order axis (§5 of LEVEL-GENERATION.md), measured: can every bag be opened first, or
- * does some first choice lose the room outright? A bag is identified by the cell the
- * raccoon ends on, because a tear always ends on the bag's own cell.
+ * Can every bag be opened first, or does some first choice lose the room outright? A bag is
+ * identified by the cell the raccoon ends on, because a tear always ends on the bag's cell.
  *
  * Returns { first, safe } — how many distinct bags can be torn first at all, and how many
  * of those leave a winnable board. `safe < first` is the room asking "which one first?";
@@ -112,9 +107,8 @@ function firstRefusal(a, reasons) {
 }
 
 /**
- * How far you can keep playing after the room is already lost. A trap you notice at
- * once is a lesson; a trap that lets you wander twenty moves first is a punishment
- * delivered too late to connect to its cause. Returns the worst case over all traps.
+ * How far you can keep playing after the room is already lost — the worst case over all
+ * traps. A trap noticed at once connects to its cause; one noticed twenty moves later does not.
  */
 function postMortem(a) {
   // Rebuild trap targets: analyze() reports the action, we want the dead state it lands in.
@@ -152,11 +146,9 @@ export function metrics(level) {
   let opening = 0;
   while (opening < actions.length && actions[opening].kind === MOVE) opening++;
 
-  // Replay to the win to read the floor that survived it, and to count the water the
-  // solution had to fill. `coupling` only ever sees bag-on-bag interference; a bag whose
-  // fan bridges a canal is coupled to the room through the *terrain* instead, which is
-  // the strongest coupling there is — it creates the route. Read the two together, or a
-  // water room reads as uncoupled when it is the opposite.
+  // Replay to the win to read the surviving floor and count the water the solution filled.
+  // `coupling` only sees bag-on-bag interference, so a bag whose fan bridges a canal reads
+  // as uncoupled — read `bridges` alongside it.
   let final = start, bridges = 0;
   for (const act of actions) {
     const before = final;
@@ -185,8 +177,7 @@ export function metrics(level) {
     bridges,
     order: (o => `${o.safe}/${o.first}`)(orderChoices(a, start)),
     // 'water' belongs here and 'wall'/'edge' do not: open water is the only refusal that
-    // looks like ground you ought to be able to cross, which is what makes it a decoy
-    // rather than a boundary.
+    // looks like crossable ground, so it is a decoy rather than a boundary.
     firstRefusal: firstRefusal(a, new Set(['exit', 'fan', 'canRoom', 'water'])),
     firstExitRefusal: firstRefusal(a, new Set(['exit'])),
     firstTrap: a.traps.length ? Math.min(...a.traps.map(t => parseLurd(t.lurd).length - 1)) : null,

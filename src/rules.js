@@ -1,19 +1,14 @@
-// Treasure Trash — THE RULES. Pure, deterministic, no DOM, no I/O.
-// This module is the single source of truth for what is legal. The browser game,
-// the solver, and the verifier all import it; nothing re-implements a rule.
+// Treasure Trash — the rules. Pure, deterministic, no DOM, no I/O. The game, the solver
+// and the verifier all import this module.
 
-// Occupant codes. Add freely — `stateKey` encodes each as one printable character, so the
-// list is not near any ceiling. Whether a new piece belongs here is a design question about
-// the piece, never a budget question about this list.
+// Occupant codes. `stateKey` encodes each as one printable character, so the list can grow.
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
              BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9, FURNITURE = 10;
 
-// MULTI-CELL PIECES. Every code above occupies exactly one cell, and a cell's occupant code
-// is the whole story about it. FURNITURE is the first that is not: a couch is one rigid piece
-// spanning several cells, so its cells also carry a `pid` naming which piece they belong to.
-// Two cells both reading FURNITURE may be one couch or two touching couches, and the pid is
-// the only thing that says which — so anything that reasons about a piece reads the pid, and
-// `stateKey` encodes the partition, not just the codes.
+// Multi-cell pieces. Every other code is fully described by the cell it sits in; FURNITURE
+// is not. Two adjacent cells both reading FURNITURE may be one couch or two touching
+// couches, and only the `pid` says which — so anything reasoning about a piece reads the
+// pid, and `stateKey` encodes the partition as well as the codes.
 export const isMultiCell = o => o === FURNITURE;
 
 /** Every cell of the piece `pid`, in raster order. Boards are tiny; this scans the whole one. */
@@ -40,21 +35,15 @@ export const cloneState = s => ({
 export const inGrid = (s, x, y) => x >= 0 && y >= 0 && x < s.cols && y < s.rows;
 export const cell = (s, x, y) => s.cells[y][x];
 
-// TERRAIN IS NOT AN OCCUPANT, and it is not static either. The water jug writes new water
-// mid-room and any fill converts it, so everything that assumed the board's shape was fixed
-// had to learn otherwise — `stateKey` at the bottom of this file most of all.
-//
-// A cell's terrain is one of three, and only the wall is static:
+// Terrain is separate from the occupant, and only the wall is static — the jug writes new
+// water mid-room and any fill converts it. A cell's terrain is one of three:
 //   dry     — ordinary ground
 //   water   — the canal. Objects rest in it; the raccoon does not.
-//   bridge  — a water cell somebody filled in. FLOOR, in every sense that matters.
+//   bridge  — a water cell somebody filled in. Floor, in every sense that matters.
 //
-// The bridge is terrain rather than "water with trash on it", and that is load-bearing: a
-// cell holds one occupant, so as long as the fill counted as the occupant there was no room
-// for anything else to be there and you could not push a can across your own crossing. The
-// garbage does not sit ON the hole — once it goes in, it IS the ground. Which leaves trash
-// meaning "blocked" on floor and "walkable" on water, the inversion the piece is built on,
-// while a filled cell behaves exactly like the floor it has become.
+// A bridge is terrain rather than an occupant because a cell holds only one occupant: while
+// the fill counted as the occupant there was no room for anything else, so a can could not
+// be pushed across a crossing. `stateKey` encodes terrain for the same reason.
 
 /** Ordinary dry ground with nothing on it. A bridge counts — it is floor now. */
 export const isClearFloor = (s, x, y) =>
@@ -64,30 +53,26 @@ export const isClearFloor = (s, x, y) =>
 export const canStand = isClearFloor;
 
 /**
- * Lay trash on a cell. In the canal that FILLS it — the cell stops being water and becomes a
- * bridge, and the trash is spent doing it. Anywhere else the trash just sits there and blocks.
- * One helper, because a fan and a bin drop must never disagree about what landing means.
+ * Lay trash on a cell. In the canal that fills it — the cell stops being water and becomes a
+ * bridge, and the trash is spent doing it. Anywhere else the trash sits there and blocks.
+ * One helper, so a fan and a bin drop cannot disagree about what landing means.
  */
 export function layTrash(c) {
   if (c.water) { c.water = false; c.bridge = true; }
   else c.o = TRASH;
 }
 
-// Somewhere an OBJECT can come to rest: any empty cell that is not a wall and not the exit.
-// WATER QUALIFIES. Things go in the canal — a can, a bag, a bin, a couch — and the asymmetry
-// that makes that interesting is not a rule about water at all, it is that the raccoon does
-// not follow. He shoves from the bank and stays on it; to shove the same thing a second time
-// he would have to stand where it was, which is now open water. So the canal takes anything
-// and gives nothing back, and it does that without a single clause about which pieces float.
-//
-// The exit still does not qualify: you cannot bury your own way out.
+// Where an OBJECT can come to rest: any empty cell that is not a wall and not the exit.
+// Water qualifies — a can, a bag, a bin or a couch all go in the canal. What makes that
+// one-way is not a clause about water but the raccoon: a push leaves him standing where the
+// thing was, so to shove it again he would have to stand in open canal. No piece floats and
+// none is named here.
 export const isOccupiable = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).exit && cell(s, x, y).o === NONE;
 
 /**
- * Where the water jug may spill: BARE floor. Water already there changes nothing, trash would
- * be un-blocked by it, and a bridge would be un-filled by it — and nothing in this game
- * reverses a fill. So the one load in the game that is refused by ground someone has used.
+ * Where the water jug may spill: bare floor only. Water already there changes nothing, trash
+ * would be un-blocked by it, and a bridge would be un-filled — and nothing reverses a fill.
  */
 export const canPour = (s, x, y) =>
   isOccupiable(s, x, y) && !cell(s, x, y).water && !cell(s, x, y).bridge;
@@ -101,15 +86,13 @@ export function fan(bx, by, dx, dy) {
   ];
 }
 
-// A fan lays trash, and trash rests anywhere an object does — including water, where it
-// becomes a bridge rather than an obstacle. That inversion is the point of the piece.
+// A fan lays trash, and trash rests anywhere an object does — water included, where it
+// becomes a bridge rather than an obstacle.
 export const fanBlockers = (s, bx, by, dx, dy) =>
   fan(bx, by, dx, dy).filter(([x, y]) => !isOccupiable(s, x, y));
 
-// A refusal caused by the exit gets its own reason, because "you can't dump on your
-// way out" is a different lesson from "there's no room". Water earns one for the same
-// reason: what it refuses is the raccoon himself, and "he won't wet his paws" is a
-// different lesson from "there's no room".
+// The exit and open water each get their own refusal reason rather than the generic one,
+// so the UI can name what is in the way instead of just saying "blocked".
 const reasonFor = (s, blockers, fallback) => {
   const is = pred => blockers.some(([x, y]) => inGrid(s, x, y) && pred(cell(s, x, y)));
   if (is(c => c.exit)) return 'exit';
@@ -121,7 +104,7 @@ const reasonFor = (s, blockers, fallback) => {
  * Explain what direction `dir` does from the current state — without applying it.
  * Returns { ok:true, kind, next } or { ok:false, reason, blame:[[x,y]...] }.
  * `blame` is the cell list the UI paints red: exactly the cells that forbid the action.
- * Every caller (step, solver, renderer) goes through here — one path, no second opinion.
+ * Every caller — step, solver, renderer — goes through here.
  */
 export function explain(s, dir) {
   const d = DIRS[dir];
@@ -139,15 +122,13 @@ export function explain(s, dir) {
     return { ok: true, kind: MOVE, next };
   };
 
-  // Water holds anything. The raccoon is not one of the things it holds.
-  // A bridge is floor and never reaches here — it falls through to the ordinary empty-cell
-  // path below, which is the point of making it terrain. What is left is real canal.
+  // Water holds anything except the raccoon. A bridge is floor and never reaches here; it
+  // falls through to the ordinary empty-cell path below. What is left is real canal.
   if (target.water) {
     if (target.o === NONE) return { ok: false, reason: 'water', blame: [[tx, ty]] };
-    // Something is floating in it. Every action he takes finishes with him standing in the
-    // cell he acted on — except a roller, which leaves from under the shove while he stays
-    // on the bank. So everything else in the canal is beyond reach, and THAT is why shoving
-    // a thing off the bank cannot be taken back: not a rule about water, a rule about him.
+    // Something is floating in it. Every action finishes with him standing in the cell he
+    // acted on — except a roller, which leaves from under the shove while he stays on the
+    // bank. So everything else in the canal is out of reach.
     if (target.o !== WHEELIE && target.o !== WHEELIE_EMPTY)
       return { ok: false, reason: 'water', blame: [[tx, ty]] };
   }
@@ -168,12 +149,11 @@ export function explain(s, dir) {
     return { ok: true, kind: TEAR, next };
   }
 
-  // A rigid multi-cell piece translates one cell as a unit — no rotation, ever. The clearance
-  // test is over the cells it moves INTO and not the cells it moves out of, which is the whole
-  // difference from a single-cell shove: a couch may slide along its own length, because the
-  // cell in front of its leading edge is the only new ground it asks for. The raccoon advances
-  // into the cell he shoved, which the piece has always just vacated (the cell behind it is his
-  // own, so it can never be part of the translated footprint).
+  // A rigid multi-cell piece translates one cell as a unit; nothing rotates. The clearance
+  // test covers the cells it moves INTO minus the cells it moves out of, so a couch sliding
+  // along its own length asks for only one new cell. The raccoon advances into the cell he
+  // shoved, which the piece has always just vacated — the cell behind it is his own, so it
+  // can never be part of the translated footprint.
   if (isMultiCell(o)) {
     const own = pieceCells(s, target.pid);
     const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
@@ -195,16 +175,14 @@ export function explain(s, dir) {
   const TWO_CELL = {
     [CAN_FULL]: { slides: CAN_EMPTY, drops: BAG },     // ejects its bag and empties
     [STACK]:    { slides: CAN_FULL,  drops: BAG },     // launches the loose bag; the can stays full
-    [BIN]:      { slides: BIN,       drops: TRASH },   // the precise obstacle placer
-    [JUG]:      { slides: JUG,       pours: true },    // the bin's mirror: it places a hole, not a wall
+    [BIN]:      { slides: BIN,       drops: TRASH },
+    [JUG]:      { slides: JUG,       pours: true },    // pours water instead of dropping trash
   };
   if (TWO_CELL[o]) {
     const { slides, drops, pours } = TWO_CELL[o];
     const c1 = [tx + dx, ty + dy], c2 = [tx + 2 * dx, ty + 2 * dy];
-    // The piece and its load both rest anywhere empty, canal included — a full can will
-    // eject its bag into the water, and that bag can then never be opened, because opening
-    // one means stepping onto it. The exception is the jug, whose spill is the one load
-    // that needs dry ground: see `canPour`.
+    // Piece and load both rest anywhere empty, canal included. The jug is the exception:
+    // its spill needs dry ground — see `canPour`.
     const fits = pours ? canPour : isOccupiable;
     const blame = [];
     if (!isOccupiable(s, c1[0], c1[1])) blame.push(c1);
@@ -231,10 +209,9 @@ export function explain(s, dir) {
     return { ok: true, kind: PUSH, next };
   }
 
-  // The wheelie bin does not stop where you stop pushing — it rolls until something stops
-  // it, and a full one dumps its bag out the back on impact. The raccoon does NOT follow
-  // it: the bin leaves from under the shove, which is also what keeps the one-cell roll
-  // from dropping a bag onto the cell he would otherwise be standing in.
+  // The wheelie bin rolls until something stops it, and a full one dumps its bag out the
+  // back on impact. The raccoon does not follow it — the bin leaves from under the shove,
+  // which is what keeps a one-cell roll from dropping a bag onto his own cell.
   if (o === WHEELIE || o === WHEELIE_EMPTY) {
     let rx = tx, ry = ty;
     while (isOccupiable(s, rx + dx, ry + dy)) { rx += dx; ry += dy; }
@@ -266,8 +243,8 @@ export function step(s, dir) {
 }
 
 /**
- * Apply a declared action {dir, kind}. Throws if the board does not produce exactly
- * that kind — this is what makes a solution file self-checking rather than a hint.
+ * Apply a declared action {dir, kind}. Throws if the board does not produce exactly that
+ * kind, which is what makes a solution file self-checking rather than a hint.
  */
 export function applyAction(s, { dir, kind }) {
   const r = explain(s, dir);
@@ -276,9 +253,7 @@ export function applyAction(s, { dir, kind }) {
   return r.next;
 }
 
-// Every bag still to be torn, wherever it is sitting — loose, inside a can, inside a
-// wheelie bin, or riding a stack. A stack counts TWO: the loose bag on top and the one in
-// the still-full can beneath it.
+// A stack counts two bags: the loose one on top and the one in the still-full can beneath.
 const BAGS_IN = { [BAG]: 1, [CAN_FULL]: 1, [WHEELIE]: 1, [STACK]: 2 };
 export function bagsLeft(s) {
   let k = 0;
@@ -312,7 +287,7 @@ export const isWon = s => bagsLeft(s) === 0 && atExit(s);
  * on which `pid` values happen to be in play. It is a separate lane rather than a wider
  * alphabet in the first one so that adding an eleventh occupant code cannot collide with it.
  *
- * The key is opaque. Nothing parses it; `solver.mjs` only ever uses it as a Map key.
+ * The key is opaque. Nothing parses it; `solver.js` only ever uses it as a Map key.
  */
 export const stateKey = s => {
   const terrain = c => (c.water ? 1 : c.bridge ? 2 : 0);     // wall is static; these are not

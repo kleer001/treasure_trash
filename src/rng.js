@@ -1,10 +1,8 @@
 // Seeded pseudo-random generator. Deterministic: same seed → same sequence.
-// House rule: game logic uses this, never Math.random(), so runs are reproducible.
 
 /**
- * mulberry32 — a fast, seedable 32-bit PRNG.
- * @param {number} seed - any integer; coerced to uint32.
- * @returns {() => number} a function returning floats in [0, 1).
+ * mulberry32 — a fast, seedable 32-bit PRNG. Returns floats in [0, 1).
+ * `seed` is any integer; it is coerced to uint32.
  */
 export function mulberry32(seed) {
   let a = seed >>> 0;

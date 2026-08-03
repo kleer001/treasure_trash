@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Treasure Trash — pack verifier. Every claim a level file makes is checked against
-// the rules engine. No claim in levels.md is allowed to be hand-asserted.
+// Treasure Trash — pack verifier. Every claim a level file makes is checked against the
+// rules engine rather than hand-asserted.
 //
 //   node verify.mjs [levels/act1.tt] [levels/act1.sol]
 //
@@ -58,7 +58,7 @@ for (const level of pack.levels) {
   const start = toState(level);
   const bags = bagsLeft(start);
 
-  // structural laws (the authoring checklist in levels.md, mechanised)
+  // structural checks — see FORMATS.md section 4
   const exitCell = start.cells.flat().find(c => c.exit);
   check('exit starts empty', exitCell.o === 0);
   check('raccoon does not start on the exit', !start.cells[start.rac.y][start.rac.x].exit);
@@ -93,51 +93,41 @@ for (const level of pack.levels) {
       `found ${a.shortestCount}`);
   else console.log(`    · ${a.shortestCount} distinct shortest solve(s)`);
 
-  // INVARIANT: no reachable state may ever have an object on the exit. This is the
-  // whole point of the rule change — it is not enough that our levels happen to avoid
-  // it, the engine must make it impossible. Checked across every reachable state.
+  // INVARIANT: no reachable state may have an object on the exit. Checked over the whole
+  // graph rather than the solve path, so it tests the engine and not the level design.
   const occupied = [...a.states.values()].find(n =>
     n.state.cells.some(row => row.some(c => c.exit && c.o !== 0)));
   check('the exit is never occupied, in any reachable state', !occupied,
     `${a.reachable} states searched`);
 
-  // Traps that remain are stranding traps: the exit stays clear and reachable-looking,
-  // but your trash has walled you off from it. Those need connectivity reasoning, which
-  // is what L4 "Corner Yourself" is designed around.
+  // Traps that remain are stranding traps: the exit stays clear, but your trash has walled
+  // you off from it.
   if (level.traps !== undefined)
     check('trap count as declared', a.traps.length === level.traps,
       `${a.traps.length} stranding trap(s)`);
   else console.log(`    · ${a.traps.length} stranding trap(s)`);
 
-  // GUARD, not a law, and vacuous today: walking writes nothing to the board, so it cannot
-  // change a board's liveness and this cannot fail. It fires only if some future verb makes a
-  // plain step alter the board — a conveyor, a trapdoor, terrain that moves you further than
-  // you asked. Worth a line of CI because that would be a silent class of loss.
-  //
-  // Do NOT read this as an argument that irreversible mechanics are forbidden. Undo reverses
-  // anything; the quantity that actually costs the player is how long a lost board stays
-  // playable before it says so, and that is `pm` in metrics.mjs, not this check.
+  // Vacuous today: walking writes nothing to the board, so it cannot change liveness and
+  // this cannot fail. It is a regression guard — it fires only if some future verb makes a
+  // plain step alter the board (a conveyor, a trapdoor), which would be a silent loss.
   check('guard: no lethal plain move (vacuous while walking writes nothing)',
     a.silentTraps.length === 0,
     a.silentTraps.length ? `e.g. ${a.silentTraps[0].lurd}` : '');
 
-  // Arming is a scaffold for a room that introduces a piece, so a room that arms has to
-  // say what it is introducing. If it teaches nothing, the extra press is just friction.
+  // A room that arms has to say which piece it is introducing.
   if (level.arm) check('an arming room declares what it teaches', !!level.teach, level.teach ?? '');
   console.log(`    · arming ${level.arm ? 'ON (introduces a piece)' : 'off'}`);
 
-  // LAW (the exit earns its slot): in any room with a bag, the exit's position must
-  // rule out at least one otherwise-legal action. Now that the exit refuses rather than
-  // punishes, that's measured directly — how many (state, direction) pairs does the exit
-  // itself say no to? Zero means the exit forbids nothing: a walk-back tax, move it.
+  // In any room with a bag, the exit's position must rule out at least one otherwise-legal
+  // action: how many (state, direction) pairs does the exit itself refuse?
   if (bags > 0)
     check('the exit forbids at least one action', a.exitRefusals > 0,
       `${a.exitRefusals} refusal(s) caused by the exit`);
 }
 
 // ---------------------------------------------------------------- doc drift
-// levels.md is prose ABOUT the pack; the pack is the data. The doc is allowed to explain
-// a solve, not to disagree with it — so every :solve must appear there verbatim.
+// levels.md documents the pack; the pack is the data. Every :solve must appear there
+// verbatim, so the doc cannot disagree with the file.
 section('docs');
 const docPath = resolve(root, 'levels.md');
 let doc = null;

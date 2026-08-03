@@ -63,8 +63,7 @@ test('a rolling bin stops short of the exit rather than occupying it', () => {
                           ['--E--', '--w--', '-----', '--@--', '-----']);
 });
 
-// WATER TAKES ANYTHING. What it refuses is the raccoon, and every other consequence in this
-// section is that one fact plus "a push finishes with him standing where the thing was".
+// Water holds any object and refuses only the raccoon. See src/rules.js `isOccupiable`.
 const CANAL = ['-----', '~~~~~', '-----', '-----', '-----'];
 
 test('the raccoon will not step into open water', () => {
@@ -86,8 +85,7 @@ test('a bridge is walkable, and stays walkable', () => {
                           ['-----', '--@--', '-x-x-', '-----', 'E----']);
 });
 
-// The point of making a filled cell terrain rather than an occupant: there is room on it for
-// something else. A bridge is floor, so a can rolls over it exactly as it would over floor.
+// A bridge is terrain, not an occupant, so the cell still has room for something else.
 test('an object can be shoved across a bridge, because a bridge is floor', () => {
   const w = ['-----', '~===~', '-----', '-----', '-----'];
   const g = ['-----', '-----', '--c--', '--@--', 'E----'];
@@ -104,8 +102,7 @@ test('a fan can land on a bridge and wall your own crossing off again', () => {
   assert.equal(explain(s, 'u').reason, 'trash');   // …and now unwalkable, like any floor
 });
 
-// He can shove things off the bank all day. What he cannot do is follow them, and a push
-// puts him where the thing was — so one shove into the canal is the last shove it gets.
+// A push puts him where the thing was, so one shove into the canal is the last it gets.
 test('a can shoved at the canal goes in, and is then out of reach forever', () => {
   const g = ['-----', '-----', '--c--', '--@--', 'E----'];
   const w = ['-----', '--~--', '-----', '-----', '-----'];
@@ -129,11 +126,8 @@ test('the recycle bin bridges one cell — one spent for one gained', () => {
   assert.deepEqual(afterWet(g, 'u', w), ['--=--', '-----', '-----', '-----', '-----']);
 });
 
-// The corollary, and it rules out a whole class of room: the bin lands on the ONLY cell that
-// approaches the bridge it just made, because a water cell's only dry neighbours are the two
-// banks. So the recycle bin can never bridge a canal for the raccoon — only a bag can, since
-// he ends a tear on the bag's cell, behind the fan. Letting objects into the water does not
-// change this: whatever he shoves at a canal parks on the approach.
+// A water cell's only dry neighbours are its two banks, so the bin ends up standing on the
+// one cell that approaches the bridge it just made.
 test('the bin parks itself on the far side of the bridge it just built', () => {
   const w = ['--~--', '-----', '-----', '-----', '-----'];
   const s = act(['-----', '-----', '--b--', '--@--', 'E----'], 'u', w);
@@ -146,9 +140,8 @@ test('a wheelie bin rolls clean across a canal — he never follows it, so nothi
                           ['--w--', '-----', '-----', '--@--', 'E----']);
 });
 
-// The water jug: the recycle bin's mirror. Same two-cell shove, but what lands two ahead
-// is terrain rather than an occupant — a hole instead of a wall. It never runs dry, for the
-// same reason the bin never does: the interesting question is where you put the obstacle.
+// The water jug: the same two-cell shove as the recycle bin, but what lands two ahead is
+// terrain rather than an occupant.
 const JUGBOARD = ['-----', '-----', '--j--', '--@--', 'E----'];
 
 test('water jug slides one and spills a cell of water directly ahead', () => {
@@ -156,10 +149,8 @@ test('water jug slides one and spills a cell of water directly ahead', () => {
   assert.deepEqual(afterWet(JUGBOARD, 'u'), ['--~--', '-----', '-----', '-----', '-----']);
 });
 
-// The jug's own adjacency tax. It can be shoved a second time the same way — objects go in
-// the canal like anything else — but it shoves itself INTO the puddle it just made, where
-// nothing can reach it again. The refusal became a trap when water started taking objects,
-// which is a fair trade: it is still a one-way decision, just a quieter one.
+// A second shove the same way is legal — objects enter the canal — but it puts the jug in
+// the puddle it just poured, out of reach.
 test('a jug shoved twice the same way drives itself into its own puddle', () => {
   const twice = explain(act(['-----', '-----', '-----', '--j--', '--@--', 'E----'], 'u'), 'u');
   assert.ok(twice.ok, 'the second shove is legal now — objects go in the canal');
@@ -170,8 +161,7 @@ test('a jug shoved twice the same way drives itself into its own puddle', () => 
   assert.equal(explain(twice.next, 'u').reason, 'water');      // and now nothing can reach it
 });
 
-// It never runs dry, for the same reason the recycle bin never does: the question the
-// piece asks is where you put the obstacle, not how many you have left.
+// The jug has no charge count; nothing decrements when it pours.
 test('the jug never runs dry — walk round and it spills again', () => {
   let s = act(['-----', '-----', '-----', '--j--', '--@--', 'E----'], 'u');
   for (const d of ['l', 'u']) s = explain(s, d).next;
@@ -194,8 +184,7 @@ test('the jug will not pour onto spilled trash — nothing in this game un-block
   assert.equal(refused(['--x--', '-----', '--j--', '--@--', 'E----'], 'u'), 'canRoom');
 });
 
-// The piece's whole point: the jug's obstacle is the only one in the game you can take
-// back, because trash — which blocks everywhere else — is what makes water walkable.
+// Water is the one obstacle a later fan removes, because trash on water is a bridge.
 test('a fan bridges water the jug poured, and the raccoon walks over it', () => {
   const w = ['-----', '-~---', '-----', '-----', '-----'];
   const bridged = act(['-----', '-----', '-$---', '-@---', 'E----'], 'u', w);
@@ -232,9 +221,8 @@ test('a couch will not be shoved onto the exit', () => {
   assert.equal(refused(['-E---', '-FF--', '-@---', '-----'], 'u'), 'exit');
 });
 
-// A long couch crosses a canal because it never lets go of the bank: shoved along its own
-// length its front end goes in the water while its back end is still dry, so he always has
-// somewhere to stand for the next shove. Nothing about that is a rule — it is the footprint.
+// Shoved along its own length, a couch's front end enters the water while its back end is
+// still dry, so there is always a bank to shove from. This falls out of the footprint test.
 test('a couch shoved along its length walks itself into the canal, one end at a time', () => {
   const g = ['-----', '-----', '--F--', '--F--', '--F--', '--@--', 'E----'];
   const w = ['-----', '--~--', '-----', '-----', '-----', '-----', '-----'];
