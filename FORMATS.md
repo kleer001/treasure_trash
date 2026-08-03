@@ -1,11 +1,8 @@
 # FORMATS — Treasure Trash level & solution files
 
 Two text formats and a four-module API. Everything a level file claims about itself is
-checked against the rules engine by `verify.mjs`; nothing is asserted by hand.
-
-Design rule: **one implementation of the rules.** `rules.mjs` is imported by the browser
-game, the solver, and the verifier. A second implementation in another language would
-drift, and a drifted verifier certifies nothing.
+checked against the rules engine by `tools/verify.mjs`; nothing is asserted by hand.
+`src/rules.js` is the module the browser game, the solver and the verifier all import.
 
 ---
 
@@ -195,29 +192,30 @@ that is the whole reason for encoding the kind rather than just the direction.
 ## 3. The API
 
 ```js
-import { explain, step, applyAction, isWon, bagsLeft, fan } from './rules.mjs';
-import { parseLevelPack, toState, toGrid, parseLurd, formatLurd } from './format.mjs';
-import { analyze, replay } from './solver.mjs';
+import { explain, step, applyAction, isWon, bagsLeft, fan } from '../src/rules.js';
+import { parseLevelPack, toState, toGrid, parseLurd, formatLurd } from '../src/format.js';
+import { analyze, replay } from '../src/solver.js';
 ```
 
-**`rules.mjs`** — pure, deterministic, no DOM, no I/O.
+**`src/rules.js`** — pure, deterministic, no DOM, no I/O.
 `explain(state, dir)` is the one decision point: it returns `{ok:true, kind, next}` or
 `{ok:false, reason, blame:[[x,y]…]}`. `blame` is exactly the cells that forbid the action —
 the renderer paints those red, and the verifier can assert them. Nothing anywhere
 re-derives legality.
 
-**`format.mjs`** — text ⇄ data. `toState` validates at the boundary (exactly one raccoon,
+**`src/format.js`** — text ⇄ data. `toState` validates at the boundary (exactly one raccoon,
 exactly one exit). `toGrid` serialises any live state back to glyphs, so a mid-solve board
 can be dropped into a bug report.
 
-**`solver.mjs`** — `analyze(state)` enumerates the **entire** reachable state graph and
+**`src/solver.js`** — `analyze(state)` enumerates the **entire** reachable state graph and
 computes liveness exactly, returning `minMoves`, a canonical `shortestLurd`,
 `shortestCount`, the `dead` set, and every `trap` (a legal action from a live state to a
 dead one). This is the small-board version of what a Sokoban solver approximates with
-deadlock tables — the rooms run 3 to 137 states, so there is no need to estimate anything.
+deadlock tables — the rooms run 3 to 3,089 states, so there is no need to estimate
+anything.
 
-**`verify.mjs`** — the CLI. `node verify.mjs [levels/act1.tt] [levels/act1.sol]`, exit code
-0 or 1.
+**`tools/verify.mjs`** — the CLI.
+`node tools/verify.mjs [levels/act1.tt] [levels/act1.sol]`, exit code 0 or 1.
 
 ---
 
@@ -236,39 +234,30 @@ Per level:
 5. **`:solve` replays to a win in exactly par actions**, with every declared kind matching.
 6. The `.sol` entry agrees with the inline `:solve`.
 7. `:traps` and `:solves` match the computed counts.
-8. **GUARD — no lethal plain move.** No plain *move* may take a live board to a dead one.
-   Be honest about this one: under the current ruleset it **cannot fail**, because walking
-   writes nothing to the board and so cannot change a board's liveness. It is a regression
-   guard, not enforcement, and it fires only if some future verb makes a plain step alter the
-   board — a conveyor, a trapdoor, terrain that carries you further than you asked. It is
-   **not** an argument against irreversible mechanics: undo reverses anything, and what a
-   lost board actually costs the player is how long it stays playable before saying so
-   (`pm`, in `metrics.mjs`).
-9. **INVARIANT — the exit is never occupied.** Across *every reachable state* of every
-   room, the exit cell holds no object. Not "our levels avoid it" — the engine makes it
-   impossible, and this proves it over the whole state graph.
-10. **LAW — the exit earns its slot.** In any room containing a bag, the exit must itself
-    refuse at least one action. Zero refusals means the exit's position forbids nothing:
-    a walk-back tax, so move it.
-11. **A room with `:arm on` declares what it teaches.** Arming is a scaffold for
-    introducing a piece; a room that arms but teaches nothing is charging the player an
-    extra press for no reason.
+8. **No lethal plain move.** No plain *move* may take a live board to a dead one. Under
+   the current ruleset this cannot fail, because walking writes nothing to the board and
+   so cannot change a board's liveness. It is a regression guard: it fires only if some
+   future verb makes a plain step alter the board — a conveyor, a trapdoor, terrain that
+   carries you further than you asked.
+9. **The exit is never occupied.** Across *every reachable state* of every room, the exit
+   cell holds no object — checked over the whole state graph, not just the solve path.
+10. **The exit refuses at least one action**, in any room containing a bag. Zero refusals
+    means the exit's position forbids nothing.
+11. **A room with `:arm on` declares what it teaches**, via `:teach`.
 12. Every `:solve` string appears verbatim in `../levels.md`, so the prose cannot drift
     from the data.
 
 ### Refusals vs. traps
 
-Protecting the exit converted a whole class of soft-lock into a refusal, which is visible
-in the numbers:
+The two failure classes are counted separately:
 
 | | L0 | L1 | L2 | L3 |
 |---|---|---|---|---|
 | **refusals caused by the exit** (said no at the keypress) | 0 | 2 | 12 | 12 |
 | **stranding traps** (trash walls you off from a clear exit) | 0 | 0 | 1 | 2 |
 
-What remains are *stranding* traps — the exit is clear and intact, but your own trash has
-cut you off from it. Those need connectivity reasoning rather than just reading the fan
-preview, and they are what L4 "Corner Yourself" is built around.
+A stranding trap leaves the exit clear and intact while your own trash cuts you off from
+it. Those need connectivity reasoning rather than just reading the fan preview.
 
 Current pack: 18 levels (L0–L17), 3–3,089 reachable states each, all green. The table above
 is the L0–L3 snapshot it was written from and has not been re-measured since.
