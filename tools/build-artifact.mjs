@@ -29,13 +29,21 @@ const demodule = src => src
 // arrow turns to mojibake. So emit pure ASCII and stop depending on the host: markup text
 // becomes numeric character references, script text becomes \u escapes. Both mean exactly
 // the same character under every encoding.
+//
+// The rule applies to what a reader sees, not to what an author wrote. Comments are not
+// prose for posting — a mangled em dash in a CSS comment is invisible to everyone — so
+// they are dropped here rather than held to the same standard. Source stays readable and
+// keeps its punctuation; the artifact ships without the commentary either way.
 const asciiMarkup = s => s.replace(/[^\x00-\x7F]/gu, c => `&#x${c.codePointAt(0).toString(16)};`);
 // No `u` flag here on purpose: iterating UTF-16 code units turns an astral character into
 // the surrogate pair JS source actually wants.
 const asciiScript = s => s.replace(/[^\x00-\x7F]/g, c => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+// Comments only: a CSS string like content:"\u2192" still renders, so it stays and is
+// still held to the ASCII rule by the check at the end.
+const stripCssComments = s => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\n{3,}/g, '\n\n');
 
 const page = read('index.html');
-const style = read('styles.css');
+const style = stripCssComments(read('styles.css'));
 const body = /<body>\s*([\s\S]*?)\s*<script type="module"/.exec(page)[1];
 // The page now loads its module from src/main.js rather than carrying it inline.
 const script = read('src/main.js');
@@ -56,12 +64,12 @@ const inlined = demodule(script)
 if (inlined.includes('fetch(')) throw new Error('a fetch survived bundling — the CSP would block it');
 if (/^\s*(import|export)\s/m.test(inlined)) throw new Error('module syntax survived bundling');
 
+// Artifact-only: the game normally owns the whole page. Inside the viewer it sits in a
+// themed frame, so pin the ground it was designed against rather than half-inherit a dark
+// one. The house doc style is deliberately light; this commits to it instead of shipping
+// a broken-looking inversion.
 const page_out = `<style>
 ${style}
-/* Artifact-only: the game normally owns the whole page. Inside the viewer it sits in a
-   themed frame, so pin the ground it was designed against rather than half-inherit a dark
-   one. The house doc style is deliberately light; this commits to it instead of shipping
-   a broken-looking inversion. */
 :root, :root[data-theme="dark"], :root[data-theme="light"]{ color-scheme: light; }
 body{ background:#ffffff; color:#1a1a1a; }
 .focusnote{background:#fff8d6;border:2px solid #1a1a1a;border-radius:4px;padding:.5rem .8rem;
@@ -93,7 +101,8 @@ cv.focus();
 `;
 
 // The whole point of the escaping above: one non-ASCII byte is enough to make the page
-// depend on the host's charset again, so fail here rather than ship mojibake.
+// depend on the host's charset again, so fail here rather than ship mojibake. Anything
+// reaching this line is text a reader would actually see — comments are already gone.
 const stray = [...page_out].find(c => c.codePointAt(0) > 0x7F);
 if (stray) {
   const at = page_out.indexOf(stray);

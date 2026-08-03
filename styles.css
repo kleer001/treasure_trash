@@ -1,5 +1,5 @@
-/* Treasure Trash: bright flat Memphis geometry, chosen for legibility.
-   The mess must read at a glance or the puzzle isn't fair. */
+/* Treasure Trash — bright flat Memphis geometry, chosen for legibility:
+   the mess must read at a glance or the puzzle isn't fair. */
   :root{
     --bg:#ffffff; --ink:#1a1a1a; --muted:#5a5a5a; --line:#dcdcdc; --panel:#f5f5f2;
     --link:#1a3fd0; --red:#ff4b3e; --yel:#ffcf00; --blu:#2d7dd2; --tea:#17c3b2; --pnk:#ff5da2;
