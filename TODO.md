@@ -9,8 +9,13 @@ is superseded — history only, do not implement from it.)
   verified** in `spike/` (L0–L13 solvable in provably-minimal par, proven by an
   exhaustive solver, not asserted).
 - Crow is **pinned** — deliberately parked until the raccoon-alone game proves fun.
-- **No real game code yet.** `spike/` is a throwaway prototype (the studio gate's one
-  allowed pre-gate artifact). `src/` does not exist on purpose.
+- **The game is in `spike/`, and `src/` is still unmodified template.** Byte-identical
+  to `trace_rom_studio/template/src/` — no authored game code has ever landed there.
+  `spike/` holds a working rules engine, an exhaustive solver, two file formats, a
+  verifier and 14 rooms. It was called a throwaway only because the old studio gate
+  forbade code before a design review, and `spike/` was the one place anything
+  executable was allowed to grow. **That gate is retired** (studio 0.8.0): the next
+  move is to promote `spike/` into `src/`, not to rewrite it.
 - **Levels are data with a real toolchain** — `spike/levels/*.tt` + `*.sol`, one rules
   module (`spike/rules.mjs`) shared by the player and the verifier, and a solver that
   proves par minimal rather than trusting it. Spec: `spike/FORMATS.md`.
@@ -49,11 +54,10 @@ is superseded — history only, do not implement from it.)
   wheelie bin, water jug, furniture), plus the bag-on-can stack built but with no room — the
   exit and water are terrain and cost nothing against the budget. Reserved: the crow's pieces.
 
-## Gate 1 — CLOSED 2026-07-29
-`SPEC-SHEET.md` (Panel gate block filled) and `REVIEW-LOG.md` (Session 1, four
-personas) are written. **Code may begin.**
+## Design decisions — recorded 2026-07-29
+`SPEC-SHEET.md` → *Design decisions* is filled.
 
-What the panel changed:
+What the review changed:
 - **Slice cut to the 3 verified objects** (bag, can, trash). The other six each need
   their own spike — see `SPEC-SHEET.md` → Vertical slice.
 - **Solvability check is in the slice** — the positional soft-lock is currently
@@ -84,9 +88,8 @@ green (`npm test`, `cd spike && ./run.sh`). What's left is the game itself, per
   low trash, grab the shiny the burst reveals)?
 - ~~**Game aesthetic.**~~ **DECIDED 2026-07-29 — Memphis for the game surface.**
   Bright flat geometry, chosen for legibility: the mess must read at a glance or the
-  puzzle isn't fair. The Critic objected that it argues against a game about grime and
-  decay; consciously accepted, revisited at the MVP gate with a full board of trash on
-  screen. Phosphor/CRT is dead here — `DESIGN-BIBLE.md` is superseded. Studio docs
+  puzzle isn't fair. It argues against a game about grime and decay; accepted
+  anyway, worth revisiting with a full board of trash on screen. Phosphor/CRT is dead here — `DESIGN-BIBLE.md` is superseded. Studio docs
   keep the house doc style either way.
 - **Verb/skill tree.** Deferred by decision (scope). Layer it *after* the base loop
   proves out. See the addendum in `rules.html`.

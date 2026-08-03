@@ -22,7 +22,6 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 | `GAME-SHEET.md` | Player-facing pitch (the fantasy, the loop, the hook). |
 | `SPEC-SHEET.md` | **The buildable spec**, plus the design-gate record. Build from this. |
 | `levels.md` | **The live ruleset** + cell-exact verified rooms (L0–L17) and sketches for what comes next. Start here for mechanics. |
-| `REVIEW-LOG.md` | The persona panel's notes across the gates. |
 | `rules.html` | The "Block-Pusher Laws" doc (the 4 panel lists + progression-mutation addendum), house doc style. |
 | `spike/` | **Playable prototype** of L0–L17 + a headless verifier. Throwaway, gate-legal, not the real game. Formats and API: `spike/FORMATS.md`. |
 | `TODO.md` | Where we are, what's locked, what's open, and the next move. **Read this to continue.** |

@@ -8,12 +8,12 @@ release gate."
 ## Positioning
 
 - **One line:** GAME_NAME is TAGLINE.
-- **What it's actually about** (the Critic's read): _…_ — the honest hook, not the
+- **What it's actually about** (the honest read): _…_ — the honest hook, not the
   aspirational one.
-- **Genre & audience** (the Superfan's read): GENRE players who _…_. Name them
+- **Genre & audience** (who actually plays this): GENRE players who _…_. Name them
   specifically; "everyone" is not an audience.
 - **Nearest comparables:** "like GAME_A meets GAME_B, but _…_" — the one true
-  difference. (The Archivist checks these comparisons are fair.)
+  difference. (Check the comparison is fair.)
 
 ## The three pillars
 
@@ -38,7 +38,7 @@ page. If you can't demonstrate it in a screenshot or a clip, it's not a pillar.
 
 ## Channels
 
-Pick the few where this genre's players actually gather — the Superfan names them.
+Pick the few where this genre's players actually gather — name them specifically.
 Don't spray every platform.
 
 - **itch.io** — the store page is home base; enable devlogs.
@@ -59,11 +59,11 @@ Don't spray every platform.
 
 ## Honesty guardrails (the release gate enforces these)
 
-- **Archivist:** every factual and historical claim on every surface is true and
+- **Accuracy:** every factual and historical claim on every surface is true and
   sourced — page, plan, clips, captions.
-- **Critic:** no superlatives the game can't earn; the pitch matches what the game
+- **No overselling:** no superlatives the game can't earn; the pitch matches what the game
   delivers, so reviews aren't a correction.
-- **Superfan:** the copy speaks to the genre without pandering or promising depth
+- **Genre fit:** the copy speaks to the genre without pandering or promising depth
   that isn't there.
 
 ## What to watch

@@ -127,7 +127,7 @@ The trade is legibility for literal accuracy, and it has a limit. Draw every
 shape with the game's own code — its geometry, its renderer, its font, its post
 pass — so that everything on screen is something the game builds, and stage only
 the *arrangement*. A staged shot that shows the game doing something it cannot do
-is a false claim, and the Archivist reads it as one.
+is a false claim, and it fails the release gate as one.
 
 Document any staged shot here, in the open, with what was staged and why.
 

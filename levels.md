@@ -232,7 +232,7 @@ game's one lesson — *fire your mess away from where you still need to walk* �
 finally applies to the final move too. Cost: one terrain type, no new object (the
 budget stays at 3 of ~8).
 
-**The authoring law that comes with it** (against the Critic's obvious objection —
+**The authoring law that comes with it** (against the obvious objection —
 that an exit degrades into a walk-back tax): **if the exit's position doesn't rule
 out at least one strike direction or push direction, it's a tax — move it.** Ten
 extra steps of unopposed walking is not a puzzle. L1's exit forbids the down-strike

@@ -1,7 +1,7 @@
 # SPEC-SHEET — Treasure Trash
 
-The buildable spec — precise enough to implement from. Written **after** the panel
-gate clears, from what survived the review.
+The buildable spec — precise enough to implement from. Written from what survived
+the review.
 
 Authoritative ruleset: `levels.md`, and — where prose and code disagree — the engine
 itself, `spike/rules.mjs`, which is the single implementation every consumer imports.
@@ -9,107 +9,94 @@ File formats and the verifier's contract: `spike/FORMATS.md`. Where this file an
 `DESIGN-BIBLE.md` disagree, this file wins — the bible documents a superseded
 real-time design and is retained as history only.
 
-## Panel gate 🔒
-
-**No game code until this block is filled and every concern is resolved or
-consciously accepted.** See `CLAUDE.md` → "The design gate." An accepted objection
-is fine; an ignored one is not.
+## Design decisions 🔒
 
 - [x] `GAME-SHEET.md` written — rewritten 2026-07-29 to the untimed one-raccoon
       design, replacing a pitch for the superseded real-time two-animal game.
-- [x] Panel convened on the pitch — 2026-07-29. Full notes: `REVIEW-LOG.md` Session 1.
+- [x] Reviewed against all four lenses — 2026-07-29.
 
-- **The Shipper** — core-loop / scope concern: the item table lists **nine** object
-  types; only **three** (bag, metal can, spilled trash) are verified in `spike/`.
-  Wheelie-bin roll-until-wall and rigid furniture polyominoes are each a separate
-  system with their own push-resolution edge cases. → **resolution: accepted, cut.**
-  The slice ships on the three verified objects only. The other six are each gated
-  behind their own spike and are explicitly out of the slice (see *Vertical slice*).
+**Scope & core loop.** The item table lists **nine** object types; only **three**
+(bag, metal can, spilled trash) are verified. Wheelie-bin roll-until-wall and rigid
+furniture polyominoes are each a separate system with their own push-resolution edge
+cases, so the slice ships on the three verified objects and the other six are each
+gated behind their own prototype (see *Vertical slice*).
 
-- **The Shipper** — second concern: L1 "Pounce" is a two-move win that, by
-  `levels.md`'s own admission, "doesn't yet exercise direction/mess." The first room
-  teaches nothing about the only mechanic. → **resolution: accepted.** L1 is demoted
-  to an optional interaction primer; the **Act 1 spine opens on L3 "Fire Away From
-  the Path"**, the smallest verified room where direction is load-bearing. Recorded
-  as an open question for playtest, not a locked ordering.
+L1 "Pounce" is a two-move win that, by `levels.md`'s own admission, "doesn't yet
+exercise direction/mess" — the first room teaches nothing about the only mechanic.
+It is demoted to an optional interaction primer, and the **Act 1 spine opens on L3
+"Fire Away From the Path"**, the smallest verified room where direction is
+load-bearing. An open question for playtest, not a locked ordering. — 2026-07-29
 
-- **The Critic** — meaning / cohesion concern: the game is titled *Treasure Trash*
-  and the item set explicitly cuts "shiny/treasure & any collecting." Winning means
-  every bag is torn open; nothing is collected or carried off. The title sells a loot
-  fantasy the mechanics refuse. → **resolution: logged as an open decision, not
-  resolved.** The theme the mechanics actually argue is *irreversibility* — the board
-  only ever gets worse. Either a shiny returns as a real object with real rules, or
-  the game is renamed. Deliberately not settled here; it does **not** block code,
-  because no system depends on the title. It **does** block the release gate.
+**What it's about, and where that lives in the mechanics.** The game is titled
+*Treasure Trash* and the item set explicitly cuts "shiny/treasure & any collecting."
+Winning means every bag is torn open; nothing is collected or carried off. The title
+sells a loot fantasy the mechanics refuse, and what the mechanics actually argue is
+*irreversibility* — the board only ever gets worse. Either a shiny returns as a real
+object with real rules, or the game is renamed. **Deliberately unsettled.** It does
+not block code, because no system depends on the title. It **does** block release.
 
-- **The Critic** — second concern: bright flat Memphis-style geometry contradicts a
-  game about grime, accumulation, and permanent decay. The aesthetic says "playful
-  and clean"; the mechanic says "you are ruining this alley forever."
-  → **resolution: consciously accepted, 2026-07-29.** Memphis is the chosen game
-  surface for now, on the owner's call, and buys legibility — the mess must read at a
-  glance for the puzzle to be fair, and flat hard-edged color does that better than
-  grime. Revisit at the MVP gate once a full board of trash is on screen.
+Bright flat Memphis-style geometry contradicts a game about grime, accumulation and
+permanent decay: the aesthetic says "playful and clean," the mechanic says "you are
+ruining this alley forever." **Accepted anyway** — Memphis buys legibility, and the
+mess must read at a glance for the puzzle to be fair, which flat hard-edged color
+does better than grime. Worth revisiting once a full board of trash is on screen.
+— 2026-07-29
 
-- **The Archivist** — lineage / accuracy concern: the game's own documentation
-  misdescribed the game. `GAME-SHEET.md` and `DESIGN-BIBLE.md` specified a real-time,
-  timed, two-animal click-to-command game; `levels.md` and `spike/` implement an
-  untimed one-raccoon turn-based puzzle. A panel convened on the stale pitch would
-  have reviewed a game that does not exist. → **resolution: fixed, 2026-07-29.**
-  `GAME-SHEET.md` rewritten to the live design; `DESIGN-BIBLE.md` marked superseded
-  at its head; this file declared authoritative over the bible.
+**Lineage, and what's actually new.** The game's own documentation had misdescribed
+the game: `GAME-SHEET.md` and `DESIGN-BIBLE.md` specified a real-time, timed,
+two-animal click-to-command game while `levels.md` and the prototype implement an
+untimed one-raccoon turn-based puzzle. Fixed 2026-07-29 — `GAME-SHEET.md` rewritten
+to the live design, `DESIGN-BIBLE.md` marked superseded at its head, and this file
+declared authoritative over the bible.
 
-- **The Archivist** — second concern: the novelty claim. `levels.md` records
-  "[searched 2026-07, no direct match]" for the additive-scatter mechanic and
-  correctly caveats that the PuzzleScript and itch.io long tail is unindexed, so
-  absence cannot be proven. → **resolution: accepted as written.** The caveat stays
-  attached to the claim. **"Novel" and "first" are barred from all marketing copy**;
-  permitted phrasing is "uncommon" or a description of the mechanic without a
-  priority claim. Enforced at the release gate by the `honest-copy` skill.
+On novelty: `levels.md` records "[searched 2026-07, no direct match]" for the
+additive-scatter mechanic and correctly caveats that the PuzzleScript and itch.io
+long tail is unindexed, so absence cannot be proven. The caveat stays attached to
+the claim. **"Novel" and "first" are barred from all marketing copy**; permitted
+phrasing is "uncommon," or a description of the mechanic with no priority claim.
+Enforced at the release gate by the `honest-copy` skill. — 2026-07-29
 
-- **The Superfan** (genre: turn-based "thinky" puzzle / Sokoban-family block-pusher)
-  — audience / genre concern: **soft-lock is the only failure state, and nothing
-  detects it.** A blocked fan refuses the strike immediately, so the strike itself is
-  safe — but the real soft-lock is *positional* (L3: seal the corridor and the far bag
-  is stranded) and the game stays silent about it. The player can walk many moves past
-  a dead board. This genre's current audience treats that as a defect even with free
-  undo. → **resolution: accepted; in slice.** The slice ships a **solvability check**
-  (see *Systems* → `solver`) that runs after every state change and surfaces a
-  non-blocking "this board can no longer be won" indicator. The existing
-  `spike/verify.mjs` search is the basis; it already detects L3's dead state offline.
+**The genre's players, and what they get.** Genre: turn-based "thinky" puzzle,
+Sokoban-family block-pusher. **Soft-lock is the only failure state, and nothing
+detects it.** A blocked fan refuses the strike immediately, so the strike itself is
+safe — but the real soft-lock is *positional* (L3: seal the corridor and the far bag
+is stranded) and the game stays silent about it, so the player can walk many moves
+past a dead board. This genre's audience treats that as a defect even with free
+undo. **In slice:** a **solvability check** (see *Systems* → `solver`) runs after
+every state change and surfaces a non-blocking "this board can no longer be won"
+indicator. The existing `verify.mjs` search is the basis; it already detects L3's
+dead state offline.
 
-- **The Superfan** — second concern: no mastery tail. Deterministic hand-authored
-  rooms with par counts give the hardcore nothing past the last room; she asked for a
-  level editor and community sharing. → **resolution: overruled for the slice**, on
-  the Shipper's scope objection. Levels are data (see *Data*), so an editor stays
-  cheap to add later, and par-move counts ship as the mastery hook. Recorded so the
-  MVP gate can revisit.
+No mastery tail: deterministic hand-authored rooms with par counts give the hardcore
+nothing past the last room, and a level editor with community sharing was asked for.
+**Out of the slice**, on scope. Levels are data (see *Data*), so an editor stays
+cheap to add later, and par-move counts ship as the mastery hook. — 2026-07-29
 
-- [x] **Gate cleared — 2026-07-29. Build may begin.**
+- [x] **Gate cleared — 2026-07-29.**
 
 ## Post-gate ruleset changes
 
-The block above is the panel's record and is not edited after the fact. The ruleset
-moved afterwards — the exit became a first-class element, arming was added, and refusal
-became a performed animation — which lands on two of those resolutions. What changed, and
-what it does to each:
+The ruleset moved after the decisions above — the exit became a first-class element,
+arming was added, and refusal became a performed animation — which lands on two of
+them. What changed, and what it does to each:
 
 - **The exit is terrain, and it cannot be buried.** Any strike or push that would put an
   object on the exit is refused at the keypress; `spike/rules.mjs` splits *where the
   raccoon may stand* (`isClearFloor` — the exit qualifies) from *where an object may come
   to rest* (`isOccupiable` — it does not). Win is now transformation **plus egress**.
-- **The Superfan's dead-board concern narrows.** Protecting the exit converted a whole
+- **The dead-board concern narrows.** Protecting the exit converted a whole
   class of soft-lock into a refusal (L1 2 traps → 0, L2 13 → 1, L3 10 → 2). What the
   solvability check must still catch is **stranding** — the exit is clear and intact but
   your own trash has cut you off from it. The resolution stands; its scope shrank, and
   the remaining case needs connectivity reasoning, not fan-reading.
-- **The Shipper's L1 objection is partly answered, and the room order is *not* settled.**
+- **The L1 objection is partly answered, and the room order is *not* settled.**
   L1 now teaches a real lesson — the down-strike's fan would land on the exit, so the
   room refuses it — and a new **L0 "Out"** teaches egress alone. `levels.md` records the
-  Act 1 spine as **L0 → L1 → L3 → L4 → L5**; the panel's resolution demoted L1 and opened
+  Act 1 spine as **L0 → L1 → L3 → L4 → L5**; the recorded decision demoted L1 and opened
   on L3. Both are on the table; the call is open (see *Open questions*).
 - **Arming (`:arm on`)** is a per-room teaching scaffold, default off, on in L1 and L2.
   It is input-layer only — it spends no move and the solver never sees it, so no flag can
-  change a par. It was not before the panel and adds no system to the slice beyond input.
+  change a par. It came after the review and adds no system to the slice beyond input.
 
 ## Vertical slice
 
@@ -234,7 +221,7 @@ direction order), `shortestCount` (`>1` means unintended solves), the `dead` key
 every `trap` (a legal action from a live state to a dead one) and `silentTraps` (traps
 whose action is a plain move). No estimation and no node cap — the shipped rooms measure
 3 / 18 / 137 / 62 / 106 / 125 / 695 / 297 / 3089 / 258 / 1260 / 2626 / 1537 / 2492 reachable states (L0–L13), so this is exact where a full-size Sokoban
-solver would need deadlock tables. It answers the Superfan's stranding concern at runtime and backs the test
+solver would need deadlock tables. It answers the stranding concern at runtime and backs the test
 assertion that every shipped room is solvable in its stated par. `replay(state, actions)`
 walks a declared solution through `explain` and throws on the first disagreement.
 
@@ -411,8 +398,8 @@ Needs a spike or a playtest to answer:
    indicator now only ever fires on stranding.
 3. **The title.** Unresolved by the panel. Blocks the release gate, not the build.
 4. **Memphis at full board.** Whether flat bright color still reads as accumulating
-   garbage once thirty trash cells are on screen — the Critic's objection, deferred to
-   the MVP gate.
+   garbage once thirty trash cells are on screen — the legibility-versus-grime
+   objection, deferred until a full board is playable.
 5. **Does one verb carry a full game?** The fan is the only real mechanic in the
    slice. If L5-style fan interference isn't deep enough, the bag-launch stack is the
    first candidate to promote out of the cut list.

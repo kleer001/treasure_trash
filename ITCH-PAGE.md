@@ -2,8 +2,8 @@
 
 The itch.io page, authored here and pasted into itch's editor at release. itch's
 description field accepts a subset of HTML; everything else is page metadata you
-set in the dashboard. **Every claim here passes the release gate** — the Archivist
-fact-checks it, the Critic checks it doesn't oversell. See `CLAUDE.md` → "The
+set in the dashboard. **Every claim here passes the release gate** — every claim
+fact-checked, nothing oversold. See `CLAUDE.md` → "The
 release gate."
 
 ---
@@ -22,7 +22,7 @@ release gate."
   and turns the page into a download (see `PUBLISHING-RUNBOOK.md`)
 - **Embed:** viewport WIDTHxHEIGHT (match the canvas), fullscreen button on,
   mobile-friendly if it is
-- **Genre:** GENRE (the one the Superfan reviewed)
+- **Genre:** GENRE
 - **Tags (≤ 10):** tag, tag, tag — real genre/mechanic tags players search, not filler
 - **Platforms:** HTML5 (add downloadable builds only if they exist)
 - **Input:** keyboard / mouse / touch — whatever is true
@@ -73,9 +73,9 @@ Mechanics of the dashboard itself — how a save can silently revert fields, how
 verify a release server-side — live in `PUBLISHING-RUNBOOK.md`. Read it before the
 first publish and before every update.
 
-- [ ] Tagline and every bullet is literally true (Archivist signed off)
-- [ ] No superlatives the game can't earn — no "best," "revolutionary" (Critic signed off)
-- [ ] Tags are ones the genre's players actually search (Superfan signed off)
+- [ ] Tagline and every bullet is literally true
+- [ ] No superlatives the game can't earn — no "best," "revolutionary"
+- [ ] Tags are ones the genre's players actually search
 - [ ] Screenshots are from the real build
 - [ ] Credits and licenses complete for all borrowed work
-- [ ] The uploaded build runs from a fresh unzip (Shipper signed off)
+- [ ] The uploaded build runs from a fresh unzip

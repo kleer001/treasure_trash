@@ -24,8 +24,8 @@ to let anything else occupy.
   `src/rng.js` is for *cosmetic* variation only, seeded from the level id. A replay is
   the level id plus the move sequence.
 - **The crow is pinned** — parked deliberately until the raccoon-alone game proves fun.
-- Gate status: the design gate is closed (`SPEC-SHEET.md` → *Panel gate*). The MVP gate
-  is next and blocks further building once the slice first plays.
+- Gate status: the design decisions are recorded (`SPEC-SHEET.md` → *Design
+  decisions*). The game itself is not built — see *State*, below.
 
 ## Run & test
 
@@ -88,8 +88,7 @@ to let anything else occupy.
 - `LEVEL-GENERATION.md` — how to build the *next* room: the floor budget, the laws a
   generator selects on, the intent-first pipeline, and the `OLRP` signature to generate to.
   Forward-looking only; measured by `spike/metrics.mjs`.
-- `REVIEW-LOG.md` — the panel's notes across the design / MVP / release gates.
-- `rules.html` — the Block-Pusher Laws the genre panel argued out, house doc style.
+- `rules.html` — the Block-Pusher Laws, house doc style.
 - `spike/FORMATS.md` — the `.tt`/`.sol` file formats and what the verifier enforces.
 - `MARKETING-PLAN.md`, `promo.html`, `ITCH-PAGE.md` — launch assets, finalized at the
   release gate. They still carry template placeholders.
@@ -114,3 +113,9 @@ stamp. Independence is the default; this is opt-in, one directive at a time.
 
 Lead with the answer; cut filler. **Never fabricate** a fact, source, quote, or
 date — in code, docs, or marketing copy. "I don't know" is a valid answer.
+
+The studio's review panel is a chat-time lens. **Never write a persona's words to a
+file, and never cite one in a doc, comment, test, or commit message.** What survives
+a review is a decision you author in your own voice, defended on its merits — a
+constraint nobody can check the reason for is a constraint nobody can renegotiate.
+CI enforces this; see the `no panel voice on disk` step.

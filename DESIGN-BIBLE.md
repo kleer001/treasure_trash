@@ -52,7 +52,7 @@ its kit action there. The puzzle is *sequencing and timing* two mismatched
 scavengers over a shared pile so they crack the garbage and cash in the shiny loot
 **without colliding** — because they're allies who don't get along.
 
-**Theme (the Critic's throughline):** conducting an odd couple. You make two
+**Theme (the throughline):** conducting an odd couple. You make two
 creatures who dislike each other work in concert, live, by reading where they are
 and when to move them. You win with the plan, not the reflexes.
 
@@ -200,7 +200,7 @@ indirect-steering / anti-fight tools that made no sense once you command directl
   *if* tools survive §12.4. If they don't, gems are pure score.
 - **Par-command (the mastery hook):** each level has a **par** — a target number of
   commands (or a target time) for a clean solve, like golf par or a "fewest moves"
-  puzzle. This is the theorycrafter's tail (the Superfan's home now that the draft
+  puzzle. This is the theorycrafter's tail (the genre-native home now that the draft
   economy is gone): optimize a level from "solved" to "solved in 4 commands."
 - **Post-slice modes:** time-attack, daily seeded layout, mirror/hard variants.
   Procedural endless is a *weak* fit now (no draft loop to power it) — deprioritize.
@@ -309,7 +309,7 @@ win by out-commanding; each phase is a sub-puzzle:
 ## 10. Story beats [hunch — deliberately thin]
 
 Understated connective tissue as short retro-terminal interstitials between worlds.
-No lore walls (the Shipper will cut them). Theme lives in the *mechanics* — you
+No lore walls — they get cut. Theme lives in the *mechanics* — you
 spend the whole game making two creatures who dislike each other work together — so
 the text just names it.
 

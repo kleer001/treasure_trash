@@ -67,15 +67,6 @@
   .callout{background:var(--panel); border:1px solid var(--line); border-left:5px solid var(--blu); padding:.8rem 1rem; margin:1.1rem 0}
   .callout.warn{border-left-color:var(--red); background:#fff6f5}
   .callout .k{font-weight:800}
-  .persona{
-    display:inline-block; font-size:.68em; font-weight:700; color:#fff; background:var(--blu);
-    padding:.05em .5em; border-radius:3px; margin-left:.35em; vertical-align:middle;
-    letter-spacing:.4px; white-space:nowrap; text-transform:uppercase;
-  }
-  .persona.crit{background:var(--red)}
-  .persona.arch{background:var(--yel); color:#333}
-  .persona.ship{background:var(--blu)}
-  .persona.fan{background:var(--pnk)}
   .toc{columns:2; column-gap:1.5rem; font-size:.9em; margin:.9rem 0}
   .toc a{color:var(--link)}
   .refs{margin-top:1.6rem; border-top:2px solid var(--ink); padding-top:1rem}
@@ -117,49 +108,49 @@ teach-in-isolation, in one sentence.
 <p>Break these and the player feels <em>cheated</em>, not challenged.</p>
 <ol>
   <li><strong>Determinism.</strong> Same inputs &rarr; same result, always. No RNG in resolution.
-      <span class="persona arch">Archivist</span><span class="persona fan">Superfan</span></li>
+      </li>
   <li><strong>Full information.</strong> Everything needed to solve is on screen.
       <a href="#ref-lolo">Lolo</a> shows the whole room at once; no off-screen state decides the answer.
-      <span class="persona fan">Superfan</span></li>
+      </li>
   <li><strong>No execution tax.</strong> With the clock gone, solving is <em>thinking</em>, never <em>doing</em>.
       A solution you&rsquo;ve figured out can <strong>always</strong> be input.
-      <span class="persona fan">Superfan</span></li>
+      </li>
   <li><strong>Failure is legible and free to undo.</strong> A soft-lock whose cause you can <em>see</em> is a puzzle;
       one you can&rsquo;t diagnose is a bug. <a href="#ref-sokoban">Sokoban&rsquo;s</a> corner-lock is always visible.
-      <span class="persona crit">Critic</span><span class="persona ship">Shipper</span></li>
+      </li>
   <li><strong>One consistent rule, everywhere.</strong> A block pushes the same in room 1 and room 50.
-      Consistency is the substrate that makes deduction possible. <span class="persona arch">Archivist</span></li>
+      Consistency is the substrate that makes deduction possible. </li>
   <li><strong>Unambiguous goal.</strong> The player always knows what &ldquo;solved&rdquo; means
-      (all shiny &rarr; the hoard). <span class="persona fan">Superfan</span></li>
+      (all shiny &rarr; the hoard). </li>
   <li><strong>Foreseeable dead-ends.</strong> You can <em>reason</em> &ldquo;this strands me&rdquo; before committing &mdash;
-      the tell is visible. A lock knowable only in hindsight is a trap. <span class="persona crit">Critic</span></li>
+      the tell is visible. A lock knowable only in hindsight is a trap. </li>
   <li><strong>Guaranteed solvable.</strong> Every shipped room is actually solvable &mdash; and you can <em>prove</em> it
-      (see <a href="#law4">List 4</a>). <span class="persona ship">Shipper</span></li>
+      (see <a href="#law4">List 4</a>). </li>
 </ol>
 </section>
 
 <section id="law2">
 <h2><span class="num">2</span>The Laws of Breaking Laws <span style="font-size:.55em;color:var(--muted)">— the deepening &ldquo;aha&rdquo;</span></h2>
 <p>How to make a player find a law was deeper/stranger &mdash; while staying perfectly logical.
-This is the <a href="#ref-blow">Blow</a> zone, and the Critic&rsquo;s home turf.</p>
+This is the <a href="#ref-blow">Blow</a> zone.</p>
 <ol>
   <li><strong>Break assumptions, never rules.</strong> The player assumed a limit <em>that was never stated</em>.
       You reveal the true rule was always broader. Their <em>model</em> changes; the <em>system</em> doesn&rsquo;t.
-      <span class="persona crit">Critic</span></li>
+      </li>
   <li><strong>Retroactively obvious.</strong> After the aha: &ldquo;of course &mdash; it was always true, I just never tried.&rdquo;
-      If it feels bolted on, you cheated. <span class="persona crit">Critic</span></li>
+      If it feels bolted on, you cheated. </li>
   <li><strong>Teach the twist in isolation, then combine</strong> (<a href="#ref-witness">The Witness</a>&rsquo;s method):
       a safe room where the deeper truth is unmistakable, <em>then</em> stack it on old mechanics.
-      <span class="persona arch">Archivist</span></li>
+      </li>
   <li><strong>Let the wrong assumption fail cheaply and legibly.</strong> The obvious move soft-locks <em>visibly</em>,
       and the failure itself hints at the deeper rule. Free undo makes this a teacher, not a punishment.
-      <span class="persona fan">Superfan</span><span class="persona ship">Shipper</span></li>
+      </li>
   <li><strong>One reinterpretation per room.</strong> Two &ldquo;actually it&rsquo;s stranger&rdquo; reveals at once and
-      the player can&rsquo;t attribute the lesson. <span class="persona fan">Superfan</span></li>
+      the player can&rsquo;t attribute the lesson. </li>
   <li><strong>The strange truth must generalize.</strong> A one-off is a gimmick; a deeper law that re-colors
-      <em>every</em> prior room is elegance. <span class="persona crit">Critic</span><span class="persona arch">Archivist</span></li>
+      <em>every</em> prior room is elegance. </li>
   <li><strong>Interaction, never exposition.</strong> No text box explains the twist. They <em>do</em> it and <em>see</em> it.
-      <span class="persona arch">Archivist</span></li>
+      </li>
 </ol>
 
 <div class="callout">
@@ -172,7 +163,7 @@ visible; only the assumption hid the truth):</p>
       spill trash to bridge water or wall off a rival &mdash; the hindrance was always a tool.</li>
   <li><em>Assume</em> the two must be kept apart (bad). <strong>Truth:</strong> a controlled bump <em>shoves the other
       exactly one tile</em> &mdash; deliberate collision as a nudge tool. <strong>The antagonism was always usable.</strong>
-      The Critic&rsquo;s keystone: this turns &ldquo;keep apart&rdquo; into &ldquo;controlled proximity is a tool,&rdquo; so the
+      The keystone: this turns &ldquo;keep apart&rdquo; into &ldquo;controlled proximity is a tool,&rdquo; so the
       odd-couple theme finally lives in the <em>rules</em>, not the art.</li>
 </ul>
 </div>
@@ -180,24 +171,24 @@ visible; only the assumption hid the truth):</p>
 
 <section id="law3">
 <h2><span class="num">3</span>Conventions that make play fun <span style="font-size:.55em;color:var(--muted)">— not generic juice</span></h2>
-<p>Structural conventions specific to the genre. The Superfan owns this list.</p>
+<p>Structural conventions specific to the genre.</p>
 <ol>
   <li><strong>Free, instant undo + restart.</strong> The most important thing in the genre; it converts soft-locks
       from punishment into <em>experimentation</em>. (<a href="#ref-baba">Baba Is You</a>,
       <a href="#ref-snakebird">Snakebird</a>, <a href="#ref-sausage">Stephen&rsquo;s Sausage Roll</a> all lean on it.)</li>
   <li><strong>Single-screen, glanceable rooms.</strong> One puzzle, fully visible, no camera hunting.
-      <span class="persona arch">Archivist</span></li>
+      </li>
   <li><strong>&ldquo;Solve on paper.&rdquo;</strong> A good room is solvable by <em>looking</em>, before touching;
       movement just executes the plan.</li>
   <li><strong>One-new-idea cadence:</strong> introduce &rarr; complicate &rarr; combine &rarr; subvert.
-      Every room has a <em>point</em>. <span class="persona arch">Archivist</span></li>
+      Every room has a <em>point</em>. </li>
   <li><strong>Elegance &mdash; fewest parts, richest interaction.</strong> Cut any element not load-bearing for the
-      solution. Three interacting beats ten inert. <span class="persona crit">Critic</span></li>
+      solution. Three interacting beats ten inert. </li>
   <li><strong>The &ldquo;I&rsquo;m brilliant&rdquo; payoff.</strong> The aha <em>is</em> the reward &mdash; the loot is just the receipt.</li>
   <li><strong>Difficulty by depth, never obscurity.</strong> Hard because the interaction is deep, not because a
-      rule is hidden or fiddly. <span class="persona crit">Critic</span></li>
+      rule is hidden or fiddly. </li>
   <li><strong>Optional mastery layer</strong> (par-command, bonus loot) that never gates progress.</li>
-  <li><strong>Bite-sized rooms, generous checkpoints</strong> &mdash; frequent small victories. <span class="persona ship">Shipper</span></li>
+  <li><strong>Bite-sized rooms, generous checkpoints</strong> &mdash; frequent small victories. </li>
 </ol>
 </section>
 
@@ -207,28 +198,28 @@ visible; only the assumption hid the truth):</p>
   <li><strong>Ship a <em>solver</em> in the test suite.</strong> Law&nbsp;1.8 (guaranteed solvable) is load-bearing, and
       the house rule is &ldquo;new behavior gets a test.&rdquo; A brute-force solver that proves each room is solvable
       <em>and</em> surfaces unintended solutions is the highest-value thing to build early.
-      <span class="persona ship">Shipper</span></li>
+      </li>
   <li><strong>Two movers doubles the state space.</strong> Sim-legibility is gone, but a new <em>combinatorial</em>
       legibility risk appears &mdash; the player holds two units&rsquo; possibilities in mind. Keep early rooms small.
-      <span class="persona ship">Shipper</span></li>
+      </li>
   <li><strong>Reversibility is a tuning knob.</strong> <a href="#ref-sokoban">Sokoban</a> is 100% irreversible (hence
       undo-reliance). We choose the mix &mdash; moving animals reversible, <em>opening</em> irreversible. More
-      irreversibility = harder, more soft-locky. <span class="persona crit">Critic</span></li>
+      irreversibility = harder, more soft-locky. </li>
   <li><strong>Enemies as logic, not reflexes</strong> &mdash; <a href="#ref-lolo">Lolo&rsquo;s</a> real lesson. Medusa is a
       <em>line-of-sight rule</em>; Snakey is a <em>push-a-block-onto-it rule</em>. Any rival/hazard must be a
-      deterministic logic piece, never a twitch threat. <span class="persona arch">Archivist</span></li>
+      deterministic logic piece, never a twitch threat. </li>
   <li><strong>The &ldquo;just Sokoban&rdquo; trap.</strong> If the game reskins to warehouse crates with nothing lost, the
       crow/raccoon is decoration. The differentiators that must earn their keep: <strong>asymmetric movers</strong>
       (flyer vs. shover), <strong>two appetites</strong>, and <strong>opening reshapes terrain</strong> &mdash; plus the
-      controlled-bump reveal. <span class="persona crit">Critic</span><span class="persona arch">Archivist</span></li>
+      controlled-bump reveal. </li>
 </ul>
 
 <div class="callout warn">
-<p><span class="k">The one conflict worth naming</span> &mdash; Critic vs. Superfan. The Critic <em>wants</em>
-assumption-breaking reveals (List&nbsp;2); the Superfan guards <em>full information</em> (Law&nbsp;1.2). They look
-opposed but aren&rsquo;t: the info was <strong>always visible</strong>; only the player&rsquo;s untested assumption hid it.
-A reveal leaning on <em>off-screen state</em> violates the Superfan; a reveal about an <em>untested affordance of a
-visible element</em> satisfies both. <strong>Visible affordance, yes; hidden state, no</strong> &mdash; that&rsquo;s the line
+<p><span class="k">The one conflict worth naming</span> &mdash; assumption-breaking reveals
+(List&nbsp;2) against <em>full information</em> (Law&nbsp;1.2). They look opposed but aren&rsquo;t:
+the info was <strong>always visible</strong>; only the player&rsquo;s untested assumption hid it.
+A reveal leaning on <em>off-screen state</em> breaks full information; a reveal about an
+<em>untested affordance of a visible element</em> satisfies both. <strong>Visible affordance, yes; hidden state, no</strong> &mdash; that&rsquo;s the line
 to design on.</p>
 </div>
 </section>
@@ -248,7 +239,7 @@ open. The &ldquo;tree&rdquo; is a tree of verbs. This is the safest and oldest f
   <li><strong><a href="#ref-zelda">The Legend of Zelda</a></strong> — dungeon items <em>are</em> the skill tree:
       each item is a key that makes a new class of puzzle solvable (hookshot, bombs, boomerang).</li>
   <li><strong><a href="#ref-lolo">Adventures of Lolo</a></strong> — per-screen powers (build a bridge, smash rock):
-      the ability defines the room. Our direct ancestor already does this. <span class="persona arch">Archivist</span></li>
+      the ability defines the room. Our direct ancestor already does this. </li>
   <li><strong><a href="#ref-toki">Toki Tori 2</a></strong> — <em>two</em> abilities (stomp, tweet), combined in ever-deeper
       ways. Proof that a tiny verb-set + growth-by-combination beats a big stat sheet.</li>
   <li><strong><a href="#ref-talos">The Talos Principle</a></strong> — accreting deterministic tools (jammers,
@@ -271,7 +262,7 @@ just <a href="#law2">List&nbsp;2</a> (breaking laws) scaled to a whole game.</p>
       gated only by what you&rsquo;ve figured out.</li>
   <li><strong><a href="#ref-toki">Toki Tori 2</a></strong> &amp; <strong><a href="#ref-baba">Baba Is You</a></strong> —
       no formal unlocks; the barrier is your own ignorance. (See the
-      <a href="#ref-metroidbrainia">&ldquo;metroidbrainia&rdquo;</a> concept.) <span class="persona crit">Critic</span></li>
+      <a href="#ref-metroidbrainia">&ldquo;metroidbrainia&rdquo;</a> concept.) </li>
 </ul>
 
 <div class="callout warn">
@@ -280,7 +271,7 @@ just <a href="#law2">List&nbsp;2</a> (breaking laws) scaled to a whole game.</p>
 <em>thinking</em>, and it breaks <a href="#law1">Law&nbsp;1.2 (full information)</a> and the
 &ldquo;solve on paper&rdquo; convention. <strong><a href="#ref-pquest">Puzzle Quest</a></strong> gets away with an RPG
 skill tree only because it&rsquo;s a <em>match-3</em> (an execution + RNG genre), <em>not</em> a pure-logic puzzle.
-Don&rsquo;t bolt a stat sheet onto a logic puzzle. <span class="persona crit">Critic</span><span class="persona fan">Superfan</span></p>
+Don&rsquo;t bolt a stat sheet onto a logic puzzle. </p>
 </div>
 
 <div class="callout">
@@ -360,8 +351,6 @@ want while keeping all eight Laws intact.</p>
 <footer>
 Treasure Trash · a Trace ROM Studio game · Block-Pusher Laws (working design canon).
 Game mechanics and lore are invention; historical claims about real games are cited above.
-Panel voices: <span class="persona ship">Shipper</span> <span class="persona crit">Critic</span>
-<span class="persona arch">Archivist</span> <span class="persona fan">Superfan</span>.
 </footer>
 
 </div>
