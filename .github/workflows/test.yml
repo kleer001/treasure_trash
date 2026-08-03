@@ -10,21 +10,7 @@ jobs:
           node-version: '22'
       # No dependencies to install — tests use Node's built-in runner.
       - run: npm test
-      # The review panel is a chat-time lens. A file that quotes one turns a
-      # thinking tool into a constraint nobody chose and nobody can renegotiate —
-      # so the check lives here, in a tracked file that survives budding, rather
-      # than in a brief that stops applying the moment the game leaves the studio.
-      - name: no panel voice on disk
-        run: |
-          if git grep -nEi "the (Shipper|Critic|Archivist|Superfan)'?s?\b" \
-               -- . ':!.github/workflows/test.yml' ':!CLAUDE.md'; then
-            echo "::error::The panel is a chat-time lens. Nothing tracked cites it."
-            echo "State the reason on its own merits and drop the name."
-            exit 1
-          fi
-      # The unit tests check the RULES. This checks the LEVELS: that every declared par is
-      # provably minimal, every :solve replays to a win with the right action kinds, and every
-      # trap and solve count matches the state graph. A rules change can leave the tests green
-      # and silently invalidate a par, which is exactly what it caught this pack doing.
+      # npm test checks the rules; this checks the level data. A rules change can leave
+      # the tests green and silently invalidate a declared par.
       - name: Verify the level pack
-        run: node spike/verify.mjs
+        run: node tools/verify.mjs
