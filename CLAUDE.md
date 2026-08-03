@@ -17,9 +17,13 @@ around it — art, audio, progression, and the solvability indicator.
 
 ## Run & test
 
-- `./run.sh [port]` — no-cache dev server (default 8000). Open the URL.
+- `./run.sh [port]` — no-cache dev server (default 8000). Scans upward for a free port and
+  opens the page. ES modules, `fetch` and relative paths all behave differently under
+  `file://`, so **a served page is the only supported way to run it.**
 - `npm test` — Node's built-in runner (`node --test`); specs in `tests/*.test.js`.
 - `node tools/verify.mjs` — checks every claim the level files make.
+- `./package.sh` — builds `dist/treasure-trash.zip` for itch.io, `index.html` at the archive
+  root. Add new runtime assets to its `RUNTIME` list; the zip stays out of git.
 
 ## Platform
 
@@ -30,7 +34,29 @@ around it — art, audio, progression, and the solvability indicator.
 - Ships to GitHub Pages via `.github/workflows/pages.yml`; tests run in CI via
   `.github/workflows/test.yml`.
 
-## Conventions
+## Changing the design
+
+**Pre-alpha. The docs describe the game; they do not govern it.** `levels.md`, `FORMATS.md`
+and the comments in `src/` record what the build does *today*. A line like "all mess is
+permanent", "nothing sprays backward" or "the fan needs clear floor" is a description of the
+current rules, not a constraint on the next ones — quoting one back at a proposed change is
+not an argument, it is a citation of the thing being changed.
+
+So: when a change contradicts a doc, **change the doc in the same commit.** When a new piece
+needs a new occupant code, a new glyph or a new lane in `stateKey`, add it. The engine is
+meant to grow.
+
+Raise a design concern **once**, in a sentence or two, and then build what was asked. The
+owner has the context; a second round of pushback is noise. The things worth stopping for are
+narrow and mechanical: a change that would make a shipped level unsolvable, silently
+invalidate a declared par, or break `tools/verify.mjs`. Those are checkable — say which one,
+show the failure, and keep going.
+
+The one hard stop is **release** — see the studio's release gate. Nothing before it blocks.
+
+## Code conventions
+
+These govern how code is written. They are not design arguments.
 
 - `camelCase` functions/vars, `PascalCase` classes, `UPPER_SNAKE` constants.
 - Validate at boundaries; trust internal functions; fail loudly — one path, no silent

@@ -8,7 +8,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      # No dependencies to install — tests use Node's built-in runner.
+      # Tests use Node's built-in runner, so today there is nothing to install and
+      # this step is a no-op. The day a devDependency arrives it brings a lockfile,
+      # and CI must install from it or the run fails on an import that resolves
+      # fine on the machine it was written on.
+      - if: hashFiles('package-lock.json') != ''
+        run: npm ci
       - run: npm test
       # npm test checks the rules; this checks the level data. A rules change can leave
       # the tests green and silently invalidate a declared par.

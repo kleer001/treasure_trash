@@ -29,8 +29,9 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 ## Quickstart
 - **Play it online:** <https://kleer001.github.io/treasure_trash/> — deployed from
   `main` by `.github/workflows/pages.yml`.
-- **Play it locally:** `./run.sh 8000`, then open the URL. It loads ES modules, so it
-  needs `http://` — opening the file directly will not work.
+- **Play it locally:** `./run.sh 8000` — it takes the first free port from there and opens
+  the page. ES modules, `fetch` and relative paths all behave differently under `file://`,
+  so a served page is the only supported way to run it.
   Arrows/WASD or the on-screen d-pad; `U` undo, `R` restart.
 - **Check every claim the level files make:** `node tools/verify.mjs` → all 18 rooms solve
   in provably-minimal par (2/4/7/5/5/6/11/13/15/17/19/21/23/25/7/8/6/7), the exit is
