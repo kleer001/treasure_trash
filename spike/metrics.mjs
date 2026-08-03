@@ -20,14 +20,14 @@ import { dirname, resolve } from 'node:path';
 import { parseLevelPack, parseLurd, toState } from './format.mjs';
 import { analyze } from './solver.mjs';
 import {
-  DIR_ORDER, DIRS, MOVE, TEAR, BAG, explain, cell, fan, canStand, canHoldTrash, bagsLeft,
+  DIR_ORDER, DIRS, MOVE, TEAR, BAG, explain, cell, fan, canStand, isOccupiable, bagsLeft,
 } from './rules.mjs';
 
 const FAN_CELLS = 5;   // a tear always spends exactly five cells of floor, never fewer
 
 /** Dry ground: the floor budget a room starts with, before anything stands on it.
  *  Water is not floor — it is floor you can buy, at five cells a bag or one a bin. */
-const floorCells = s => s.cells.flat().filter(c => !c.wall && !c.water).length;
+const floorCells = s => s.cells.flat().filter(c => !c.wall && !c.water).length;   // bridges count: they are floor
 
 /** Everywhere the raccoon can still walk, bridges included. */
 const freeCells = (s) => {
@@ -58,7 +58,7 @@ function coupling(s) {
   for (const [ax, ay] of bags) for (const dir of DIR_ORDER) {
     const [dx, dy] = DIRS[dir];
     const laid = fan(ax, ay, dx, dy);
-    if (laid.some(([x, y]) => !canHoldTrash(s, x, y))) continue;   // not a legal opening anyway
+    if (laid.some(([x, y]) => !isOccupiable(s, x, y))) continue;   // not a legal opening anyway
     choices++;
     const hits = bags.some(([bx, by]) =>
       (bx !== ax || by !== ay) &&
@@ -162,7 +162,9 @@ export function metrics(level) {
     const before = final;
     final = explain(final, act.dir).next;
     for (let y = 0; y < final.rows; y++) for (let x = 0; x < final.cols; x++)
-      if (cell(final, x, y).water && cell(final, x, y).o !== cell(before, x, y).o) bridges++;
+      // A canal cell that became a bridge. Objects shoved into the water are the opposite of
+      // this — they kill the cell rather than fill it — and they never set `bridge`.
+      if (cell(final, x, y).bridge && !cell(before, x, y).bridge) bridges++;
   }
 
   const floor = floorCells(start);

@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import {
   parseLevelPack, formatLevelPack, parseSolutionPack, formatSolutionPack,
-  parseLurd, formatLurd, toState, toGrid,
+  parseLurd, formatLurd, toState, toGrid, toWater,
 } from './format.mjs';
 import { analyze, replay } from './solver.mjs';
 import { isWon, bagsLeft } from './rules.mjs';
@@ -62,6 +62,9 @@ for (const level of pack.levels) {
   check('exit starts empty', exitCell.o === 0);
   check('raccoon does not start on the exit', !start.cells[start.rac.y][start.rac.x].exit);
   check('grid round-trips through the serialiser', toGrid(start).join('\n') === level.grid.join('\n'));
+  check('water mask round-trips through the serialiser',
+    (toWater(start) ?? []).join('\n') === (level.water ?? []).join('\n'),
+    level.water ? `${level.water.length} rows` : 'no water');
 
   const a = analyze(start);
   check('solvable', a.minMoves !== null, `${a.reachable} reachable states`);
@@ -105,12 +108,15 @@ for (const level of pack.levels) {
       `${a.traps.length} stranding trap(s)`);
   else console.log(`    · ${a.traps.length} stranding trap(s)`);
 
-  // GUARD, not a law: a plain move can never lose the room, because moving is reversible
-  // (you step onto empty floor; stepping back into the cell you just left is always legal).
-  // So this cannot fail under the current ruleset — it is here to fire the day someone adds
-  // a mechanic that breaks move-reversibility. DESIGN-BIBLE's World 3 ice, where "everyone
-  // overshoots", is exactly that mechanic. Keep the guard; don't mistake it for enforcement.
-  check('guard: no lethal plain move (vacuous while movement is reversible)',
+  // GUARD, not a law, and vacuous today: walking writes nothing to the board, so it cannot
+  // change a board's liveness and this cannot fail. It fires only if some future verb makes a
+  // plain step alter the board — a conveyor, a trapdoor, terrain that moves you further than
+  // you asked. Worth a line of CI because that would be a silent class of loss.
+  //
+  // Do NOT read this as an argument that irreversible mechanics are forbidden. Undo reverses
+  // anything; the quantity that actually costs the player is how long a lost board stays
+  // playable before it says so, and that is `pm` in metrics.mjs, not this check.
+  check('guard: no lethal plain move (vacuous while walking writes nothing)',
     a.silentTraps.length === 0,
     a.silentTraps.length ? `e.g. ${a.silentTraps[0].lurd}` : '');
 

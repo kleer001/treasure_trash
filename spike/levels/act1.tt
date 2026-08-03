@@ -1,10 +1,17 @@
 :pack   Treasure Trash — Act 1 (raccoon only, crow pinned)
 :format 1
 ;
-; legend  # wall  - floor  @ raccoon  $ bag  C full can  c empty can
-;         x spilled trash  E exit  + raccoon on exit
-; There is no glyph for anything else on an exit: the rules refuse any action that would
-; put an object there, so no reachable state needs one.
+;  legend  # wall  - floor  @ raccoon  $ bag  C full can  c empty can  x spilled trash
+;          E exit  + raccoon on exit  b recycle bin  j water jug  S bag-on-can stack
+;          W wheelie bin (full)  w wheelie bin (empty)  F G H K M N furniture
+;
+; Furniture spans cells, so its glyph names a PIECE: a touching blob of one letter is one
+; couch, and two couches shoved flush together are written with two letters.
+;
+; Terrain rides in a separate aligned :water block — ~ open canal, = filled in (which is
+; floor), - dry — because water sits UNDER any occupant and one character per cell cannot
+; say both. There is no glyph for anything on an exit: the rules refuse any action that
+; would put an object there, so no reachable state needs one.
 ;
 ; Every field below is machine-checked by verify.mjs — :par must be the provably
 ; minimal solve, :solve must replay to a win in exactly :par actions, and :traps must
@@ -264,23 +271,71 @@ E$---@
 ----
 -E$-
 ----
-~~~~
+----
 -@$-
+----
+:end
+:water
+----
+----
+----
+~~~~
+----
 ----
 :end
 
 :level  L15
 :name   Two Crossings
-:teach  order — one bag builds the way to another, so the wrong first tear strands you
-:par    10
-:traps  8
+:teach  both crossings, and that the one you built first is the one you can afford to bury
+:par    8
+:traps  7
 :solves 1
-:solve  R!uulL!dD!uur
-:note   Three bags, two of them spent on the canal. Opening the left bag first loses the room in every direction — its fan seals the only route to the bag that builds your crossing. The first room in the pack where WHICH bag, not which way, is the question.
+:solve  L!rR!uulL!r
+:note   Three bags and two of them are spent on the canal, so the fans you have left are the whole budget. You build both crossings, walk over the east one, and then bury the west one with the last tear because by then you are done with it. NOTE: this room asked WHICH BAG FIRST until bridges became ordinary floor; the order metric now reads 2/2 and the question is gone. It wants re-picking.
 :grid
 -----
 -$E--
-~~~~~
+-----
 -$@$-
+-----
+:end
+:water
+-----
+-----
+~~~~~
+-----
+-----
+:end
+
+:level  L16
+:name   Wet the Landing
+:teach  the water jug — wet the cell your own fan is about to hit, and the trash lands as floor
+:arm    on
+:par    6
+:traps  6
+:solves 1
+:solve  UruU!ll
+:note   The fan is going to hit (3,2) whichever way you play it. Leave it dry and that cell becomes trash, a wall between you and the door; shove the jug up first and it becomes water, and the same fan fills it in as a bridge. Two moves cheaper than walking round, and the whole piece in one strike.
+:grid
+-----
+-E-$-
+-----
+--j--
+--@--
+:end
+
+:level  L17
+:name   Both Ends
+:teach  furniture — it spans cells, so both ends need room, and it is cheapest along its own length
+:arm    on
+:par    7
+:traps  0
+:solves 1
+:solve  uurDR!lu
+:note   Shove the couch sideways and the cell in front of the end you touched is empty — but the bag sits in front of its other end, and that refuses the whole shove. Pushed the way it lies it asks for one new cell instead of two, and that is the shove that frees the bag's launch cell.
+:grid
+-E---
+-F$--
+@F---
 -----
 :end

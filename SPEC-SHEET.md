@@ -385,9 +385,10 @@ Per shipped room:
   so move it.
 - **GUARD — no lethal plain move.** No plain move may take a live board to a dead one.
   Keep it and label it honestly: under the current ruleset it **cannot fail**, because
-  stepping back into the cell you just vacated is always legal, so a move never changes
-  liveness. It is a regression guard that starts doing real work the day a mechanic breaks
-  move-reversibility.
+  walking writes nothing to the board and so cannot change liveness. It is a regression
+  guard that fires only if some future verb makes a plain step alter the board — a conveyor,
+  a trapdoor. It is **not** an argument against irreversible mechanics: undo reverses
+  anything, and what a lost board costs the player is `pm`, not this check.
 - A room with `arm on` declares what it teaches — arming a room that introduces nothing
   charges the player an extra press for no reason.
 - Every `:solve` string appears verbatim in `levels.md`, so the prose cannot drift from

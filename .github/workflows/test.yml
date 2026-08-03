@@ -10,3 +10,9 @@ jobs:
           node-version: '22'
       # No dependencies to install — tests use Node's built-in runner.
       - run: npm test
+      # The unit tests check the RULES. This checks the LEVELS: that every declared par is
+      # provably minimal, every :solve replays to a win with the right action kinds, and every
+      # trap and solve count matches the state graph. A rules change can leave the tests green
+      # and silently invalidate a par, which is exactly what it caught this pack doing.
+      - name: Verify the level pack
+        run: node spike/verify.mjs

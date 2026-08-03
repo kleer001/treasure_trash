@@ -6,7 +6,23 @@
 // list is not near any ceiling. Whether a new piece belongs here is a design question about
 // the piece, never a budget question about this list.
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
-             BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8;
+             BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9, FURNITURE = 10;
+
+// MULTI-CELL PIECES. Every code above occupies exactly one cell, and a cell's occupant code
+// is the whole story about it. FURNITURE is the first that is not: a couch is one rigid piece
+// spanning several cells, so its cells also carry a `pid` naming which piece they belong to.
+// Two cells both reading FURNITURE may be one couch or two touching couches, and the pid is
+// the only thing that says which — so anything that reasons about a piece reads the pid, and
+// `stateKey` encodes the partition, not just the codes.
+export const isMultiCell = o => o === FURNITURE;
+
+/** Every cell of the piece `pid`, in raster order. Boards are tiny; this scans the whole one. */
+export function pieceCells(s, pid) {
+  const out = [];
+  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++)
+    if (s.cells[y][x].pid === pid) out.push([x, y]);
+  return out;
+}
 
 // Direction letters are the solution format's alphabet — see FORMATS.md.
 export const DIRS = { l: [-1, 0], u: [0, -1], r: [1, 0], d: [0, 1] };
@@ -24,43 +40,57 @@ export const cloneState = s => ({
 export const inGrid = (s, x, y) => x >= 0 && y >= 0 && x < s.cols && y < s.rows;
 export const cell = (s, x, y) => s.cells[y][x];
 
-// WATER IS TERRAIN, not an occupant — a `water` flag on the cell, like `wall` and `exit`.
-// That is the truthful model rather than a saving: water never moves and is never pushed,
-// so nothing about it belongs in the occupant grid. What varies is whether something has
-// been dumped in it, and that is already an occupant on the cell.
+// TERRAIN IS NOT AN OCCUPANT, and it is not static either. The water jug writes new water
+// mid-room and any fill converts it, so everything that assumed the board's shape was fixed
+// had to learn otherwise — `stateKey` at the bottom of this file most of all.
 //
-// A water cell has exactly two states, and they are opposites for the raccoon:
-//   empty  (o === NONE)  — he will not wet his paws. Impassable.
-//   filled (o === TRASH) — a bridge. Walkable, permanently.
-// So trash means "blocked" on floor and "walkable" on water. That inversion is the whole
-// piece, and it is the one place in the game where making a mess buys you something.
+// A cell's terrain is one of three, and only the wall is static:
+//   dry     — ordinary ground
+//   water   — the canal. Objects rest in it; the raccoon does not.
+//   bridge  — a water cell somebody filled in. FLOOR, in every sense that matters.
+//
+// The bridge is terrain rather than "water with trash on it", and that is load-bearing: a
+// cell holds one occupant, so as long as the fill counted as the occupant there was no room
+// for anything else to be there and you could not push a can across your own crossing. The
+// garbage does not sit ON the hole — once it goes in, it IS the ground. Which leaves trash
+// meaning "blocked" on floor and "walkable" on water, the inversion the piece is built on,
+// while a filled cell behaves exactly like the floor it has become.
 
-/** Ordinary dry ground with nothing on it. Water is not this, filled or empty. */
+/** Ordinary dry ground with nothing on it. A bridge counts — it is floor now. */
 export const isClearFloor = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).water && cell(s, x, y).o === NONE;
 
-/** A water cell someone has already dumped trash into: the raccoon's bridge. */
-export const isBridge = (s, x, y) =>
-  inGrid(s, x, y) && cell(s, x, y).water && cell(s, x, y).o === TRASH;
-
 /** Everywhere the raccoon can stand. The exit qualifies — he walks over it freely. */
-export const canStand = (s, x, y) => isClearFloor(s, x, y) || isBridge(s, x, y);
-
-// Somewhere an OBJECT can come to rest. The exit does not qualify: you cannot bury
-// your own way out. Water does not qualify either — a can shoved into the canal would be
-// a second way to build a bridge, and the piece is clearer with exactly one. A shoved can
-// and an ejected bag test against this, so any action that would put something on the
-// exit, or in the water, is refused outright rather than allowed and then regretted.
-export const isOccupiable = (s, x, y) => isClearFloor(s, x, y) && !cell(s, x, y).exit;
+export const canStand = isClearFloor;
 
 /**
- * Somewhere TRASH can land — which is strictly more places than an object can rest.
- * Trash is the only thing water accepts, and accepting it is what turns the cell into
- * ground. Fans and the recycle bin's drop test against this; cans and bags do not.
+ * Lay trash on a cell. In the canal that FILLS it — the cell stops being water and becomes a
+ * bridge, and the trash is spent doing it. Anywhere else the trash just sits there and blocks.
+ * One helper, because a fan and a bin drop must never disagree about what landing means.
  */
-export const canHoldTrash = (s, x, y) =>
-  isOccupiable(s, x, y) ||
-  (inGrid(s, x, y) && cell(s, x, y).water && cell(s, x, y).o === NONE);
+export function layTrash(c) {
+  if (c.water) { c.water = false; c.bridge = true; }
+  else c.o = TRASH;
+}
+
+// Somewhere an OBJECT can come to rest: any empty cell that is not a wall and not the exit.
+// WATER QUALIFIES. Things go in the canal — a can, a bag, a bin, a couch — and the asymmetry
+// that makes that interesting is not a rule about water at all, it is that the raccoon does
+// not follow. He shoves from the bank and stays on it; to shove the same thing a second time
+// he would have to stand where it was, which is now open water. So the canal takes anything
+// and gives nothing back, and it does that without a single clause about which pieces float.
+//
+// The exit still does not qualify: you cannot bury your own way out.
+export const isOccupiable = (s, x, y) =>
+  inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).exit && cell(s, x, y).o === NONE;
+
+/**
+ * Where the water jug may spill: BARE floor. Water already there changes nothing, trash would
+ * be un-blocked by it, and a bridge would be un-filled by it — and nothing in this game
+ * reverses a fill. So the one load in the game that is refused by ground someone has used.
+ */
+export const canPour = (s, x, y) =>
+  isOccupiable(s, x, y) && !cell(s, x, y).water && !cell(s, x, y).bridge;
 
 /** The 2x3 fan: the bag's two perpendicular side cells + the three cells one step ahead. */
 export function fan(bx, by, dx, dy) {
@@ -71,15 +101,15 @@ export function fan(bx, by, dx, dy) {
   ];
 }
 
-// A fan lays trash, so it clears against `canHoldTrash` — a bag CAN be fired into water,
-// and that is the point of the piece.
+// A fan lays trash, and trash rests anywhere an object does — including water, where it
+// becomes a bridge rather than an obstacle. That inversion is the point of the piece.
 export const fanBlockers = (s, bx, by, dx, dy) =>
-  fan(bx, by, dx, dy).filter(([x, y]) => !canHoldTrash(s, x, y));
+  fan(bx, by, dx, dy).filter(([x, y]) => !isOccupiable(s, x, y));
 
 // A refusal caused by the exit gets its own reason, because "you can't dump on your
 // way out" is a different lesson from "there's no room". Water earns one for the same
-// reason: "it would sink" is not "there's no room", and the player has to learn that
-// water takes trash and nothing else.
+// reason: what it refuses is the raccoon himself, and "he won't wet his paws" is a
+// different lesson from "there's no room".
 const reasonFor = (s, blockers, fallback) => {
   const is = pred => blockers.some(([x, y]) => inGrid(s, x, y) && pred(cell(s, x, y)));
   if (is(c => c.exit)) return 'exit';
@@ -109,10 +139,18 @@ export function explain(s, dir) {
     return { ok: true, kind: MOVE, next };
   };
 
-  // Water holds nothing but trash, so this branch is total: empty, or bridged.
-  // He will not wet his paws — but he will happily walk over what he threw in there.
-  if (target.water)
-    return isBridge(s, tx, ty) ? stepOnto() : { ok: false, reason: 'water', blame: [[tx, ty]] };
+  // Water holds anything. The raccoon is not one of the things it holds.
+  // A bridge is floor and never reaches here — it falls through to the ordinary empty-cell
+  // path below, which is the point of making it terrain. What is left is real canal.
+  if (target.water) {
+    if (target.o === NONE) return { ok: false, reason: 'water', blame: [[tx, ty]] };
+    // Something is floating in it. Every action he takes finishes with him standing in the
+    // cell he acted on — except a roller, which leaves from under the shove while he stays
+    // on the bank. So everything else in the canal is beyond reach, and THAT is why shoving
+    // a thing off the bank cannot be taken back: not a rule about water, a rule about him.
+    if (target.o !== WHEELIE && target.o !== WHEELIE_EMPTY)
+      return { ok: false, reason: 'water', blame: [[tx, ty]] };
+  }
 
   const o = target.o;
 
@@ -124,33 +162,58 @@ export function explain(s, dir) {
     const blockers = fanBlockers(s, tx, ty, dx, dy);
     if (blockers.length) return { ok: false, reason: reasonFor(s, blockers, 'fan'), blame: blockers };
     const next = cloneState(s);
-    for (const [fx, fy] of fan(tx, ty, dx, dy)) cell(next, fx, fy).o = TRASH;
+    for (const [fx, fy] of fan(tx, ty, dx, dy)) layTrash(cell(next, fx, fy));
     cell(next, tx, ty).o = NONE;
     next.rac = { x: tx, y: ty };
     return { ok: true, kind: TEAR, next };
   }
 
-  // Three pieces share one shape of shove: the piece slides one cell and something lands
+  // A rigid multi-cell piece translates one cell as a unit — no rotation, ever. The clearance
+  // test is over the cells it moves INTO and not the cells it moves out of, which is the whole
+  // difference from a single-cell shove: a couch may slide along its own length, because the
+  // cell in front of its leading edge is the only new ground it asks for. The raccoon advances
+  // into the cell he shoved, which the piece has always just vacated (the cell behind it is his
+  // own, so it can never be part of the translated footprint).
+  if (isMultiCell(o)) {
+    const own = pieceCells(s, target.pid);
+    const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
+    const blame = own.map(([x, y]) => [x + dx, y + dy])
+      .filter(([x, y]) => !ownSet.has(`${x},${y}`) && !isOccupiable(s, x, y));
+    if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
+    const next = cloneState(s);
+    for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; delete c.pid; }
+    for (const [x, y] of own) {
+      const c = cell(next, x + dx, y + dy);
+      c.o = o; c.pid = target.pid;
+    }
+    next.rac = { x: tx, y: ty };
+    return { ok: true, kind: PUSH, next };
+  }
+
+  // Four pieces share one shape of shove: the piece slides one cell and something lands
   // one cell further. Only what lands differs, so the clearance test lives in one place.
   const TWO_CELL = {
     [CAN_FULL]: { slides: CAN_EMPTY, drops: BAG },     // ejects its bag and empties
     [STACK]:    { slides: CAN_FULL,  drops: BAG },     // launches the loose bag; the can stays full
     [BIN]:      { slides: BIN,       drops: TRASH },   // the precise obstacle placer
+    [JUG]:      { slides: JUG,       pours: true },    // the bin's mirror: it places a hole, not a wall
   };
   if (TWO_CELL[o]) {
-    const { slides, drops } = TWO_CELL[o];
+    const { slides, drops, pours } = TWO_CELL[o];
     const c1 = [tx + dx, ty + dy], c2 = [tx + 2 * dx, ty + 2 * dy];
-    // The piece itself needs dry ground; what it drops is only held to the looser test
-    // when that thing is trash. So the recycle bin can bridge a single cell of water —
-    // one cell of floor for one cell spent, against the bag's five — and the full can
-    // still cannot eject its bag into the canal.
-    const fits = drops === TRASH ? canHoldTrash : isOccupiable;
+    // The piece and its load both rest anywhere empty, canal included — a full can will
+    // eject its bag into the water, and that bag can then never be opened, because opening
+    // one means stepping onto it. The exception is the jug, whose spill is the one load
+    // that needs dry ground: see `canPour`.
+    const fits = pours ? canPour : isOccupiable;
     const blame = [];
     if (!isOccupiable(s, c1[0], c1[1])) blame.push(c1);
     if (!fits(s, c2[0], c2[1])) blame.push(c2);
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
     const next = cloneState(s);
-    cell(next, c2[0], c2[1]).o = drops;
+    if (pours) cell(next, c2[0], c2[1]).water = true;
+    else if (drops === TRASH) layTrash(cell(next, c2[0], c2[1]));   // fills the canal, like a fan
+    else cell(next, c2[0], c2[1]).o = drops;
     cell(next, c1[0], c1[1]).o = slides;
     cell(next, tx, ty).o = NONE;
     next.rac = { x: tx, y: ty };
@@ -226,17 +289,39 @@ export function bagsLeft(s) {
 export const atExit = s => cell(s, s.rac.x, s.rac.y).exit;
 export const isWon = s => bagsLeft(s) === 0 && atExit(s);
 
-/** Canonical state key — walls are static, so only occupants + raccoon vary.
+/** Canonical state key — walls are static, so only occupants, WATER and the raccoon vary.
  *
- * One character per cell, but the character is the code OFFSET INTO PRINTABLE ASCII rather
- * than its decimal digits. Joining decimals with no delimiter is ambiguous the moment a
- * code reaches two digits — `1,0,10` and `10,1,0` both render as "1010" — and the failure
- * is silent: the solver reads the second board as already visited and its "minimal" par is
- * no longer minimal. Offsetting sidesteps that without lengthening the key, which matters
- * because `analyze()` holds one key per reachable state and rooms reach tens of thousands.
+ * Water is in here because the jug pours it. Leave it out and a jug shoved in a loop around
+ * the board returns every occupant to where it started, keys identical to the opening
+ * position, and the solver declares a board it has never seen already visited. Worse, the
+ * occupant code alone does not say what a cell IS: trash on floor blocks and the same trash
+ * on water walks, so two boards differing only in that are genuinely different boards.
+ *
+ * One character per cell still, because `analyze()` holds one key per reachable state and
+ * rooms reach tens of thousands. The character is the (terrain, occupant) pair packed as a
+ * single number and OFFSET INTO PRINTABLE ASCII rather than written in decimal. Joining
+ * decimals with no delimiter is ambiguous the moment a code reaches two digits — `1,0,10`
+ * and `10,1,0` both render as "1010" — and that failure is silent in exactly the same way.
+ * Packing as `o * 3 + terrain` (dry / water / bridge) stays injective however many occupant
+ * codes get added, and however many terrains follow — widen the multiplier, not the scheme.
+ *
+ * Multi-cell pieces need a second lane, because the codes alone do not determine the board:
+ * four FURNITURE cells in a row are one long couch, or two short ones, and those push
+ * differently. The lane walks the furniture cells in raster order and writes each one's piece
+ * as a label numbered by first appearance — canonical, so it depends on the partition and not
+ * on which `pid` values happen to be in play. It is a separate lane rather than a wider
+ * alphabet in the first one so that adding an eleventh occupant code cannot collide with it.
  *
  * The key is opaque. Nothing parses it; `solver.mjs` only ever uses it as a Map key.
  */
-export const stateKey = s =>
-  s.cells.map(r => r.map(c => String.fromCharCode(65 + c.o)).join('')).join('/')
-  + `|${s.rac.x},${s.rac.y}`;
+export const stateKey = s => {
+  const terrain = c => (c.water ? 1 : c.bridge ? 2 : 0);     // wall is static; these are not
+  const kinds = s.cells.map(r => r.map(c =>
+    String.fromCharCode(65 + c.o * 3 + terrain(c))).join('')).join('/');
+  const label = new Map();
+  const pieces = s.cells.flat().filter(c => c.pid !== undefined).map(c => {
+    if (!label.has(c.pid)) label.set(c.pid, label.size);
+    return String.fromCharCode(65 + label.get(c.pid));
+  }).join('');
+  return `${kinds}|${pieces}|${s.rac.x},${s.rac.y}`;
+};
