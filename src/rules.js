@@ -240,44 +240,36 @@ function shoveCart(s, cid, dx, dy, trace) {
   // The roll always ends against something it cannot take in — that is the only way it stops.
   if (trace && steps.length) steps[steps.length - 1].impact = true;
 
-  // A wall or the board edge tips it, and a tip is the cart's own internal push one level up:
-  // the load is shoved backward a slot at a time, whatever goes past the trail slot lands in
-  // the cell behind, and the rest closes up toward the back.
+  // A wall or the board edge tips it, and a tip is EXACTLY ONE push of the same board the
+  // cart's interior already is: everything shifts one slot toward the back, and whatever goes
+  // past the trail slot lands in the cell immediately behind.
   //
-  // It fills backward CONTIGUOUSLY and stops at the first cell that is not free. Nothing else
-  // in the game moves through an occupied cell — the wheelie bin refuses outright when its
-  // back cell is blocked — so a pile does not leapfrog a pile already on the ground. What
-  // cannot come out stays aboard, compacted at the back, which is also why a cart that stops
-  // against a wall with no room behind it still slides its load backward: same momentum.
+  // One slot, never two. Loading moves cargo one slot per intake, so a tip that closed a gap
+  // and then threw the load out would let a single item travel two slots on one shove — and
+  // it would leave the cart past an empty slot of its own, which is not something any other
+  // rule here permits. A file whose trail slot has nowhere to put its load is jammed and
+  // nothing in it moves; a file whose trail slot is empty just closes up.
   if (aheadAt(n).some(([x, y]) => !inGrid(s, x, y) || cell(s, x, y).wall)) {
     const step = trace ? mkStep() : null;
     files.forEach((f, i) => {
-      const trail = f[f.length - 1], depth = slots[i].length;
-      const load = [];                                    // lead-first, with where each is now
-      for (let j = 0; j < depth; j++)
-        if (slots[i][j] !== NONE) load.push({ o: slots[i][j], from: at(f[j], n) });
-      if (!load.length) return;
+      const depth = slots[i].length, out = slots[i][depth - 1];
+      if (slots[i].every(o => o === NONE)) return;              // empty: nothing to shove
+      const to = at(f[depth - 1], n - 1);                       // the cell behind the trail slot
+      if (out !== NONE && !isOccupiable(next, ...to)) return;   // jammed: the file holds
 
-      let back = n - 1;                                   // the cart never sheds behind its start
-      while (load.length && back >= 0) {
-        const to = at(trail, back);
-        if (!isOccupiable(next, ...to)) break;            // no skipping past what is already down
-        const it = load.pop();                            // the trail slot goes first
+      if (out !== NONE) {
         if (step) step.moved.push({
-          o: it.o, from: it.from, to, parent: null, effect: effectOf(cell(next, ...to), it.o),
+          o: out, from: at(f[depth - 1], n), to, parent: null, effect: effectOf(cell(next, ...to), out),
         });
-        drop(cell(next, ...to), it.o);
-        back--;
+        drop(cell(next, ...to), out);
       }
-
-      for (let j = 0; j < depth; j++) { cell(next, ...at(f[j], n)).o = NONE; slots[i][j] = NONE; }
-      load.forEach((it, m) => {
-        const j = depth - load.length + m;                // what is left rides at the back
-        const to = at(f[j], n);
-        cell(next, ...to).o = it.o; slots[i][j] = it.o;
-        if (step && (to[0] !== it.from[0] || to[1] !== it.from[1]))
-          step.moved.push({ o: it.o, from: it.from, to, parent: cid });
-      });
+      for (let j = depth - 1; j > 0; j--) slots[i][j] = slots[i][j - 1];
+      slots[i][0] = NONE;
+      for (let j = 0; j < depth; j++) {
+        cell(next, ...at(f[j], n)).o = slots[i][j];
+        if (step && slots[i][j] !== NONE)
+          step.moved.push({ o: slots[i][j], from: at(f[j - 1], n), to: at(f[j], n), parent: cid });
+      }
     });
     if (trace && step.moved.length) { frames.push(cloneState(next)); steps.push(step); }
   }

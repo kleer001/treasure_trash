@@ -96,12 +96,21 @@ test('the nudge goes out and comes back, harder on the way back', () => {
 });
 
 test('riding cargo travels with the cart, cell for cell', () => {
+  // While the cart TRAVELS, cargo holds its place in the basket exactly. The tip is the one
+  // beat where it deliberately moves within the cart, so it is not part of the claim.
+  const s = S(['@-x---#', 'E------'], ['-PP----', '-------']);
+  const r = explain(s, 'r', { trace: true });
+  const stage = stageFrom(s, 1);
   const seen = [];
-  play(['@-x---#', 'E------'], 'r', { cart: ['-PP----', '-------'] }, st => {
-    const cart = one(st, CART), pile = of(st, TRASH)[0];
-    if (pile && pile.parent !== null) seen.push([+(pile.x - cart.x).toFixed(3), pile.y - cart.y]);
+  r.steps.forEach((step, i) => {
+    applyStep(stage, step, r.frames[i + 1].rac);
+    advance(stage, 0.5);
+    const cart = one(stage, CART), pile = of(stage, TRASH)[0];
+    if (step.piece && pile && pile.parent !== null)
+      seen.push([+(pile.x - cart.x).toFixed(3), pile.y - cart.y]);
+    settle(stage);
   });
-  assert.ok(seen.length, 'the pile rode for at least one beat');
+  assert.ok(seen.length > 1, 'the pile rode for more than one beat');
   const [first] = seen;
   for (const off of seen) assert.deepEqual(off, first, 'the offset from the cart never drifts');
 });
@@ -192,7 +201,7 @@ test("a wheelie bin's bag is born at the bin, not at the cell that was shoved", 
 });
 
 test('trash spent filling the canal leaves the stage', () => {
-  const { stage } = play(['@--x-#', 'E-----'], 'r',
+  const { stage } = play(['@x---#', 'E-----'], 'r',
     { cart: ['-PP---', '------'], water: ['--~---', '------'] });
   assert.equal(of(stage, TRASH).length, 0, 'the pile became a crossing');
 });

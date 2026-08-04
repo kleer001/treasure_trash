@@ -207,11 +207,30 @@ test('a tip lands contiguously behind the cart, never skipping a taken cell', ()
 });
 
 test('cargo tipped into the canal reports that it fills', () => {
-  const r = audit('cart-canal', ['@--x-#', 'E-----'], 'r',
+  const r = audit('cart-canal', ['@x---#', 'E-----'], 'r',
     { cart: ['-PP---', '------'], water: ['--~---', '------'] });
   const tip = r.steps.at(-1);
   assert.equal(tip.moved[0].effect, 'fills');
   assert.equal(tip.moved[0].o, TRASH);
+  assert.deepEqual(tip.moved[0].to, [2, 0]);
+});
+
+test('a tip shifts by exactly one slot', () => {
+  // Every cargo move a tip reports is one cell of the shove — the load closes up by a slot and
+  // whatever is past the trail leaves. Nothing travels two slots on one shove.
+  for (const [grid, cart, water] of [
+    [['@--xxx-#', 'E-------'], ['-PP-----', '--------'], null],
+    [['@cc-#', 'E----'], ['-PP--', '-----'], null],
+    [['@--x-#', 'E-----'], ['-PP---', '------'], ['--~---', '------']],
+    [['@c-#', '-c-#', 'E---'], ['-P--', '-P--', '----'], null],
+  ]) {
+    const r = audit('one-slot', grid, 'r', { cart, water });
+    const tip = r.steps.at(-1);
+    if (tip.piece) continue;
+    for (const m of tip.moved)
+      assert.equal(Math.abs(m.to[0] - m.from[0]) + Math.abs(m.to[1] - m.from[1]), 1,
+        `a tip moved ${m.o} from ${m.from} to ${m.to} — more than one slot`);
+  }
 });
 
 test('a broadside cart reports both files in one step', () => {

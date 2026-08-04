@@ -107,11 +107,23 @@ test('a cart takes in anything single-cell — bag, can, bin, jug, wheelie, stac
 });
 
 test('trash tipped into the canal fills it, exactly as a fan or a bin drop does', () => {
-  // The cart eats a pile, rolls on, and the wall tips it back into open water: the cell stops
-  // being canal and becomes a crossing, and the pile is spent doing it.
-  const next = act(['@--x-#', 'E-----'], ['-PP---', '------'], 'r', ['--~---', '------']);
+  // The pile starts in the cart's trail slot, rides forward, and the wall throws it back one
+  // slot — past the trail and into open water. The cell stops being canal and becomes a
+  // crossing, and the pile is spent doing it.
+  const next = act(['@x---#', 'E-----'], ['-PP---', '------'], 'r', ['--~---', '------']);
   assert.deepEqual(toGrid(next), ['@----#', 'E-----'], 'the pile is gone from the occupant grid');
   assert.deepEqual(toWater(next), ['--=---', '------'], 'it became a crossing');
+});
+
+test('a tip moves cargo one slot, never past an empty slot of its own', () => {
+  // A pile in the lead with the trail empty has somewhere to go INSIDE the cart, so that is
+  // where it goes. Loading moves one slot per intake; a tip that closed the gap and threw the
+  // load out as well would let one item travel two slots on a single shove.
+  const next = act(['@--x-#', 'E-----'], ['-PP---', '------'], 'r', ['--~---', '------']);
+  assert.equal(trashHeld(next), 1, 'it shifted into the empty trail slot and stayed aboard');
+  assert.deepEqual(toCart(next), ['---PP-', '------']);
+  assert.deepEqual(toGrid(next), ['@--x-#', 'E-----'], 'and it is drawn in the cart s trail cell');
+  assert.deepEqual(toWater(next), ['--~---', '------'], 'the canal is untouched');
 });
 
 test('a cart in the canal is still shovable from the bank, like a wheelie bin', () => {
