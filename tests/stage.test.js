@@ -52,16 +52,16 @@ test('cargo starts out parented to the cart it is standing in', () => {
   assert.equal(can.parent, one(stage, CART).ref);
 });
 
-test('a swallowed pile is nudged, never carried a cell into the basket', () => {
-  // The cart rolls onto it and the board does not move it. It gets a nudge so the pickup is
-  // visible at all, but a nudge is a quarter cell — if this were reported as a position
-  // change instead it would lurch a whole cell forward, which is the snap the parent removes.
+test('a pile being taken aboard does not move a hair', () => {
+  // Nothing pushes it. The cart rolls onto it and scoops it up, so it has no more business
+  // lurching forward than the ground does — the nudge belongs to what was already riding and
+  // got hit by the newcomer.
   let midBeat = null;
   const { stage } = play(['@--x-#', 'E-----'], 'r', { cart: ['-PP---', '------'] },
     (st, i) => { if (i === 0) midBeat = { ...of(st, TRASH)[0] }; });
-  assert.notEqual(midBeat.x, 3, 'the pickup has to be visible');
-  assert.ok(Math.abs(midBeat.x - 3) <= NUDGE + 1e-9, `nudged, not carried: was ${midBeat.x}`);
+  assert.equal(midBeat.x, 3, 'exactly where it was, half-way through the beat');
   assert.equal(midBeat.y, 0);
+  assert.equal(midBeat.nudge, null, 'and it was never given one');
   assert.ok(of(stage, TRASH).length >= 1);
 });
 
@@ -81,6 +81,9 @@ test('cargo that shifts a slot is nudged, so the swap is visible at all', () => 
   assert.ok(can.x <= 2 + NUDGE + 1e-9, 'but never further than a quarter cell');
   settle(stage);
   assert.equal(can.x, 2, 'and it lands exactly where the board says');
+  // the can arriving on the same beat was scooped, not hit, so it is left alone
+  const arriving = of(stage, CAN_EMPTY).find(sp => sp.id !== can.id && sp.x === 3);
+  assert.ok(arriving && arriving.nudge === null, 'the one being loaded is not nudged');
 });
 
 test('the nudge goes out and comes back, harder on the way back', () => {

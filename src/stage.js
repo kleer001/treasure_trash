@@ -96,15 +96,18 @@ export function applyStep(stage, step, racTo = null) {
   for (const m of step.moved) {
     const sp = find(stage, m.o, m.from);
     if (!sp) continue;
+    // Only what was ALREADY riding gets nudged. Cargo shifting a slot back ends on the cell it
+    // started on — the cart moved forward exactly as far as it moved back — which is true and
+    // completely invisible: the cart appears to slide out from under it and the swap of slots
+    // reads as nothing at all. So it sets off with the cart, is hit, and drops back. Something
+    // being taken aboard is not hit by anything; the cart rolls onto it and scoops it, and it
+    // has no more business lurching forward than the ground does.
+    const aboard = step.piece && sp.parent === step.piece.ref;
     [sp.tx, sp.ty] = m.to;
     if (m.parent !== undefined) sp.parent = m.parent;
     if (m.becomes !== undefined) sp.becomes = m.becomes;
     if (m.effect === 'fills') sp.spent = true;      // it goes in the canal and is spent doing it
-    // Cargo that shifts a slot back inside a cart ends on the cell it started on, because the
-    // cart moved forward exactly as far as it moved back. True, and completely invisible — the
-    // cart appears to slide out from under it and the swap of slots reads as nothing at all.
-    // So it gets a nudge: it sets off with the cart, is hit, and drops back where it was.
-    if (step.piece && m.from[0] === m.to[0] && m.from[1] === m.to[1])
+    if (aboard && m.from[0] === m.to[0] && m.from[1] === m.to[1])
       sp.nudge = [step.piece.dx, step.piece.dy];
   }
 
