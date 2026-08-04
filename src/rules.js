@@ -146,8 +146,13 @@ const cartCanEnter = (s, x, y) => {
  * past the trail slot lands in the cell that slot vacated on this very step — the cart has
  * just left it, so it is always free. The raccoon does not advance, same as the wheelie bin,
  * which is why nothing a cart sheds can land on him.
+ *
+ * With `trace`, every board the roll passes through is collected as well. A shove resolves
+ * several cells at once and the end state does not say in what order, so a renderer that only
+ * sees the result cannot show the work. Off by default: the frames cost a clone per step, and
+ * `analyze()` walks the whole state graph wanting only the last one.
  */
-function shoveCart(s, cid, dx, dy) {
+function shoveCart(s, cid, dx, dy, trace) {
   const own = cartCells(s, cid);
   const at = (p, n) => [p[0] + n * dx, p[1] + n * dy];
   const owned = new Set(own.map(([x, y]) => `${x},${y}`));
@@ -160,44 +165,49 @@ function shoveCart(s, cid, dx, dy) {
   const slots = files.map(f => f.map(([x, y]) => cell(s, x, y).o));
   const aheadAt = n => files.map(f => at(f[0], n + 1));
 
-  // The roll is computed against the board as it stands: the cart only moves forward, so it
-  // never tests a cell that it, or anything it has shed, is already sitting in.
-  let n = 0;
-  const eaten = [], shed = [];
-  for (;;) {
-    const ahead = aheadAt(n);
-    if (!ahead.every(([x, y]) => cartCanEnter(s, x, y))) break;
-    n++;
-    ahead.forEach(([ax, ay], i) => {
-      const o = cell(s, ax, ay).o;
-      if (o === NONE) return;
-      eaten.push([ax, ay]);
-      const slot = slots[i], out = slot[slot.length - 1];
-      for (let k = slot.length - 1; k > 0; k--) slot[k] = slot[k - 1];
-      slot[0] = o;
-      if (out !== NONE) shed.push([at(files[i][files[i].length - 1], n - 1), out]);
-    });
-  }
-
-  if (n === 0) {
+  if (!aheadAt(0).every(([x, y]) => cartCanEnter(s, x, y))) {
     const blame = aheadAt(0).filter(([x, y]) => !cartCanEnter(s, x, y));
     return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
   }
 
   const next = cloneState(s);
-  for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; delete c.cart; }
-  for (const [x, y] of eaten) cell(next, x, y).o = NONE;
-  for (const [[x, y], o] of shed) drop(cell(next, x, y), o);
-  files.forEach((f, i) => f.forEach((p, k) => {
-    const c = cell(next, ...at(p, n));
-    c.cart = cid; c.o = slots[i][k];
+  const frames = trace ? [cloneState(s)] : null;
+  const lift = k => files.forEach(f => f.forEach(p => {
+    const c = cell(next, ...at(p, k)); c.o = NONE; delete c.cart;
   }));
+  const set = k => files.forEach((f, i) => f.forEach((p, j) => {
+    const c = cell(next, ...at(p, k)); c.cart = cid; c.o = slots[i][j];
+  }));
+
+  // The lookahead reads the ORIGINAL board while `next` is walked forward a step at a time.
+  // Those agree because the cart only moves forward: it never tests a cell that it, or
+  // anything it has shed, is already sitting in.
+  let n = 0;
+  for (;;) {
+    const ahead = aheadAt(n);
+    if (!ahead.every(([x, y]) => cartCanEnter(s, x, y))) break;
+    lift(n);
+    n++;
+    const shed = [];
+    ahead.forEach(([ax, ay], i) => {
+      const o = cell(s, ax, ay).o;
+      if (o === NONE) return;
+      const slot = slots[i], out = slot[slot.length - 1];
+      for (let k = slot.length - 1; k > 0; k--) slot[k] = slot[k - 1];
+      slot[0] = o;
+      if (out !== NONE) shed.push([at(files[i][files[i].length - 1], n - 1), out]);
+    });
+    set(n);
+    for (const [[x, y], o] of shed) drop(cell(next, x, y), o);
+    if (trace) frames.push(cloneState(next));
+  }
 
   // A wall or the board edge tips it. Each file sheds backward into the cells it rolled
   // through, trail slot first, into the nearest FREE one — whatever it shed on the way is
   // sitting in the closest. Cargo with nowhere left to land stays aboard, and the cart never
   // sheds behind where it started, so a shove that rolls one cell can only put down one thing.
-  if (aheadAt(n).some(([x, y]) => !inGrid(s, x, y) || cell(s, x, y).wall))
+  if (aheadAt(n).some(([x, y]) => !inGrid(s, x, y) || cell(s, x, y).wall)) {
+    let tipped = false;
     files.forEach((f, i) => {
       let back = n - 1;
       for (let k = slots[i].length - 1; k >= 0; k--) {
@@ -205,12 +215,15 @@ function shoveCart(s, cid, dx, dy) {
         while (back >= 0 && !isOccupiable(next, ...at(f[f.length - 1], back))) back--;
         if (back < 0) break;
         drop(cell(next, ...at(f[f.length - 1], back)), slots[i][k]);
+        slots[i][k] = NONE;
         cell(next, ...at(f[k], n)).o = NONE;
-        back--;
+        back--; tipped = true;
       }
     });
+    if (trace && tipped) frames.push(cloneState(next));
+  }
 
-  return { ok: true, kind: PUSH, next };
+  return trace ? { ok: true, kind: PUSH, next, frames } : { ok: true, kind: PUSH, next };
 }
 
 /**
@@ -218,8 +231,12 @@ function shoveCart(s, cid, dx, dy) {
  * Returns { ok:true, kind, next } or { ok:false, reason, blame:[[x,y]...] }.
  * `blame` is the cell list the UI paints red: exactly the cells that forbid the action.
  * Every caller — step, solver, renderer — goes through here.
+ *
+ * `opts.trace` adds `frames`: every board the action passes through, starting with the one
+ * before it and ending with `next`. Only a rolling cart has more than two. It is opt-in
+ * because it costs a clone per step and only a renderer wants them.
  */
-export function explain(s, dir) {
+export function explain(s, dir, opts = {}) {
   const d = DIRS[dir];
   if (!d) throw new Error(`unknown direction: ${dir}`);
   const [dx, dy] = d;
@@ -243,7 +260,7 @@ export function explain(s, dir) {
   if (target.water && !isRoller(target)) return { ok: false, reason: 'water', blame: [[tx, ty]] };
 
   // A cart cell carries its cargo in `o`, so cart-ness is read before the occupant is.
-  if (isCart(target)) return shoveCart(s, target.cart, dx, dy);
+  if (isCart(target)) return shoveCart(s, target.cart, dx, dy, opts.trace === true);
 
   const o = target.o;
 

@@ -157,6 +157,37 @@ test('the cart block round-trips, loaded and all', () => {
   assert.deepEqual(toCart(s), ['-PP-QQ-', '-------']);
 });
 
+test('a traced shove reports every board the roll passes through', () => {
+  // A shove resolves several cells at once and the end state does not say in what order, so
+  // a renderer needs the steps. Three piles, then two cells of runway to a wall: four
+  // advances and a tip.
+  const s = S(['@--xxx-#', 'E-------'], ['-PP-----', '--------']);
+  const r = explain(s, 'r', { trace: true });
+  assert.equal(r.frames.length, 6, 'the start, four advances, and the tip');
+  assert.deepEqual(toGrid(r.frames[0]), toGrid(s), 'frame 0 is the board before the shove');
+  assert.deepEqual(toGrid(r.frames.at(-1)), toGrid(r.next), 'the last frame is the result');
+
+  // one cell of travel per frame
+  assert.deepEqual(toCart(r.frames[1]), ['--PP----', '--------']);
+  assert.deepEqual(toCart(r.frames[2]), ['---PP---', '--------']);
+  assert.deepEqual(toCart(r.frames[4]), ['-----PP-', '--------']);
+
+  // `toGrid` draws cargo in the cell it rides in, so the piles-on-the-floor count is what
+  // separates a swallow from a shed. Two go in, the third pushes one back out, the tip
+  // returns the rest.
+  const loose = st => {
+    const g = toGrid(st)[0], c = toCart(st)[0];
+    return [...g].filter((ch, i) => ch === 'x' && c[i] === '-').length;
+  };
+  assert.deepEqual(r.frames.map(loose), [3, 2, 1, 1, 1, 3]);
+});
+
+test('frames are opt-in, so the solver never pays for them', () => {
+  const s = S(['@--x-#', 'E-----'], ['-PP---', '------']);
+  assert.equal(explain(s, 'r').frames, undefined);
+  assert.ok(explain(s, 'r', { trace: true }).frames.length > 1);
+});
+
 test('a cart is exactly two cells; anything else is a file error', () => {
   assert.throws(() => S(['@--E'], ['-P--']), /covers 1 cell; a cart is exactly two/);
   assert.throws(() => S(['@---E'], ['-PPP-']), /covers 3 cells; a cart is exactly two/);

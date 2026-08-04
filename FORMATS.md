@@ -44,6 +44,7 @@ and everything inside a block — `:grid` or `:water`, each closed by `:end` —
 | `:solve` | LURD | the par solution, replayed by the verifier |
 | `:grid` … `:end` | glyphs | the occupants, walls and exit |
 | `:water` … `:end` | `~`/`=`/`-` | optional terrain mask laid over the grid |
+| `:cart` … `:end` | `P`/`Q`/`R`/`-` | optional cart mask laid over the grid |
 
 A duplicate key or block, an unknown glyph, a non-integer where an int is wanted, or an
 unclosed block throws.
@@ -119,6 +120,36 @@ hole — once it goes in, it *is* the ground, and the cell behaves like the floo
 Terrain is **not static**: the jug writes new water and any fill converts it, which is why
 `stateKey` encodes the (terrain, occupant) pair rather than the occupant alone.
 
+### The `:cart` block
+
+A shopping cart is two cells, and each cell is a cargo slot. That is the `:water` problem
+again — one character per cell cannot spell "empty cart cell", "cart holding a can" and
+"cart Q holding trash" at once — so carts get their own aligned block over the same grid:
+
+| Mask glyph | Cell |
+|---|---|
+| `P` `Q` `R` | a cart cell — **one letter per cart**, same blob rule as furniture |
+| `-` (or a floor alias) | not a cart |
+
+```
+:grid                   :cart
+#######                 -------
+#--c--#                 --PP---
+#--$--#                 -------
+#--@--#                 -------
+#####E#                 -------
+:end                    :end
+```
+
+Cart `P` spans two cells; the `c` in the occupant grid is the can riding in its left slot,
+and the right slot is empty. **The cargo is an ordinary occupant in an ordinary cell** — a
+bag in a cart still reads `$` and still counts against the exit — so a loaded cart needs no
+new glyph, and a level may start a cart carrying anything one cell holds.
+
+The reader rejects a cart cell that is a wall, the exit, the raccoon's start, or furniture,
+and **a blob that is not exactly two cells**: a one-cell cart is an empty can, and nothing
+in the rules moves three.
+
 ### Multi-cell pieces
 
 Furniture is one rigid piece spanning several cells, so **its glyph names a piece, not a kind
@@ -190,8 +221,8 @@ that is the whole reason for encoding the kind rather than just the direction.
 ## 3. The API
 
 ```js
-import { explain, step, applyAction, isWon, bagsLeft, fan } from '../src/rules.js';
-import { parseLevelPack, toState, toGrid, parseLurd, formatLurd } from '../src/format.js';
+import { explain, step, applyAction, isWon, bagsLeft, trashHeld, fan } from '../src/rules.js';
+import { parseLevelPack, toState, toGrid, toWater, toCart, parseLurd, formatLurd } from '../src/format.js';
 import { analyze, replay } from '../src/solver.js';
 ```
 
@@ -200,6 +231,12 @@ import { analyze, replay } from '../src/solver.js';
 `{ok:false, reason, blame:[[x,y]…]}`. `blame` is exactly the cells that forbid the action —
 the renderer paints those red, and the verifier can assert them. Nothing anywhere
 re-derives legality.
+
+`explain(state, dir, {trace: true})` adds `frames`: every board the action passes through,
+starting with the one before it and ending with `next`. Only a rolling cart has more than
+two — a shove resolves several cells at once and the end state does not say in what order,
+so a renderer that sees only the result cannot show the work. It is opt-in because the
+frames cost a clone per step and `analyze()` walks the whole graph wanting only the last.
 
 **`src/format.js`** — text ⇄ data. `toState` validates at the boundary (exactly one raccoon,
 exactly one exit). `toGrid` serialises any live state back to glyphs, so a mid-solve board
@@ -226,7 +263,7 @@ Per level:
 
 1. Exactly one raccoon, exactly one exit; the exit starts empty; the raccoon does not
    start on it.
-2. The grid and the water mask both round-trip through the serialiser.
+2. The grid, the water mask and the cart mask all round-trip through the serialiser.
 3. **Solvable** — a win is reachable.
 4. **`:par` is provably minimal** — BFS depth to the nearest win equals the declared par.
 5. **`:solve` replays to a win in exactly par actions**, with every declared kind matching.
