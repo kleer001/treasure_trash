@@ -75,9 +75,10 @@ These govern how code is written. They are not design arguments.
   scanline/CRT overlay, sprites, HUD, the studio logo — is another layer on top of or
   under it. Each layer honors one contract, `{ name, draw(ctx, frame) }`, added with
   `compositor.add(...)`.
-- **SOLID, pragmatically** (this is a small game): one job per module (`rng`, `board`,
-  `render`, `audio`, `input`); extend with new data or new modules rather than editing the
-  core loop; variants of a thing honor the same contract; small module surfaces; core
+- **SOLID, pragmatically** (this is a small game): one job per module — `rules` decides,
+  `format` parses, `stage` holds objects and their positions, `sprites` draws them, `rng`
+  seeds, `main` wires input and presentation; extend with new data or new modules rather
+  than editing the core loop; variants of a thing honor the same contract; small module surfaces; core
   logic never reaches for the DOM, canvas or audio directly — pass those in at the
   boundary, so the game logic stays pure and testable.
 

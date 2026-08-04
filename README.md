@@ -19,7 +19,7 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 ## What's in here
 | File | What it is |
 |---|---|
-| `src/` | The game: `rules.js` (the engine of record), `format.js`, `solver.js`, `main.js` (presentation + input). |
+| `src/` | The game: `rules.js` (the engine of record), `format.js`, `solver.js`, `stage.js` (objects with positions), `sprites.js` (the drawings), `main.js` (presentation + input). |
 | `levels/`, `FORMATS.md` | The `.tt`/`.sol` level pack and the format spec the verifier enforces. |
 | `levels.md` | The shipped rooms L0–L17: diagrams, solves, and measured refusal and trap counts. |
 | `tools/` | Offline only: `verify.mjs` proves every par minimal, `metrics.mjs` reads a room, `build-artifact.mjs` bundles one self-contained HTML. |

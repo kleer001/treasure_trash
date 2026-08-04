@@ -14,7 +14,10 @@
 - Levels are data: `levels/*.tt` + `*.sol`, one rules module shared by the player, the
   solver and the tests, and a verifier that proves par minimal rather than trusting it.
 - Objects built and unit-tested: bag, metal can, spilled trash, recycle bin, wheelie bin,
-  water jug, furniture, and the bag-on-can stack. The exit and water are terrain.
+  water jug, furniture, the bag-on-can stack and the shopping cart. The exit and water are
+  terrain.
+- The stand-in art lives in `src/sprites.js`, bound to a canvas and a cell size at the
+  boundary, so the game and the mechanic bench draw the same raccoon.
 
 ## NEXT MOVE — everything around the mechanic
 `./run.sh`, then L0–L17. `npm test` and `node tools/verify.mjs` are green.
@@ -25,9 +28,9 @@
   pattern is ordered layers via `src/compositor.js`. Worth doing before the art pass.
 - **Audio** — procedural WebAudio. The only sound today is the win chime.
 - **Art pass**, and more rooms toward a full Act 1.
-- `src/rng.js`, `src/logo.js` and `src/compositor.js` are scaffolding the game does not
-  import yet; `main.js` uses its own inline LCG for confetti rather than `mulberry32`.
-  Wire them in or drop them.
+- `src/logo.js` and `src/compositor.js` are still scaffolding the game does not import;
+  `main.js` uses its own inline LCG for confetti rather than `mulberry32`. Wire them in or
+  drop them. (`src/rng.js` is now in use — `stage.js` seeds sprites with it.)
 
 ## Open decisions
 - **The crow.** Un-pin and design its powers. What can the crow do that the raccoon can't
