@@ -91,6 +91,24 @@ export const isOccupiable = (s, x, y) =>
   && cell(s, x, y).o === NONE && !isCart(cell(s, x, y));
 
 /**
+ * Where a SHOVED piece may come to rest: everywhere an object rests, plus an empty cart slot.
+ *
+ * A cart loads by being rolled into cargo, and shoving the cargo into the cart is the same
+ * collision from the other side — refusing it made the piece feel broken rather than rigid.
+ * What a cart still will not do is CATCH things: a fan's spray, a bin's dropped trash, a
+ * wheelie's ejected bag and a jug's pour all go through `isOccupiable` and bounce off it. The
+ * line is what was pushed against it, not what was thrown at it.
+ *
+ * Placing needs a free slot and moves nothing else. Rolling shoves the whole load along,
+ * because that is a cart with momentum arriving; this is somebody putting a can in a basket.
+ */
+export const canRest = (s, x, y) =>
+  isOccupiable(s, x, y) || (inGrid(s, x, y) && isCart(cell(s, x, y)) && cell(s, x, y).o === NONE);
+
+/** The cart a cell belongs to, or null. */
+const cartAt = (s, [x, y]) => (inGrid(s, x, y) && isCart(cell(s, x, y)) ? cell(s, x, y).cart : null);
+
+/**
  * Where the water jug may spill: bare floor only. Water already there changes nothing, trash
  * would be un-blocked by it, and a bridge would be un-filled — and nothing reverses a fill.
  */
@@ -375,14 +393,17 @@ export function explain(s, dir, opts = {}) {
     const c1 = [tx + dx, ty + dy], c2 = [tx + 2 * dx, ty + 2 * dy];
     // Piece and load both rest anywhere empty, canal included. The jug is the exception:
     // its spill needs dry ground — see `canPour`.
+    // The piece may be shoved into a cart; what it ejects may not — that is thrown, not pushed.
     const fits = pours ? canPour : isOccupiable;
     const blame = [];
-    if (!isOccupiable(s, c1[0], c1[1])) blame.push(c1);
+    if (!canRest(s, c1[0], c1[1])) blame.push(c1);
     if (!fits(s, c2[0], c2[1])) blame.push(c2);
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
     const next = cloneState(s);
+    const into = cartAt(s, c1);
     // The load leaves the piece, so it flies from the piece's own cell rather than appearing.
-    const step = mkStep({ moved: [{ o, from: [tx, ty], to: c1, ...(slides !== o && { becomes: slides }) }] });
+    const step = mkStep({ moved: [{ o, from: [tx, ty], to: c1,
+      ...(slides !== o && { becomes: slides }), ...(into !== null && { parent: into }) }] });
     if (pours) {
       step.spawned.push({ o: NONE, at: c2, from: [tx, ty], effect: 'pours' });
       cell(next, c2[0], c2[1]).water = true;
@@ -401,13 +422,16 @@ export function explain(s, dir, opts = {}) {
 
   if (o === CAN_EMPTY) {
     const c1 = [tx + dx, ty + dy];
-    if (!isOccupiable(s, c1[0], c1[1]))
+    if (!canRest(s, c1[0], c1[1]))
       return { ok: false, reason: reasonFor(s, [c1], 'canRoom'), blame: [c1] };
     const next = cloneState(s);
     cell(next, c1[0], c1[1]).o = CAN_EMPTY;
     cell(next, tx, ty).o = NONE;
     next.rac = { x: tx, y: ty };
-    return done(next, PUSH, mkStep({ moved: [{ o: CAN_EMPTY, from: [tx, ty], to: c1 }] }));
+    const into = cartAt(s, c1);
+    return done(next, PUSH, mkStep({
+      moved: [{ o: CAN_EMPTY, from: [tx, ty], to: c1, ...(into !== null && { parent: into }) }],
+    }));
   }
 
   // The wheelie bin rolls until something stops it, and a full one dumps its bag out the

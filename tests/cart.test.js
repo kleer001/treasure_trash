@@ -6,7 +6,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, isWon, bagsLeft, trashHeld, stateKey } from '../src/rules.js';
+import { explain, isWon, bagsLeft, trashHeld, stateKey, cell } from '../src/rules.js';
 import { toState, toGrid, toCart, toWater } from '../src/format.js';
 
 // Carts ride in their own aligned block, like water: the occupant grid holds the CARGO, and
@@ -230,4 +230,41 @@ test('the reader refuses a cart on a wall, on the exit, holding furniture, or un
   assert.throws(() => S(['@--E', '----'], ['--PP', '----']), /exit cannot hold a cart/);
   assert.throws(() => S(['@FF-E', '-FF--'], ['-PP--', '-----']), /cannot hold furniture/);
   assert.throws(() => S(['@--E'], ['PP--']), /raccoon cannot start in a cart/);
+});
+
+test('a can can be shoved INTO a cart, not just run over by one', () => {
+  // A cart loads by being rolled into cargo; shoving the cargo into the cart is the same
+  // collision from the other side. Refusing it made the piece feel broken rather than rigid.
+  const next = act(['@c---E'], ['--PP--'], 'r');
+  assert.deepEqual(toGrid(next), ['-@c--E'], 'the can is in the cart cell, he is in the one it left');
+  assert.deepEqual(toCart(next), ['--PP--'], 'and the cart has not moved');
+  assert.equal(cell(next, 2, 0).cart, cell(next, 3, 0).cart, 'it is riding, not sitting beside it');
+});
+
+test('a cart with no room in it takes nothing — placing shifts no load', () => {
+  // Rolling shoves the whole load along, because that is a cart with momentum arriving.
+  // Putting something in a basket is not that: it needs a slot that is free.
+  assert.equal(refused(['@cc--E'], ['--PP--'], 'r'), 'canRoom');
+});
+
+test('every shovable piece can go in, and what it ejects still cannot', () => {
+  for (const g of ['C', 'S', 'b']) {
+    // the piece lands in the cart's near slot, its load flies past onto open floor
+    // a cart standing broadside, so the piece lands in it and its load flies past onto floor
+    const next = act([`@${g}---E`, '------'], ['--P---', '--P---'], 'r');
+    assert.equal(cell(next, 2, 0).cart !== undefined, true, `${g} should ride`);
+    assert.equal(cell(next, 2, 0).o !== 0, true, `${g} should actually be in the slot`);
+  }
+  // ...but a load thrown at a cart bounces off it: the bin's trash has only the far slot to
+  // land in, and a cart catches what is pushed into it, not what is dropped on it.
+  assert.equal(refused(['@b---E'], ['--PP--'], 'r'), 'canRoom');
+});
+
+test('a jug shoved into a cart still will not pour into one', () => {
+  assert.equal(refused(['@j---E'], ['--PP--'], 'r'), 'canRoom');
+});
+
+test('a fan still cannot throw trash into a cart', () => {
+  assert.equal(refused(['-----', '--$--', '--@--', 'E----'],
+                       ['-PP--', '-----', '-----', '-----'], 'u'), 'fan');
 });
