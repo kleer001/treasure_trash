@@ -19,6 +19,24 @@ export function pieceCells(s, pid) {
   return out;
 }
 
+// A cart is a rigid two-cell piece that rolls, and each of its cells is one cargo slot. The
+// cargo keeps its own occupant code in the cell it rides in — a bag in a cart still reads BAG
+// and still counts — so cart membership needs a field of its own, the way `pid` names a
+// furniture piece. Two adjacent cart cells are one cart or two touching carts, and only
+// `cart` says which.
+export const isCart = c => c.cart !== undefined;
+
+/** Every cell of cart `cid`, in raster order. */
+export function cartCells(s, cid) {
+  const out = [];
+  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++)
+    if (s.cells[y][x].cart === cid) out.push([x, y]);
+  return out;
+}
+
+// The two pieces that leave from under the shove instead of being followed.
+export const isRoller = c => c.o === WHEELIE || c.o === WHEELIE_EMPTY || isCart(c);
+
 // Direction letters are the solution format's alphabet — see FORMATS.md.
 export const DIRS = { l: [-1, 0], u: [0, -1], r: [1, 0], d: [0, 1] };
 export const DIR_ORDER = ['u', 'd', 'l', 'r'];   // canonical order: solver tie-breaks on this
@@ -47,7 +65,8 @@ export const cell = (s, x, y) => s.cells[y][x];
 
 /** Ordinary dry ground with nothing on it. A bridge counts — it is floor now. */
 export const isClearFloor = (s, x, y) =>
-  inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).water && cell(s, x, y).o === NONE;
+  inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).water
+  && cell(s, x, y).o === NONE && !isCart(cell(s, x, y));
 
 /** Everywhere the raccoon can stand. The exit qualifies — he walks over it freely. */
 export const canStand = isClearFloor;
@@ -62,13 +81,14 @@ export function layTrash(c) {
   else c.o = TRASH;
 }
 
-// Where an OBJECT can come to rest: any empty cell that is not a wall and not the exit.
-// Water qualifies — a can, a bag, a bin or a couch all go in the canal. What makes that
-// one-way is not a clause about water but the raccoon: a push leaves him standing where the
-// thing was, so to shove it again he would have to stand in open canal. No piece floats and
-// none is named here.
+// Where an OBJECT can come to rest: any empty cell that is not a wall, not the exit and not
+// part of a cart. Water qualifies — a can, a bag, a bin or a couch all go in the canal. What
+// makes that one-way is not a clause about water but the raccoon: a push leaves him standing
+// where the thing was, so to shove it again he would have to stand in open canal. A cart cell
+// is excluded because a cart loads by being rolled into cargo, not by having cargo land in it.
 export const isOccupiable = (s, x, y) =>
-  inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).exit && cell(s, x, y).o === NONE;
+  inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).exit
+  && cell(s, x, y).o === NONE && !isCart(cell(s, x, y));
 
 /**
  * Where the water jug may spill: bare floor only. Water already there changes nothing, trash
@@ -100,6 +120,99 @@ const reasonFor = (s, blockers, fallback) => {
   return fallback;
 };
 
+/** Lay one piece of cargo down. Trash fills a canal cell rather than blocking it, exactly as
+ *  a fan or a bin drop does, so every way something leaves a cart goes through one helper. */
+const drop = (c, o) => { if (o === TRASH) layTrash(c); else c.o = o; };
+
+/** Where a rolling cart may advance: everywhere an object may rest, plus a cell holding a
+ *  single-cell occupant, which it takes aboard as it passes. */
+const cartCanEnter = (s, x, y) => {
+  if (!inGrid(s, x, y)) return false;
+  const c = cell(s, x, y);
+  return !c.wall && !c.exit && !isCart(c) && !isMultiCell(c.o);
+};
+
+/**
+ * Shove a cart. It rolls until something it cannot take in stops it, eating what it passes
+ * over on the way.
+ *
+ * The cart's cells are grouped into FILES running along the shove: end-on that is one file
+ * two slots deep, broadside it is two files one slot deep. A file's depth is how far cargo
+ * travels before it falls out the back — which is why the same cart swallows one thing at a
+ * time end-on and two at once broadside, and why broadside displaces its old load on contact
+ * while end-on carries it one step further.
+ *
+ * Cargo entering a file's lead slot pushes what was there one slot back, and anything pushed
+ * past the trail slot lands in the cell that slot vacated on this very step — the cart has
+ * just left it, so it is always free. The raccoon does not advance, same as the wheelie bin,
+ * which is why nothing a cart sheds can land on him.
+ */
+function shoveCart(s, cid, dx, dy) {
+  const own = cartCells(s, cid);
+  const at = (p, n) => [p[0] + n * dx, p[1] + n * dy];
+  const owned = new Set(own.map(([x, y]) => `${x},${y}`));
+  const files = own.filter(([x, y]) => !owned.has(`${x + dx},${y + dy}`))   // lead cells
+    .map(lead => {
+      const f = [];
+      for (let p = lead; owned.has(`${p[0]},${p[1]}`); p = at(p, -1)) f.push(p);
+      return f;                                                  // [lead, ..., trail]
+    });
+  const slots = files.map(f => f.map(([x, y]) => cell(s, x, y).o));
+  const aheadAt = n => files.map(f => at(f[0], n + 1));
+
+  // The roll is computed against the board as it stands: the cart only moves forward, so it
+  // never tests a cell that it, or anything it has shed, is already sitting in.
+  let n = 0;
+  const eaten = [], shed = [];
+  for (;;) {
+    const ahead = aheadAt(n);
+    if (!ahead.every(([x, y]) => cartCanEnter(s, x, y))) break;
+    n++;
+    ahead.forEach(([ax, ay], i) => {
+      const o = cell(s, ax, ay).o;
+      if (o === NONE) return;
+      eaten.push([ax, ay]);
+      const slot = slots[i], out = slot[slot.length - 1];
+      for (let k = slot.length - 1; k > 0; k--) slot[k] = slot[k - 1];
+      slot[0] = o;
+      if (out !== NONE) shed.push([at(files[i][files[i].length - 1], n - 1), out]);
+    });
+  }
+
+  if (n === 0) {
+    const blame = aheadAt(0).filter(([x, y]) => !cartCanEnter(s, x, y));
+    return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
+  }
+
+  const next = cloneState(s);
+  for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; delete c.cart; }
+  for (const [x, y] of eaten) cell(next, x, y).o = NONE;
+  for (const [[x, y], o] of shed) drop(cell(next, x, y), o);
+  files.forEach((f, i) => f.forEach((p, k) => {
+    const c = cell(next, ...at(p, n));
+    c.cart = cid; c.o = slots[i][k];
+  }));
+
+  // A wall or the board edge tips it. Each file sheds backward into the cells it rolled
+  // through, trail slot first, into the nearest FREE one — whatever it shed on the way is
+  // sitting in the closest. Cargo with nowhere left to land stays aboard, and the cart never
+  // sheds behind where it started, so a shove that rolls one cell can only put down one thing.
+  if (aheadAt(n).some(([x, y]) => !inGrid(s, x, y) || cell(s, x, y).wall))
+    files.forEach((f, i) => {
+      let back = n - 1;
+      for (let k = slots[i].length - 1; k >= 0; k--) {
+        if (slots[i][k] === NONE) continue;
+        while (back >= 0 && !isOccupiable(next, ...at(f[f.length - 1], back))) back--;
+        if (back < 0) break;
+        drop(cell(next, ...at(f[f.length - 1], back)), slots[i][k]);
+        cell(next, ...at(f[k], n)).o = NONE;
+        back--;
+      }
+    });
+
+  return { ok: true, kind: PUSH, next };
+}
+
 /**
  * Explain what direction `dir` does from the current state — without applying it.
  * Returns { ok:true, kind, next } or { ok:false, reason, blame:[[x,y]...] }.
@@ -123,15 +236,14 @@ export function explain(s, dir) {
   };
 
   // Water holds anything except the raccoon. A bridge is floor and never reaches here; it
-  // falls through to the ordinary empty-cell path below. What is left is real canal.
-  if (target.water) {
-    if (target.o === NONE) return { ok: false, reason: 'water', blame: [[tx, ty]] };
-    // Something is floating in it. Every action finishes with him standing in the cell he
-    // acted on — except a roller, which leaves from under the shove while he stays on the
-    // bank. So everything else in the canal is out of reach.
-    if (target.o !== WHEELIE && target.o !== WHEELIE_EMPTY)
-      return { ok: false, reason: 'water', blame: [[tx, ty]] };
-  }
+  // falls through to the ordinary empty-cell path below. What is left is real canal — and
+  // every action finishes with him standing in the cell he acted on, except a shoved roller,
+  // which leaves from under him while he stays on the bank. So a roller in the canal can be
+  // reached and nothing else can, empty water included.
+  if (target.water && !isRoller(target)) return { ok: false, reason: 'water', blame: [[tx, ty]] };
+
+  // A cart cell carries its cargo in `o`, so cart-ness is read before the occupant is.
+  if (isCart(target)) return shoveCart(s, target.cart, dx, dy);
 
   const o = target.o;
 
@@ -261,8 +373,17 @@ export function bagsLeft(s) {
   return k;
 }
 
+/** Piles of trash riding in a cart. The win is the mess ON THE FLOOR, so trash the raccoon is
+ *  still carrying is trash he has not put down yet. Junk that was never the mess — an empty
+ *  can, a bin, a jug — rides out with him. */
+export function trashHeld(s) {
+  let k = 0;
+  for (const row of s.cells) for (const c of row) if (isCart(c) && c.o === TRASH) k++;
+  return k;
+}
+
 export const atExit = s => cell(s, s.rac.x, s.rac.y).exit;
-export const isWon = s => bagsLeft(s) === 0 && atExit(s);
+export const isWon = s => bagsLeft(s) === 0 && trashHeld(s) === 0 && atExit(s);
 
 /** Canonical state key — walls are static, so only occupants, WATER and the raccoon vary.
  *
@@ -273,25 +394,28 @@ export const isWon = s => bagsLeft(s) === 0 && atExit(s);
  * on water walks, so two boards differing only in that are genuinely different boards.
  *
  * One character per cell, because `analyze()` holds one key per reachable state and rooms
- * reach thousands. The character is the (occupant, terrain) pair packed as a single number
- * and offset off 'A' rather than written in decimal. Joining decimals with no delimiter is
- * ambiguous the moment a code reaches two digits — `1,0,10` and `10,1,0` both render as
- * "1010" — and that failure is silent in exactly the same way.
+ * reach thousands. The character is the (occupant, terrain, in-a-cart) triple packed as a
+ * single number and offset off 'A' rather than written in decimal. Joining decimals with no
+ * delimiter is ambiguous the moment a code reaches two digits — `1,0,10` and `10,1,0` both
+ * render as "1010" — and that failure is silent in exactly the same way. Cart membership is
+ * in the packed character because a cart cell holds its cargo in `o`: without it a can riding
+ * in a cart reads exactly like a can lying on the floor.
  *
- * Multi-cell pieces get a second lane, because the codes alone do not determine the board:
- * four FURNITURE cells in a row are one long couch, or two short ones, and those push
- * differently. The lane walks the furniture cells in raster order and writes each one's piece
- * as a label numbered by first appearance, so it keys on the partition and not on whichever
- * `pid` values happen to be in play.
+ * Multi-cell pieces get a lane each, because the codes alone do not determine the board: four
+ * FURNITURE cells in a row are one long couch or two short ones, and two adjacent cart cells
+ * are one cart or two touching carts. A lane walks its cells in raster order and labels each
+ * by first appearance, so it keys on the partition and not on whichever ids are in play.
  */
 export const stateKey = s => {
   const terrain = c => (c.water ? 1 : c.bridge ? 2 : 0);     // wall is static; these are not
   const kinds = s.cells.map(r => r.map(c =>
-    String.fromCharCode(65 + c.o * 3 + terrain(c))).join('')).join('/');
-  const label = new Map();
-  const pieces = s.cells.flat().filter(c => c.pid !== undefined).map(c => {
-    if (!label.has(c.pid)) label.set(c.pid, label.size);
-    return String.fromCharCode(65 + label.get(c.pid));
-  }).join('');
-  return `${kinds}|${pieces}|${s.rac.x},${s.rac.y}`;
+    String.fromCharCode(65 + (c.o * 3 + terrain(c)) * 2 + (isCart(c) ? 1 : 0))).join('')).join('/');
+  const lane = field => {
+    const label = new Map();
+    return s.cells.flat().filter(c => c[field] !== undefined).map(c => {
+      if (!label.has(c[field])) label.set(c[field], label.size);
+      return String.fromCharCode(65 + label.get(c[field]));
+    }).join('');
+  };
+  return `${kinds}|${lane('pid')}|${lane('cart')}|${s.rac.x},${s.rac.y}`;
 };
