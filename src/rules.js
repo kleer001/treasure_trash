@@ -124,6 +124,25 @@ const reasonFor = (s, blockers, fallback) => {
  *  a fan or a bin drop does, so every way something leaves a cart goes through one helper. */
 const drop = (c, o) => { if (o === TRASH) layTrash(c); else c.o = o; };
 
+// --- the motion account -------------------------------------------------------------------
+// A board says what is where. It never says what moved where, and the difference matters to
+// anything that has to draw the action rather than just its result: a wheelie bin that rolls
+// five cells and leaves its bag behind produces the same board as a bag that appeared there.
+// So a traced action reports its motion outright rather than leaving a renderer to guess by
+// diffing, which is what `main.js` does today and why its ejected pieces fly out of the cell
+// the raccoon shoved instead of out of the piece that ejected them.
+//
+//   moved   something that already existed, going somewhere. `becomes` when its code changes
+//           (a full can empties), `parent` when it starts or stops riding a cart.
+//   spawned something that did not exist before. `from` is where it flies out of, if anywhere.
+//   gone    something that ceased to be — the bag a tear consumed.
+//   piece   a rigid body translating as a unit: a couch, or a cart and everything aboard it.
+//   impact  this step ended against something immovable, so it does not decelerate into it.
+//
+// `effect` is how a landing resolves: it rests, it fills a canal cell, or it is a jug's pour.
+const mkStep = (over = {}) => ({ moved: [], spawned: [], gone: [], piece: null, impact: false, ...over });
+const effectOf = (c, o) => (o === TRASH && c.water ? 'fills' : 'rest');
+
 /** Where a rolling cart may advance: everywhere an object may rest, plus a cell holding a
  *  single-cell occupant, which it takes aboard as it passes. */
 const cartCanEnter = (s, x, y) => {
@@ -172,6 +191,7 @@ function shoveCart(s, cid, dx, dy, trace) {
 
   const next = cloneState(s);
   const frames = trace ? [cloneState(s)] : null;
+  const steps = trace ? [] : null;
   const lift = k => files.forEach(f => f.forEach(p => {
     const c = cell(next, ...at(p, k)); c.o = NONE; delete c.cart;
   }));
@@ -188,6 +208,7 @@ function shoveCart(s, cid, dx, dy, trace) {
     if (!ahead.every(([x, y]) => cartCanEnter(s, x, y))) break;
     lift(n);
     n++;
+    const step = trace ? mkStep({ piece: { kind: 'cart', ref: cid, dx, dy } }) : null;
     const shed = [];
     ahead.forEach(([ax, ay], i) => {
       const o = cell(s, ax, ay).o;
@@ -195,35 +216,51 @@ function shoveCart(s, cid, dx, dy, trace) {
       const slot = slots[i], out = slot[slot.length - 1];
       for (let k = slot.length - 1; k > 0; k--) slot[k] = slot[k - 1];
       slot[0] = o;
+      // Neither end of this moves on the board. The cart rolls ONTO what it swallows, and
+      // rolls OUT FROM UNDER what it sheds — so both stay on the cell they were on and only
+      // change who they are travelling with. That is the whole of "no snap into or out of a
+      // cart": riding is a parent, not a position.
+      if (step) step.moved.push({ o, from: [ax, ay], to: [ax, ay], parent: cid });
       if (out !== NONE) shed.push([at(files[i][files[i].length - 1], n - 1), out]);
     });
     set(n);
-    for (const [[x, y], o] of shed) drop(cell(next, x, y), o);
-    if (trace) frames.push(cloneState(next));
+    for (const [[x, y], o] of shed) {
+      if (step) step.moved.push({ o, from: [x, y], to: [x, y], parent: null, effect: effectOf(cell(next, x, y), o) });
+      drop(cell(next, x, y), o);
+    }
+    if (trace) { frames.push(cloneState(next)); steps.push(step); }
   }
+  // The roll always ends against something it cannot take in — that is the only way it stops.
+  if (trace && steps.length) steps[steps.length - 1].impact = true;
 
   // A wall or the board edge tips it. Each file sheds backward into the cells it rolled
   // through, trail slot first, into the nearest FREE one — whatever it shed on the way is
   // sitting in the closest. Cargo with nowhere left to land stays aboard, and the cart never
   // sheds behind where it started, so a shove that rolls one cell can only put down one thing.
   if (aheadAt(n).some(([x, y]) => !inGrid(s, x, y) || cell(s, x, y).wall)) {
-    let tipped = false;
+    // The cart does not travel here: it has already stopped, and the load comes out behind it.
+    const step = trace ? mkStep() : null;
     files.forEach((f, i) => {
       let back = n - 1;
       for (let k = slots[i].length - 1; k >= 0; k--) {
         if (slots[i][k] === NONE) continue;
         while (back >= 0 && !isOccupiable(next, ...at(f[f.length - 1], back))) back--;
         if (back < 0) break;
-        drop(cell(next, ...at(f[f.length - 1], back)), slots[i][k]);
+        const to = at(f[f.length - 1], back);
+        if (step) step.moved.push({
+          o: slots[i][k], from: at(f[k], n), to, parent: null,
+          effect: effectOf(cell(next, ...to), slots[i][k]),
+        });
+        drop(cell(next, ...to), slots[i][k]);
         slots[i][k] = NONE;
         cell(next, ...at(f[k], n)).o = NONE;
-        back--; tipped = true;
+        back--;
       }
     });
-    if (trace && tipped) frames.push(cloneState(next));
+    if (trace && step.moved.length) { frames.push(cloneState(next)); steps.push(step); }
   }
 
-  return trace ? { ok: true, kind: PUSH, next, frames } : { ok: true, kind: PUSH, next };
+  return trace ? { ok: true, kind: PUSH, next, frames, steps } : { ok: true, kind: PUSH, next };
 }
 
 /**
@@ -232,9 +269,10 @@ function shoveCart(s, cid, dx, dy, trace) {
  * `blame` is the cell list the UI paints red: exactly the cells that forbid the action.
  * Every caller — step, solver, renderer — goes through here.
  *
- * `opts.trace` adds `frames`: every board the action passes through, starting with the one
- * before it and ending with `next`. Only a rolling cart has more than two. It is opt-in
- * because it costs a clone per step and only a renderer wants them.
+ * `opts.trace` adds `frames` — every board the action passes through, starting with the one
+ * before it and ending with `next` — and `steps`, one per transition, saying what moved.
+ * Only a rolling cart has more than one. Opt-in: it costs a clone per step, and `analyze()`
+ * walks the whole state graph wanting nothing but the last board.
  */
 export function explain(s, dir, opts = {}) {
   const d = DIRS[dir];
@@ -246,10 +284,15 @@ export function explain(s, dir, opts = {}) {
   const target = cell(s, tx, ty);
   if (target.wall) return { ok: false, reason: 'wall', blame: [[tx, ty]] };
 
+  // Everything but a cart resolves in one transition, so one board pair and one step.
+  const done = (next, kind, step) => opts.trace
+    ? { ok: true, kind, next, frames: [cloneState(s), next], steps: [step] }
+    : { ok: true, kind, next };
+
   const stepOnto = () => {
     const next = cloneState(s);
     next.rac = { x: tx, y: ty };
-    return { ok: true, kind: MOVE, next };
+    return done(next, MOVE, mkStep());          // only the raccoon, and he rides on `rac`
   };
 
   // Water holds anything except the raccoon. A bridge is floor and never reaches here; it
@@ -272,10 +315,16 @@ export function explain(s, dir, opts = {}) {
     const blockers = fanBlockers(s, tx, ty, dx, dy);
     if (blockers.length) return { ok: false, reason: reasonFor(s, blockers, 'fan'), blame: blockers };
     const next = cloneState(s);
-    for (const [fx, fy] of fan(tx, ty, dx, dy)) layTrash(cell(next, fx, fy));
+    const step = mkStep({ gone: [{ o: BAG, at: [tx, ty] }] });
+    for (const [fx, fy] of fan(tx, ty, dx, dy)) {
+      const c = cell(next, fx, fy);
+      // every speck flies out of the bag, so the fan's cells all share one origin
+      step.spawned.push({ o: TRASH, at: [fx, fy], from: [tx, ty], effect: effectOf(c, TRASH) });
+      layTrash(c);
+    }
     cell(next, tx, ty).o = NONE;
     next.rac = { x: tx, y: ty };
-    return { ok: true, kind: TEAR, next };
+    return done(next, TEAR, step);
   }
 
   // A rigid multi-cell piece translates one cell as a unit; nothing rotates. The clearance
@@ -296,7 +345,7 @@ export function explain(s, dir, opts = {}) {
       c.o = o; c.pid = target.pid;
     }
     next.rac = { x: tx, y: ty };
-    return { ok: true, kind: PUSH, next };
+    return done(next, PUSH, mkStep({ piece: { kind: 'furniture', ref: target.pid, dx, dy } }));
   }
 
   // Four pieces share one shape of shove: the piece slides one cell and something lands
@@ -318,13 +367,22 @@ export function explain(s, dir, opts = {}) {
     if (!fits(s, c2[0], c2[1])) blame.push(c2);
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
     const next = cloneState(s);
-    if (pours) cell(next, c2[0], c2[1]).water = true;
-    else if (drops === TRASH) layTrash(cell(next, c2[0], c2[1]));   // fills the canal, like a fan
-    else cell(next, c2[0], c2[1]).o = drops;
+    // The load leaves the piece, so it flies from the piece's own cell rather than appearing.
+    const step = mkStep({ moved: [{ o, from: [tx, ty], to: c1, ...(slides !== o && { becomes: slides }) }] });
+    if (pours) {
+      step.spawned.push({ o: NONE, at: c2, from: [tx, ty], effect: 'pours' });
+      cell(next, c2[0], c2[1]).water = true;
+    } else if (drops === TRASH) {
+      step.spawned.push({ o: TRASH, at: c2, from: [tx, ty], effect: effectOf(cell(next, c2[0], c2[1]), TRASH) });
+      layTrash(cell(next, c2[0], c2[1]));                           // fills the canal, like a fan
+    } else {
+      step.spawned.push({ o: drops, at: c2, from: [tx, ty] });
+      cell(next, c2[0], c2[1]).o = drops;
+    }
     cell(next, c1[0], c1[1]).o = slides;
     cell(next, tx, ty).o = NONE;
     next.rac = { x: tx, y: ty };
-    return { ok: true, kind: PUSH, next };
+    return done(next, PUSH, step);
   }
 
   if (o === CAN_EMPTY) {
@@ -335,7 +393,7 @@ export function explain(s, dir, opts = {}) {
     cell(next, c1[0], c1[1]).o = CAN_EMPTY;
     cell(next, tx, ty).o = NONE;
     next.rac = { x: tx, y: ty };
-    return { ok: true, kind: PUSH, next };
+    return done(next, PUSH, mkStep({ moved: [{ o: CAN_EMPTY, from: [tx, ty], to: c1 }] }));
   }
 
   // The wheelie bin rolls until something stops it, and a full one dumps its bag out the
@@ -351,6 +409,10 @@ export function explain(s, dir, opts = {}) {
     const next = cloneState(s);
     cell(next, tx, ty).o = NONE;
     cell(next, rx, ry).o = WHEELIE_EMPTY;
+    const step = mkStep({
+      moved: [{ o, from: [tx, ty], to: [rx, ry], ...(o === WHEELIE && { becomes: WHEELIE_EMPTY }) }],
+      impact: true,                      // it stopped because something stopped it
+    });
     if (o === WHEELIE) {
       // Out the back, into the cell it just vacated — tested against the board the bin has
       // already left, because on a one-cell roll that cell is the bin's own starting square.
@@ -358,8 +420,10 @@ export function explain(s, dir, opts = {}) {
       if (!isOccupiable(next, back[0], back[1]))
         return { ok: false, reason: reasonFor(s, [back], 'canRoom'), blame: [back] };
       cell(next, back[0], back[1]).o = BAG;
+      // out of the BIN, at the far end of the roll — not out of the cell he shoved
+      step.spawned.push({ o: BAG, at: back, from: [rx, ry] });
     }
-    return { ok: true, kind: PUSH, next };
+    return done(next, PUSH, step);
   }
 
   throw new Error(`unknown occupant ${o} at ${tx},${ty}`);

@@ -232,11 +232,36 @@ import { analyze, replay } from '../src/solver.js';
 the renderer paints those red, and the verifier can assert them. Nothing anywhere
 re-derives legality.
 
-`explain(state, dir, {trace: true})` adds `frames`: every board the action passes through,
-starting with the one before it and ending with `next`. Only a rolling cart has more than
-two — a shove resolves several cells at once and the end state does not say in what order,
-so a renderer that sees only the result cannot show the work. It is opt-in because the
-frames cost a clone per step and `analyze()` walks the whole graph wanting only the last.
+`explain(state, dir, {trace: true})` adds two things. `frames` is every board the action
+passes through, starting with the one before it and ending with `next`; `steps` is one entry
+per transition saying **what moved**, which a board cannot. Only a rolling cart has more than
+one. Both are opt-in: they cost a clone per step, and `analyze()` walks the whole graph
+wanting nothing but the last board.
+
+```js
+step = { moved:   [{ o, from, to, becomes?, parent?, effect? }],
+         spawned: [{ o, at, from?, effect? }],
+         gone:    [{ o, at }],
+         piece:   { kind:'cart'|'furniture', ref, dx, dy } | null,
+         impact:  boolean }
+```
+
+A board says a bag is now behind a wheelie bin; it cannot say the bin put it there. Left to
+diff two boards, a renderer has to guess an origin, and the only one available is the cell
+that was shoved — so an ejected piece flies out of the raccoon's face instead of out of the
+thing that ejected it. `steps` removes the guess: each branch reports what it already knows.
+
+`parent` is a cart id, or `null` for leaving one. Taking cargo aboard and shedding it are
+**parent changes with no movement** — the cart rolls onto what it swallows and out from under
+what it sheds, so the cargo holds still either way. `impact` marks a step that ended against
+something immovable, which is how a renderer knows not to decelerate into it. `effect` is how
+a landing resolves: `rest`, `fills` (a canal cell, spending the trash), or `pours`.
+
+**`src/stage.js`** — turns that account into sprites with fractional positions, parents and
+stable cosmetic seeds. Pure: no canvas, no DOM, no timers. `stageFrom(state, seed)`,
+`applyStep(stage, step, racTo)`, `advance(stage, u)`, `settle(stage)`, plus the two motion
+envelopes — `easeOut` for what stops itself, `rollEase(t, cells)` for what is stopped by a
+wall and therefore does not slow down first.
 
 **`src/format.js`** — text ⇄ data. `toState` validates at the boundary (exactly one raccoon,
 exactly one exit). `toGrid` serialises any live state back to glyphs, so a mid-solve board
