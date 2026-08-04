@@ -240,29 +240,44 @@ function shoveCart(s, cid, dx, dy, trace) {
   // The roll always ends against something it cannot take in — that is the only way it stops.
   if (trace && steps.length) steps[steps.length - 1].impact = true;
 
-  // A wall or the board edge tips it. Each file sheds backward into the cells it rolled
-  // through, trail slot first, into the nearest FREE one — whatever it shed on the way is
-  // sitting in the closest. Cargo with nowhere left to land stays aboard, and the cart never
-  // sheds behind where it started, so a shove that rolls one cell can only put down one thing.
+  // A wall or the board edge tips it, and a tip is the cart's own internal push one level up:
+  // the load is shoved backward a slot at a time, whatever goes past the trail slot lands in
+  // the cell behind, and the rest closes up toward the back.
+  //
+  // It fills backward CONTIGUOUSLY and stops at the first cell that is not free. Nothing else
+  // in the game moves through an occupied cell — the wheelie bin refuses outright when its
+  // back cell is blocked — so a pile does not leapfrog a pile already on the ground. What
+  // cannot come out stays aboard, compacted at the back, which is also why a cart that stops
+  // against a wall with no room behind it still slides its load backward: same momentum.
   if (aheadAt(n).some(([x, y]) => !inGrid(s, x, y) || cell(s, x, y).wall)) {
-    // The cart does not travel here: it has already stopped, and the load comes out behind it.
     const step = trace ? mkStep() : null;
     files.forEach((f, i) => {
-      let back = n - 1;
-      for (let k = slots[i].length - 1; k >= 0; k--) {
-        if (slots[i][k] === NONE) continue;
-        while (back >= 0 && !isOccupiable(next, ...at(f[f.length - 1], back))) back--;
-        if (back < 0) break;
-        const to = at(f[f.length - 1], back);
+      const trail = f[f.length - 1], depth = slots[i].length;
+      const load = [];                                    // lead-first, with where each is now
+      for (let j = 0; j < depth; j++)
+        if (slots[i][j] !== NONE) load.push({ o: slots[i][j], from: at(f[j], n) });
+      if (!load.length) return;
+
+      let back = n - 1;                                   // the cart never sheds behind its start
+      while (load.length && back >= 0) {
+        const to = at(trail, back);
+        if (!isOccupiable(next, ...to)) break;            // no skipping past what is already down
+        const it = load.pop();                            // the trail slot goes first
         if (step) step.moved.push({
-          o: slots[i][k], from: at(f[k], n), to, parent: null,
-          effect: effectOf(cell(next, ...to), slots[i][k]),
+          o: it.o, from: it.from, to, parent: null, effect: effectOf(cell(next, ...to), it.o),
         });
-        drop(cell(next, ...to), slots[i][k]);
-        slots[i][k] = NONE;
-        cell(next, ...at(f[k], n)).o = NONE;
+        drop(cell(next, ...to), it.o);
         back--;
       }
+
+      for (let j = 0; j < depth; j++) { cell(next, ...at(f[j], n)).o = NONE; slots[i][j] = NONE; }
+      load.forEach((it, m) => {
+        const j = depth - load.length + m;                // what is left rides at the back
+        const to = at(f[j], n);
+        cell(next, ...to).o = it.o; slots[i][j] = it.o;
+        if (step && (to[0] !== it.from[0] || to[1] !== it.from[1]))
+          step.moved.push({ o: it.o, from: it.from, to, parent: cid });
+      });
     });
     if (trace && step.moved.length) { frames.push(cloneState(next)); steps.push(step); }
   }

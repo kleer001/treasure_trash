@@ -141,6 +141,43 @@ export function settle(stage) {
   }
 }
 
+// --- what a pile looks like ---------------------------------------------------------------
+
+/** Silhouettes a scrap of rubbish can take. Indices, so a renderer picks its own drawing. */
+export const PILE_SHAPES = ['ball', 'box', 'wedge', 'tube'];
+export const PILE_TONES = 5;
+
+/**
+ * The three pieces one pile is made of, derived from its seed and nothing else.
+ *
+ * A pile keeping a stable identity is worth nothing if you cannot tell it from the pile next
+ * to it, and six dots picked at random from five colours have no dominant anything — every
+ * pile reads as the same confetti. So: two pieces share ONE tone and the third is an accent,
+ * which is what makes a pile "the red one" at a glance and while it is moving; there are
+ * three pieces rather than six, at clearly different sizes; and the largest picks one of four
+ * silhouettes, so piles differ in shape as well as hue.
+ *
+ * Returns palette INDICES and offsets in cell fractions, never colours or pixels — the game
+ * and the bench have different palettes and cell sizes, and both have to draw the same piles.
+ * Largest first, so a renderer drawing in order gets the small pieces on top.
+ */
+export function pileLook(seed) {
+  const rnd = mulberry32(seed >>> 0);
+  const tone = Math.floor(rnd() * PILE_TONES);
+  const accent = (tone + 1 + Math.floor(rnd() * (PILE_TONES - 1))) % PILE_TONES;
+  const hero = Math.floor(rnd() * PILE_SHAPES.length);
+  const R = [0.19, 0.13, 0.09];
+  return R.map((r, i) => {
+    const a = i * 2.094 + rnd() * 0.9;                 // three pieces, roughly 120° apart
+    const d = 0.13 + rnd() * 0.12;
+    return {
+      shape: i === 0 ? hero : Math.floor(rnd() * PILE_SHAPES.length),
+      tone: i === 2 ? accent : tone,
+      r, ox: Math.cos(a) * d, oy: Math.sin(a) * d * 0.85, rot: rnd() * Math.PI,
+    };
+  });
+}
+
 // --- motion envelopes ---------------------------------------------------------------------
 
 /** Slows into its target. What stops itself decelerates: the raccoon, a shoved can, tipped cargo. */

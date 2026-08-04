@@ -168,12 +168,42 @@ test('swallowing and shedding are changes of parent, not of position', () => {
 test('the tip is the one time cart cargo genuinely travels', () => {
   const r = audit('cart-tip', ['@cc-#', 'E----'], 'r', { cart: ['-PP--', '-----'] });
   const tip = r.steps.at(-1);
-  assert.equal(tip.piece, null);
-  assert.equal(tip.moved.length, 1, 'one cell of runway puts down one thing');
-  const [m] = tip.moved;
-  assert.equal(m.parent, null);
-  assert.notDeepEqual(m.from, m.to, 'it comes out of the slot and lands');
-  assert.deepEqual(m.to, [1, 0]);
+  assert.equal(tip.piece, null, 'the cart has already stopped; only the load moves');
+  const out = tip.moved.filter(m => m.parent === null);
+  const stays = tip.moved.filter(m => m.parent !== null);
+  assert.equal(out.length, 1, 'one cell of runway puts down one thing');
+  assert.deepEqual(out[0].to, [1, 0]);
+  // and the rest closes up toward the back rather than sitting where it was
+  assert.equal(stays.length, 1);
+  assert.deepEqual(stays[0].from, [3, 0]);
+  assert.deepEqual(stays[0].to, [2, 0]);
+  for (const m of tip.moved) assert.notDeepEqual(m.from, m.to, 'everything in a tip moves');
+});
+
+test('a tip lands contiguously behind the cart, never skipping a taken cell', () => {
+  // The property, not one board: whatever comes out fills the run backward from the cart with
+  // no gap, so a pile can never be found on the far side of something already down.
+  for (const [grid, cart] of [
+    [['@--xxx-#', 'E-------'], ['-PP-----', '--------']],
+    [['@cc-#', 'E----'], ['-PP--', '-----']],
+    [['@cc-x-#', 'E------'], ['-PP----', '-------']],
+    [['@c-#', '-c-#', 'E---'], ['-P--', '-P--', '----']],
+  ]) {
+    const r = audit('contiguity', grid, 'r', { cart });
+    const tip = r.steps.at(-1);
+    if (tip.piece) continue;                       // this board did not tip
+    const before = r.frames[r.frames.length - 2];
+    for (const m of tip.moved.filter(m => m.parent === null)) {
+      // walk from the landing cell back toward the cart: every cell between must be free
+      const [dx, dy] = [Math.sign(m.from[0] - m.to[0]), Math.sign(m.from[1] - m.to[1])];
+      for (let p = [m.to[0] + dx, m.to[1] + dy];
+           !(p[0] === m.from[0] && p[1] === m.from[1]); p = [p[0] + dx, p[1] + dy]) {
+        const c = cell(before, ...p);
+        assert.ok(c.o === NONE || c.cart !== undefined,
+          `a tip crossed occupied cell ${p} on its way to ${m.to}`);
+      }
+    }
+  }
 });
 
 test('cargo tipped into the canal reports that it fills', () => {

@@ -50,10 +50,26 @@ test('broadside swallows two things in one shove, and sheds nothing if it had ro
 test('a pile shed mid-roll lands on the cell it was picked up from', () => {
   // Three piles in a row, an empty cart, and a wall four cells on. The cart is a two-slot pipe
   // moving at exactly the rate a solid line is spaced, so the pile it sheds comes down on its
-  // own square. The tip then fills backward past it — nearest FREE cell, not nearest cell.
+  // own square. The tip then puts one more down behind — and stops, because the next cell back
+  // is the pile it already shed. The row ends up exactly where it started, one pile aboard.
   const next = act(['@--xxx-#', 'E-------'], ['-PP-----', '--------'], 'r');
-  assert.deepEqual(toGrid(next), ['@-xxx--#', 'E-------']);
+  assert.deepEqual(toGrid(next), ['@--xxx-#', 'E-------']);
   assert.deepEqual(toCart(next), ['-----PP-', '--------']);
+  assert.equal(trashHeld(next), 1, 'the third pile could not come out and is still riding');
+});
+
+test('a tip never leapfrogs what is already on the ground', () => {
+  // The cell behind the cart is taken, so nothing comes out at all — it does not hunt
+  // backwards for the next free square. Nothing else in the game moves through an occupied
+  // cell, and the wheelie bin refuses outright for the same reason.
+  // A full cart swallows a pile, which pushes a can out the back at cell 2. It rolls on and
+  // tips: the first can comes out at 3, and then the cell behind THAT is the can it shed on
+  // the way. Cell 1 is free and the old rule would have hunted back to it; the pile stays
+  // aboard instead.
+  const blocked = act(['@cc-x-#', 'E------'], ['-PP----', '-------'], 'r');
+  assert.deepEqual(toGrid(blocked), ['@-ccx-#', 'E------']);
+  assert.deepEqual(toCart(blocked), ['----PP-', '-------']);
+  assert.equal(trashHeld(blocked), 1, 'it could not leapfrog the can, so it is still riding');
 });
 
 test('a wall tips the cart; broadside empties on one cell of runway', () => {
@@ -64,9 +80,11 @@ test('a wall tips the cart; broadside empties on one cell of runway', () => {
 
 test('end-on with one cell of runway puts down one thing and keeps the other', () => {
   // The cart never sheds behind where it started — that cell is the raccoon's — so a one-cell
-  // roll can only place the trail slot's load. A partial dump is a legal outcome.
+  // roll can only place the trail slot's load. A partial dump is a legal outcome, and what is
+  // left closes up toward the back: read the two masks together and the cart's LEAD cell (3)
+  // is empty while its TRAIL cell (2) carries the can that was in the lead.
   const next = act(['@cc-#', 'E----'], ['-PP--', '-----'], 'r');
-  assert.deepEqual(toGrid(next), ['@c-c#', 'E----']);
+  assert.deepEqual(toGrid(next), ['@cc-#', 'E----']);
   assert.deepEqual(toCart(next), ['--PP-', '-----']);
 });
 
@@ -179,7 +197,9 @@ test('a traced shove reports every board the roll passes through', () => {
     const g = toGrid(st)[0], c = toCart(st)[0];
     return [...g].filter((ch, i) => ch === 'x' && c[i] === '-').length;
   };
-  assert.deepEqual(r.frames.map(loose), [3, 2, 1, 1, 1, 3]);
+  // two go in, the third pushes one back out, and the tip returns one more before the pile
+  // already on the ground blocks it
+  assert.deepEqual(r.frames.map(loose), [3, 2, 1, 1, 1, 2]);
 });
 
 test('frames are opt-in, so the solver never pays for them', () => {

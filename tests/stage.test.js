@@ -6,7 +6,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { explain, CAN_EMPTY, TRASH, BAG, WHEELIE_EMPTY } from '../src/rules.js';
 import { toState } from '../src/format.js';
-import { stageFrom, applyStep, advance, settle, rollEase, easeOut, CART, COUCH, RACCOON } from '../src/stage.js';
+import {
+  stageFrom, applyStep, advance, settle, rollEase, easeOut, pileLook,
+  CART, COUCH, RACCOON,
+} from '../src/stage.js';
 
 const S = (grid, cart, water) => toState({ id: 't', grid, cart, water });
 const of = (stage, kind) => stage.sprites.filter(sp => sp.kind === kind);
@@ -188,6 +191,36 @@ test('rollEase covers the distance exactly, never decelerating', () => {
     const last = (rollEase(1, cells) - rollEase(0.99, cells)) / 0.01;
     assert.ok(last >= 0.9, `cells=${cells} should hit at cruise speed, got ${last.toFixed(3)}`);
   }
+});
+
+test('a pile looks the same every time it is asked, and different per seed', () => {
+  assert.deepEqual(pileLook(12345), pileLook(12345));
+  assert.notDeepEqual(pileLook(12345), pileLook(12346));
+  const [hero, mid, accent] = pileLook(99);
+  assert.ok(hero.r > mid.r && mid.r > accent.r, 'largest first, so small pieces draw on top');
+  assert.equal(hero.tone, mid.tone, 'two pieces carry the dominant tone');
+  assert.notEqual(accent.tone, hero.tone, 'and the third is an accent, never the same');
+});
+
+test('a pile stays inside its own cell', () => {
+  for (let s = 1; s <= 400; s++) for (const pc of pileLook(s)) {
+    assert.ok(Math.abs(pc.ox) + pc.r < 0.5, `seed ${s} spills sideways`);
+    assert.ok(Math.abs(pc.oy) + pc.r < 0.5, `seed ${s} spills vertically`);
+  }
+});
+
+test('piles are actually tellable apart — the looks do not collapse', () => {
+  // Stable identity is worth nothing if every pile draws the same. Over a spread of seeds the
+  // (dominant tone, hero shape) pairs must fill most of the space and none may dominate it.
+  const seen = new Map();
+  for (let s = 1; s <= 500; s++) {
+    const [hero] = pileLook(s);
+    const k = `${hero.tone}:${hero.shape}`;
+    seen.set(k, (seen.get(k) ?? 0) + 1);
+  }
+  assert.ok(seen.size >= 16, `only ${seen.size} of 20 looks appear`);
+  const worst = Math.max(...seen.values()) / 500;
+  assert.ok(worst < 0.15, `one look takes ${(worst * 100).toFixed(0)}% of all piles`);
 });
 
 test('easeOut is the other envelope: it arrives slowing down', () => {
