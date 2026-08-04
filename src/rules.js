@@ -91,22 +91,57 @@ export const isOccupiable = (s, x, y) =>
   && cell(s, x, y).o === NONE && !isCart(cell(s, x, y));
 
 /**
- * Where a SHOVED piece may come to rest: everywhere an object rests, plus an empty cart slot.
+ * Where a SHOVED piece may come to rest: everywhere an object rests, plus any cart slot.
  *
  * A cart loads by being rolled into cargo, and shoving the cargo into the cart is the same
  * collision from the other side — refusing it made the piece feel broken rather than rigid.
- * What a cart still will not do is CATCH things: a fan's spray, a bin's dropped trash, a
- * wheelie's ejected bag and a jug's pour all go through `isOccupiable` and bounce off it. The
- * line is what was pushed against it, not what was thrown at it.
+ * A full slot is not a refusal, because the load shifts: see `intoCart`.
  *
- * Placing needs a free slot and moves nothing else. Rolling shoves the whole load along,
- * because that is a cart with momentum arriving; this is somebody putting a can in a basket.
+ * What a cart will not do is CATCH things. A fan's spray, a bin's dropped trash, a wheelie's
+ * ejected bag and a jug's pour all go through `isOccupiable` and bounce off it. The line is
+ * what was pushed against the cart, not what was thrown at it.
  */
-export const canRest = (s, x, y) =>
-  isOccupiable(s, x, y) || (inGrid(s, x, y) && isCart(cell(s, x, y)) && cell(s, x, y).o === NONE);
+export const canRest = (s, x, y) => isOccupiable(s, x, y) || cartAt(s, [x, y]) !== null;
 
 /** The cart a cell belongs to, or null. */
 const cartAt = (s, [x, y]) => (inGrid(s, x, y) && isCart(cell(s, x, y)) ? cell(s, x, y).cart : null);
+
+/**
+ * Shoving a piece into a cart runs the same internal push a roll does, from the other end: the
+ * piece takes the slot it was shoved into, the load shifts one slot away from the shove, and
+ * whatever goes past the far slot lands on the ground beyond the cart. A cart is a pipe, and
+ * it does not matter which end you feed.
+ *
+ * Returns the file, the cell past it, and what is about to come out of it — or `blame` when
+ * that has nowhere to go.
+ */
+function intoCart(s, cid, entry, dx, dy) {
+  const file = [];
+  for (let p = entry; cartAt(s, p) === cid; p = [p[0] + dx, p[1] + dy]) file.push(p);
+  const last = file[file.length - 1];
+  const beyond = [last[0] + dx, last[1] + dy];
+  const out = cell(s, ...last).o;
+  if (out !== NONE && !isOccupiable(s, ...beyond)) return { blame: [beyond] };
+  return { file, beyond, out };
+}
+
+/** Apply that shove to `next`, and say so in `step`. */
+function applyIntoCart(s, next, cid, { file, beyond, out }, o, step) {
+  for (let j = file.length - 1; j > 0; j--) {
+    const was = cell(s, ...file[j - 1]).o;
+    cell(next, ...file[j]).o = was;
+    if (step && was !== NONE)
+      step.moved.push({ o: was, from: file[j - 1], to: file[j], parent: cid });
+  }
+  cell(next, ...file[0]).o = o;
+  if (out !== NONE) {
+    if (step) step.moved.push({
+      o: out, from: file[file.length - 1], to: beyond, parent: null,
+      effect: effectOf(cell(next, ...beyond), out),
+    });
+    drop(cell(next, ...beyond), out);
+  }
+}
 
 /**
  * Where the water jug may spill: bare floor only. Water already there changes nothing, trash
@@ -398,9 +433,17 @@ export function explain(s, dir, opts = {}) {
     const blame = [];
     if (!canRest(s, c1[0], c1[1])) blame.push(c1);
     if (!fits(s, c2[0], c2[1])) blame.push(c2);
+    const into = cartAt(s, c1);
+    let shove = null;
+    if (into !== null && !blame.length) {
+      shove = intoCart(s, into, c1, dx, dy);
+      // A piece that is also throwing something cannot displace the cart's load as well: both
+      // would land in the cell past the cart, and only one thing goes in a cell.
+      if (shove.blame) blame.push(...shove.blame);
+      else if (shove.out !== NONE) blame.push(c2);
+    }
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
     const next = cloneState(s);
-    const into = cartAt(s, c1);
     // The load leaves the piece, so it flies from the piece's own cell rather than appearing.
     const step = mkStep({ moved: [{ o, from: [tx, ty], to: c1,
       ...(slides !== o && { becomes: slides }), ...(into !== null && { parent: into }) }] });
@@ -414,7 +457,8 @@ export function explain(s, dir, opts = {}) {
       step.spawned.push({ o: drops, at: c2, from: [tx, ty] });
       cell(next, c2[0], c2[1]).o = drops;
     }
-    cell(next, c1[0], c1[1]).o = slides;
+    if (shove) applyIntoCart(s, next, into, shove, slides, step);
+    else cell(next, c1[0], c1[1]).o = slides;
     cell(next, tx, ty).o = NONE;
     next.rac = { x: tx, y: ty };
     return done(next, PUSH, step);
@@ -424,14 +468,18 @@ export function explain(s, dir, opts = {}) {
     const c1 = [tx + dx, ty + dy];
     if (!canRest(s, c1[0], c1[1]))
       return { ok: false, reason: reasonFor(s, [c1], 'canRoom'), blame: [c1] };
+    const into = cartAt(s, c1);
+    const shove = into !== null ? intoCart(s, into, c1, dx, dy) : null;
+    if (shove?.blame) return { ok: false, reason: reasonFor(s, shove.blame, 'canRoom'), blame: shove.blame };
     const next = cloneState(s);
-    cell(next, c1[0], c1[1]).o = CAN_EMPTY;
+    const step = mkStep({
+      moved: [{ o: CAN_EMPTY, from: [tx, ty], to: c1, ...(into !== null && { parent: into }) }],
+    });
+    if (shove) applyIntoCart(s, next, into, shove, CAN_EMPTY, step);
+    else cell(next, c1[0], c1[1]).o = CAN_EMPTY;
     cell(next, tx, ty).o = NONE;
     next.rac = { x: tx, y: ty };
-    const into = cartAt(s, c1);
-    return done(next, PUSH, mkStep({
-      moved: [{ o: CAN_EMPTY, from: [tx, ty], to: c1, ...(into !== null && { parent: into }) }],
-    }));
+    return done(next, PUSH, step);
   }
 
   // The wheelie bin rolls until something stops it, and a full one dumps its bag out the

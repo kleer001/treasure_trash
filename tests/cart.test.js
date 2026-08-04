@@ -241,10 +241,17 @@ test('a can can be shoved INTO a cart, not just run over by one', () => {
   assert.equal(cell(next, 2, 0).cart, cell(next, 3, 0).cart, 'it is riding, not sitting beside it');
 });
 
-test('a cart with no room in it takes nothing — placing shifts no load', () => {
-  // Rolling shoves the whole load along, because that is a cart with momentum arriving.
-  // Putting something in a basket is not that: it needs a slot that is free.
-  assert.equal(refused(['@cc--E'], ['--PP--'], 'r'), 'canRoom');
+test('shoving into a full cart shifts the load and pushes one out the far side', () => {
+  // A cart is a pipe and it does not matter which end you feed: the same internal push a roll
+  // performs, run from the other direction.
+  const next = act(['@ccc-E'], ['--PP--'], 'r');
+  assert.deepEqual(toGrid(next), ['-@cccE'], 'the load slid along and one came out at cell 4');
+  assert.deepEqual(toCart(next), ['--PP--']);
+  assert.equal(cell(next, 4, 0).cart, undefined, 'the one pushed out is on the floor, not aboard');
+});
+
+test('a full cart with nowhere to put the overflow refuses the shove', () => {
+  assert.equal(refused(['@ccc#', '----E'], ['--PP-', '-----'], 'r'), 'canRoom');
 });
 
 test('every shovable piece can go in, and what it ejects still cannot', () => {
@@ -258,6 +265,9 @@ test('every shovable piece can go in, and what it ejects still cannot', () => {
   // ...but a load thrown at a cart bounces off it: the bin's trash has only the far slot to
   // land in, and a cart catches what is pushed into it, not what is dropped on it.
   assert.equal(refused(['@b---E'], ['--PP--'], 'r'), 'canRoom');
+  // and a piece that is throwing something cannot displace the cart's load as well — both
+  // would land in the cell past the cart
+  assert.equal(refused(['@bc--E', '------'], ['--P---', '--P---'], 'r'), 'canRoom');
 });
 
 test('a jug shoved into a cart still will not pour into one', () => {
