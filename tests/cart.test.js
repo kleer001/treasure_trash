@@ -115,12 +115,17 @@ test('end-on with two cells of runway puts down one thing and keeps the other', 
   assert.deepEqual(toCart(next), ['---PP-', '------']);
 });
 
-test('a tip is one push, however far the cart rolled', () => {
-  // Three cells of runway and two free cells behind it, and still exactly one can comes out.
-  // A tip is the same single shove the cart's interior already performs, one level up.
-  const next = act(['@cc---#', 'E------'], ['-PP----', '-------'], 'r');
-  assert.deepEqual(toGrid(next), ['-@-cc-#', 'E------']);
-  assert.deepEqual(toCart(next), ['----PP-', '-------']);
+test('a tip empties into the run the cart came through, and stops where that run does', () => {
+  // Three cells of runway leaves two free cells behind the stopped cart, so both cans come
+  // out and land contiguously — no gap, and nothing leapfrogs.
+  const clear = act(['@cc---#', 'E------'], ['-PP----', '-------'], 'r');
+  assert.deepEqual(toGrid(clear), ['-@cc--#', 'E------']);
+  assert.deepEqual(toCart(clear), ['----PP-', '-------'], 'the cart is empty');
+
+  // Two cells of runway leaves exactly one, and the cell behind THAT is his.
+  const partial = act(['@cc--#', 'E-----'], ['-PP---', '------'], 'r');
+  assert.deepEqual(toGrid(partial), ['-@cc-#', 'E-----']);
+  assert.deepEqual(toCart(partial), ['---PP-', '------'], 'one out, one riding in the trail slot');
 });
 
 test('a couch stops the roll without tipping it — that is a parking spot', () => {
@@ -150,17 +155,24 @@ test('trash tipped into the canal fills it, exactly as a fan or a bin drop does'
   assert.deepEqual(toWater(next), ['--=---', '------'], 'it became a crossing');
 });
 
-test('a tip moves cargo one slot, never past an empty slot of its own', () => {
-  // A pile in the lead with the trail empty has somewhere to go INSIDE the cart, so that is
-  // where it goes. Loading moves one slot per intake; a tip that closed the gap and threw the
-  // load out as well would let one item travel two slots on a single shove.
-  // Two cells of runway, so the cell behind the cart is open floor and the raccoon is nowhere
-  // near it — and it is canal, which would have visibly filled had the pile come out.
-  const next = act(['@-x--#', 'E-----'], ['-PP---', '------'], 'r', ['--~---', '------']);
-  assert.equal(trashHeld(next), 1, 'it shifted into the empty trail slot and stayed aboard');
-  assert.deepEqual(toCart(next), ['---PP-', '------']);
-  assert.deepEqual(toGrid(next), ['-@-x-#', 'E-----'], 'and it is drawn in the cart s trail cell');
-  assert.deepEqual(toWater(next), ['--~---', '------'], 'the canal is untouched');
+test('which slot the load sits in cannot change whether it comes out', () => {
+  // The regression this pins. The load settles against the back of the basket and THEN the
+  // wall pushes it out, so a bag in the lead slot and a bag in the trail slot behave the same
+  // — the player cannot see which slot a thing is in, and used to get opposite answers.
+  const lead = act(['@-$----#', 'E-------'], ['-PP-----', '--------'], 'r');
+  const trail = act(['@$-----#', 'E-------'], ['-PP-----', '--------'], 'r');
+  assert.deepEqual(toGrid(lead), ['-@--$--#', 'E-------']);
+  assert.deepEqual(toGrid(trail), toGrid(lead));
+  assert.deepEqual(toCart(lead), ['-----PP-', '--------']);
+  assert.deepEqual(toCart(trail), toCart(lead));
+});
+
+test('a load with only the raccoon behind it settles back a slot and stays aboard', () => {
+  // One cell of runway: the only cell the load could have gone to is the one he walked into,
+  // so nothing comes out — but the load still slides to the back of the basket.
+  const next = act(['@-c-#', 'E----'], ['-PP--', '-----'], 'r');
+  assert.deepEqual(toGrid(next), ['-@c-#', 'E----'], 'drawn in the cart s trail cell now');
+  assert.deepEqual(toCart(next), ['--PP-', '-----']);
 });
 
 test('a cart out in the canal is out of reach — he would have to stand in the water', () => {

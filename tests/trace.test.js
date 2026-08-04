@@ -228,21 +228,25 @@ test('cargo tipped into the canal reports that it fills', () => {
   assert.deepEqual(tip.moved[0].to, [2, 0]);
 });
 
-test('a tip shifts by exactly one slot', () => {
-  // Every cargo move a tip reports is one cell of the shove — the load closes up by a slot and
-  // whatever is past the trail leaves. Nothing travels two slots on one shove.
+test('a tip only ever moves cargo backward, and never past the run the cart came through', () => {
+  // The load settles against the back of the basket and the wall pushes it out behind. Both
+  // halves travel the same way — away from the wall — and nothing goes further back than the
+  // cell the cart's trail slot started in, which is where the raccoon is standing.
   for (const [grid, cart, water] of [
     [['@--xxx-#', 'E-------'], ['-PP-----', '--------'], null],
-    [['@cc-#', 'E----'], ['-PP--', '-----'], null],
-    [['@--x-#', 'E-----'], ['-PP---', '------'], ['--~---', '------']],
+    [['@cc---#', 'E------'], ['-PP----', '-------'], null],
+    [['@-c-#', 'E----'], ['-PP--', '-----'], null],
+    [['@-x--#', 'E-----'], ['-PP---', '------'], ['--~---', '------']],
     [['@c-#', '-c-#', 'E---'], ['-P--', '-P--', '----'], null],
   ]) {
-    const r = audit('one-slot', grid, 'r', { cart, water });
+    const r = audit('tip-direction', grid, 'r', { cart, water });
     const tip = r.steps.at(-1);
     if (tip.piece) continue;
-    for (const m of tip.moved)
-      assert.equal(Math.abs(m.to[0] - m.from[0]) + Math.abs(m.to[1] - m.from[1]), 1,
-        `a tip moved ${m.o} from ${m.from} to ${m.to} — more than one slot`);
+    for (const m of tip.moved) {
+      const back = (m.from[0] - m.to[0]) + (m.from[1] - m.to[1]);   // shoves here are all 'r'
+      assert.ok(back > 0, `a tip moved ${m.o} from ${m.from} to ${m.to} — not backward`);
+      assert.ok(m.to[0] > r.frames[0].rac.x, `${m.o} landed on or behind the raccoon's start`);
+    }
   }
 });
 

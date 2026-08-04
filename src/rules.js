@@ -219,9 +219,14 @@ const cartCanEnter = (s, x, y) => {
  * Cargo entering a file's lead slot pushes what was there one slot back, and anything pushed
  * past the trail slot lands in the cell that slot vacated on this very step.
  *
+ * A wall tips it: the load settles against the back of the basket and is then pushed out into
+ * the run of cells the cart came through, stopping at the first one it cannot use. Settling
+ * first is what makes the piece readable — which slot a thing happens to occupy is not
+ * something the player can see, so it must not decide whether the thing comes out.
+ *
  * The raccoon follows it in, like every other shove. That costs the two things a roller got
  * for free: he can no longer reach a cart sitting in open canal, and the cell he steps into is
- * one the cart can no longer put anything down in.
+ * one the cart can no longer put anything down in — so a one-cell roll puts nothing down.
  *
  * **One shove either loads or unloads, never both.** A cart that picked something up on the
  * way does not tip when it stops. Allowing both let a cart roll onto a bag, swallow it, hit
@@ -311,36 +316,42 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
   // The roll always ends against something it cannot take in — that is the only way it stops.
   if (trace && steps.length) steps[steps.length - 1].impact = true;
 
-  // A wall or the board edge tips it, and a tip is EXACTLY ONE push of the same board the
-  // cart's interior already is: everything shifts one slot toward the back, and whatever goes
-  // past the trail slot lands in the cell immediately behind.
+  // A wall or the board edge tips it: the load settles against the back of the basket and the
+  // wall pushes it out behind the cart, one item at a time, into the run of cells the cart
+  // just came through. It stops at the first cell it cannot use, so nothing ever leapfrogs
+  // what is already on the ground — and the raccoon counts as blocking, because he walked in
+  // behind it. A one-cell roll therefore puts nothing down: he is standing in the only cell
+  // the load could have gone to.
   //
-  // One slot, never two. Loading moves cargo one slot per intake, so a tip that closed a gap
-  // and then threw the load out would let a single item travel two slots on one shove — and
-  // it would leave the cart past an empty slot of its own, which is not something any other
-  // rule here permits. A file whose trail slot has nowhere to put its load is jammed and
-  // nothing in it moves; a file whose trail slot is empty just closes up.
   // ...and only if it did not pick anything up on the way. One shove loads or unloads.
   if (!ate && aheadAt(n).some(([x, y]) => !inGrid(s, x, y) || cell(s, x, y).wall)) {
     const step = trace ? mkStep() : null;
     files.forEach((f, i) => {
-      const depth = slots[i].length, out = slots[i][depth - 1];
-      if (slots[i].every(o => o === NONE)) return;              // empty: nothing to shove
-      const to = at(f[depth - 1], n - 1);                       // the cell behind the trail slot
-      if (out !== NONE && (onHim(to) || !isOccupiable(next, ...to))) return;   // jammed
+      const depth = slots[i].length;
+      const load = [];                                  // lead-first, with where each stands now
+      for (let j = 0; j < depth; j++)
+        if (slots[i][j] !== NONE) load.push({ o: slots[i][j], from: at(f[j], n) });
+      if (!load.length) return;
 
-      if (out !== NONE) {
-        if (step) step.moved.push({
-          o: out, from: at(f[depth - 1], n), to, parent: null, effect: effectOf(cell(next, ...to), out),
-        });
-        drop(cell(next, ...to), out);
+      const out = [];
+      for (let k = 1; k <= n && load.length; k++) {
+        const to = at(f[depth - 1], n - k);
+        if (onHim(to) || !isOccupiable(next, ...to)) break;
+        out.push({ ...load.pop(), to });
       }
-      for (let j = depth - 1; j > 0; j--) slots[i][j] = slots[i][j - 1];
-      slots[i][0] = NONE;
-      for (let j = 0; j < depth; j++) {
-        cell(next, ...at(f[j], n)).o = slots[i][j];
-        if (step && slots[i][j] !== NONE)
-          step.moved.push({ o: slots[i][j], from: at(f[j - 1], n), to: at(f[j], n), parent: cid });
+      for (let j = 0; j < depth; j++) { slots[i][j] = NONE; cell(next, ...at(f[j], n)).o = NONE; }
+      load.forEach((it, k) => {
+        const j = depth - load.length + k, to = at(f[j], n);
+        slots[i][j] = it.o;
+        cell(next, ...to).o = it.o;
+        if (step && (it.from[0] !== to[0] || it.from[1] !== to[1]))
+          step.moved.push({ o: it.o, from: it.from, to, parent: cid });
+      });
+      for (const it of out) {
+        if (step) step.moved.push({
+          o: it.o, from: it.from, to: it.to, parent: null, effect: effectOf(cell(next, ...it.to), it.o),
+        });
+        drop(cell(next, ...it.to), it.o);
       }
     });
     if (trace && step.moved.length) { frames.push(cloneState(next)); steps.push(step); }
