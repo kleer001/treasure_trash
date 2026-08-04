@@ -34,8 +34,10 @@ export function cartCells(s, cid) {
   return out;
 }
 
-// The two pieces that leave from under the shove instead of being followed.
-export const isRoller = c => c.o === WHEELIE || c.o === WHEELIE_EMPTY || isCart(c);
+// The wheelie bin is the one piece that leaves from under the shove instead of being
+// followed. A cart is shoved like anything else — the raccoon steps in after it — so a cart
+// sitting in open canal is as out of reach as a can is.
+export const isRoller = c => c.o === WHEELIE || c.o === WHEELIE_EMPTY;
 
 // Direction letters are the solution format's alphabet — see FORMATS.md.
 export const DIRS = { l: [-1, 0], u: [0, -1], r: [1, 0], d: [0, 1] };
@@ -215,16 +217,23 @@ const cartCanEnter = (s, x, y) => {
  * while end-on carries it one step further.
  *
  * Cargo entering a file's lead slot pushes what was there one slot back, and anything pushed
- * past the trail slot lands in the cell that slot vacated on this very step — the cart has
- * just left it, so it is always free. The raccoon does not advance, same as the wheelie bin,
- * which is why nothing a cart sheds can land on him.
+ * past the trail slot lands in the cell that slot vacated on this very step.
+ *
+ * The raccoon follows it in, like every other shove. That costs the two things a roller got
+ * for free: he can no longer reach a cart sitting in open canal, and the cell he steps into is
+ * one the cart can no longer put anything down in.
+ *
+ * **One shove either loads or unloads, never both.** A cart that picked something up on the
+ * way does not tip when it stops. Allowing both let a cart roll onto a bag, swallow it, hit
+ * the wall and spit it straight back out one cell over — derivable from the two rules, and a
+ * lie about the world: things that go into a cart stay in it until you get them out.
  *
  * With `trace`, every board the roll passes through is collected as well. A shove resolves
  * several cells at once and the end state does not say in what order, so a renderer that only
  * sees the result cannot show the work. Off by default: the frames cost a clone per step, and
  * `analyze()` walks the whole state graph wanting only the last one.
  */
-function shoveCart(s, cid, dx, dy, trace) {
+function shoveCart(s, cid, entry, dx, dy, trace) {
   const own = cartCells(s, cid);
   const at = (p, n) => [p[0] + n * dx, p[1] + n * dy];
   const owned = new Set(own.map(([x, y]) => `${x},${y}`));
@@ -243,6 +252,8 @@ function shoveCart(s, cid, dx, dy, trace) {
   }
 
   const next = cloneState(s);
+  next.rac = { x: entry[0], y: entry[1] };          // he follows it in, like every other shove
+  const onHim = ([x, y]) => x === entry[0] && y === entry[1];
   const frames = trace ? [cloneState(s)] : null;
   const steps = trace ? [] : null;
   const lift = k => files.forEach(f => f.forEach(p => {
@@ -255,10 +266,16 @@ function shoveCart(s, cid, dx, dy, trace) {
   // The lookahead reads the ORIGINAL board while `next` is walked forward a step at a time.
   // Those agree because the cart only moves forward: it never tests a cell that it, or
   // anything it has shed, is already sitting in.
-  let n = 0;
+  let n = 0, ate = false;
   for (;;) {
     const ahead = aheadAt(n);
     if (!ahead.every(([x, y]) => cartCanEnter(s, x, y))) break;
+    // Anything shed on the first step lands on the cell he is stepping into. He is standing
+    // there; the shove is refused rather than half-happening.
+    const onto = files.map((f, i) => (slots[i][slots[i].length - 1] !== NONE
+      && cell(s, ...at(f[0], n + 1)).o !== NONE ? at(f[f.length - 1], n) : null)).filter(Boolean);
+    const blocked = onto.find(onHim);
+    if (blocked) return { ok: false, reason: reasonFor(s, [blocked], 'canRoom'), blame: [blocked] };
     lift(n);
     n++;
     const step = trace ? mkStep({ piece: { kind: 'cart', ref: cid, dx, dy } }) : null;
@@ -266,6 +283,7 @@ function shoveCart(s, cid, dx, dy, trace) {
     ahead.forEach(([ax, ay], i) => {
       const o = cell(s, ax, ay).o;
       if (o === NONE) return;                 // nothing enters: this file's load rides along
+      ate = true;
       const slot = slots[i], out = slot[slot.length - 1];
       // Nothing in this file moves on the board. Each item shifts one slot toward the back
       // while the cart moves one cell forward, and those cancel exactly — slot j+1 after the
@@ -302,13 +320,14 @@ function shoveCart(s, cid, dx, dy, trace) {
   // it would leave the cart past an empty slot of its own, which is not something any other
   // rule here permits. A file whose trail slot has nowhere to put its load is jammed and
   // nothing in it moves; a file whose trail slot is empty just closes up.
-  if (aheadAt(n).some(([x, y]) => !inGrid(s, x, y) || cell(s, x, y).wall)) {
+  // ...and only if it did not pick anything up on the way. One shove loads or unloads.
+  if (!ate && aheadAt(n).some(([x, y]) => !inGrid(s, x, y) || cell(s, x, y).wall)) {
     const step = trace ? mkStep() : null;
     files.forEach((f, i) => {
       const depth = slots[i].length, out = slots[i][depth - 1];
       if (slots[i].every(o => o === NONE)) return;              // empty: nothing to shove
       const to = at(f[depth - 1], n - 1);                       // the cell behind the trail slot
-      if (out !== NONE && !isOccupiable(next, ...to)) return;   // jammed: the file holds
+      if (out !== NONE && (onHim(to) || !isOccupiable(next, ...to))) return;   // jammed
 
       if (out !== NONE) {
         if (step) step.moved.push({
@@ -370,7 +389,7 @@ export function explain(s, dir, opts = {}) {
   if (target.water && !isRoller(target)) return { ok: false, reason: 'water', blame: [[tx, ty]] };
 
   // A cart cell carries its cargo in `o`, so cart-ness is read before the occupant is.
-  if (isCart(target)) return shoveCart(s, target.cart, dx, dy, opts.trace === true);
+  if (isCart(target)) return shoveCart(s, target.cart, [tx, ty], dx, dy, opts.trace === true);
 
   const o = target.o;
 

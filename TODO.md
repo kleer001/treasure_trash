@@ -57,8 +57,13 @@
   direction, or tint the two fans differently.
 - **Playtest the exit.** Mechanically verified but not felt — is the walk to `E` tension
   or filler? Cheapest test: play L1–L3 and see if the last move is ever a decision.
-- **The shopping cart** — a 2-cell wheelie bin — is specified and unbuilt. The multi-cell
-  state model it needed now exists.
+- **The shopping cart has no room.** It is built, tested and benched, and no shipped level
+  contains one. It also needs teaching: end-on it picks up, broadside it sets down, one
+  shove either loads or unloads, and a cart out in the canal is gone for good.
+- **A cart room may be expensive to verify.** `analyze` on a 10×7 sandbox with two carts
+  reached 529k states in 75s; shipped rooms run 3–3,089. `verify.mjs` calls `analyze` per
+  level, so a cart room of that size would dominate CI. Untested which of board size, cart
+  count or carts generally is the cost.
 - **The bag-on-can stack has no room.** It holds two bags and both pay the adjacency tax,
   so every solvable room built around it comes out at par 20 with 5–10 optimal lines and
   300+ soft-locks. That is an expert-act piece, not an introduction.

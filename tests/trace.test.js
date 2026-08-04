@@ -150,12 +150,16 @@ test('an empty wheelie bin rolls with nothing to eject', () => {
 
 test('a cart reports one translation per cell of travel', () => {
   const r = audit('cart-roll', ['@--xxx-#', 'E-------'], 'r', { cart: ['-PP-----', '--------'] });
-  assert.equal(r.frames.length, 6);
+  assert.equal(r.frames.length, 5);
   const travel = r.steps.filter(st => st.piece);
   assert.equal(travel.length, 4, 'four advances');
   for (const st of travel) assert.deepEqual([st.piece.dx, st.piece.dy], [1, 0]);
   assert.equal(travel.at(-1).impact, true, 'the last cell of travel is the collision');
-  assert.equal(r.steps.at(-1).piece, null, 'the tip does not travel');
+  assert.equal(r.steps.length, 4, 'it ate on the way, so there is no tip step');
+
+  // and a cart that ate nothing does end on a tip, which does not travel
+  const tip = audit('cart-tip', ['@cc--#', 'E-----'], 'r', { cart: ['-PP---', '------'] });
+  assert.equal(tip.steps.at(-1).piece, null, 'the tip does not travel');
 });
 
 test('swallowing and shedding are changes of parent, not of position', () => {
@@ -173,17 +177,17 @@ test('swallowing and shedding are changes of parent, not of position', () => {
 });
 
 test('the tip is the one time cart cargo genuinely travels', () => {
-  const r = audit('cart-tip', ['@cc-#', 'E----'], 'r', { cart: ['-PP--', '-----'] });
+  const r = audit('cart-tip', ['@cc--#', 'E-----'], 'r', { cart: ['-PP---', '------'] });
   const tip = r.steps.at(-1);
   assert.equal(tip.piece, null, 'the cart has already stopped; only the load moves');
   const out = tip.moved.filter(m => m.parent === null);
   const stays = tip.moved.filter(m => m.parent !== null);
-  assert.equal(out.length, 1, 'one cell of runway puts down one thing');
-  assert.deepEqual(out[0].to, [1, 0]);
+  assert.equal(out.length, 1, 'a tip is one push, so one thing comes out');
+  assert.deepEqual(out[0].to, [2, 0], 'into the cell immediately behind the cart');
   // and the rest closes up toward the back rather than sitting where it was
   assert.equal(stays.length, 1);
-  assert.deepEqual(stays[0].from, [3, 0]);
-  assert.deepEqual(stays[0].to, [2, 0]);
+  assert.deepEqual(stays[0].from, [4, 0]);
+  assert.deepEqual(stays[0].to, [3, 0]);
   for (const m of tip.moved) assert.notDeepEqual(m.from, m.to, 'everything in a tip moves');
 });
 
@@ -193,6 +197,8 @@ test('a tip lands contiguously behind the cart, never skipping a taken cell', ()
   for (const [grid, cart] of [
     [['@--xxx-#', 'E-------'], ['-PP-----', '--------']],
     [['@cc-#', 'E----'], ['-PP--', '-----']],
+    [['@cc--#', 'E-----'], ['-PP---', '------']],
+    [['@cc---#', 'E------'], ['-PP----', '-------']],
     [['@cc-x-#', 'E------'], ['-PP----', '-------']],
     [['@c-#', '-c-#', 'E---'], ['-P--', '-P--', '----']],
   ]) {
@@ -241,7 +247,7 @@ test('a tip shifts by exactly one slot', () => {
 });
 
 test('a broadside cart reports both files in one step', () => {
-  const r = audit('cart-wide', ['@cc-FE', '--c-F-'], 'r', { cart: ['-P----', '-P----'] });
+  const r = audit('cart-wide', ['@c-c-FE', '---c-F-'], 'r', { cart: ['-P-----', '-P-----'] });
   const swallows = r.steps.flatMap(st => st.moved).filter(m => m.parent !== undefined && m.parent !== null);
   assert.equal(swallows.length, 2, 'two lead cells, two things aboard');
   assert.deepEqual(r.steps[0].piece.ref, r.steps[1].piece.ref, 'the same cart both steps');
