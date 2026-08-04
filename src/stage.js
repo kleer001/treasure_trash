@@ -125,6 +125,9 @@ export function advance(stage, u) {
   for (const sp of stage.sprites) {
     sp.x = sp.ax + (sp.tx - sp.ax) * u;
     sp.y = sp.ay + (sp.ty - sp.ay) * u;
+    // The one thing that genuinely shrinks: a bag being torn open is deflating, which is the
+    // object changing rather than the drawing compensating for one it cannot place.
+    if (sp.dying) sp.deflate = 1 - u;
   }
 }
 

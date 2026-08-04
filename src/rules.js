@@ -212,22 +212,29 @@ function shoveCart(s, cid, dx, dy, trace) {
     const shed = [];
     ahead.forEach(([ax, ay], i) => {
       const o = cell(s, ax, ay).o;
-      if (o === NONE) return;
+      if (o === NONE) return;                 // nothing enters: this file's load rides along
       const slot = slots[i], out = slot[slot.length - 1];
+      // Nothing in this file moves on the board. Each item shifts one slot toward the back
+      // while the cart moves one cell forward, and those cancel exactly — slot j+1 after the
+      // step sits on the cell slot j was on before it. So the whole file, plus whatever is
+      // coming aboard, stays put; only who they are travelling with changes. That is the
+      // whole of "no snap into or out of a cart": riding is a parent, not a position.
+      if (step) {
+        for (let j = 0; j < slot.length; j++) {
+          if (slot[j] === NONE) continue;
+          const on = at(files[i][j], n - 1);
+          step.moved.push(j === slot.length - 1
+            ? { o: slot[j], from: on, to: on, parent: null, effect: effectOf(cell(next, ...on), slot[j]) }
+            : { o: slot[j], from: on, to: on, parent: cid });
+        }
+        step.moved.push({ o, from: [ax, ay], to: [ax, ay], parent: cid });
+      }
       for (let k = slot.length - 1; k > 0; k--) slot[k] = slot[k - 1];
       slot[0] = o;
-      // Neither end of this moves on the board. The cart rolls ONTO what it swallows, and
-      // rolls OUT FROM UNDER what it sheds — so both stay on the cell they were on and only
-      // change who they are travelling with. That is the whole of "no snap into or out of a
-      // cart": riding is a parent, not a position.
-      if (step) step.moved.push({ o, from: [ax, ay], to: [ax, ay], parent: cid });
       if (out !== NONE) shed.push([at(files[i][files[i].length - 1], n - 1), out]);
     });
     set(n);
-    for (const [[x, y], o] of shed) {
-      if (step) step.moved.push({ o, from: [x, y], to: [x, y], parent: null, effect: effectOf(cell(next, x, y), o) });
-      drop(cell(next, x, y), o);
-    }
+    for (const [[x, y], o] of shed) drop(cell(next, x, y), o);
     if (trace) { frames.push(cloneState(next)); steps.push(step); }
   }
   // The roll always ends against something it cannot take in — that is the only way it stops.

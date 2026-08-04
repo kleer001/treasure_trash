@@ -73,17 +73,42 @@ test('riding cargo travels with the cart, cell for cell', () => {
 
 test('a shed pile stops dead while the cart rolls on', () => {
   // Once the cart has rolled out from under it, a pile is furniture: it must not drift by so
-  // much as a fraction of a cell for the rest of the roll.
-  const seen = new Map();
-  play(['@--xxx-#', 'E-------'], 'r', { cart: ['-PP-----', '--------'] }, st => {
-    for (const sp of of(st, TRASH)) {
-      if (sp.parent !== null) continue;
+  // much as a fraction of a cell for the rest of the roll. "Shed" means it was riding and
+  // stopped — a pile that was never picked up has the same null parent and is not the subject.
+  const s = S(['@--xxx-#', 'E-------'], ['-PP-----', '--------']);
+  const r = explain(s, 'r', { trace: true });
+  const stage = stageFrom(s, 1);
+  const rode = new Set(), shed = new Map();
+  r.steps.forEach((step, i) => {
+    applyStep(stage, step, r.frames[i + 1].rac);
+    advance(stage, 0.5);
+    if (step.piece) for (const sp of of(stage, TRASH)) {      // travel only — a tip does move
+      if (sp.parent !== null) { rode.add(sp.id); continue; }
+      if (!rode.has(sp.id)) continue;
       const at = `${sp.x},${sp.y}`;
-      if (!seen.has(sp.id)) seen.set(sp.id, at);
-      else assert.equal(at, seen.get(sp.id), `pile ${sp.id} drifted after being shed`);
+      if (!shed.has(sp.id)) shed.set(sp.id, at);
+      else assert.equal(at, shed.get(sp.id), `pile ${sp.id} drifted after being shed`);
     }
+    settle(stage);
   });
-  assert.ok(seen.size >= 1, 'at least one pile was shed with beats left to run');
+  assert.equal(shed.size, 1, 'exactly one pile was shed mid-roll');
+  assert.equal([...shed.values()][0], '3,0', 'and it came down on the cell it was picked up from');
+});
+
+test('cargo already aboard does not advance on a step that takes something in', () => {
+  // Each item shifts one slot toward the back while the cart moves one cell forward, and
+  // those cancel. Report only the entering item and the load already aboard gets dragged a
+  // cell it never travelled — two piles end up stacked on one square and the shed one is
+  // never drawn at all.
+  const s = S(['@--xxx-#', 'E-------'], ['-PP-----', '--------']);
+  const r = explain(s, 'r', { trace: true });
+  const stage = stageFrom(s, 1);
+  r.steps.forEach((step, i) => {
+    applyStep(stage, step, r.frames[i + 1].rac);
+    settle(stage);
+    const cells = of(stage, TRASH).map(sp => `${sp.x},${sp.y}`);
+    assert.equal(new Set(cells).size, cells.length, `two piles share a cell after step ${i}`);
+  });
 });
 
 test('tipped cargo genuinely travels, and is somewhere in between mid-beat', () => {
