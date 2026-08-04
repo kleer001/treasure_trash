@@ -78,7 +78,9 @@ const find = (stage, kind, [x, y]) =>
  * forward — its target is the cell it is already standing on.
  */
 export function applyStep(stage, step, racTo = null) {
-  for (const sp of stage.sprites) { sp.ax = sp.x; sp.ay = sp.y; sp.tx = sp.x; sp.ty = sp.y; }
+  for (const sp of stage.sprites) {
+    sp.ax = sp.x; sp.ay = sp.y; sp.tx = sp.x; sp.ty = sp.y; sp.nudge = null;
+  }
 
   if (step.piece) {
     const { kind, ref, dx, dy } = step.piece;
@@ -98,6 +100,12 @@ export function applyStep(stage, step, racTo = null) {
     if (m.parent !== undefined) sp.parent = m.parent;
     if (m.becomes !== undefined) sp.becomes = m.becomes;
     if (m.effect === 'fills') sp.spent = true;      // it goes in the canal and is spent doing it
+    // Cargo that shifts a slot back inside a cart ends on the cell it started on, because the
+    // cart moved forward exactly as far as it moved back. True, and completely invisible — the
+    // cart appears to slide out from under it and the swap of slots reads as nothing at all.
+    // So it gets a nudge: it sets off with the cart, is hit, and drops back where it was.
+    if (step.piece && m.from[0] === m.to[0] && m.from[1] === m.to[1])
+      sp.nudge = [step.piece.dx, step.piece.dy];
   }
 
   for (const g of step.gone) {
@@ -125,11 +133,20 @@ export function advance(stage, u) {
   for (const sp of stage.sprites) {
     sp.x = sp.ax + (sp.tx - sp.ax) * u;
     sp.y = sp.ay + (sp.ty - sp.ay) * u;
+    if (sp.nudge) { sp.x += sp.nudge[0] * NUDGE * bump(u); sp.y += sp.nudge[1] * NUDGE * bump(u); }
     // The one thing that genuinely shrinks: a bag being torn open is deflating, which is the
     // object changing rather than the drawing compensating for one it cannot place.
     if (sp.dying) sp.deflate = 1 - u;
   }
 }
+
+/** How far a nudged sprite gets before it is stopped, as a fraction of a cell. */
+export const NUDGE = 0.25;
+const HIT = 0.62;
+/** Out with the cart, then knocked back — the return is sharper than the going, because the
+ *  going is being carried and the return is being hit. Zero at both ends: it lands where it
+ *  started, which is where the board says it is. */
+export const bump = u => (u < HIT ? u / HIT : Math.pow(1 - (u - HIT) / (1 - HIT), 2));
 
 /** End of a beat: snap to targets, retire what the step consumed, commit code changes. */
 export function settle(stage) {
@@ -137,6 +154,8 @@ export function settle(stage) {
   stage.sprites = stage.sprites.filter(sp => !sp.dying && !sp.spent);
   for (const sp of stage.sprites) {
     if (sp.becomes !== undefined) { sp.kind = sp.becomes; delete sp.becomes; }
+    sp.nudge = null;                       // it landed; the next beat starts from the board
+    sp.x = sp.tx; sp.y = sp.ty;
     sp.ax = sp.x; sp.ay = sp.y;
   }
 }

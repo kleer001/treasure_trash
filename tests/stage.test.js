@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { explain, CAN_EMPTY, TRASH, BAG, WHEELIE_EMPTY } from '../src/rules.js';
 import { toState } from '../src/format.js';
 import {
-  stageFrom, applyStep, advance, settle, rollEase, easeOut, pileLook,
+  stageFrom, applyStep, advance, settle, rollEase, easeOut, pileLook, bump, NUDGE,
   CART, COUCH, RACCOON,
 } from '../src/stage.js';
 
@@ -52,15 +52,44 @@ test('cargo starts out parented to the cart it is standing in', () => {
   assert.equal(can.parent, one(stage, CART).ref);
 });
 
-test('a swallowed pile takes a parent without moving a hair that beat', () => {
-  // The cart rolls onto it. If this were reported as a position change the pile would lurch
-  // forward into the basket and back out again, which is the snap the parent model removes.
+test('a swallowed pile is nudged, never carried a cell into the basket', () => {
+  // The cart rolls onto it and the board does not move it. It gets a nudge so the pickup is
+  // visible at all, but a nudge is a quarter cell — if this were reported as a position
+  // change instead it would lurch a whole cell forward, which is the snap the parent removes.
   let midBeat = null;
   const { stage } = play(['@--x-#', 'E-----'], 'r', { cart: ['-PP---', '------'] },
     (st, i) => { if (i === 0) midBeat = { ...of(st, TRASH)[0] }; });
-  assert.equal(midBeat.x, 3, 'the pile is exactly where it was, half-way through the beat');
+  assert.notEqual(midBeat.x, 3, 'the pickup has to be visible');
+  assert.ok(Math.abs(midBeat.x - 3) <= NUDGE + 1e-9, `nudged, not carried: was ${midBeat.x}`);
   assert.equal(midBeat.y, 0);
   assert.ok(of(stage, TRASH).length >= 1);
+});
+
+test('cargo that shifts a slot is nudged, so the swap is visible at all', () => {
+  // It ends on the cell it started on, because the cart moved forward exactly as far as it
+  // moved back. True and invisible — without a nudge the cart appears to slide out from under
+  // it. So it sets off with the cart, is hit, and drops back where the board says it is.
+  const s = S(['@-ccc-F-', '------F-', 'E-------'], ['-PP-----', '--------', '--------']);
+  const r = explain(s, 'r', { trace: true });
+  const stage = stageFrom(s, 1);
+  applyStep(stage, r.steps[0], r.frames[1].rac);
+  const can = of(stage, CAN_EMPTY).find(sp => sp.ax === 2 && sp.ay === 0);
+  assert.ok(can, 'the can that started in the cart s rightmost cell');
+  assert.deepEqual([can.tx, can.ty], [2, 0], 'the board does not move it');
+  advance(stage, 0.5);
+  assert.ok(can.x > 2.05, `it should be visibly out of place mid-beat, was ${can.x}`);
+  assert.ok(can.x <= 2 + NUDGE + 1e-9, 'but never further than a quarter cell');
+  settle(stage);
+  assert.equal(can.x, 2, 'and it lands exactly where the board says');
+});
+
+test('the nudge goes out and comes back, harder on the way back', () => {
+  assert.equal(bump(0), 0);
+  assert.ok(Math.abs(bump(1)) < 1e-12, 'it ends where it started');
+  const peak = Math.max(...Array.from({ length: 101 }, (_, i) => bump(i / 100)));
+  assert.ok(Math.abs(peak - 1) < 1e-9, 'and reaches full throw once');
+  const out = bump(0.31) - bump(0.30), back = bump(0.81) - bump(0.80);
+  assert.ok(Math.abs(back) > Math.abs(out), 'the return is the collision, so it is quicker');
 });
 
 test('riding cargo travels with the cart, cell for cell', () => {
@@ -74,28 +103,29 @@ test('riding cargo travels with the cart, cell for cell', () => {
   for (const off of seen) assert.deepEqual(off, first, 'the offset from the cart never drifts');
 });
 
-test('a shed pile stops dead while the cart rolls on', () => {
-  // Once the cart has rolled out from under it, a pile is furniture: it must not drift by so
-  // much as a fraction of a cell for the rest of the roll. "Shed" means it was riding and
-  // stopped — a pile that was never picked up has the same null parent and is not the subject.
-  const s = S(['@--xxx-#', 'E-------'], ['-PP-----', '--------']);
+test('a shed pile stops dead once the cart has rolled on', () => {
+  // On the beat it is hit it gets its nudge like anything else. On every beat AFTER that it is
+  // furniture, and must not drift by so much as a fraction of a cell for the rest of the roll.
+  // "Shed" means it was riding and stopped — a pile never picked up has the same null parent.
+  const s = S(['@--xxx---#', 'E---------'], ['-PP-------', '----------']);
   const r = explain(s, 'r', { trace: true });
   const stage = stageFrom(s, 1);
-  const rode = new Set(), shed = new Map();
+  const rode = new Set(), hitOn = new Map(), rest = new Map();
   r.steps.forEach((step, i) => {
     applyStep(stage, step, r.frames[i + 1].rac);
     advance(stage, 0.5);
     if (step.piece) for (const sp of of(stage, TRASH)) {      // travel only — a tip does move
       if (sp.parent !== null) { rode.add(sp.id); continue; }
       if (!rode.has(sp.id)) continue;
+      if (!hitOn.has(sp.id)) { hitOn.set(sp.id, i); continue; }   // the beat it was knocked off
       const at = `${sp.x},${sp.y}`;
-      if (!shed.has(sp.id)) shed.set(sp.id, at);
-      else assert.equal(at, shed.get(sp.id), `pile ${sp.id} drifted after being shed`);
+      if (!rest.has(sp.id)) rest.set(sp.id, at);
+      else assert.equal(at, rest.get(sp.id), `pile ${sp.id} drifted after being shed`);
     }
     settle(stage);
   });
-  assert.equal(shed.size, 1, 'exactly one pile was shed mid-roll');
-  assert.equal([...shed.values()][0], '3,0', 'and it came down on the cell it was picked up from');
+  assert.equal(hitOn.size, 1, 'exactly one pile was shed mid-roll');
+  assert.equal([...rest.values()][0], '3,0', 'and it stayed on the cell it was picked up from');
 });
 
 test('cargo already aboard does not advance on a step that takes something in', () => {
