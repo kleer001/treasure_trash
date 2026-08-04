@@ -420,24 +420,38 @@ export function explain(s, dir, opts = {}) {
       const stop = [[tx + dx, ty + dy]];
       return { ok: false, reason: reasonFor(s, stop, 'canRoom'), blame: stop };
     }
-    const next = cloneState(s);
-    cell(next, tx, ty).o = NONE;
-    cell(next, rx, ry).o = WHEELIE_EMPTY;
-    const step = mkStep({
-      moved: [{ o, from: [tx, ty], to: [rx, ry], ...(o === WHEELIE && { becomes: WHEELIE_EMPTY }) }],
-      impact: true,                      // it stopped because something stopped it
-    });
-    if (o === WHEELIE) {
-      // Out the back, into the cell it just vacated — tested against the board the bin has
-      // already left, because on a one-cell roll that cell is the bin's own starting square.
-      const back = [rx - dx, ry - dy];
-      if (!isOccupiable(next, back[0], back[1]))
-        return { ok: false, reason: reasonFor(s, [back], 'canRoom'), blame: [back] };
+    // The roll and the dump are two beats, the same way a cart's travel and its tip are. A bin
+    // still carrying its bag is a bin that has not hit anything yet — report them as one and
+    // the bag is drawn leaving a bin that is still halfway down the alley.
+    const rolled = cloneState(s);
+    cell(rolled, tx, ty).o = NONE;
+    cell(rolled, rx, ry).o = o;                       // still full for the whole of the roll
+    // Out the back, into the cell it just vacated — tested against the board the bin has
+    // already left, because on a one-cell roll that cell is the bin's own starting square.
+    const back = o === WHEELIE ? [rx - dx, ry - dy] : null;
+    if (back && !isOccupiable(rolled, back[0], back[1]))
+      return { ok: false, reason: reasonFor(s, [back], 'canRoom'), blame: [back] };
+
+    const next = cloneState(rolled);
+    if (back) {
+      cell(next, rx, ry).o = WHEELIE_EMPTY;
       cell(next, back[0], back[1]).o = BAG;
-      // out of the BIN, at the far end of the roll — not out of the cell he shoved
-      step.spawned.push({ o: BAG, at: back, from: [rx, ry] });
     }
-    return done(next, PUSH, step);
+    if (!opts.trace) return { ok: true, kind: PUSH, next };
+
+    const frames = [cloneState(s), rolled];
+    const steps = [mkStep({
+      moved: [{ o, from: [tx, ty], to: [rx, ry] }],
+      impact: true,                                   // it stopped because something stopped it
+    })];
+    if (back) {
+      frames.push(next);
+      steps.push(mkStep({                             // and only now does it empty
+        moved: [{ o: WHEELIE, from: [rx, ry], to: [rx, ry], becomes: WHEELIE_EMPTY }],
+        spawned: [{ o: BAG, at: back, from: [rx, ry] }],
+      }));
+    }
+    return { ok: true, kind: PUSH, next, frames, steps };
   }
 
   throw new Error(`unknown occupant ${o} at ${tx},${ty}`);

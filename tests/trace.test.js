@@ -11,7 +11,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  explain, cell, cartCells, pieceCells, NONE,
+  explain, cell, cartCells, pieceCells, bagsLeft, NONE,
   BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
 } from '../src/rules.js';
 import { toState } from '../src/format.js';
@@ -125,14 +125,21 @@ test('a couch reports one rigid translation, not four cell edits', () => {
   assert.deepEqual(step.moved, [], 'a rigid body is one piece, not a pile of moves');
 });
 
-test("a wheelie bin's bag comes out of the BIN, at the end of the roll", () => {
-  // The bug this pins: diffing two boards says a bag appeared at (2,3); only the engine knows
-  // it was ejected by a bin that ended up at (2,0), five cells from the cell that was shoved.
+test('a wheelie bin rolls first and dumps after, out of the BIN', () => {
+  // Two things pinned here. The bag is ejected by a bin that ended up at (2,0), three cells
+  // from the cell that was shoved — a board diff could only guess the shove cell. And the
+  // dump is its own beat: report it with the roll and the bag is drawn leaving a bin that is
+  // still halfway down the alley, which is not what a collision looks like.
   const r = audit('wheelie', ['-----', '-----', '-----', '--W--', 'E-@--'], 'u');
-  const [step] = r.steps;
-  assert.deepEqual(step.moved, [{ o: WHEELIE, from: [2, 3], to: [2, 0], becomes: WHEELIE_EMPTY }]);
-  assert.deepEqual(step.spawned, [{ o: BAG, at: [2, 1], from: [2, 0] }]);
-  assert.equal(step.impact, true, 'it stopped because something stopped it');
+  assert.equal(r.steps.length, 2, 'the roll and the dump are separate beats');
+  const [roll, dump] = r.steps;
+  assert.deepEqual(roll.moved, [{ o: WHEELIE, from: [2, 3], to: [2, 0] }]);
+  assert.deepEqual(roll.spawned, [], 'it is still carrying the bag the whole way down');
+  assert.equal(roll.impact, true, 'and it stopped because something stopped it');
+  assert.equal(bagsLeft(r.frames[1]), 1, 'the bag is accounted for throughout, never in limbo');
+  assert.deepEqual(dump.spawned, [{ o: BAG, at: [2, 1], from: [2, 0] }]);
+  assert.equal(dump.moved[0].becomes, WHEELIE_EMPTY, 'and it empties as the bag leaves');
+  assert.equal(dump.impact, false, 'the dump is the consequence, not another collision');
 });
 
 test('an empty wheelie bin rolls with nothing to eject', () => {

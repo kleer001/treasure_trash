@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, CAN_EMPTY, TRASH, BAG, WHEELIE_EMPTY } from '../src/rules.js';
+import { explain, CAN_EMPTY, TRASH, BAG, WHEELIE, WHEELIE_EMPTY } from '../src/rules.js';
 import { toState } from '../src/format.js';
 import {
   stageFrom, applyStep, advance, settle, rollEase, easeOut, pileLook, bump, NUDGE,
@@ -188,16 +188,24 @@ test('a torn bag dies and its trash is born flying out of it', () => {
   assert.equal(of(stage, BAG).length, 0, 'the bag is gone once the beat ends');
 });
 
-test("a wheelie bin's bag is born at the bin, not at the cell that was shoved", () => {
+test('a wheelie bin carries its bag the whole way, then drops it out of the BIN', () => {
   const s = S(['-----', '-----', '-----', '--W--', 'E-@--']);
   const stage = stageFrom(s);
   const r = explain(s, 'u', { trace: true });
+
   applyStep(stage, r.steps[0], r.frames[1].rac);
-  const bag = one(stage, BAG);
-  assert.deepEqual([bag.ax, bag.ay], [2, 0], 'it comes out of the bin at the end of the roll');
-  assert.deepEqual([bag.tx, bag.ty], [2, 1]);
+  assert.equal(of(stage, BAG).length, 0, 'nothing comes out before it has hit anything');
+  assert.deepEqual([one(stage, WHEELIE).tx, one(stage, WHEELIE).ty], [2, 0], 'it travels, still full');
   settle(stage);
-  assert.equal(one(stage, WHEELIE_EMPTY).y, 0, 'and the bin emptied itself on arrival');
+
+  applyStep(stage, r.steps[1], r.frames[2].rac);
+  const bag = one(stage, BAG);
+  assert.deepEqual([bag.ax, bag.ay], [2, 0], 'the bag comes out of the bin, where the bin stopped');
+  assert.deepEqual([bag.tx, bag.ty], [2, 1]);
+  assert.equal(of(stage, WHEELIE).length, 0, 'the bin is empty for the whole of the bag s flight');
+  assert.equal(one(stage, WHEELIE_EMPTY).y, 0, 'so it never draws as two bags at once');
+  settle(stage);
+  assert.equal(one(stage, WHEELIE_EMPTY).y, 0);
 });
 
 test('trash spent filling the canal leaves the stage', () => {

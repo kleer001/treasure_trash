@@ -105,7 +105,10 @@ export function applyStep(stage, step, racTo = null) {
     const aboard = step.piece && sp.parent === step.piece.ref;
     [sp.tx, sp.ty] = m.to;
     if (m.parent !== undefined) sp.parent = m.parent;
-    if (m.becomes !== undefined) sp.becomes = m.becomes;
+    // Immediately, not at the end of the beat: a bin that has just thrown its bag out is
+    // empty for the whole of the bag's flight, and drawing it still full alongside a loose bag
+    // in the air reads as two bags.
+    if (m.becomes !== undefined) sp.kind = m.becomes;
     if (m.effect === 'fills') sp.spent = true;      // it goes in the canal and is spent doing it
     if (aboard && m.from[0] === m.to[0] && m.from[1] === m.to[1])
       sp.nudge = [step.piece.dx, step.piece.dy];
@@ -156,7 +159,6 @@ export function settle(stage) {
   advance(stage, 1);
   stage.sprites = stage.sprites.filter(sp => !sp.dying && !sp.spent);
   for (const sp of stage.sprites) {
-    if (sp.becomes !== undefined) { sp.kind = sp.becomes; delete sp.becomes; }
     sp.nudge = null;                       // it landed; the next beat starts from the board
     sp.x = sp.tx; sp.y = sp.ty;
     sp.ax = sp.x; sp.ay = sp.y;
