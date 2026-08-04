@@ -46,7 +46,7 @@ and everything inside a block — `:grid` or `:water`, each closed by `:end` —
 | `:water` … `:end` | `~`/`=`/`-` | optional terrain mask laid over the grid |
 
 A duplicate key or block, an unknown glyph, a non-integer where an int is wanted, or an
-unclosed block is an **error**, not a warning. Validate at the boundary, fail loudly.
+unclosed block throws.
 
 ### Glyphs
 
@@ -104,10 +104,10 @@ grid, with three values, and a room that never had a canal simply omits it:
 ```
 *(shown side by side; in the file the two blocks follow one another.)*
 
-That costs one block and buys the property that **no combination of terrain and occupant
-ever needs a new glyph** — including combinations added later. The occupant grid says what
-is standing in a cell and nothing else, so `@` is the raccoon whether he is on dry ground or
-on a crossing he made, and a can reads `c` wherever it has ended up.
+That costs one block, and the occupant grid gets to say what is standing in a cell and
+nothing else — so `@` is the raccoon whether he is on dry ground or on a crossing he made,
+and a can reads `c` wherever it has ended up. No combination of terrain and occupant needs
+a glyph of its own.
 The reader rejects a mask that marks a wall or the exit as water, or that starts the raccoon
 in open water.
 
@@ -135,18 +135,16 @@ grouping, and none at all across rooms.
 
 Two things the reader enforces, loudly:
 
-- **A one-cell piece is an error.** A single-cell couch is an empty can with a different name,
-  and the game does not need two names for one behaviour.
-- **More pieces than the pool is an error**, not a wrap-around. Six couches is already far more
-  than a room should hold.
+- **A one-cell piece is an error.** A single-cell couch is an empty can with a different name.
+- **More pieces than the pool is an error**, not a wrap-around.
 
 **The writer is canonical:** it hands out pool letters in raster order of each piece's first
 cell. A grid that letters its pieces in some other order still *parses* correctly — it just
 fails the round-trip check, the same way writing floor as `.` instead of `-` does.
 
-`stateKey` carries a **second lane** for the piece partition, because the occupant codes alone
-do not determine the board: four furniture cells in a row are one long couch or two short ones,
-and the two push differently. The lane is numbered by first appearance in raster order, so it
+`stateKey` carries a **lane per multi-cell kind**, because the occupant codes alone do not
+determine the board: four furniture cells in a row are one long couch or two short ones, and
+the two push differently. Each lane is numbered by first appearance in raster order, so it
 keys on the partition itself and not on whichever internal ids happen to be in play.
 
 ---

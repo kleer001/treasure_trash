@@ -272,22 +272,17 @@ export const isWon = s => bagsLeft(s) === 0 && atExit(s);
  * occupant code alone does not say what a cell IS: trash on floor blocks and the same trash
  * on water walks, so two boards differing only in that are genuinely different boards.
  *
- * One character per cell still, because `analyze()` holds one key per reachable state and
- * rooms reach tens of thousands. The character is the (terrain, occupant) pair packed as a
- * single number and OFFSET INTO PRINTABLE ASCII rather than written in decimal. Joining
- * decimals with no delimiter is ambiguous the moment a code reaches two digits — `1,0,10`
- * and `10,1,0` both render as "1010" — and that failure is silent in exactly the same way.
- * Packing as `o * 3 + terrain` (dry / water / bridge) stays injective however many occupant
- * codes get added, and however many terrains follow — widen the multiplier, not the scheme.
+ * One character per cell, because `analyze()` holds one key per reachable state and rooms
+ * reach thousands. The character is the (occupant, terrain) pair packed as a single number
+ * and offset off 'A' rather than written in decimal. Joining decimals with no delimiter is
+ * ambiguous the moment a code reaches two digits — `1,0,10` and `10,1,0` both render as
+ * "1010" — and that failure is silent in exactly the same way.
  *
- * Multi-cell pieces need a second lane, because the codes alone do not determine the board:
+ * Multi-cell pieces get a second lane, because the codes alone do not determine the board:
  * four FURNITURE cells in a row are one long couch, or two short ones, and those push
  * differently. The lane walks the furniture cells in raster order and writes each one's piece
- * as a label numbered by first appearance — canonical, so it depends on the partition and not
- * on which `pid` values happen to be in play. It is a separate lane rather than a wider
- * alphabet in the first one so that adding an eleventh occupant code cannot collide with it.
- *
- * The key is opaque. Nothing parses it; `solver.js` only ever uses it as a Map key.
+ * as a label numbered by first appearance, so it keys on the partition and not on whichever
+ * `pid` values happen to be in play.
  */
 export const stateKey = s => {
   const terrain = c => (c.water ? 1 : c.bridge ? 2 : 0);     // wall is static; these are not

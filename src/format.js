@@ -76,8 +76,7 @@ function labelPieces(cells, glyphs, id) {
       cells[cy][cx].pid = pid; size.push([cx, cy]);
       stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
     }
-    // A one-cell couch would behave exactly like an empty can; refuse it rather than carry
-    // two names for one behaviour.
+    // A one-cell couch behaves exactly like an empty can, so the reader rejects it.
     if (size.length < 2)
       throw new Error(`${id}: furniture '${ch}' at (${x + 1},${y + 1}) is a single cell; use a can, or give it a second cell`);
   }
