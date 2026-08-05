@@ -20,8 +20,12 @@ around it — art, audio, progression, and the solvability indicator.
 - `./run.sh [port]` — no-cache dev server (default 8000). Scans upward for a free port and
   opens the page. ES modules, `fetch` and relative paths all behave differently under
   `file://`, so **a served page is the only supported way to run it.**
+- `bench-cart.html` — the mechanic bench, served alongside the game at `/bench-cart.html`. It
+  is presentation only and **imports `src/`**, so it cannot disagree with the game about what a
+  piece does. Nothing here may carry its own copy of the engine; `verify.mjs` enforces that.
 - `npm test` — Node's built-in runner (`node --test`); specs in `tests/*.test.js`.
-- `node tools/verify.mjs` — checks every claim the level files make.
+- `node tools/verify.mjs` — checks every claim the level files make, and that no page inlines
+  the engine instead of importing it.
 - `publishing/package.sh` — builds `dist/treasure-trash.zip` for itch.io, `index.html` at the
   archive root. Run it from the game root; add new runtime assets to its `RUNTIME` list, and
   the zip stays out of git.
