@@ -76,10 +76,6 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   cart in a dead end keeps what is in it. Shoving along the wall line re-files the cart
   broadside, where every file is one slot deep and sheds at once; a room with no such lane has
   to not want the cargo back.
-- **A cart room may be expensive to verify.** `analyze` on a 10×7 sandbox with two carts
-  reached 529k states in 75s; shipped rooms run 3–3,089. `verify.mjs` calls `analyze` per
-  level, so a cart room of that size would dominate CI. Untested which of board size, cart
-  count or carts generally is the cost.
 - **The bag-on-can stack has no room.** It holds two bags and both pay the adjacency tax,
   so every solvable room built around it comes out at par 20 with 5–10 optimal lines and
   300+ soft-locks. That is an expert-act piece, not an introduction.
