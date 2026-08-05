@@ -18,6 +18,9 @@ import { mulberry32 } from './rng.js';
 /** Multi-cell kinds are their own sprites; every other sprite is keyed by occupant code. */
 export const CART = 'cart', COUCH = 'couch', RACCOON = 'raccoon', SPLASH = 'splash';
 
+/** `step.piece.kind` from the rules → the sprite that is that piece's body. */
+const BODY = { cart: CART, furniture: COUCH };
+
 /**
  * Build a stage from a board. One sprite per loose occupant, per cart, per couch, per cargo
  * riding a cart, plus the raccoon.
@@ -84,18 +87,21 @@ export function applyStep(stage, step, racTo = null) {
 
   if (step.piece) {
     const { kind, ref, dx, dy } = step.piece;
-    const body = stage.sprites.find(sp => sp.kind === (kind === 'cart' ? CART : COUCH) && sp.ref === ref);
-    if (body) {
-      body.tx = body.ax + dx; body.ty = body.ay + dy;
-      if (kind === 'cart')
-        for (const sp of stage.sprites)
-          if (sp.parent === ref) { sp.tx = sp.ax + dx; sp.ty = sp.ay + dy; }
-    }
+    const want = BODY[kind];
+    if (!want) throw new Error(`no sprite kind for piece '${kind}'`);
+    const body = stage.sprites.find(sp => sp.kind === want && sp.ref === ref);
+    if (!body) throw new Error(`no ${want} sprite for piece ${ref}`);
+    body.tx = body.ax + dx; body.ty = body.ay + dy;
+    if (kind === 'cart')
+      for (const sp of stage.sprites)
+        if (sp.parent === ref) { sp.tx = sp.ax + dx; sp.ty = sp.ay + dy; }
   }
 
   for (const m of step.moved) {
+    // A step naming a sprite the stage does not hold means the rules and the stage disagree
+    // about the board. Nothing downstream would notice: the piece would simply not animate.
     const sp = find(stage, m.o, m.from);
-    if (!sp) continue;
+    if (!sp) throw new Error(`no ${m.o} sprite at ${m.from} to move to ${m.to}`);
     // Only what was ALREADY riding gets nudged. Cargo shifting a slot back ends on the cell it
     // started on — the cart moved forward exactly as far as it moved back — which is true and
     // completely invisible: the cart appears to slide out from under it and the swap of slots
