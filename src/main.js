@@ -14,6 +14,9 @@ import {
 } from './stage.js';
 
 const CANF = CAN_FULL, CANE = CAN_EMPTY;
+// A room is shown by its own id, zero-padded, so the picker, the pack and levels.md all call
+// it the same thing. Three digits because the pack is meant to grow: L0 -> 000, L18 -> 018.
+const pad = id => String(id).replace(/\D+/g,'').padStart(3,'0');
 const CS=76, PAD=9;
 // The occupant codes the sprite dispatcher needs; it takes them rather than importing the
 // rules, so the art has no idea a rulebook exists.
@@ -394,7 +397,8 @@ function render(){
 
   document.getElementById('moves').textContent=moves;
   document.getElementById('par').textContent=LEVELS[cur].par;
-  document.getElementById('lvlname').textContent=`${LEVELS[cur].id} — ${LEVELS[cur].name}`;
+  document.getElementById('lvlname').textContent=LEVELS[cur].name;
+  document.getElementById('picknum').textContent=pad(LEVELS[cur].id);
   const w=document.getElementById('warn');
   // The busy notice outranks a stale refusal: it is about right now, and it is about to go.
   w.textContent = busy ? '⏳ one thing at a time — he only has the two paws'
@@ -469,6 +473,11 @@ function hash(x,y){ return ((x*73856093)^(y*19349663))>>>0; }
 const KEY={ArrowUp:'u',ArrowDown:'d',ArrowLeft:'l',ArrowRight:'r',
   w:'u',s:'d',a:'l',d:'r',W:'u',S:'d',A:'l',D:'r'};
 addEventListener('keydown',e=>{
+  // While the sheet is up it owns the keyboard: Escape closes, and nothing reaches the board.
+  if(!document.getElementById('sheet').hidden){
+    if(e.key==='Escape'){ e.preventDefault(); closePicker(); }
+    return;
+  }
   if(e.key in KEY){ e.preventDefault(); act(KEY[e.key]); }
   else if(e.key==='u'||e.key==='U'){ undo(); }
   else if(e.key==='r'||e.key==='R'){ restart(); }
@@ -490,7 +499,30 @@ LEVELS = parseLevelPack(await res.text()).levels;
 const sfx = await fetch('../sfx/win-chime.mp3');
 if(!sfx.ok) throw new Error(`cannot load sfx/win-chime.mp3 (${sfx.status}) — serve with ./run.sh`);
 winBytes = await sfx.arrayBuffer();
-const tabs=document.getElementById('tabs');
-LEVELS.forEach((L,i)=>{ const b=document.createElement('button'); b.className='tab'; b.textContent=L.id;
-  b.onclick=()=>load(i); tabs.appendChild(b); });
+// One square per room, five across, however many rows the pack needs. Built once; only the
+// current-room marker changes as you play.
+const grid=document.getElementById('lvlgrid'), sheet=document.getElementById('sheet');
+LEVELS.forEach((L,i)=>{
+  const b=document.createElement('button');
+  b.className='cell'; b.textContent=pad(L.id); b.title=L.name ?? L.id;
+  b.onclick=()=>{ closePicker(); load(i); };
+  grid.appendChild(b);
+});
+function openPicker(){
+  [...grid.children].forEach((b,i)=>b.setAttribute('aria-current',String(i===cur)));
+  sheet.hidden=false;
+  document.getElementById('picker').setAttribute('aria-expanded','true');
+  grid.children[cur]?.scrollIntoView({block:'nearest'});
+  grid.children[cur]?.focus();
+}
+function closePicker(){
+  sheet.hidden=true;
+  const p=document.getElementById('picker');
+  p.setAttribute('aria-expanded','false'); p.focus();
+}
+document.getElementById('picker').onclick=openPicker;
+document.getElementById('pickclose').onclick=closePicker;
+// Click the backdrop, not the box, to dismiss.
+sheet.addEventListener('click',e=>{ if(e.target===sheet) closePicker(); });
+
 load(0);

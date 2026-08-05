@@ -11,15 +11,28 @@
   .wrap{max-width:720px;margin:0 auto;padding:0 1.1rem}
   header{padding:1.4rem 0 .6rem;border-bottom:2px solid var(--ink);margin-bottom:1rem}
   h1{font-size:1.7rem;margin:0;font-weight:800;letter-spacing:-.5px;display:inline;box-shadow:inset 0 -.4em 0 var(--yel)}
-  .tabs{display:flex;gap:.4rem;margin:1rem 0 .6rem;flex-wrap:wrap}
-  .tab{font-weight:700;border:2px solid var(--ink);background:#fff;padding:.25rem .8rem;border-radius:4px;cursor:pointer;transform:rotate(-1deg)}
-  /* The five house colours cycle, so the strip keeps reading as a strip however many
-     rooms the pack grows to. */
-  .tab.on{background:var(--blu);color:#fff}
-  .tab:nth-child(5n+2).on{background:var(--red)}
-  .tab:nth-child(5n+3).on{background:var(--tea);color:#063}
-  .tab:nth-child(5n+4).on{background:var(--pnk)}
-  .tab:nth-child(5n+5).on{background:var(--yel);color:#5a4500}
+  /* The level picker: one button showing where you are, and a grid behind it. A strip of
+     eighteen tabs was already crowding the header, and the pack is going to keep growing. */
+  .picker{display:inline-flex;align-items:baseline;gap:.4rem;font:inherit;cursor:pointer;
+    border:2px solid var(--ink);background:#fff;padding:.2rem .7rem;border-radius:4px;transform:rotate(-1deg)}
+  .picker b{font-size:1.15rem;font-weight:800;font-variant-numeric:tabular-nums}
+  .picker span{font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .picker:hover{background:var(--yel)}
+  .sheet{position:fixed;inset:0;background:rgba(26,26,26,.45);display:flex;align-items:center;
+    justify-content:center;padding:1rem;z-index:20}
+  .sheet[hidden]{display:none}
+  .sheetbox{background:var(--bg);border:2px solid var(--ink);border-radius:6px;
+    width:min(23rem,100%);max-height:min(70vh,32rem);display:flex;flex-direction:column}
+  .sheethead{display:flex;align-items:center;justify-content:space-between;gap:1rem;
+    padding:.6rem .8rem;border-bottom:2px solid var(--ink);font-weight:800}
+  .sheethead .act{padding:.1rem .5rem}
+  /* Five across, however many down, and the box scrolls rather than the page. */
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;padding:.8rem;overflow-y:auto}
+  .cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;cursor:pointer;
+    font:inherit;font-weight:800;font-variant-numeric:tabular-nums;font-size:.92rem;
+    border:2px solid var(--ink);background:#fff;border-radius:4px}
+  .cell:hover{background:var(--yel)}
+  .cell[aria-current="true"]{background:var(--blu);color:#fff}
   .hud{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin:.5rem 0}
   .name{font-weight:800}
   .moves{color:var(--muted)}
