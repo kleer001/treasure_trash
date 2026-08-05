@@ -38,47 +38,66 @@ test('...but the unload claims the vacated run first, and he takes what is left'
 
 test('end-on, a third pile pushes the first out the back: two in, the old one behind', () => {
   // The cart holds one can in its LEAD slot. The first can it swallows shoves that one to the
-  // trail; the second shoves it out. A couch stops the roll, so the cargo stays aboard.
+  // trail; the second shoves it out. A couch stops the roll and the load slides back out into
+  // the run — until the can shed mid-roll blocks it, so the last one keeps its slot.
   const next = act(['@-ccc-F-', '------F-', 'E-------'],
                    ['-PP-----', '--------', '--------'], 'r');
-  assert.deepEqual(toGrid(next), ['-@c-ccF-', '------F-', 'E-------']);
+  assert.deepEqual(toGrid(next), ['-@ccc-F-', '------F-', 'E-------']);
   assert.deepEqual(toCart(next), ['----PP--', '--------', '--------']);
 });
 
 test('broadside, the cart is one slot deep, so both new cans displace the old one at once', () => {
+  // Two cells of travel and one slot per file: what it picks up on the first cell is set back
+  // down on the second, so the cart comes to rest empty a cell past the cans.
   const next = act(['@cc-FE', '--c-F-'], ['-P----', '-P----'], 'r');
-  assert.deepEqual(toGrid(next), ['@c-cFE', '---cF-']);
+  assert.deepEqual(toGrid(next), ['@cc-FE', '--c-F-']);
   assert.deepEqual(toCart(next), ['---P--', '---P--']);
 });
 
-test('broadside swallows two things in one shove, and sheds nothing if it had room', () => {
+test('broadside swallows two things in one shove, and sets both down again behind it', () => {
   const next = act(['@-c-FE', '--c-F-'], ['-P----', '-P----'], 'r');
-  assert.deepEqual(toGrid(next), ['-@-cFE', '---cF-']);
+  assert.deepEqual(toGrid(next), ['-@c-FE', '--c-F-']);
   assert.deepEqual(toCart(next), ['---P--', '---P--']);
 });
 
 test('a pile shed mid-roll lands on the cell it was picked up from', () => {
   // The cart is a two-slot pipe moving at exactly the rate a solid line is spaced, so the pile
-  // it sheds comes down on its own square.
+  // it sheds comes down on its own square. The tip then fills the one free cell left behind it
+  // and the third pile, with nowhere to land, drives off aboard.
   const next = act(['@--xxx-#', 'E-------'], ['-PP-----', '--------'], 'r');
-  assert.deepEqual(toGrid(next), ['-@-x-xx#', 'E-------']);
+  assert.deepEqual(toGrid(next), ['-@-xxx-#', 'E-------']);
   assert.deepEqual(toCart(next), ['-----PP-', '--------']);
-  assert.equal(trashHeld(next), 2, 'two of the three piles drove off aboard');
+  assert.equal(trashHeld(next), 1, 'one of the three piles drove off aboard');
 });
 
-test('one item, one move: what came aboard this shove cannot also leave on it', () => {
-  // Otherwise a cart could roll onto a bag, swallow it, hit the wall and spit it back out one
-  // cell over. The cans it was ALREADY carrying are free to come out.
+test('what it swallowed on the way leaves by the same rule as what it was carrying', () => {
+  // Where a thing came from does not follow it aboard. Here the run behind is blocked by the
+  // can shed mid-roll, so the pile it took on keeps its slot — by the geometry, not by a
+  // clause about newcomers.
   const next = act(['@cc-x-#', 'E------'], ['-PP----', '-------'], 'r');
   assert.deepEqual(toGrid(next), ['-@ccx-#', 'E------']);
   assert.deepEqual(toCart(next), ['----PP-', '-------']);
   assert.equal(trashHeld(next), 1, 'the pile it took aboard is still aboard');
 
-  // and with nothing else aboard, the newcomer is all there is, so nothing comes out
+  // and with the run clear, the newcomer comes straight back out of it
   const only = act(['@--$#', 'E----'], ['-PP--', '-----'], 'r');
   assert.equal(bagsLeft(only), 1);
-  assert.deepEqual(toGrid(only), ['-@$-#', 'E----'], 'the bag is riding in the trail slot');
+  assert.deepEqual(toGrid(only), ['@$--#', 'E----'], 'the bag is back on the floor behind it');
   assert.deepEqual(toCart(only), ['--PP-', '-----']);
+});
+
+test('a cart against a wall is not a sealed box', () => {
+  // Free play's shape: a broadside cart shoved up, one clear cell of runway before the bag and
+  // one after it. It swallows the bag in passing, hits the wall a cell later, and the load
+  // slides back out into the run it vacated. This is the whole reason the rule has to hold for
+  // what it just picked up: nothing can stand on a wall, so a cart that reaches one can never
+  // be shoved again. Whatever it swallowed on the way in would be out of the game for good, and
+  // a bag pinned to a wall line can never be torn either — the fan needs two rows.
+  const next = act(['###', '---', '-$-', '---', 'E@-'],
+                   ['---', '---', '---', '-PP', '---'], 'u');
+  assert.deepEqual(toGrid(next), ['###', '---', '-$-', '-@-', 'E--'], 'the bag is back on the floor');
+  assert.deepEqual(toCart(next), ['---', '-PP', '---', '---', '---'], 'and the cart stays at the wall');
+  assert.equal(bagsLeft(next), 1, 'still unopened — but reachable again');
 });
 
 test('a cart puts down as many things as it had cells of runway', () => {
@@ -117,9 +136,15 @@ test('a cart that cannot roll at all is refused: it vacated nothing to unload in
 
 test('a cart takes in anything single-cell — bag, can, bin, jug, wheelie, stack, trash', () => {
   for (const g of ['$', 'C', 'c', 'x', 'b', 'j', 'W', 'w', 'S']) {
-    const next = act([`@--${g}-F`, '-----F', 'E-----'], ['-PP---', '------', '------'], 'r');
-    assert.deepEqual(toGrid(next), [`-@-${g}-F`, '-----F', 'E-----'], `${g} should load`);
-    assert.deepEqual(toCart(next), ['---PP-', '------', '------'], `${g} should load`);
+    const r = explain(S([`@--${g}-F`, '-----F', 'E-----'], ['-PP---', '------', '------']), 'r',
+                      { trace: true });
+    assert.ok(r.ok, `${g} should load`);
+    // Aboard while it rolls — the corridor behind is clear, so the couch that stops it hands
+    // the thing straight back to the floor. Intake is a fact about the roll, not the result.
+    assert.equal(toCart(r.frames[1])[0], '--PP--', `${g} rides in the lead slot`);
+    assert.equal(toGrid(r.frames[1])[0][3], g, `${g} should be aboard mid-roll`);
+    assert.deepEqual(toGrid(r.next), [`-@${g}--F`, '-----F', 'E-----'], `${g} should load`);
+    assert.deepEqual(toCart(r.next), ['---PP-', '------', '------'], `${g} should load`);
   }
 });
 
@@ -211,11 +236,11 @@ test('the cart block round-trips, loaded and all', () => {
 
 test('a traced shove reports every board the roll passes through', () => {
   // A shove resolves several cells at once and the end state does not say in what order, so
-  // a renderer needs the steps. Three piles, then a cell of runway to a wall: four advances,
-  // and no tip, because it ate.
+  // a renderer needs the steps. Three piles, then a cell of runway to a wall: four advances
+  // and the tip that follows them.
   const s = S(['@--xxx-#', 'E-------'], ['-PP-----', '--------']);
   const r = explain(s, 'r', { trace: true });
-  assert.equal(r.frames.length, 5, 'the start and four advances');
+  assert.equal(r.frames.length, 6, 'the start, four advances and the tip');
   assert.deepEqual(toGrid(r.frames[0]), toGrid(s), 'frame 0 is the board before the shove');
   assert.deepEqual(toGrid(r.frames.at(-1)), toGrid(r.next), 'the last frame is the result');
 
@@ -225,12 +250,13 @@ test('a traced shove reports every board the roll passes through', () => {
   assert.deepEqual(toCart(r.frames[4]), ['-----PP-', '--------']);
 
   // `toGrid` draws cargo in the cell it rides in, so the piles-on-the-floor count is what
-  // separates a swallow from a shed. Three go in and the third of them pushes one back out.
+  // separates a swallow from a shed. Three go in, the third of them pushes one back out, and
+  // the tip hands over one more into the cell that shed left free.
   const loose = st => {
     const g = toGrid(st)[0], c = toCart(st)[0];
     return [...g].filter((ch, i) => ch === 'x' && c[i] === '-').length;
   };
-  assert.deepEqual(r.frames.map(loose), [3, 2, 1, 1, 1]);
+  assert.deepEqual(r.frames.map(loose), [3, 2, 1, 1, 1, 2]);
 });
 
 test('frames are opt-in, so the solver never pays for them', () => {

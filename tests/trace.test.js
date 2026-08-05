@@ -150,12 +150,12 @@ test('an empty wheelie bin rolls with nothing to eject', () => {
 
 test('a cart reports one translation per cell of travel', () => {
   const r = audit('cart-roll', ['@--xxx-#', 'E-------'], 'r', { cart: ['-PP-----', '--------'] });
-  assert.equal(r.frames.length, 5);
+  assert.equal(r.frames.length, 6);
   const travel = r.steps.filter(st => st.piece);
   assert.equal(travel.length, 4, 'four advances');
   for (const st of travel) assert.deepEqual([st.piece.dx, st.piece.dy], [1, 0]);
   assert.equal(travel.at(-1).impact, true, 'the last cell of travel is the collision');
-  assert.equal(r.steps.length, 4, 'it ate on the way, so there is no tip step');
+  assert.equal(r.steps.length, 5, 'four advances and the tip that follows them');
 
   // and a cart that ate nothing does end on a tip, which does not travel
   const tip = audit('cart-tip', ['@cc--#', 'E-----'], 'r', { cart: ['-PP---', '------'] });

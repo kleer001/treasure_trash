@@ -58,8 +58,14 @@
 - **Playtest the exit.** Mechanically verified but not felt — is the walk to `E` tension
   or filler? Cheapest test: play L1–L3 and see if the last move is ever a decision.
 - **The shopping cart has no room.** It is built, tested and benched, and no shipped level
-  contains one. It also needs teaching: end-on it picks up, broadside it sets down, one
-  shove either loads or unloads, and a cart out in the canal is gone for good.
+  contains one. It also needs teaching: end-on it picks up, broadside it sets down, the load
+  slides back out into the run it vacated when it stops, and a cart out in the canal is gone
+  for good.
+- **A cart that reaches a wall stays there.** Nothing can stand on a wall, so the cell you
+  would shove from does not exist and the cart is confined to that line for the rest of the
+  game. That is fine now the load always slides back out — but a room that wants a cart
+  parked somewhere reachable has to leave a lane behind it, and a bag stranded on a wall
+  line still cannot be torn, because the fan needs two rows.
 - **A cart room may be expensive to verify.** `analyze` on a 10×7 sandbox with two carts
   reached 529k states in 75s; shipped rooms run 3–3,089. `verify.mjs` calls `analyze` per
   level, so a cart room of that size would dominate CI. Untested which of board size, cart

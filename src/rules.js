@@ -243,9 +243,9 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
   const next = cloneState(s);
   const frames = trace ? [cloneState(s)] : null;
   const steps = trace ? [] : null;
-  // Each file's load, lead-first. `fresh` marks what came aboard on THIS shove: one item, one
-  // move, so a thing cannot both enter the cart and leave it on the same push.
-  const loads = files.map(f => f.map(([x, y]) => ({ o: cell(s, x, y).o, fresh: false })));
+  // Each file's load, lead-first. Where a thing came from does not follow it: once aboard it is
+  // just cargo, and it leaves by the same rule whether it rode in or was scooped up on the way.
+  const loads = files.map(f => f.map(([x, y]) => ({ o: cell(s, x, y).o })));
   const repaint = (k, from) => files.forEach((f, i) => f.forEach((p, j) => {
     const c = cell(next, ...at(p, from)); c.o = NONE; c.cart = undefined;
     const d = cell(next, ...at(p, k)); d.cart = cid; d.o = loads[i][j].o;
@@ -275,7 +275,7 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
         step.moved.push({ o: taken[i], from: ahead[i], to: ahead[i], parent: cid });
       }
       for (let k = load.length - 1; k > 0; k--) load[k] = load[k - 1];
-      load[0] = { o: taken[i], fresh: true };
+      load[0] = { o: taken[i] };
       if (out.o !== NONE) shed.push([at(f[f.length - 1], n), out.o]);
     });
     repaint(n + 1, n);
@@ -297,7 +297,7 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
     if (!held.length) return;
 
     const out = [];
-    for (let k = 1; k <= n && held.length && !held[held.length - 1].fresh; k++) {
+    for (let k = 1; k <= n && held.length; k++) {
       const to = at(trail, n - k);
       if (!isOccupiable(next, ...to)) break;
       out.push({ ...held.pop(), to });
