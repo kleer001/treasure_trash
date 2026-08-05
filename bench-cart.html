@@ -211,7 +211,6 @@
     font-family: 'VT323', ui-monospace, monospace; font-weight: 400;
     font-size: 1.2rem; letter-spacing: 0.02em;
   }
-  .case em { font-style: normal; font-size: 0.82rem; color: var(--ink-soft); line-height: 1.35; }
 
   /* --- controls, above the board: the pad and the thing it drives stay together --- */
   .controls {
@@ -273,18 +272,6 @@
     border-bottom: 1px solid var(--rule); padding-bottom: calc(var(--step) * 2);
   }
 
-  /* --- footnote --- */
-  .rule-note {
-    border-top: 1px solid var(--bench-edge); padding-top: calc(var(--step) * 3);
-    display: grid; gap: calc(var(--step) * 2);
-    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  }
-  .rule-note p { margin: 0; max-width: 42ch; }
-  .rule-note strong {
-    display: block; font-family: 'VT323', ui-monospace, monospace; font-weight: 400;
-    font-size: 1.15rem; letter-spacing: 0.16em; text-transform: uppercase;
-    color: var(--ink-soft); margin-bottom: 0.2em;
-  }
   code {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 0.86em; background: color-mix(in srgb, var(--ink) 8%, transparent);
@@ -298,17 +285,15 @@
     <p class="eyebrow">Treasure Trash · mechanic test</p>
     <h1>Shopping <span class="sub">cart</span></h1>
     <p class="lede">
-      A rigid two-cell piece that rolls, loads what it runs over, and tips against a wall.
-      Nothing here is drawn from a board diff: <code>src/rules.js</code> reports what
-      <em>moved</em>, and <code>src/stage.js</code> holds those as objects with positions of
-      their own. So cargo is carried rather than resized, a shove accelerates and then stops
-      dead against what stopped it, and a wheelie bin's bag leaves the bin.
+      A bench for the shopping cart and the pieces it meets. Pick a case, shove it about, and
+      watch what the rules actually do — <code>src/rules.js</code> and <code>src/stage.js</code>
+      are imported, not described, so what you see here is what the game does.
     </p>
   </header>
 
   <div class="bench">
     <section class="plate">
-      <div class="caseline"><b id="case-name"></b> <span id="case-teach"></span></div>
+      <div class="caseline"><b id="case-name"></b></div>
 
       <div class="controls">
         <div class="pad">
@@ -347,38 +332,23 @@
     </section>
   </div>
 
-  <div class="rule-note">
-    <p><strong>The rule</strong>
-      One nudge: the load shifts a slot back, and whatever leaves the trail slot lands one cell
-      behind the cart. Rolling, the nudge is a swallow — what the cart runs onto enters the lead
-      slot, and the cell behind is the one being vacated. Stopped, nothing comes in and the nudge
-      happens anyway, into the cell vacated a step earlier. Same rule, one branch.</p>
-    <p><strong>Bare floor is the quiet case</strong>
-      Roll over nothing and nothing comes in, so nothing nudges: the load just travels along. A
-      thing only moves through the basket when something pushes it, or when the cart stops.</p>
-    <p><strong>Why the axes differ</strong>
-      A file is the cart's extent along the shove: two slots deep end-on, one deep broadside. So
-      it swallows one thing at a time along its length and two at once across it — and it nudges
-      one <em>per file</em>, which is why a broadside cart comes to rest empty while an end-on
-      one keeps something back.</p>
-    <p><strong>Riding is a parent</strong>
-      Taking cargo aboard moves nothing: the cart rolls onto what it swallows and out from under
-      what it sheds, and each item shifts a slot back exactly as the cart moves a cell forward.
-      Only who they travel with changes — and nothing a cart reports ever crosses more than one
-      cell, so no load is ever drawn flying across the board.</p>
-    <p><strong>Only the trail slot sheds</strong>
-      So where a thing rides decides whether <em>this</em> shove puts it down: from the trail
-      slot it is one nudge from the ground, from the lead slot it is two. That difference is on
-      the board — which cell the thing is drawn in — rather than in a slot you have to be told
-      about. It also means a cart carries what it swallows: a newcomer enters at the lead, so it
-      rides until something moves it on.</p>
-    <p><strong>He follows it in</strong>
-      A cart is shoved, not rolled away from under him, and he advances only if the cell it
-      vacated is still free. A cart shoved out into open canal is out of reach, since shoving it
-      again would mean standing in the water.</p>
-  </div>
 </div>
 
+<noscript><p class="lede">This bench needs JavaScript.</p></noscript>
+<script>
+// Not a fallback — the opposite. Under file:// the browser blocks ES module imports for
+// cross-origin reasons, so every import below silently fails and the page renders as an empty
+// shell. Say so instead of showing nothing.
+if (location.protocol === 'file:') document.addEventListener('DOMContentLoaded', () => {
+  document.body.innerHTML =
+    '<div class="wrap"><header><p class="eyebrow">Treasure Trash &middot; mechanic test</p>' +
+    '<h1>Serve <span class="sub">me</span></h1>' +
+    '<p class="lede">Opened over <code>file://</code>, where the browser refuses the module ' +
+    'imports this page is built from, so nothing can run. Serve the game directory and open ' +
+    'it over http:<br><br><code>./run.sh</code><br><br>then ' +
+    '<code>/bench-cart.html</code> on the port it prints.</p></header></div>';
+});
+</script>
 <script type="module">
 // The bench: presentation only. The engine is imported, never copied — this page and the
 // game run the same modules, so the demo cannot drift from what it demonstrates.
@@ -397,85 +367,67 @@ import { createSprites, drawOccupant, exitArrowDir } from './src/sprites.js';
 // Straight out of tests/cart.test.js, so the demo and the suite assert the same boards.
 const CASES = [
   { id: 'end-on', name: 'End-on load',
-    teach: 'one in per step, and the third pile pushes the first out the back',
     grid: ['@-ccc-F-', '------F-', 'E-------'],
     cart: ['-PP-----', '--------', '--------'] },
 
   { id: 'broadside', name: 'Broadside load',
-    teach: 'two lead cells, no interior — the old can leaves on contact',
     grid: ['@c-c-FE', '---c-F-'],
     cart: ['-P-----', '-P-----'] },
 
   { id: 'shuffle', name: 'Three-row shuffle',
-    teach: 'three in — one out the back, one more at the stop, and the last rides on',
     grid: ['@--xxx-#', 'E-------'],
     cart: ['-PP-----', '--------'] },
 
   { id: 'run-is-full', name: 'What it swallows stays',
-    teach: 'the cans it was carrying leave, one per newcomer and one at the stop; the pile it '
-         + 'swallowed is still aboard',
     grid: ['@cc-x-#', 'E------'],
     cart: ['-PP----', '-------'] },
 
   { id: 'walled', name: 'Not a sealed box',
-    teach: 'it scoops the bag, hits the wall, and hands it straight back — nothing can stand '
-         + 'on a wall, so a cart that reaches one is never shoved again',
     grid: ['#####', '-----', '--$--', '-----', 'E-@--'],
     cart: ['-----', '-----', '-----', '--PP-', '-----'] },
 
   { id: 'tip-wide', name: 'Tip — broadside',
-    teach: 'two files of one slot, each shedding its own — the cart comes to rest empty',
     grid: ['@c-#', '-c-#', 'E---'],
     cart: ['-P--', '-P--', '----'] },
 
   { id: 'tip-long', name: 'Tip — end-on',
-    teach: 'one file two deep, so one can lands and one stays aboard',
     grid: ['@cc-#', 'E----'],
     cart: ['-PP--', '-----'] },
 
   { id: 'tip-empty', name: 'Tip — a longer roll',
-    teach: 'twice the travel, still one can down — a shove is one nudge, however far it rolled',
     grid: ['@cc--#', 'E-----'],
     cart: ['-PP---', '------'] },
 
   { id: 'either-slot', name: 'Either slot',
-    teach: 'top bag rides the trail slot and lands; bottom rides the lead and only nudges back',
     grid: ['-$-----#', '@-------', '--$----#', 'E-------'],
     cart: ['-PP-----', '--------', '-QQ-----', '--------'] },
 
   { id: 'canal', name: 'Canal fill',
-    teach: 'the pile rides out, gets thrown back one slot, and lands in the water',
     grid: ['@x---#', 'E-----'],
     cart: ['-PP---', '------'],
     water: ['--~---', '------'] },
 
   { id: 'parks', name: 'A couch is not a parking spot',
-    teach: 'furniture stops it, and it unloads anyway — the wheelie bin never asked what stopped it either',
     grid: ['@cc-F', '----F', 'E----'],
     cart: ['-PP--', '-----', '-----'] },
 
   { id: 'canal-loss', name: 'Into the canal',
-    teach: 'he follows the cart in, so a cart shoved out into open water is gone for good',
     grid: ['@----E', '------'],
     cart: ['-PP---', '------'],
     water: ['--~~--', '------'] },
 
   { id: 'load-by-hand', name: 'Load it by hand',
-    teach: 'shove the can INTO the cart — the same collision, from the other side',
     grid: ['@c----E', '-------'],
     cart: ['--PP---', '-------'] },
 
   { id: 'wheelie', name: 'Wheelie bin',
-    teach: 'the bag comes out of the BIN, five cells away — not out of the shove',
     grid: ['-----', '-----', '-----', '--W--', 'E-@--'] },
 
   { id: 'gate', name: 'The gate',
-    teach: 'scoop the pile and the exit goes out; park it back down and it lights',
     grid: ['#########', '#-------#', '#@--x-FF#', '#-----FF#', '#E------#', '#########'],
     cart: ['---------', '---------', '--PP-----', '---------', '---------', '---------'] },
 
   { id: 'sandbox', name: 'Free play',
-    teach: 'room to shove things about. Solvable in 10 — `dRrU!dddlll` — and the cart is optional',
     grid:  ['##########', '#--------#', '#-@-$----#', '#------c-#', '#--------#', '#E---FF--#', '##########'],
     cart:  ['----------', '----------', '----------', '---PP-----', '-----QQ---', '----------', '----------'],
     water: ['----------', '----------', '----------', '----------', '-~~~------', '----------', '----------'] },
@@ -502,7 +454,6 @@ function load(i) {
   stage = stageFrom(state, i + 1);
   past = []; log = null;
   $('case-name').textContent = c.name;
-  $('case-teach').textContent = c.teach;
   [...$('cases').children].forEach((b, k) => b.setAttribute('aria-pressed', String(k === i)));
   draw();
 }
@@ -653,7 +604,7 @@ function draw() {
 
 // ---------------------------------------------------------------- wiring
 $('cases').innerHTML = CASES.map((c, i) =>
-  `<button class="case" data-i="${i}" aria-pressed="false"><b>${c.name}</b><em>${c.teach}</em></button>`
+  `<button class="case" data-i="${i}" aria-pressed="false"><b>${c.name}</b></button>`
 ).join('');
 $('cases').addEventListener('click', e => {
   const b = e.target.closest('.case'); if (b) load(Number(b.dataset.i));
