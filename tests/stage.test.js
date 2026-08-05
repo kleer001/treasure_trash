@@ -226,6 +226,54 @@ test('advance interpolates and settle lands exactly on the target', () => {
   assert.equal(one(stage, CAN_EMPTY).ay, 0, 'the anchor follows, ready for the next beat');
 });
 
+test('a beat is paced by the CELL, so he walks his one while the bin crosses three', () => {
+  // Duration is a property of the beat and distance is a property of the sprite, so one `u`
+  // for everybody stretched whatever crossed a single cell over however long the FURTHEST
+  // traveller took: the raccoon shoving a bin three cells walked at a third of his pace.
+  const s = S(['-----', '-----', '-----', '--W--', 'E-@--']);
+  const stage = stageFrom(s);
+  const r = explain(s, 'u', { trace: true });
+  applyStep(stage, r.steps[0], r.frames[1].rac);
+  const cells = 3;                                   // what the bin crosses, from the trace
+
+  advance(stage, 1 / 6, cells);
+  assert.equal(one(stage, RACCOON).y, 3.5, 'half a cell of roll is half his step');
+  advance(stage, 1 / 3, cells);
+  assert.equal(one(stage, RACCOON).y, 3, 'one cell of roll and he is home');
+  assert.equal(one(stage, WHEELIE).y, 2, 'while the bin still has two to run');
+  advance(stage, 0.5, cells);
+  assert.equal(one(stage, RACCOON).y, 3, 'and he holds there rather than creeping');
+  assert.equal(one(stage, WHEELIE).y, 1.5);
+  settle(stage);
+  assert.equal(one(stage, WHEELIE).y, 0, 'settle still lands everything');
+});
+
+test('the pusher never gets closer than a cell to what he shoved', () => {
+  // He rides the roll's own distance curve, one cell back. An envelope of his own would put
+  // him ~87% home while the bin is still in its ramp, standing on the bin's tail.
+  const s = S(['-----', '-----', '-----', '--W--', 'E-@--']);
+  const stage = stageFrom(s);
+  const r = explain(s, 'u', { trace: true });
+  applyStep(stage, r.steps[0], r.frames[1].rac);
+  for (let i = 0; i <= 100; i++) {
+    advance(stage, i / 100, 3);
+    const gap = one(stage, RACCOON).y - one(stage, WHEELIE).y;
+    assert.ok(gap >= 1 - 1e-12, `only ${gap.toFixed(3)} of a cell behind at u=${i / 100}`);
+  }
+});
+
+test('a beat with no cell count is one clock, however far its pieces fly', () => {
+  // A tip is a tip whether the load lands next door or four cells back, and a tear is a tear.
+  // Those spend their beat together, which is a different claim from a roll.
+  const s = S(['-----', '-----', '-----', '--W--', 'E-@--']);
+  const stage = stageFrom(s);
+  const r = explain(s, 'u', { trace: true });
+  applyStep(stage, r.steps[0], r.frames[1].rac);
+  advance(stage, 0.5);
+  assert.equal(one(stage, RACCOON).y, 3.5);
+  assert.equal(one(stage, WHEELIE).y, 1.5, 'both half-way at half-way');
+});
+
 test('rollEase covers the distance exactly, never decelerating', () => {
   for (const cells of [1, 2, 4, 9]) {
     assert.equal(rollEase(0, cells), 0);

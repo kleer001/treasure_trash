@@ -549,7 +549,7 @@ function tick() {
     board = it.board;
     applyStep(stage, it.step, it.racTo);
   }
-  advance(stage, slow.matches ? 0 : d - k);
+  advance(stage, slow.matches ? 0 : d - k, seg.pace);
   draw();
   if (t < 1) { raf = requestAnimationFrame(tick); return; }
   settle(stage);

@@ -131,11 +131,26 @@ export function applyStep(stage, step, racTo = null) {
   }
 }
 
-/** Place every sprite at eased progress `u` between its anchor and its target. */
-export function advance(stage, u) {
+/**
+ * Place every sprite at eased progress `u` between its anchor and its target.
+ *
+ * `cells` is how many cells of travel that `u` buys — the pace of the beat. Duration belongs to
+ * the beat and distance belongs to the sprite, so one `u` for everybody stretches whatever
+ * crossed a single cell over however long the FURTHEST traveller took: the raccoon shoving a
+ * bin five cells walks his one cell five times too slowly. At `cells` to the beat, a sprite
+ * crossing `d` of them is done in `d/cells` of it and then holds where it landed.
+ *
+ * `cells = 0` is the other kind of beat — a tip, a tear — which is one beat however far its
+ * pieces fly, so everything in it lands together. A nudge and a deflate always keep the beat's
+ * own time: a nudged sprite has no distance to normalise by, and a deflating one is timed by
+ * the beat that consumed it rather than by how far it drifted.
+ */
+export function advance(stage, u, cells = 0) {
   for (const sp of stage.sprites) {
-    sp.x = sp.ax + (sp.tx - sp.ax) * u;
-    sp.y = sp.ay + (sp.ty - sp.ay) * u;
+    const d = Math.abs(sp.tx - sp.ax) + Math.abs(sp.ty - sp.ay);
+    const su = cells && d ? Math.min(1, (u * cells) / d) : u;
+    sp.x = sp.ax + (sp.tx - sp.ax) * su;
+    sp.y = sp.ay + (sp.ty - sp.ay) * su;
     if (sp.nudge) { sp.x += sp.nudge[0] * NUDGE * bump(u); sp.y += sp.nudge[1] * NUDGE * bump(u); }
     if (sp.dying) sp.deflate = 1 - u;
   }
@@ -216,15 +231,18 @@ export function timeline(r, cellTime) {
     if (r.steps[i].piece && r.steps[i].piece.kind === 'cart') {
       const run = [];
       while (i < r.steps.length && r.steps[i].piece && r.steps[i].piece.kind === 'cart') run.push(entry(i++));
-      segs.push({ items: run, cells: run.length, dur: run.length * cellTime, roll: true });
+      // `pace` is cells per item — what one beat's worth of `u` buys. A cart reports one step
+      // per cell, so its items are one cell each.
+      segs.push({ items: run, cells: run.length, dur: run.length * cellTime, roll: true, pace: 1 });
     } else {
       const it = entry(i++);
       const roll = it.step.impact === true;
       // A step that ended against something immovable is a roll and is paced by how far it
       // rolled — a wheelie bin crossing five cells reports one step, not five. Everything
       // else is ONE beat however far its pieces fly: a tip is a tip whether the load lands
-      // next door or four cells back, and a tear is a tear.
-      segs.push({ items: [it], cells: dist(it.step), dur: (roll ? dist(it.step) : 1) * cellTime, roll });
+      // next door or four cells back, and a tear is a tear, so those get no pace at all.
+      segs.push({ items: [it], cells: dist(it.step), dur: (roll ? dist(it.step) : 1) * cellTime,
+                  roll, pace: roll ? dist(it.step) : 0 });
     }
   }
   return segs;

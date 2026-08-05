@@ -125,7 +125,7 @@ function stepMv(){
     board = it.board;
     applyStep(stage, it.step, it.racTo);
   }
-  advance(stage, slow.matches ? 0 : d - k);
+  advance(stage, slow.matches ? 0 : d - k, seg.pace);
   if(t < 1) return true;
   settle(stage);
   board = state;
