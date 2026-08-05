@@ -90,6 +90,9 @@ node tools/verify.mjs
 ```
 
 ## Handy links
-- Playable build (Artifact): https://claude.ai/code/artifact/10ed938d-a736-4251-a501-cafa78653bda
-  Rebuild + republish after any game change: `node tools/build-artifact.mjs`, then publish
-  the output to that same URL (a new URL means the old link goes stale).
+- Feasibility spike, L0–L3, July, historical:
+  https://claude.ai/code/artifact/10ed938d-a736-4251-a501-cafa78653bda
+  It predates `src/` — the rules are inlined in the page. Not the game; do not publish
+  over it.
+- **No current build is published.** `./run.sh` is the way to play this branch.
+  `node tools/build-artifact.mjs` bundles one self-contained page when a build is wanted.
