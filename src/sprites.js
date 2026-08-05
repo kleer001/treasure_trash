@@ -1,10 +1,7 @@
 // The stand-in art — one drawing of each thing in the alley, for everybody who draws one.
 //
-// These used to live in `main.js`, welded to its module scope: they closed over its `ctx`,
-// its `CS`, its palette and its `px()`, and `drawExit` read the module-level `state` to aim
-// its arrow. That made them unreachable from anywhere else, so the mechanic bench grew a
-// second, worse raccoon. `createSprites` takes the surface at the boundary instead, which is
-// the rule the rest of the codebase already follows.
+// `createSprites` takes the surface — ctx, cell size, palette — at the boundary, so these are
+// reachable from anything that draws rather than welded to one module's scope.
 //
 // Nothing here knows about the rules or the board. It is handed coordinates — which may be
 // fractional, mid-slide — and it draws.

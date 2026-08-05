@@ -2,15 +2,10 @@
 // report. Pure: no canvas, no DOM, no timers. A renderer reads `sprites` and draws them; a
 // clock decides what `u` to pass to `advance`.
 //
-// The engine is cell-based and has to stay that way — `stateKey` packs occupants per cell,
-// and giving them identity there would make two boards differing only in WHICH can is which
-// into separate states, which the solver would pay for. So identity lives out here instead:
-// a sprite persists across an action, owns a fractional position, and can be riding a cart
-// rather than standing on a square.
-//
-// That last part is what makes a cart read correctly. Cargo does not jump into a basket and
-// out again; it changes who it travels with. A cart rolls ONTO what it swallows and OUT FROM
-// UNDER what it sheds, so in both cases the cargo holds still and only its parent changes.
+// Identity lives here rather than in the engine: `stateKey` packs occupants per cell, and
+// giving them identity there would split two boards differing only in WHICH can is which into
+// separate states, which the solver would pay for. A sprite persists across an action, owns a
+// fractional position, and can be parented to a cart rather than standing on a square.
 
 import { NONE, FURNITURE, cell, cartCells, pieceCells, isCart } from './rules.js';
 import { mulberry32 } from './rng.js';
@@ -102,20 +97,16 @@ export function applyStep(stage, step, racTo = null) {
     // about the board. Nothing downstream would notice: the piece would simply not animate.
     const sp = find(stage, m.o, m.from);
     if (!sp) throw new Error(`no ${m.o} sprite at ${m.from} to move to ${m.to}`);
-    // Only what was ALREADY riding gets nudged. Cargo shifting a slot back ends on the cell it
-    // started on — the cart moved forward exactly as far as it moved back — which is true and
-    // completely invisible: the cart appears to slide out from under it and the swap of slots
-    // reads as nothing at all. So it sets off with the cart, is hit, and drops back. Something
-    // being taken aboard is not hit by anything; the cart rolls onto it and scoops it, and it
-    // has no more business lurching forward than the ground does.
+    // Only what was ALREADY riding gets nudged: a slot shift is a true no-op on the board and
+    // would otherwise read as nothing at all. Something being scooped up is not hit by
+    // anything, so it does not lurch.
     const aboard = step.piece && sp.parent === step.piece.ref;
     [sp.tx, sp.ty] = m.to;
     if (m.parent !== undefined) sp.parent = m.parent;
-    // Immediately, not at the end of the beat: a bin that has just thrown its bag out is
-    // empty for the whole of the bag's flight, and drawing it still full alongside a loose bag
-    // in the air reads as two bags.
+    // Immediately, not at the end of the beat, or a bin still drawn full alongside the bag it
+    // has just thrown reads as two bags.
     if (m.becomes !== undefined) sp.kind = m.becomes;
-    if (m.effect === 'fills') sp.spent = true;      // it goes in the canal and is spent doing it
+    if (m.effect === 'fills') sp.spent = true;
     if (aboard && m.from[0] === m.to[0] && m.from[1] === m.to[1])
       sp.nudge = [step.piece.dx, step.piece.dy];
   }
@@ -146,8 +137,6 @@ export function advance(stage, u) {
     sp.x = sp.ax + (sp.tx - sp.ax) * u;
     sp.y = sp.ay + (sp.ty - sp.ay) * u;
     if (sp.nudge) { sp.x += sp.nudge[0] * NUDGE * bump(u); sp.y += sp.nudge[1] * NUDGE * bump(u); }
-    // The one thing that genuinely shrinks: a bag being torn open is deflating, which is the
-    // object changing rather than the drawing compensating for one it cannot place.
     if (sp.dying) sp.deflate = 1 - u;
   }
 }
@@ -155,9 +144,8 @@ export function advance(stage, u) {
 /** How far a nudged sprite gets before it is stopped, as a fraction of a cell. */
 export const NUDGE = 0.25;
 const HIT = 0.62;
-/** Out with the cart, then knocked back — the return is sharper than the going, because the
- *  going is being carried and the return is being hit. Zero at both ends: it lands where it
- *  started, which is where the board says it is. */
+/** Out, then knocked back sharper than it went. Zero at both ends, so it lands on the cell the
+ *  board says it is on. */
 export const bump = u => (u < HIT ? u / HIT : Math.pow(1 - (u - HIT) / (1 - HIT), 2));
 
 /** End of a beat: snap to targets, retire what the step consumed, commit code changes. */
@@ -178,18 +166,13 @@ export const PILE_SHAPES = ['ball', 'box', 'wedge', 'tube'];
 export const PILE_TONES = 5;
 
 /**
- * The three pieces one pile is made of, derived from its seed and nothing else.
+ * The three pieces one pile is made of, derived from its seed and nothing else. Two share a
+ * tone and the third is an accent, at three clearly different sizes — six dots picked freely
+ * from five colours have no dominant anything and every pile reads as the same confetti.
  *
- * A pile keeping a stable identity is worth nothing if you cannot tell it from the pile next
- * to it, and six dots picked at random from five colours have no dominant anything — every
- * pile reads as the same confetti. So: two pieces share ONE tone and the third is an accent,
- * which is what makes a pile "the red one" at a glance and while it is moving; there are
- * three pieces rather than six, at clearly different sizes; and the largest picks one of four
- * silhouettes, so piles differ in shape as well as hue.
- *
- * Returns palette INDICES and offsets in cell fractions, never colours or pixels — the game
- * and the bench have different palettes and cell sizes, and both have to draw the same piles.
- * Largest first, so a renderer drawing in order gets the small pieces on top.
+ * Returns palette INDICES and cell fractions, never colours or pixels: the game and the bench
+ * have different palettes and cell sizes and must draw the same piles. Largest first, so a
+ * renderer drawing in order gets the small pieces on top.
  */
 export function pileLook(seed) {
   const rnd = mulberry32(seed >>> 0);
@@ -210,12 +193,12 @@ export function pileLook(seed) {
 
 // --- motion envelopes ---------------------------------------------------------------------
 
-/** Slows into its target. What stops itself decelerates: the raccoon, a shoved can, tipped cargo. */
+/** Slows into its target — for whatever stops itself: the raccoon, a shoved can, tipped cargo. */
 export const easeOut = t => 1 - Math.pow(1 - t, 3);
 
 /**
- * Accelerate, cruise, and stop dead. A roller stops because something stopped it, and an
- * impact is instantaneous — decelerating into a wall is the one thing a collision never does.
+ * Accelerate, cruise, and stop dead — for whatever is stopped by something else, where
+ * decelerating into the obstacle would be wrong.
  *
  * Velocity ramps linearly from rest over the first `r` of the duration and holds after.
  * Integrating that and normalising so the whole distance is covered by t=1 gives the cruise
