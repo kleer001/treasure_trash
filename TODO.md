@@ -18,6 +18,10 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   water jug, furniture, the bag-on-can stack and the shopping cart.
 - The stand-in art lives in `src/sprites.js`, bound to a canvas and a cell size at the
   boundary, so the game and the mechanic bench draw the same raccoon.
+- **One engine, one motion system.** `bench-cart.html` is presentation only and imports `src/`,
+  and the game animates from the motion `explain(…, {trace:true})` reports rather than from a
+  board diff. Motion is paced per CELL. Nothing may carry its own copy of a module —
+  `verify.mjs` fails the build if a page does.
 
 ## NEXT MOVE — everything around the mechanic
 `./run.sh`, then L0–L17. `npm test` and `node tools/verify.mjs` are green.
@@ -25,7 +29,8 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   to run after each state change and surface a non-blocking "can no longer be won." The
   positional soft-lock is currently silent, and a dead board should announce itself.
 - **Render through the compositor.** `main.js` draws straight to the canvas; the house
-  pattern is ordered layers via `src/compositor.js`. Worth doing before the art pass.
+  pattern is ordered layers via `src/compositor.js`. Worth doing before the art pass. It
+  already draws sprites in layer order — that ordering is the thing the compositor should own.
 - **Audio** — procedural WebAudio. The only sound today is the win chime.
 - **Art pass**, and more rooms toward a full Act 1.
 - `src/logo.js` and `src/compositor.js` are still scaffolding the game does not import;
