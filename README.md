@@ -37,7 +37,8 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
   in provably-minimal par (2/4/7/5/5/6/11/13/15/17/19/21/23/25/7/8/6/7), the exit is
   unoccupied across every reachable state, and the trap and refusal counts match what the
   files declare.
-- **Run the tests:** `npm test` — the rules engine, the compositor, the seeded RNG.
+- **Run the tests:** `npm test` — the rules engine (items, carts, the state key, traced
+  motion), the stage, the compositor, the seeded RNG.
 
 ## Status in one line
 The core mechanic is built and playable in `src/`, and every room's par is proven minimal

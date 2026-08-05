@@ -25,6 +25,7 @@ character per cell cannot say which — there it is a separate `:water` block.
 E  the exit (walkable by the raccoon, never occupiable by anything else;
    counts only when every bag is torn)
 C  full can (has a bag)                     c  empty can (pushable)
+W  wheelie bin (has a bag)                  w  wheelie bin, emptied — still rolls
 ~  water (the raccoon won't cross it)       =  a filled-in canal cell (floor now)
 b  recycle bin (drops a cell of trash)      j  water jug (spills a cell of water)
 F  furniture — one letter per piece; a touching same-letter blob is ONE couch, so two
@@ -129,8 +130,8 @@ plus (3,1)/(3,3), all clear. Left → back onto E → win.
 
 **Refusals:** A is orthogonally adjacent to E, so three of its four directions put trash
 on the exit — up and down land E in the side cells, left lands it in the leading row. The
-room registers **13** exit refusals, the most in the pack. The one remaining direction
-fires A away from the door, and the only cell it can be thrown from is the exit itself.
+room registers **13** exit refusals. The one remaining direction fires A away from the
+door, and the only cell it can be thrown from is the exit itself.
 
 ---
 
@@ -318,11 +319,10 @@ east crossing. Up onto it, Up to (4,2), Left onto the exit at (3,2) with a bag s
 Left → strike **A**(2,2) leftward, and its fan lands on the west crossing you built four
 moves ago, burying it. Right → E → win.
 
-This room was built to ask *which bag first* and no longer does. A filled canal cell used
-to be water carrying trash, so a later fan could not land on it; it is now ordinary floor,
-which opened the eight-move line above and moved the order metric 1/2 → 2/2 — both
-reachable bags can go first and both leave a winnable board. It kept `coupling` 0.89,
-`solves` 1, `walkRatio` 1.67, `pm` 10, `bridges` 4.
+This room was built to ask *which bag first* and no longer does. A filled canal cell is
+ordinary floor, so a later fan can land on one and bury it — both reachable bags can go
+first and both leave a winnable board (order metric 2/2). It keeps `coupling` 0.89,
+`solves` 1, `walkRatio` 1.67, `pm` 10, `bridges` 4. Re-picking it is in `TODO.md`.
 
 ---
 
@@ -357,7 +357,7 @@ before pouring, so its own trash walls you off from the door.
 
 Of 303,600 four-piece layouts on a 5×5 open board, exactly one — up to its 8 rotations and
 reflections — has a unique shortest solve that pours, bridges, walks it and still leaves
-the exit forbidding something. On 6×4, 255,024 layouts produced none. Its 5 traps are high
+the exit forbidding something. On 6×4, 255,024 layouts produced none. Its 6 traps are high
 for an introduction (L5 introduces the bin with 1, L14 introduces water with 0).
 
 ---

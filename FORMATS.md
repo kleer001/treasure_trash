@@ -63,6 +63,8 @@ roughly right instead of nonsense.
 | `@` | raccoon |
 | `$` | garbage bag |
 | `C` / `c` | full can / empty can |
+| `S` | bag-on-can stack — a loose bag riding a still-full can |
+| `W` / `w` | wheelie bin, full / emptied — rolls until something stops it |
 | `x` | spilled trash |
 | `E` | the exit |
 | `+` | raccoon standing on the exit |
@@ -251,11 +253,14 @@ diff two boards, a renderer has to guess an origin, and the only one available i
 that was shoved — so an ejected piece flies out of the raccoon's face instead of out of the
 thing that ejected it. `steps` removes the guess: each branch reports what it already knows.
 
-`parent` is a cart id, or `null` for leaving one. Taking cargo aboard and shedding it are
-**parent changes with no movement** — the cart rolls onto what it swallows and out from under
-what it sheds, so the cargo holds still either way. `impact` marks a step that ended against
-something immovable, which is how a renderer knows not to decelerate into it. `effect` is how
-a landing resolves: `rest`, `fills` (a canal cell, spending the trash), or `pours`.
+`parent` is a cart id, or `null` for leaving one. Mid-roll, taking cargo aboard and shedding
+it out the back are **parent changes with no movement** — the cart rolls onto what it swallows
+and out from under what it sheds, so the cargo holds still either way. The tip is the
+exception: when the roll stops, the load settles against the back of the basket and then
+unloads into the run the cart vacated, and both of those move cargo across cells. `impact`
+marks a step that ended against something immovable, which is how a renderer knows not to
+decelerate into it. `effect` is how a landing resolves: `rest`, `fills` (a canal cell,
+spending the trash), or `pours`.
 
 **`src/stage.js`** — turns that account into sprites with fractional positions, parents and
 stable cosmetic seeds. Pure: no canvas, no DOM, no timers. `stageFrom(state, seed)`,
@@ -309,15 +314,10 @@ Per level:
 
 ### Refusals vs. traps
 
-The two failure classes are counted separately:
+The two failure classes are counted separately. A **refusal** is the exit saying no at the
+keypress — the action never happens and the move is not spent. A **stranding trap** is a
+legal action that leaves the exit clear and intact while your own trash cuts you off from
+it; those need connectivity reasoning rather than just reading the fan preview.
 
-| | L0 | L1 | L2 | L3 |
-|---|---|---|---|---|
-| **refusals caused by the exit** (said no at the keypress) | 0 | 2 | 12 | 12 |
-| **stranding traps** (trash walls you off from a clear exit) | 0 | 0 | 1 | 2 |
-
-A stranding trap leaves the exit clear and intact while your own trash cuts you off from
-it. Those need connectivity reasoning rather than just reading the fan preview.
-
-Current pack: 18 levels (L0–L17), 3–3,089 reachable states each, all green. The table above
-is the L0–L3 snapshot it was written from and has not been re-measured since.
+`node tools/verify.mjs` prints both counts per room. Current pack: 18 levels (L0–L17),
+3–3,089 reachable states each, all green.
