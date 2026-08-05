@@ -27,8 +27,11 @@ const BODY = { cart: CART, furniture: COUCH };
 export function stageFrom(state, seed = 1) {
   const rnd = mulberry32(seed);
   const stage = { sprites: [], nextId: 0 };
+  // `x,y` is where a sprite is DRAWN and `cx,cy` is the cell the board says it is on. They are
+  // the same at rest and differ only in flight, which is what lets a second shove arrive
+  // mid-animation: it looks pieces up by the board, not by where they happen to have got to.
   const mint = (kind, x, y, extra = {}) => {
-    const sp = { id: stage.nextId++, kind, x, y, ax: x, ay: y, tx: x, ty: y,
+    const sp = { id: stage.nextId++, kind, x, y, ax: x, ay: y, tx: x, ty: y, cx: x, cy: y,
                  seed: (rnd() * 0x100000000) >>> 0, parent: null, dying: false, ...extra };
     stage.sprites.push(sp);
     return sp;
@@ -62,7 +65,7 @@ export function stageFrom(state, seed = 1) {
 /** A rigid body's cells as offsets from its origin. Nothing rotates, so these hold for life. */
 const offsets = (cells, ox, oy) => cells.map(([x, y]) => [x - ox, y - oy]);
 
-const atCell = (sp, x, y) => sp.ax === x && sp.ay === y;
+const atCell = (sp, x, y) => sp.cx === x && sp.cy === y;
 const find = (stage, kind, [x, y]) =>
   stage.sprites.find(sp => sp.kind === kind && !sp.dying && atCell(sp, x, y));
 
@@ -77,7 +80,10 @@ const find = (stage, kind, [x, y]) =>
  */
 export function applyStep(stage, step, racTo = null) {
   for (const sp of stage.sprites) {
-    sp.ax = sp.x; sp.ay = sp.y; sp.tx = sp.x; sp.ty = sp.y; sp.nudge = null;
+    // Travel starts from where it is DRAWN, so a piece interrupted in flight carries on from
+    // there rather than jumping; it aims at the cell the board has it on, so a sprite this step
+    // never mentions still finishes the trip it was already making.
+    sp.ax = sp.x; sp.ay = sp.y; sp.tx = sp.cx; sp.ty = sp.cy; sp.nudge = null;
   }
 
   if (step.piece) {
@@ -86,10 +92,10 @@ export function applyStep(stage, step, racTo = null) {
     if (!want) throw new Error(`no sprite kind for piece '${kind}'`);
     const body = stage.sprites.find(sp => sp.kind === want && sp.ref === ref);
     if (!body) throw new Error(`no ${want} sprite for piece ${ref}`);
-    body.tx = body.ax + dx; body.ty = body.ay + dy;
+    body.tx = body.cx + dx; body.ty = body.cy + dy;
     if (kind === 'cart')
       for (const sp of stage.sprites)
-        if (sp.parent === ref) { sp.tx = sp.ax + dx; sp.ty = sp.ay + dy; }
+        if (sp.parent === ref) { sp.tx = sp.cx + dx; sp.ty = sp.cy + dy; }
   }
 
   for (const m of step.moved) {
@@ -119,7 +125,7 @@ export function applyStep(stage, step, racTo = null) {
   for (const sp of step.spawned) {
     const [ax, ay] = sp.from ?? sp.at;
     const born = { id: stage.nextId++, kind: sp.effect === 'pours' ? SPLASH : sp.o,
-                   x: ax, y: ay, ax, ay, tx: sp.at[0], ty: sp.at[1],
+                   x: ax, y: ay, ax, ay, tx: sp.at[0], ty: sp.at[1], cx: sp.at[0], cy: sp.at[1],
                    seed: (stage.nextId * 2654435761) >>> 0, parent: null, dying: false,
                    spent: sp.effect === 'fills' || sp.effect === 'pours' };
     stage.sprites.push(born);
@@ -129,6 +135,10 @@ export function applyStep(stage, step, racTo = null) {
     const rac = stage.sprites.find(s => s.kind === RACCOON);
     if (rac) { rac.tx = racTo.x; rac.ty = racTo.y; }
   }
+
+  // The board has moved on even though the drawing has not: everything now BELONGS to the cell
+  // it is heading for, so the next step finds it there whether or not this one has played out.
+  for (const sp of stage.sprites) { sp.cx = sp.tx; sp.cy = sp.ty; }
 }
 
 /**
@@ -166,10 +176,25 @@ export const bump = u => (u < HIT ? u / HIT : Math.pow(1 - (u - HIT) / (1 - HIT)
 /** End of a beat: snap to targets, retire what the step consumed, commit code changes. */
 export function settle(stage) {
   advance(stage, 1);
+  commit(stage);
+  for (const sp of stage.sprites) {
+    sp.x = sp.tx; sp.y = sp.ty;
+    sp.ax = sp.x; sp.ay = sp.y;
+  }
+}
+
+/**
+ * Retire what the beat consumed and re-anchor, WITHOUT moving anything to its target.
+ *
+ * This is how a beat ends when it is overtaken rather than finished. The board committed the
+ * moment the shove was legal, so the stage has to take the step on — but snapping the drawing
+ * to match is exactly the jump a player sees when they act before an animation is done. Leaving
+ * `x,y` alone lets the next beat pick the piece up from wherever it actually got to.
+ */
+export function commit(stage) {
   stage.sprites = stage.sprites.filter(sp => !sp.dying && !sp.spent);
   for (const sp of stage.sprites) {
-    sp.nudge = null;                       // it landed; the next beat starts from the board
-    sp.x = sp.tx; sp.y = sp.ty;
+    sp.nudge = null;                       // whatever it was doing, the next beat re-decides
     sp.ax = sp.x; sp.ay = sp.y;
   }
 }

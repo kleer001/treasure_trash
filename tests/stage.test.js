@@ -4,10 +4,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, CAN_EMPTY, TRASH, BAG, WHEELIE, WHEELIE_EMPTY } from '../src/rules.js';
+import { explain, cell, NONE, CAN_EMPTY, TRASH, BAG, WHEELIE, WHEELIE_EMPTY } from '../src/rules.js';
 import { toState } from '../src/format.js';
 import {
-  stageFrom, applyStep, advance, settle, rollEase, easeOut, pileLook, bump, NUDGE,
+  stageFrom, applyStep, advance, settle, commit, rollEase, easeOut, pileLook, bump, NUDGE,
   CART, COUCH, RACCOON,
 } from '../src/stage.js';
 
@@ -272,6 +272,83 @@ test('a beat with no cell count is one clock, however far its pieces fly', () =>
   advance(stage, 0.5);
   assert.equal(one(stage, RACCOON).y, 3.5);
   assert.equal(one(stage, WHEELIE).y, 1.5, 'both half-way at half-way');
+});
+
+test('a second shove arriving mid-flight finds pieces by the board, not by the drawing', () => {
+  // Shove the can, interrupt half a cell in, shove again. The stage looks pieces up by the cell
+  // the board has them on, so the second action can name a can that is visibly still in transit.
+  const s = S(['-----', '-----', '--c--', '--@--', 'E----']);
+  const stage = stageFrom(s, 1);
+  const first = explain(s, 'u', { trace: true });
+  applyStep(stage, first.steps[0], first.frames[1].rac);
+  advance(stage, 0.5);
+  const can = one(stage, CAN_EMPTY);
+  assert.equal(can.y, 1.5, 'half way between its old cell and its new one');
+  assert.equal(can.cy, 1, 'but the board already has it on the cell it is heading for');
+
+  // the shove that interrupts: it must not have to snap anything first
+  const second = explain(first.next, 'u', { trace: true });
+  commit(stage);
+  applyStep(stage, second.steps[0], second.frames[1].rac);
+  assert.equal(can.y, 1.5, 'still drawn where it had got to — no jump');
+  assert.equal(can.ay, 1.5, 'and its travel starts from there');
+  assert.equal(can.ty, 0, 'heading on to where the second shove puts it');
+  advance(stage, 1);
+  assert.equal(can.y, 0);
+});
+
+test('a piece the interrupting step never mentions still finishes its trip', () => {
+  // He shoves the can and then walks aside. The can is nobody's business in the second action,
+  // so it keeps the target it already had rather than being stranded mid-cell.
+  const s = S(['-----', '-----', '--c--', '--@--', 'E----']);
+  const stage = stageFrom(s, 1);
+  const first = explain(s, 'u', { trace: true });
+  applyStep(stage, first.steps[0], first.frames[1].rac);
+  advance(stage, 0.5);
+  const can = one(stage, CAN_EMPTY);
+
+  const second = explain(first.next, 'l', { trace: true });   // a plain step sideways
+  commit(stage);
+  applyStep(stage, second.steps[0], second.frames[1].rac);
+  assert.equal(can.ty, 1, 'the can still aims at the cell the board gave it');
+  advance(stage, 1);
+  assert.equal(can.y, 1, 'and it gets there');
+});
+
+test('interrupting every single shove still leaves the stage agreeing with the board', () => {
+  // The race parallel motion opens: a shove lands before the last one has finished drawing, so
+  // the stage takes the remaining steps on without settling. Do that for every action in a run
+  // — including a tear, which both kills a sprite and spawns five — and the sprites must still
+  // be standing on exactly the cells the board gives them, with none lost or left over.
+  let s = S(['-------', '--c----', '--@-$--', 'E------']);
+  const stage = stageFrom(s, 1);
+  let acted = 0;
+  for (let n = 0; n < 14; n++) {
+    let r = null;
+    for (const d of ['r', 'u', 'd', 'l']) {
+      const t = explain(s, d, { trace: true });
+      if (t.ok) { r = t; break; }
+    }
+    if (!r) break;
+    applyStep(stage, r.steps[0], r.frames[1].rac);
+    advance(stage, 0.4);                       // caught mid-cell...
+    commit(stage);                             // ...and interrupted there
+    for (let i = 1; i < r.steps.length; i++) {
+      applyStep(stage, r.steps[i], r.frames[i + 1].rac);
+      commit(stage);
+    }
+    s = r.next; acted++;
+  }
+  assert.ok(acted >= 6, `expected a decent run of actions, got ${acted}`);
+
+  const want = [];
+  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) {
+    const o = cell(s, x, y).o;
+    if (o !== NONE) want.push(`${o}@${x},${y}`);
+  }
+  want.push(`${RACCOON}@${s.rac.x},${s.rac.y}`);
+  const got = stage.sprites.map(sp => `${sp.kind}@${sp.cx},${sp.cy}`);
+  assert.deepEqual(got.sort(), want.sort(), 'every sprite on the cell the board gives it');
 });
 
 test('rollEase covers the distance exactly, never decelerating', () => {

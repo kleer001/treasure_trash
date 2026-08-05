@@ -358,7 +358,8 @@ import {
 } from './src/rules.js';
 import { toState } from './src/format.js';
 import {
-  CART, COUCH, RACCOON, SPLASH, advance, applyStep, easeOut, rollEase, settle, stageFrom,
+  CART, COUCH, RACCOON, SPLASH, advance, applyStep, commit, easeOut, rollEase, settle,
+  stageFrom,
   timeline,
 } from './src/stage.js';
 import { createSprites, drawOccupant, exitArrowDir } from './src/sprites.js';
@@ -520,12 +521,14 @@ function tick() {
 function stop() {
   cancelAnimationFrame(raf); raf = 0;
   if (!anim) return;
-  if (anim.k >= 0) settle(stage);                       // the step that was in flight
+  // `commit`, not `settle`: the steps are taken on so the stage matches the board, but nothing
+  // is dragged to its target. Whatever comes next picks the pieces up where they got to.
+  if (anim.k >= 0) commit(stage);
   for (let si = anim.si; si < anim.segs.length; si++) {
     const items = anim.segs[si].items;
     for (let k = si === anim.si ? anim.k + 1 : 0; k < items.length; k++) {
       applyStep(stage, items[k].step, items[k].racTo);
-      settle(stage);
+      commit(stage);
     }
   }
   anim = null; board = state;

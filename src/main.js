@@ -9,8 +9,8 @@ import { parseLevelPack, toState } from './format.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
 // stage owns the objects, their motion and its envelopes
 import {
-  CART, COUCH, RACCOON, SPLASH, advance, applyStep, easeOut, rollEase, settle, stageFrom,
-  timeline,
+  CART, COUCH, RACCOON, SPLASH, advance, applyStep, commit, easeOut, rollEase, settle,
+  stageFrom, timeline,
 } from './stage.js';
 
 const CANF = CAN_FULL, CANE = CAN_EMPTY;
@@ -102,8 +102,11 @@ const CELL_MS = 110;
 let stage = null, board = null, anim = null;
 const slow = matchMedia('(prefers-reduced-motion: reduce)');
 
+// The stage is NOT rebuilt per action. It is already standing on `prev` — `rest()` built it
+// when the room loaded and every action since has taken it forward — and rebuilding would both
+// snap anything still in flight and re-seed every sprite, which is how a pile of trash used to
+// change colour when the board around it shifted.
 function startMv(prev, r){
-  stage = stageFrom(prev, cur + 1);
   board = prev;
   anim = { segs: timeline(r, CELL_MS), si: 0, k: -1, t0: performance.now() };
   if(!raf) raf = requestAnimationFrame(tick);
@@ -134,16 +137,21 @@ function stepMv(){
   return true;
 }
 
-/** Land the whole action at once — an input cutting an animation short still has to finish it. */
-function landMv(){
-  // The step that was in flight first: `applyStep` finds a sprite by its ANCHOR, so leaving one
-  // part-way through a beat makes every step after it fail to find what it names.
-  if(anim.k >= 0) settle(stage);
+/**
+ * Take on whatever is left of the running action without drawing it.
+ *
+ * The board was committed the moment the shove was legal, so the stage owes those steps however
+ * the player interrupts. `commit` rather than `settle`: taking the steps on moves each piece's
+ * CELL to where it ends up while leaving its drawn position alone, so the shove that interrupted
+ * picks everything up in flight instead of teleporting it to the end first.
+ */
+function absorbMv(){
+  if(anim.k >= 0) commit(stage);
   for(let s = anim.si; s < anim.segs.length; s++){
     const items = anim.segs[s].items;
     for(let i = (s === anim.si ? anim.k + 1 : 0); i < items.length; i++){
       applyStep(stage, items[i].step, items[i].racTo);
-      settle(stage);
+      commit(stage);
     }
   }
   anim = null; board = state;
@@ -208,7 +216,7 @@ function handOver(){
 // drawing pieces on cells they have already left.
 const cancelAnim = () => {
   if(raf) cancelAnimationFrame(raf); raf = 0; fx = null; party = null;
-  if(anim) landMv();
+  if(anim) absorbMv();
 };
 
 // ---- audio: a procedural two-tone "no" for a refused input.
@@ -259,7 +267,12 @@ const arming = () => LEVELS[cur].arm === true;
 function act(dir){
   audio(); primeWinChime();              // first input is the gesture that unlocks audio
   if(won){ handOver(); return; }         // done admiring it? go straight to the next room
-  if(fx || anim){ cancelAnim(); render(); }   // any input skips an animation already playing
+  // A shove does NOT cancel the one before it. The old action's remaining steps are taken on
+  // (the board already has them) and the new one starts from wherever the pieces have got to,
+  // so shoving faster than the animation redirects things in flight rather than snapping them.
+  // A refusal is not travel, so it is still dropped outright.
+  if(fx){ fx = null; }
+  if(anim) absorbMv();
   const r = explain(state, dir, { trace: true });
 
   if(!r.ok){                       // refused — play the whole no, then rewind it
