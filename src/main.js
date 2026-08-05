@@ -228,8 +228,7 @@ function playWinChime(){
 }
 
 // ---- input ----
-// Arming (`:arm on`, per level) makes every board-changing action ask twice; walking is
-// never armed, because it is the only verb that writes nothing to the board. See format.js.
+// Arming (`:arm on`, per level). Input layer only — see format.js.
 const arming = () => LEVELS[cur].arm === true;
 
 function act(dir){

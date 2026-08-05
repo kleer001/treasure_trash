@@ -1,7 +1,7 @@
 # TODO / Handoff — Treasure Trash
 
-`levels.md` documents the shipped rooms; `FORMATS.md` documents the data formats;
-`GAME-SHEET.md` is the pitch.
+`levels.md` indexes the shipped rooms; `FORMATS.md` is the file syntax; `GAME-SHEET.md` is
+the pitch. **None of them say what the pieces do — `src/rules.js` does.**
 
 ## Where we are
 - The raccoon's core mechanic is built and playable — L0–L17, each solvable in a
@@ -15,8 +15,7 @@
 - Levels are data: `levels/*.tt` + `*.sol`, one rules module shared by the player, the
   solver and the tests, and a verifier that proves par minimal rather than trusting it.
 - Objects built and unit-tested: bag, metal can, spilled trash, recycle bin, wheelie bin,
-  water jug, furniture, the bag-on-can stack and the shopping cart. The exit and water are
-  terrain.
+  water jug, furniture, the bag-on-can stack and the shopping cart.
 - The stand-in art lives in `src/sprites.js`, bound to a canvas and a cell size at the
   boundary, so the game and the mechanic bench draw the same raccoon.
 
@@ -49,29 +48,22 @@
   out of walking; L11 and L13 have zero coupling between their bags; L11 stays playable
   for 34 moves after it is lost. The bank cannot supply replacements — 0 of its 226 rooms
   pass the same filters. The generator that produced them is not in the repo.
-- **L15 lost its question.** It was the pack's only room that asked *which bag first*.
-  Making a filled canal cell ordinary floor let a later fan bury a crossing, and the order
-  metric went 1/2 → 2/2. Re-picking it needs a sweep against the current rules.
+- **L15 lost its question.** It was the pack's only room that asked *which bag first*; a
+  rules change took that away, and its order metric went 1/2 → 2/2. Re-picking it needs a
+  sweep against the current rules.
 - **Passive fan preview can be ambiguous.** With arming off and the raccoon between two
-  bags (L3), both fans light and the player can't tell which cell belongs to which strike.
-  In L3 that happens to be the lesson, but by luck. Options: preview only the last-moved
-  direction, or tint the two fans differently.
+  bags (L3), both previews light and the player can't tell them apart. Options: preview only
+  the last-moved direction, or tint the two differently.
 - **Playtest the exit.** Mechanically verified but not felt — is the walk to `E` tension
   or filler? Cheapest test: play L1–L3 and see if the last move is ever a decision.
-- **The shopping cart has no room.** It is built, tested and benched, and no shipped level
-  contains one. It also needs teaching: end-on it picks up, broadside it sets down, the load
-  slides back out into the run it vacated when it stops, and a cart out in the canal is gone
-  for good.
-- **The wheelie bin has not been re-verified against the general rule.** It does what a
-  cart's tip does, but it keeps the raccoon on the bank as a constant instead of computing
-  where he lands the way `shoveCart` now does. The divergence is marked in `rules.js` and
-  is untested either way. L0–L17 ship bins and their pars depend on the current behavior,
-  so re-verifying means re-running `verify.mjs` and expecting pars to move.
-- **A cart that reaches a wall stays there.** Nothing can stand on a wall, so the cell you
-  would shove from does not exist and the cart is confined to that line for the rest of the
-  game. That is fine now the load always slides back out — but a room that wants a cart
-  parked somewhere reachable has to leave a lane behind it, and a bag stranded on a wall
-  line still cannot be torn, because the fan needs two rows.
+- **The shopping cart has no room.** Built, tested and benched; no shipped level contains
+  one. It has several distinct behaviors to teach and will need more than one room. Play the
+  bench before designing them — the bench, not this file, is where the behavior is legible.
+- **The wheelie bin and the cart disagree about the raccoon's landing.** Marked in
+  `rules.js`, untested either way, and L0–L17 ship bins — so reconciling them should be
+  expected to move pars. Decide which one is right before adding a cart room.
+- **A cart against a wall is confined to that line.** Worth knowing when placing one: a
+  room that wants it parked reachable has to leave a lane behind it.
 - **A cart room may be expensive to verify.** `analyze` on a 10×7 sandbox with two carts
   reached 529k states in 75s; shipped rooms run 3–3,089. `verify.mjs` calls `analyze` per
   level, so a cart room of that size would dominate CI. Untested which of board size, cart

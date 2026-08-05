@@ -4,13 +4,13 @@ A browser game budded from **Trace ROM Studio**. Vanilla JS, ES modules, no buil
 
 ## This game
 
-An untimed, single-raccoon, Sokoban-family block-pusher. Tearing a bag sprays a 2×3 fan of
-permanent trash ahead of the strike; nothing ever clears it. Win by opening every bag and
-standing on the exit, which the engine refuses to let anything else occupy.
+An untimed, single-raccoon, Sokoban-family block-pusher.
 
 `src/rules.js` is the engine of record — the game, the solver and the tests all import it,
 and `tools/verify.mjs` proves every claim a level file makes against that same module.
-`levels.md` documents the shipped rooms; `TODO.md` says where the work is.
+**It is also the only description of what the pieces do.** No doc restates the rules; a doc
+that did would be wrong within the week. `levels.md` indexes the shipped rooms; `TODO.md`
+says where the work is.
 
 The core mechanic is built and playable: `./run.sh`, then L0–L17. Missing is everything
 around it — art, audio, progression, and the solvability indicator.
@@ -36,15 +36,18 @@ around it — art, audio, progression, and the solvability indicator.
 
 ## Changing the design
 
-**Pre-alpha. The docs describe the game; they do not govern it.** `levels.md`, `FORMATS.md`
-and the comments in `src/` record what the build does *today*. A line like "all mess is
-permanent", "nothing sprays backward" or "the fan needs clear floor" is a description of the
-current rules, not a constraint on the next ones — quoting one back at a proposed change is
-not an argument, it is a citation of the thing being changed.
+**Pre-alpha, and the rules are in flux. So prose does not state them.** No doc, comment or
+commit message says what a piece does, what refuses what, or what the fan covers. `rules.js`
+says it, the tests pin it, `verify.mjs` proves it against the level data. Anything else is a
+second copy that goes stale and then argues with the code — two hands on one pencil.
 
-So: when a change contradicts a doc, **change the doc in the same commit.** When a new piece
-needs a new occupant code, a new glyph or a new lane in `stateKey`, add it. The engine is
-meant to grow.
+What prose is still for: what a file *is*, where a thing lives, how to run it, why a
+non-obvious decision went the way it did. Not behavior.
+
+So: don't sync the docs to a rules change — there should be nothing there to sync. If you
+find prose describing mechanics, delete it rather than correct it; accuracy is not the
+point, absence is. When a new piece needs a new occupant code, a new glyph or a new lane in
+`stateKey`, add it. The engine is meant to grow.
 
 Raise a design concern **once**, in a sentence or two, and then build what was asked. The
 owner has the context; a second round of pushback is noise. The things worth stopping for are
@@ -85,8 +88,8 @@ These govern how code is written. They are not design arguments.
 ## Docs
 
 - `README.md` — what it is, how to play, how to check it.
-- `levels.md` — the shipped rooms, with diagrams, solves and measured counts.
-- `FORMATS.md` — the `.tt`/`.sol` file formats and what the verifier enforces.
+- `levels.md` — index of the shipped rooms. The rooms themselves are `levels/act1.tt`.
+- `FORMATS.md` — the `.tt`/`.sol` file syntax. Not what the pieces do.
 - `TODO.md` — where we are, what's open, what's next.
 - `GAME-SHEET.md` — the player-facing pitch.
 - `MARKETING-PLAN.md`, `promo.html`, `ITCH-PAGE.md`, `video_shot_list.md` — launch

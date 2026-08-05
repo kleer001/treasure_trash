@@ -19,23 +19,17 @@ const READ = {
   'C': { o: CAN_FULL },
   'c': { o: CAN_EMPTY },
   'x': { o: TRASH },
-  // Case carries load, as it does for the can: UPPER holds a bag, lower does not.
-  'S': { o: STACK },          // a loose bag riding a still-full can
-  'W': { o: WHEELIE },        // wheelie bin with a bag in it
-  'w': { o: WHEELIE_EMPTY },  // wheelie bin, emptied — still rolls
-  'b': { o: BIN },            // recycle bin: drops one cell of trash per shove
-  'j': { o: JUG },            // water jug: spills one cell of water per shove
+  'S': { o: STACK },
+  'W': { o: WHEELIE },
+  'w': { o: WHEELIE_EMPTY },
+  'b': { o: BIN },
+  'j': { o: JUG },
   'E': { exit: true },
   // Furniture glyphs name a PIECE, not a kind of thing: a 4-connected blob of one letter is
   // one couch, so two flush couches need two letters. Hence a pool — see FURN_POOL.
   ...Object.fromEntries([...'FGHKMN'].map(ch => [ch, { o: FURNITURE }])),
   '+': { exit: true, rac: true },     // raccoon standing on the exit (XSB's player-on-goal)
-  // No water glyph: water is terrain and sits under any occupant, and one character per
-  // cell cannot say "empty canal", "a can in the canal" and "couch G in the canal" at once.
-  // It gets its own aligned `:water` block, which needs no new glyph for any combination.
-  //
-  // No glyph for anything on an exit either. The rules refuse any action that would put an
-  // object there, so those states are unreachable and a file that writes one is invalid.
+  // No glyph for water or for an occupied exit — see FORMATS.md for why each is absent.
 };
 
 // The `:water` mask alphabet. Three terrains, one character each, and the floor aliases read
@@ -98,9 +92,7 @@ function poolLetters(s, field, pool, what) {
   return letters;
 }
 
-// The occupant grid says nothing about terrain except walls and the exit, which never carry
-// an occupant. Water rides in the mask, so `x` is trash whether it blocks floor or bridges
-// a canal.
+// Terrain rides in the masks, not in this grid.
 function glyphFor(c, isRac, letters) {
   if (c.wall) return '#';
   if (!c.exit) {
@@ -120,9 +112,7 @@ function glyphFor(c, isRac, letters) {
 // between ':grid' and ':end' is taken verbatim, so no glyph can collide with a key.
 
 const INT_KEYS = new Set(['par', 'traps', 'solves']);
-// `:arm on` makes board-changing actions ask twice in this room — a scaffold for a room
-// that introduces a new piece. Absent means off. Input-layer only: it never reaches the
-// rules engine or the solver, so it cannot change a par.
+// `:arm on` is input-layer only: it never reaches the rules engine or the solver.
 const BOOL_KEYS = new Set(['arm']);
 const BOOLS = { on: true, off: false, true: true, false: false };
 

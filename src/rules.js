@@ -33,11 +33,10 @@ export function cartCells(s, cid) {
 // carrying a wheelie bin reads as a roller.
 export const isRoller = c => !isCart(c) && (c.o === WHEELIE || c.o === WHEELIE_EMPTY);
 
-// `slides` is what the piece becomes, `drops` what it throws one cell further, `pours` that
-// it writes water there instead.
+// One shove table for the single-cell pushables. Read the entries, not a paraphrase.
 const SLIDES = {
-  [CAN_FULL]:  { slides: CAN_EMPTY, drops: BAG },     // ejects its bag and empties
-  [STACK]:     { slides: CAN_FULL,  drops: BAG },     // launches the loose bag; the can stays full
+  [CAN_FULL]:  { slides: CAN_EMPTY, drops: BAG },
+  [STACK]:     { slides: CAN_FULL,  drops: BAG },
   [BIN]:       { slides: BIN,       drops: TRASH },
   [JUG]:       { slides: JUG,       pours: true },
   [CAN_EMPTY]: { slides: CAN_EMPTY },
@@ -58,10 +57,9 @@ export const cloneState = s => ({
 export const inGrid = (s, x, y) => x >= 0 && y >= 0 && x < s.cols && y < s.rows;
 export const cell = (s, x, y) => s.cells[y][x];
 
-// Terrain — `wall`, `water`, `bridge` — is separate from the occupant, and only the wall is
-// static: the jug writes new water mid-room and any fill converts it. A bridge is terrain
-// rather than an occupant because a cell holds only one occupant, and as an occupant a fill
-// would leave no room to push anything across it. `stateKey` encodes terrain for that reason.
+// Terrain — `wall`, `water`, `bridge` — is a lane of its own, not an occupant code: a cell
+// holds one occupant, and terrain has to be able to coexist with one. Only `wall` is static,
+// so `stateKey` encodes the other two.
 
 /** Dry ground with nothing on it; a bridge counts. */
 export const isClearFloor = (s, x, y) =>
@@ -70,7 +68,7 @@ export const isClearFloor = (s, x, y) =>
 
 export const canStand = isClearFloor;
 
-/** One helper for every way trash lands, so a fan and a bin drop cannot disagree. */
+/** The one place trash is laid down. */
 export function layTrash(c) {
   if (c.water) { c.water = false; c.bridge = true; }
   else c.o = TRASH;
@@ -81,20 +79,13 @@ export const isOccupiable = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).exit
   && cell(s, x, y).o === NONE && !isCart(cell(s, x, y));
 
-/**
- * Where a SHOVED piece may come to rest: everywhere an object rests, plus any cart slot — a
- * full slot is not a refusal, the load shifts along; see `intoCart`. Everything thrown rather
- * than pushed goes through `isOccupiable` instead.
- */
+/** Resting test for a SHOVED piece; anything thrown uses `isOccupiable`. See `intoCart`. */
 export const canRest = (s, x, y) => isOccupiable(s, x, y) || cartAt(s, [x, y]) !== null;
 
 /** The cart a cell belongs to, or null. */
 const cartAt = (s, [x, y]) => (inGrid(s, x, y) && isCart(cell(s, x, y)) ? cell(s, x, y).cart : null);
 
-/**
- * The same internal push a roll performs, entered from the other end. Returns the file, the
- * cell past it, and what is about to come out of it — or `blame` when that has nowhere to go.
- */
+/** Returns the file, the cell past it, and what comes out — or `blame` when it cannot. */
 function intoCart(s, cid, entry, dx, dy) {
   const file = [];
   for (let p = entry; cartAt(s, p) === cid; p = [p[0] + dx, p[1] + dy]) file.push(p);
@@ -123,11 +114,11 @@ function applyIntoCart(s, next, cid, { file, beyond, out }, o, step) {
   }
 }
 
-/** Where the water jug may spill: bare floor only. */
+/** Spill test. */
 export const canPour = (s, x, y) =>
   isOccupiable(s, x, y) && !cell(s, x, y).water && !cell(s, x, y).bridge;
 
-/** The 2x3 fan: the bag's two perpendicular side cells + the three cells one step ahead. */
+/** The fan cells for a strike at (bx,by) heading (dx,dy). */
 export function fan(bx, by, dx, dy) {
   const px = -dy, py = dx;
   return [
@@ -148,26 +139,22 @@ const reasonFor = (s, blockers, fallback) => {
   return fallback;
 };
 
-/** Lay one piece of cargo down, so every way something leaves a cart goes through one helper. */
+/** The one place cargo is put down. */
 const drop = (c, o) => { if (o === TRASH) layTrash(c); else c.o = o; };
 
 // --- the motion account -------------------------------------------------------------------
-// A board says what is where, never what moved where, and boards that differ by a long roll
-// are indistinguishable from boards that differ by a spawn. A traced action reports motion:
+// A board says what is where, not what moved where, so a traced action carries a step. The
+// schema is stage.js's contract; the branches that fill it are the spec for what goes in it.
 //
-//   moved   something that already existed, going somewhere. `becomes` when its code changes
-//           (a full can empties), `parent` when it starts or stops riding a cart.
-//   spawned something that did not exist before. `from` is where it flies out of, if anywhere.
-//   gone    something that ceased to be — the bag a tear consumed.
-//   piece   a rigid body translating as a unit: a couch, or a cart and everything aboard it.
-//   impact  this step ended against something immovable, so it does not decelerate into it.
-//
-// `effect` is how a landing resolves: it rests, it fills a canal cell, or it is a jug's pour.
+//   moved    { o, from, to, becomes?, parent?, effect? }
+//   spawned  { o, at, from?, effect? }
+//   gone     { o, at }
+//   piece    { kind, ref, dx, dy } | null
+//   impact   boolean
 const mkStep = (over = {}) => ({ moved: [], spawned: [], gone: [], piece: null, impact: false, ...over });
 const effectOf = (c, o) => (o === TRASH && c.water ? 'fills' : 'rest');
 
-/** Where a rolling cart may advance: everywhere an object may rest, plus a cell holding a
- *  single-cell occupant, which it takes aboard as it passes. */
+/** Advance test for a rolling cart. */
 const cartCanEnter = (s, x, y) => {
   if (!inGrid(s, x, y)) return false;
   const c = cell(s, x, y);
@@ -175,13 +162,11 @@ const cartCanEnter = (s, x, y) => {
 };
 
 /**
- * Shove a cart. Its cells are grouped into FILES running along the shove — end-on, one file
- * two slots deep; broadside, two files one slot deep — and a file's depth is how far cargo
- * travels before it falls out the back.
+ * Shove a cart. Its cells are grouped into FILES running along the shove; a file is a lead
+ * cell plus the cells behind it, and `loads[i][j]` is that file's cargo, lead-first.
  *
- * `entry` is the cart cell the raccoon shoved. With `trace`, every board the roll passes
- * through is collected too; off by default, since the frames cost a clone per step and
- * `analyze()` wants only the last one.
+ * `entry` is the cart cell the raccoon shoved. `trace` collects a frame per transition; off
+ * by default, since the clones cost and `analyze()` wants only the last board.
  */
 function shoveCart(s, cid, entry, dx, dy, trace) {
   const at = (p, k) => [p[0] + k * dx, p[1] + k * dy];
@@ -243,8 +228,7 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
   }
   if (trace && steps.length) steps[steps.length - 1].impact = true;
 
-  // Settle the load against the back of the basket, then unload into the vacated run, nearest
-  // cell first and stopping at the first refusal.
+  // The tip.
   const tip = trace ? mkStep() : null;
   files.forEach((f, i) => {
     const depth = loads[i].length, trail = f[depth - 1];
@@ -275,9 +259,8 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
   });
   if (trace && tip.moved.length) { frames.push(cloneState(next)); steps.push(tip); }
 
-  // Resolved after the unload, since it may have taken `entry`. Where he ends up is only known
-  // then, but he is pushing, so if he moves at all he moved on the first cell of travel —
-  // hence every frame after the first carries him there.
+  // After the unload, which may have taken `entry`. He moves on the first cell of travel if
+  // at all, so every frame after the first carries him there.
   next.rac = isClearFloor(next, entry[0], entry[1]) ? { x: entry[0], y: entry[1] } : { ...s.rac };
   if (trace) for (let k = 1; k < frames.length; k++) frames[k].rac = { ...next.rac };
 
@@ -290,9 +273,7 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
  * `blame` is the cell list the UI paints red: exactly the cells that forbid the action.
  * Every caller — step, solver, renderer — goes through here.
  *
- * `opts.trace` adds `frames` — every board the action passes through, starting with the one
- * before it and ending with `next` — and `steps`, one per transition, saying what moved.
- * Only a rolling cart has more than one. Opt-in: it costs a clone per step, and `analyze()`
+ * `opts.trace` adds `frames` and `steps`. Opt-in: it costs a clone per step, and `analyze()`
  * walks the whole state graph wanting nothing but the last board.
  */
 export function explain(s, dir, opts = {}) {
@@ -305,7 +286,7 @@ export function explain(s, dir, opts = {}) {
   const target = cell(s, tx, ty);
   if (target.wall) return { ok: false, reason: 'wall', blame: [[tx, ty]] };
 
-  // Everything but a cart resolves in one transition, so one board pair and one step.
+  // One board pair, one step. Anything with more to report builds its own.
   const done = (next, kind, step) => opts.trace
     ? { ok: true, kind, next, frames: [cloneState(s), next], steps: [step] }
     : { ok: true, kind, next };
@@ -316,9 +297,6 @@ export function explain(s, dir, opts = {}) {
     return done(next, MOVE, mkStep());          // only the raccoon, and he rides on `rac`
   };
 
-  // A bridge never reaches here — it has `water` false and falls through to the empty-cell
-  // path below. The roller exemption is the one case where he does not end up on the cell he
-  // acted on, so it is the one thing reachable across water.
   if (target.water && !isRoller(target)) return { ok: false, reason: 'water', blame: [[tx, ty]] };
 
   // A cart cell carries its cargo in `o`, so cart-ness is read before the occupant is.
@@ -337,7 +315,7 @@ export function explain(s, dir, opts = {}) {
     const step = mkStep({ gone: [{ o: BAG, at: [tx, ty] }] });
     for (const [fx, fy] of fan(tx, ty, dx, dy)) {
       const c = cell(next, fx, fy);
-      // every speck flies out of the bag, so the fan's cells all share one origin
+      // one origin for the whole fan
       step.spawned.push({ o: TRASH, at: [fx, fy], from: [tx, ty], effect: effectOf(c, TRASH) });
       layTrash(c);
     }
@@ -346,8 +324,7 @@ export function explain(s, dir, opts = {}) {
     return done(next, TEAR, step);
   }
 
-  // Clearance is the translated footprint MINUS the cells it vacates, which is why a couch
-  // shoved along its own length asks for one new cell rather than all of them.
+  // Clearance is the translated footprint minus the cells it vacates.
   if (isMultiCell(o)) {
     const own = pieceCells(s, target.pid);
     const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
@@ -366,7 +343,7 @@ export function explain(s, dir, opts = {}) {
     return done(next, PUSH, mkStep({ piece: { kind: 'furniture', ref: target.pid, dx, dy } }));
   }
 
-  // One shape of shove for all five, so the clearance test lives in one place.
+  // One shape of shove for everything in SLIDES, so the clearance test lives in one place.
   if (SLIDES[o]) {
     const { slides, drops, pours } = SLIDES[o];
     const throws = drops !== undefined || pours === true;
@@ -403,9 +380,7 @@ export function explain(s, dir, opts = {}) {
     return done(next, PUSH, step);
   }
 
-  // The bin does the same act a cart's tip does, but keeps the raccoon on the bank as a
-  // constant rather than computing his landing the way `shoveCart` now does. NOT YET
-  // RE-VERIFIED against the general rule — L0–L17 ship bins and their pars depend on this.
+  // Diverges from `shoveCart` on where the raccoon ends up. Unreconciled — see TODO.md.
   if (isRoller(target)) {
     let rx = tx, ry = ty;
     while (isOccupiable(s, rx + dx, ry + dy)) { rx += dx; ry += dy; }
