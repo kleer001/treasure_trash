@@ -7,7 +7,7 @@ list is the schedule and the two scripts execute it. Companion to
 (what the publishing surfaces do with the result).
 
 Every claim a caption makes goes through the release gate like any other copy.
-See `CLAUDE.md` → "The release gate."
+See `RELEASE-CHECKLIST.md`.
 
 ## The governing constraint
 
@@ -25,8 +25,8 @@ is the tell, and say so here. Burn captions into every clip.
 
 ## Recording setup
 
-`./capture.sh` records just the game window at its native size with the sound you
-hear and no mouse cursor. `./capture.sh -s` starts recording immediately; without
+`publishing/capture.sh` records just the game window at its native size with the sound you
+hear and no mouse cursor. `publishing/capture.sh -s` starts recording immediately; without
 `-s` it arms and waits for Enter so you can get set before the first frame.
 
 > **A run takes over the desktop.** The window is real, visible, and held on top
@@ -35,7 +35,7 @@ hear and no mouse cursor. `./capture.sh -s` starts recording immediately; withou
 > and so does any notification sound. Do not start a run and keep working; the
 > damage is invisible until playback.
 
-Naming a clip — `./capture.sh core-loop` — plays that scripted take instead,
+Naming a clip — `publishing/capture.sh core-loop` — plays that scripted take instead,
 boots the game from factory settings so the previous take's settings cannot leak
 in, and stops recording on its own. Scripted takes need a demo driver in the
 game that honors `?demo=NAME` and the `&go=` handshake; the contract is written
@@ -133,7 +133,7 @@ Document any staged shot here, in the open, with what was staged and why.
 
 ## Post
 
-`./post.sh` cuts everything in `clips/` into `clips/out/`: each clip trimmed to
+`publishing/post.sh` cuts everything in `clips/` into `clips/out/`: each clip trimmed to
 its beat with its caption burned in, 9:16 versions, looping GIFs, and the
 trailer. It is re-runnable and overwrites its own output, so a re-shot take just
 needs another pass.

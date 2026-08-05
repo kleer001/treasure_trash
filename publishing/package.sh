@@ -4,7 +4,7 @@
 # fewer than 1000 files — a zip of the project folder does not work, because the
 # folder becomes the root and the player finds no index.html.
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."   # this script lives in publishing/; it packages the game root
 
 NAME="$(node -p "require('./package.json').name")"
 OUT="dist/$NAME.zip"

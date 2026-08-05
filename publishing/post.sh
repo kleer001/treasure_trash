@@ -4,13 +4,13 @@
 # Output lands in clips/out/. Re-runnable — it overwrites its own output.
 #
 # Companion to video_shot_list.md (what each clip is for) and capture.sh (which
-# records them). Usage: ./post.sh
+# records them). Usage, from the game root: publishing/post.sh
 #
 # THE TWO TABLES BELOW — clip_cut and TRAILER — ARE THE PER-GAME TUNING SURFACE.
 # Retime a clip, recaption it, or reorder the trailer by editing the numbers
 # there, not by re-shooting. Everything under them is generic ffmpeg plumbing.
 set -uo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."   # this script lives in publishing/; every path below is game-root-relative
 
 IN=clips
 OUT=clips/out

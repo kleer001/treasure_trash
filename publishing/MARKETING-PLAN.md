@@ -2,8 +2,7 @@
 
 How this game finds its players. A living doc: sketch it once the MVP is real, and
 finalize it at the release gate. Keep it honest — the studio's anti-fabrication
-rule covers marketing, and the release gate enforces it. See `CLAUDE.md` → "The
-release gate."
+rule covers marketing, and the release gate enforces it. See `RELEASE-CHECKLIST.md`.
 
 ## Positioning
 

@@ -22,8 +22,9 @@ around it — art, audio, progression, and the solvability indicator.
   `file://`, so **a served page is the only supported way to run it.**
 - `npm test` — Node's built-in runner (`node --test`); specs in `tests/*.test.js`.
 - `node tools/verify.mjs` — checks every claim the level files make.
-- `./package.sh` — builds `dist/treasure-trash.zip` for itch.io, `index.html` at the archive
-  root. Add new runtime assets to its `RUNTIME` list; the zip stays out of git.
+- `publishing/package.sh` — builds `dist/treasure-trash.zip` for itch.io, `index.html` at the
+  archive root. Run it from the game root; add new runtime assets to its `RUNTIME` list, and
+  the zip stays out of git.
 
 ## Platform
 
@@ -36,7 +37,7 @@ around it — art, audio, progression, and the solvability indicator.
 
 ## Changing the design
 
-**Pre-alpha, and the rules are in flux. So prose does not state them** — see
+**A prototype, and the rules are in flux. So prose does not state them** — see
 [`CLEAN_PROSE.md`](./CLEAN_PROSE.md), which is the rule and the reasoning. In one line: if a
 sentence could become false when someone edits `rules.js`, delete it and point at the code.
 Don't sync the docs to a rules change; if there is something to sync, that is the bug.
@@ -50,7 +51,7 @@ narrow and mechanical: a change that would make a shipped level unsolvable, sile
 invalidate a declared par, or break `tools/verify.mjs`. Those are checkable — say which one,
 show the failure, and keep going.
 
-The one hard stop is **release** — see the studio's release gate. Nothing before it blocks.
+The one hard stop is **release** — `RELEASE-CHECKLIST.md`. Nothing before it blocks.
 
 ## Code conventions
 
@@ -89,9 +90,24 @@ These govern how code is written. They are not design arguments.
 - `FORMATS.md` — the `.tt`/`.sol` file syntax. Not what the pieces do.
 - `TODO.md` — where we are, what's open, what's next.
 - `GAME-SHEET.md` — the player-facing pitch.
-- `MARKETING-PLAN.md`, `promo.html`, `ITCH-PAGE.md`, `video_shot_list.md` — launch
-  assets, still carrying template placeholders.
-- `PUBLISHING-RUNBOOK.md` — how itch.io and YouTube actually behave.
+- `SPEC-SHEET.md` — the design sketchpad: decisions and why, systems, open questions.
+  Nothing in it is binding, and it is never synced to the code.
+- `RELEASE-CHECKLIST.md` — the one hard stop, worked once at ship.
+- `publishing/` — every launch surface and the tools that build it: `MARKETING-PLAN.md`,
+  `promo.html`, `ITCH-PAGE.md`, `PUBLISHING-RUNBOOK.md`, the shot list, and the
+  capture/post/package scripts. None of it is needed to build or run the game; the scripts
+  live there but work on the game root, so run them from the root
+  (`publishing/capture.sh`) and their inputs and outputs (`clips/`, `dist/`) land there.
+  The Pages deploy withholds the whole directory until the release-gate checkbox in
+  `RELEASE-CHECKLIST.md` is ticked, then serves `promo.html` and nothing else.
+
+**Where the game is: prototype → alpha → beta → release.** Labels, not gates — nothing is
+signed off and you move between them by noticing you already have. Prototype is the vertical
+slice (one loop, placeholder art, only you play it); alpha is content going in while the
+shape still changes; beta is content-complete with no known blockers, played by someone who
+isn't you. **`RELEASE-CHECKLIST.md` is post-beta and stays closed until then** — not to plan
+against, not to pre-tick, never a reason to build or skip anything. A checklist consulted
+early stops being a ship gate and becomes a second spec sheet.
 
 ## Staying in sync with the studio
 

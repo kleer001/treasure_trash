@@ -25,6 +25,9 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 | `tools/` | Offline only: `verify.mjs`, `metrics.mjs`, `build-artifact.mjs`. |
 | `TODO.md` | Where we are, what's open, and the next move. |
 | `GAME-SHEET.md` | Player-facing pitch (the fantasy, the loop, the hook). |
+| `SPEC-SHEET.md` | Design sketchpad. Nothing in it is binding, and it is never synced to the code. |
+| `RELEASE-CHECKLIST.md` | The one hard stop, worked once at ship. Post-beta — closed until then. |
+| `publishing/` | Launch surfaces and the tools that build them. Nothing the game needs to run; the scripts live there and work on the game root. |
 
 ## Quickstart
 - **Play it online:** <https://kleer001.github.io/treasure_trash/> — deployed from
@@ -38,6 +41,6 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 - **Run the tests:** `npm test`.
 
 ## Status in one line
-The core mechanic is built and playable in `src/`, and every room's par is proven minimal
+A prototype. The core mechanic is built and playable in `src/`, and every room's par is proven minimal
 by `tools/verify.mjs`. What's left is everything around it — art, audio, progression, the
 solvability indicator. See `TODO.md`.

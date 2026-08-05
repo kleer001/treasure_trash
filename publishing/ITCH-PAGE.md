@@ -3,8 +3,7 @@
 The itch.io page, authored here and pasted into itch's editor at release. itch's
 description field accepts a subset of HTML; everything else is page metadata you
 set in the dashboard. **Every claim here passes the release gate** — every claim
-fact-checked, nothing oversold. See `CLAUDE.md` → "The
-release gate."
+fact-checked, nothing oversold. See `RELEASE-CHECKLIST.md`.
 
 ---
 

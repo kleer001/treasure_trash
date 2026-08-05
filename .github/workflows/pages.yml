@@ -18,7 +18,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
-      # Serves the game at / (index.html) and the landing at /promo.html.
+      # The game deploys from the first push. The marketing does not: `path: '.'`
+      # would serve a placeholder landing page — GAME_NAME in the headline, a dead
+      # itch link, three 404 screenshots — for the whole of a game's alpha, on
+      # every repo with Pages enabled. Nothing needs promoting before there is a
+      # game to promote, so the landing page waits for the studio's one hard stop:
+      # the release-gate checkbox in RELEASE-CHECKLIST.md. Ticking it is the release
+      # act already, and it is what puts the page online.
+      #
+      # Both files are searched: the sentinel line lives in RELEASE-CHECKLIST.md,
+      # and a game still carrying it in SPEC-SHEET.md keeps deploying. They are
+      # concatenated first so a missing file is silently empty rather than an error
+      # — grep implementations disagree on the exit status when a named file is
+      # absent, and one that returns "error" would withhold a released game's page.
+      # Move the sentinel line and this step moves with it: a miss here withholds
+      # the page forever while the deploy still reports success.
+      #
+      # The rest of publishing/ — page copy, the plan, the runbook, the capture
+      # scripts — is never served. It is how the game reaches players, not
+      # something players read.
+      - name: withhold marketing until the release gate clears
+        run: |
+          if [ ! -d publishing ]; then
+            echo "no publishing/ — nothing to withhold"
+          elif cat RELEASE-CHECKLIST.md SPEC-SHEET.md 2>/dev/null | grep -qiE '^- \[x\] \*\*Release gate cleared'; then
+            find publishing -mindepth 1 ! -name promo.html -delete
+            echo "release gate cleared — landing page serves at /publishing/promo.html"
+          else
+            rm -rf publishing
+            echo "release gate not cleared — landing page withheld; the game still serves at /"
+          fi
+      # Serves the game at / (index.html); see above for the landing page.
       - uses: actions/upload-pages-artifact@v3
         with:
           path: '.'

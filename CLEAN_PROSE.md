@@ -25,7 +25,7 @@ Not behavior. Not measured counts. Not a narrated solve.
 
 ## Why
 
-The rules are pre-alpha and change weekly. Every sentence describing them was a **second
+The game is a prototype and the rules change weekly. Every sentence describing them was a **second
 copy of the code** — and the copy has no tests, so it rots silently and for free.
 
 That rot is not neutral. It costs three ways:
@@ -59,7 +59,7 @@ the bug — remove it so the next change is free.
   it cannot go stale without turning CI red. Everything it does not prove is a liability.
 - **`GAME-SHEET.md` still describes the game.** It is the player-facing pitch, and a pitch
   with no mechanics is not a pitch. It is aimed at players, not at the next person editing
-  `rules.js`, and the release gate governs it. Keep it short and keep it honest.
+  `rules.js`, and `RELEASE-CHECKLIST.md` governs it. Keep it short and keep it honest.
 
 The distinction underneath both: prose is fine when something checks it, or when its reader
 is not holding the pencil.

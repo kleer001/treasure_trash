@@ -19,7 +19,7 @@
 # recording on its own; without one you play by hand and stop with 'q'+Enter or
 # Ctrl-C. Either way the game window stays open after.
 #
-# Usage: ./capture.sh [-s] [-t SECONDS] [--seed CODE] [clip] [output_dir]
+# Usage (from the game root): publishing/capture.sh [-s] [-t SECONDS] [--seed CODE] [clip] [output_dir]
 #   -s           start recording immediately (manual takes only; a clip always
 #                starts immediately and waits for the recorder before playing)
 #   -t SECONDS   override the clip's recording length
@@ -43,10 +43,12 @@ set -uo pipefail
 PORT_BASE=8000
 PORT_TRIES=20
 CLASS=GAME_REPO_capture      # unique WM_CLASS; the recorder finds the window by it
-GO_FILE=.demo-go             # the go-file handshake, served from this directory
+GO_FILE=.demo-go             # the go-file handshake, served from the game root
 WIN_W=800                    # the canvas's native size, from index.html
 WIN_H=400
-HERE="$(cd "$(dirname "$0")" && pwd)"
+# This script lives in publishing/ but works on the game: HERE is the game root,
+# the directory served to the browser and the base every path below hangs off.
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
 # The OS-level window recorder (kleer001/utilities, private). It does the ffmpeg
 # work; this script only sets up a window worth pointing it at.
 RECORDER="$HERE/../utilities/window_recorder.sh"
