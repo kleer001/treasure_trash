@@ -23,6 +23,7 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 | `levels/`, `FORMATS.md` | The `.tt`/`.sol` level pack and the file syntax. |
 | `levels.md` | Index of the shipped rooms L0–L17. |
 | `tools/` | Offline only: `verify.mjs`, `metrics.mjs`, `build-artifact.mjs`. |
+| `bench-cart.html` | The mechanic bench: a served page that imports `src/` to try one piece at a time. Presentation only — it carries no copy of the engine, and `verify.mjs` fails if any page does. |
 | `TODO.md` | Where we are, what's open, and the next move. |
 | `GAME-SHEET.md` | Player-facing pitch (the fantasy, the loop, the hook). |
 | `SPEC-SHEET.md` | Design sketchpad. Nothing in it is binding, and it is never synced to the code. |
