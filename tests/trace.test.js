@@ -177,18 +177,25 @@ test('swallowing and shedding are changes of parent, not of position', () => {
 });
 
 test('the tip is the one time cart cargo genuinely travels', () => {
+  // Two cells of runway, two cans: both come out, filling the run backward from the cart with
+  // no gap. Each reports the cell it was standing in when the cart stopped, so a renderer can
+  // fly it from there.
   const r = audit('cart-tip', ['@cc--#', 'E-----'], 'r', { cart: ['-PP---', '------'] });
   const tip = r.steps.at(-1);
   assert.equal(tip.piece, null, 'the cart has already stopped; only the load moves');
   const out = tip.moved.filter(m => m.parent === null);
-  const stays = tip.moved.filter(m => m.parent !== null);
-  assert.equal(out.length, 1, 'a tip is one push, so one thing comes out');
-  assert.deepEqual(out[0].to, [2, 0], 'into the cell immediately behind the cart');
-  // and the rest closes up toward the back rather than sitting where it was
-  assert.equal(stays.length, 1);
-  assert.deepEqual(stays[0].from, [4, 0]);
-  assert.deepEqual(stays[0].to, [3, 0]);
+  assert.equal(out.length, 2, 'the run behind was two cells long');
+  assert.deepEqual(out.map(m => m.from), [[3, 0], [4, 0]], 'from the slots they rode in');
+  assert.deepEqual(out.map(m => m.to), [[2, 0], [1, 0]], 'nearest the cart first, contiguous');
+  assert.equal(tip.moved.filter(m => m.parent !== null).length, 0, 'nothing left aboard');
   for (const m of tip.moved) assert.notDeepEqual(m.from, m.to, 'everything in a tip moves');
+});
+
+test('a shorter run leaves the rest aboard, settled against the back of the basket', () => {
+  const r = audit('cart-part', ['@cc-#', 'E----'], 'r', { cart: ['-PP--', '-----'] });
+  const tip = r.steps.at(-1);
+  assert.deepEqual(tip.moved.filter(m => m.parent === null).map(m => m.to), [[1, 0]]);
+  assert.equal(tip.moved.filter(m => m.parent !== null).length, 1, 'the other settled back a slot');
 });
 
 test('a tip lands contiguously behind the cart, never skipping a taken cell', () => {

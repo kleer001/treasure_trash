@@ -34,10 +34,22 @@ export function cartCells(s, cid) {
   return out;
 }
 
-// The wheelie bin is the one piece that leaves from under the shove instead of being
-// followed. A cart is shoved like anything else — the raccoon steps in after it — so a cart
-// sitting in open canal is as out of reach as a can is.
-export const isRoller = c => c.o === WHEELIE || c.o === WHEELIE_EMPTY;
+// A roller leaves from under the shove instead of being followed, which is how one can be
+// reached out in the canal. A cart cell reports its CARGO's code, so it has to be excluded
+// here or a cart carrying a wheelie bin inherits the exemption and the raccoon walks into
+// the water after it.
+export const isRoller = c => !isCart(c) && (c.o === WHEELIE || c.o === WHEELIE_EMPTY);
+
+// Pieces that slide exactly one cell when shoved. `slides` is what the piece becomes, `drops`
+// what it throws one cell further, `pours` that it writes water there instead. A row with
+// neither throws nothing — that is the whole of what an empty can is.
+const SLIDES = {
+  [CAN_FULL]:  { slides: CAN_EMPTY, drops: BAG },     // ejects its bag and empties
+  [STACK]:     { slides: CAN_FULL,  drops: BAG },     // launches the loose bag; the can stays full
+  [BIN]:       { slides: BIN,       drops: TRASH },
+  [JUG]:       { slides: JUG,       pours: true },
+  [CAN_EMPTY]: { slides: CAN_EMPTY },
+};
 
 // Direction letters are the solution format's alphabet — see FORMATS.md.
 export const DIRS = { l: [-1, 0], u: [0, -1], r: [1, 0], d: [0, 1] };
@@ -83,25 +95,19 @@ export function layTrash(c) {
   else c.o = TRASH;
 }
 
-// Where an OBJECT can come to rest: any empty cell that is not a wall, not the exit and not
-// part of a cart. Water qualifies — a can, a bag, a bin or a couch all go in the canal. What
-// makes that one-way is not a clause about water but the raccoon: a push leaves him standing
-// where the thing was, so to shove it again he would have to stand in open canal. A cart cell
-// is excluded because a cart loads by being rolled into cargo, not by having cargo land in it.
+// Where an OBJECT can come to rest. Water qualifies — a can, a bag, a bin or a couch all go
+// in the canal, and getting one back out is governed by where the raccoon may stand, not here.
 export const isOccupiable = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).exit
   && cell(s, x, y).o === NONE && !isCart(cell(s, x, y));
 
 /**
- * Where a SHOVED piece may come to rest: everywhere an object rests, plus any cart slot.
+ * Where a SHOVED piece may come to rest: everywhere an object rests, plus any cart slot. A
+ * full slot is not a refusal — the load shifts along; see `intoCart`.
  *
- * A cart loads by being rolled into cargo, and shoving the cargo into the cart is the same
- * collision from the other side — refusing it made the piece feel broken rather than rigid.
- * A full slot is not a refusal, because the load shifts: see `intoCart`.
- *
- * What a cart will not do is CATCH things. A fan's spray, a bin's dropped trash, a wheelie's
- * ejected bag and a jug's pour all go through `isOccupiable` and bounce off it. The line is
- * what was pushed against the cart, not what was thrown at it.
+ * A cart catches nothing. A fan's spray, a bin's dropped trash, a wheelie's ejected bag and a
+ * jug's pour go through `isOccupiable` instead, and bounce off. The line is what was pushed
+ * against the cart, not what was thrown at it.
  */
 export const canRest = (s, x, y) => isOccupiable(s, x, y) || cartAt(s, [x, y]) !== null;
 
@@ -180,12 +186,10 @@ const reasonFor = (s, blockers, fallback) => {
 const drop = (c, o) => { if (o === TRASH) layTrash(c); else c.o = o; };
 
 // --- the motion account -------------------------------------------------------------------
-// A board says what is where. It never says what moved where, and the difference matters to
-// anything that has to draw the action rather than just its result: a wheelie bin that rolls
-// five cells and leaves its bag behind produces the same board as a bag that appeared there.
-// So a traced action reports its motion outright rather than leaving a renderer to guess by
-// diffing, which is what `main.js` does today and why its ejected pieces fly out of the cell
-// the raccoon shoved instead of out of the piece that ejected them.
+// A board says what is where; it never says what moved where. A wheelie bin that rolls five
+// cells and leaves its bag behind produces the same board as a bag that appeared there, so a
+// renderer left to diff boards has to guess an origin, and the only one available is the cell
+// that was shoved. A traced action reports its motion instead.
 //
 //   moved   something that already existed, going somewhere. `becomes` when its code changes
 //           (a full can empties), `parent` when it starts or stops riding a cart.
@@ -207,49 +211,29 @@ const cartCanEnter = (s, x, y) => {
 };
 
 /**
- * Shove a cart. It rolls until something it cannot take in stops it, eating what it passes
- * over on the way.
+ * Shove a cart: it rolls until something stops it, taking aboard what it rolls over, and then
+ * unloads backward into the cells it came through.
  *
- * The cart's cells are grouped into FILES running along the shove: end-on that is one file
- * two slots deep, broadside it is two files one slot deep. A file's depth is how far cargo
- * travels before it falls out the back — which is why the same cart swallows one thing at a
- * time end-on and two at once broadside, and why broadside displaces its old load on contact
- * while end-on carries it one step further.
+ * Its cells are grouped into FILES running along the shove — end-on, one file two slots deep;
+ * broadside, two files one slot deep. A file's depth is how far cargo travels before it falls
+ * out the back, which is the whole of the piece's asymmetry.
  *
- * Cargo entering a file's lead slot pushes what was there one slot back, and anything pushed
- * past the trail slot lands in the cell that slot vacated on this very step.
+ * `entry` is the cart cell the raccoon shoved. He ends up there, unless the unload put
+ * something in it first.
  *
- * A wall tips it: the load settles against the back of the basket and is then pushed out into
- * the run of cells the cart came through, stopping at the first one it cannot use. Settling
- * first is what makes the piece readable — which slot a thing happens to occupy is not
- * something the player can see, so it must not decide whether the thing comes out.
- *
- * The raccoon follows it in, like every other shove. That costs the two things a roller got
- * for free: he can no longer reach a cart sitting in open canal, and the cell he steps into is
- * one the cart can no longer put anything down in — so a one-cell roll puts nothing down.
- *
- * **One shove either loads or unloads, never both.** A cart that picked something up on the
- * way does not tip when it stops. Allowing both let a cart roll onto a bag, swallow it, hit
- * the wall and spit it straight back out one cell over — derivable from the two rules, and a
- * lie about the world: things that go into a cart stay in it until you get them out.
- *
- * With `trace`, every board the roll passes through is collected as well. A shove resolves
- * several cells at once and the end state does not say in what order, so a renderer that only
- * sees the result cannot show the work. Off by default: the frames cost a clone per step, and
- * `analyze()` walks the whole state graph wanting only the last one.
+ * With `trace`, every board the roll passes through is collected too. Off by default: the
+ * frames cost a clone per step and `analyze()` wants only the last one.
  */
 function shoveCart(s, cid, entry, dx, dy, trace) {
-  const own = cartCells(s, cid);
-  const at = (p, n) => [p[0] + n * dx, p[1] + n * dy];
-  const owned = new Set(own.map(([x, y]) => `${x},${y}`));
-  const files = own.filter(([x, y]) => !owned.has(`${x + dx},${y + dy}`))   // lead cells
+  const at = (p, k) => [p[0] + k * dx, p[1] + k * dy];
+  const isOwn = (x, y) => inGrid(s, x, y) && cell(s, x, y).cart === cid;
+  const files = cartCells(s, cid).filter(([x, y]) => !isOwn(x + dx, y + dy))   // lead cells
     .map(lead => {
       const f = [];
-      for (let p = lead; owned.has(`${p[0]},${p[1]}`); p = at(p, -1)) f.push(p);
+      for (let p = lead; isOwn(...p); p = at(p, -1)) f.push(p);
       return f;                                                  // [lead, ..., trail]
     });
-  const slots = files.map(f => f.map(([x, y]) => cell(s, x, y).o));
-  const aheadAt = n => files.map(f => at(f[0], n + 1));
+  const aheadAt = k => files.map(f => at(f[0], k + 1));
 
   if (!aheadAt(0).every(([x, y]) => cartCanEnter(s, x, y))) {
     const blame = aheadAt(0).filter(([x, y]) => !cartCanEnter(s, x, y));
@@ -257,105 +241,89 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
   }
 
   const next = cloneState(s);
-  next.rac = { x: entry[0], y: entry[1] };          // he follows it in, like every other shove
-  const onHim = ([x, y]) => x === entry[0] && y === entry[1];
   const frames = trace ? [cloneState(s)] : null;
   const steps = trace ? [] : null;
-  const lift = k => files.forEach(f => f.forEach(p => {
-    const c = cell(next, ...at(p, k)); c.o = NONE; delete c.cart;
-  }));
-  const set = k => files.forEach((f, i) => f.forEach((p, j) => {
-    const c = cell(next, ...at(p, k)); c.cart = cid; c.o = slots[i][j];
+  // Each file's load, lead-first. `fresh` marks what came aboard on THIS shove: one item, one
+  // move, so a thing cannot both enter the cart and leave it on the same push.
+  const loads = files.map(f => f.map(([x, y]) => ({ o: cell(s, x, y).o, fresh: false })));
+  const repaint = (k, from) => files.forEach((f, i) => f.forEach((p, j) => {
+    const c = cell(next, ...at(p, from)); c.o = NONE; c.cart = undefined;
+    const d = cell(next, ...at(p, k)); d.cart = cid; d.o = loads[i][j].o;
   }));
 
-  // The lookahead reads the ORIGINAL board while `next` is walked forward a step at a time.
-  // Those agree because the cart only moves forward: it never tests a cell that it, or
-  // anything it has shed, is already sitting in.
-  let n = 0, ate = false;
+  let n = 0;
   for (;;) {
     const ahead = aheadAt(n);
-    if (!ahead.every(([x, y]) => cartCanEnter(s, x, y))) break;
-    // Anything shed on the first step lands on the cell he is stepping into. He is standing
-    // there; the shove is refused rather than half-happening.
-    const onto = files.map((f, i) => (slots[i][slots[i].length - 1] !== NONE
-      && cell(s, ...at(f[0], n + 1)).o !== NONE ? at(f[f.length - 1], n) : null)).filter(Boolean);
-    const blocked = onto.find(onHim);
-    if (blocked) return { ok: false, reason: reasonFor(s, [blocked], 'canRoom'), blame: [blocked] };
-    lift(n);
-    n++;
+    if (!ahead.every(([x, y]) => cartCanEnter(next, x, y))) break;
+    const taken = ahead.map(([x, y]) => cell(next, x, y).o);
     const step = trace ? mkStep({ piece: { kind: 'cart', ref: cid, dx, dy } }) : null;
     const shed = [];
-    ahead.forEach(([ax, ay], i) => {
-      const o = cell(s, ax, ay).o;
-      if (o === NONE) return;                 // nothing enters: this file's load rides along
-      ate = true;
-      const slot = slots[i], out = slot[slot.length - 1];
-      // Nothing in this file moves on the board. Each item shifts one slot toward the back
-      // while the cart moves one cell forward, and those cancel exactly — slot j+1 after the
-      // step sits on the cell slot j was on before it. So the whole file, plus whatever is
-      // coming aboard, stays put; only who they are travelling with changes. That is the
-      // whole of "no snap into or out of a cart": riding is a parent, not a position.
+    files.forEach((f, i) => {
+      if (taken[i] === NONE) return;               // nothing enters: this load just rides along
+      const load = loads[i], out = load[load.length - 1];
+      // Nothing in this file moves on the board. Each item shifts one slot back while the cart
+      // moves one cell forward, and those cancel exactly — so the file holds still and only
+      // who it travels with changes. Riding is a parent, not a position.
       if (step) {
-        for (let j = 0; j < slot.length; j++) {
-          if (slot[j] === NONE) continue;
-          const on = at(files[i][j], n - 1);
-          step.moved.push(j === slot.length - 1
-            ? { o: slot[j], from: on, to: on, parent: null, effect: effectOf(cell(next, ...on), slot[j]) }
-            : { o: slot[j], from: on, to: on, parent: cid });
-        }
-        step.moved.push({ o, from: [ax, ay], to: [ax, ay], parent: cid });
+        load.forEach((it, j) => {
+          if (it.o === NONE) return;
+          const on = at(f[j], n);
+          step.moved.push(j === load.length - 1
+            ? { o: it.o, from: on, to: on, parent: null, effect: effectOf(cell(next, ...on), it.o) }
+            : { o: it.o, from: on, to: on, parent: cid });
+        });
+        step.moved.push({ o: taken[i], from: ahead[i], to: ahead[i], parent: cid });
       }
-      for (let k = slot.length - 1; k > 0; k--) slot[k] = slot[k - 1];
-      slot[0] = o;
-      if (out !== NONE) shed.push([at(files[i][files[i].length - 1], n - 1), out]);
+      for (let k = load.length - 1; k > 0; k--) load[k] = load[k - 1];
+      load[0] = { o: taken[i], fresh: true };
+      if (out.o !== NONE) shed.push([at(f[f.length - 1], n), out.o]);
     });
-    set(n);
+    repaint(n + 1, n);
+    n++;
     for (const [[x, y], o] of shed) drop(cell(next, x, y), o);
     if (trace) { frames.push(cloneState(next)); steps.push(step); }
   }
-  // The roll always ends against something it cannot take in — that is the only way it stops.
   if (trace && steps.length) steps[steps.length - 1].impact = true;
 
-  // A wall or the board edge tips it: the load settles against the back of the basket and the
-  // wall pushes it out behind the cart, one item at a time, into the run of cells the cart
-  // just came through. It stops at the first cell it cannot use, so nothing ever leapfrogs
-  // what is already on the ground — and the raccoon counts as blocking, because he walked in
-  // behind it. A one-cell roll therefore puts nothing down: he is standing in the only cell
-  // the load could have gone to.
-  //
-  // ...and only if it did not pick anything up on the way. One shove loads or unloads.
-  if (!ate && aheadAt(n).some(([x, y]) => !inGrid(s, x, y) || cell(s, x, y).wall)) {
-    const step = trace ? mkStep() : null;
-    files.forEach((f, i) => {
-      const depth = slots[i].length;
-      const load = [];                                  // lead-first, with where each stands now
-      for (let j = 0; j < depth; j++)
-        if (slots[i][j] !== NONE) load.push({ o: slots[i][j], from: at(f[j], n) });
-      if (!load.length) return;
+  // Whatever stopped it, the load settles against the back of the basket and is pushed out
+  // into the cells the cart came through, nearest the cart first, until one of them refuses
+  // it. Contiguous, so nothing leapfrogs what is already on the ground.
+  const tip = trace ? mkStep() : null;
+  files.forEach((f, i) => {
+    const depth = loads[i].length, trail = f[depth - 1];
+    const held = [];
+    for (let j = 0; j < depth; j++)
+      if (loads[i][j].o !== NONE) held.push({ ...loads[i][j], from: at(f[j], n) });
+    if (!held.length) return;
 
-      const out = [];
-      for (let k = 1; k <= n && load.length; k++) {
-        const to = at(f[depth - 1], n - k);
-        if (onHim(to) || !isOccupiable(next, ...to)) break;
-        out.push({ ...load.pop(), to });
-      }
-      for (let j = 0; j < depth; j++) { slots[i][j] = NONE; cell(next, ...at(f[j], n)).o = NONE; }
-      load.forEach((it, k) => {
-        const j = depth - load.length + k, to = at(f[j], n);
-        slots[i][j] = it.o;
-        cell(next, ...to).o = it.o;
-        if (step && (it.from[0] !== to[0] || it.from[1] !== to[1]))
-          step.moved.push({ o: it.o, from: it.from, to, parent: cid });
-      });
-      for (const it of out) {
-        if (step) step.moved.push({
-          o: it.o, from: it.from, to: it.to, parent: null, effect: effectOf(cell(next, ...it.to), it.o),
-        });
-        drop(cell(next, ...it.to), it.o);
-      }
+    const out = [];
+    for (let k = 1; k <= n && held.length && !held[held.length - 1].fresh; k++) {
+      const to = at(trail, n - k);
+      if (!isOccupiable(next, ...to)) break;
+      out.push({ ...held.pop(), to });
+    }
+    for (let j = 0; j < depth; j++) cell(next, ...at(f[j], n)).o = NONE;
+    held.forEach((it, k) => {
+      const to = at(f[depth - held.length + k], n);
+      cell(next, ...to).o = it.o;
+      if (tip && (it.from[0] !== to[0] || it.from[1] !== to[1]))
+        tip.moved.push({ o: it.o, from: it.from, to, parent: cid });
     });
-    if (trace && step.moved.length) { frames.push(cloneState(next)); steps.push(step); }
-  }
+    for (const it of out) {
+      if (tip) tip.moved.push({
+        o: it.o, from: it.from, to: it.to, parent: null, effect: effectOf(cell(next, ...it.to), it.o),
+      });
+      drop(cell(next, ...it.to), it.o);
+    }
+  });
+  if (trace && tip.moved.length) { frames.push(cloneState(next)); steps.push(tip); }
+
+  // He follows it in, like every other shove — into the cell he shoved, if the unload has not
+  // just filled it. The load claims the run first; he takes what is left. Whether he ends up
+  // moving is only known once the unload has resolved, but he is pushing, so if he moves at
+  // all he moved on the first cell of travel: every frame after the first carries him there.
+  next.rac = isClearFloor(next, entry[0], entry[1]) ? { x: entry[0], y: entry[1] } : { ...s.rac };
+  if (trace) for (let k = 1; k < frames.length; k++) frames[k].rac = { ...next.rac };
 
   return trace ? { ok: true, kind: PUSH, next, frames, steps } : { ok: true, kind: PUSH, next };
 }
@@ -436,7 +404,9 @@ export function explain(s, dir, opts = {}) {
       .filter(([x, y]) => !ownSet.has(`${x},${y}`) && !isOccupiable(s, x, y));
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
     const next = cloneState(s);
-    for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; delete c.pid; }
+    // `= undefined`, not `delete`: deleting a property drops the cell into dictionary mode and
+    // every clone and key of every state descended from this one pays for it.
+    for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; c.pid = undefined; }
     for (const [x, y] of own) {
       const c = cell(next, x + dx, y + dy);
       c.o = o; c.pid = target.pid;
@@ -445,16 +415,12 @@ export function explain(s, dir, opts = {}) {
     return done(next, PUSH, mkStep({ piece: { kind: 'furniture', ref: target.pid, dx, dy } }));
   }
 
-  // Four pieces share one shape of shove: the piece slides one cell and something lands
-  // one cell further. Only what lands differs, so the clearance test lives in one place.
-  const TWO_CELL = {
-    [CAN_FULL]: { slides: CAN_EMPTY, drops: BAG },     // ejects its bag and empties
-    [STACK]:    { slides: CAN_FULL,  drops: BAG },     // launches the loose bag; the can stays full
-    [BIN]:      { slides: BIN,       drops: TRASH },
-    [JUG]:      { slides: JUG,       pours: true },    // pours water instead of dropping trash
-  };
-  if (TWO_CELL[o]) {
-    const { slides, drops, pours } = TWO_CELL[o];
+  // Five pieces share one shape of shove: the piece slides one cell, and for four of them
+  // something lands one cell further. Only what lands differs, so the clearance test lives in
+  // one place and the empty can is the row that throws nothing.
+  if (SLIDES[o]) {
+    const { slides, drops, pours } = SLIDES[o];
+    const throws = drops !== undefined || pours === true;
     const c1 = [tx + dx, ty + dy], c2 = [tx + 2 * dx, ty + 2 * dy];
     // Piece and load both rest anywhere empty, canal included. The jug is the exception:
     // its spill needs dry ground — see `canPour`.
@@ -462,7 +428,7 @@ export function explain(s, dir, opts = {}) {
     const fits = pours ? canPour : isOccupiable;
     const blame = [];
     if (!canRest(s, c1[0], c1[1])) blame.push(c1);
-    if (!fits(s, c2[0], c2[1])) blame.push(c2);
+    if (throws && !fits(s, c2[0], c2[1])) blame.push(c2);
     const into = cartAt(s, c1);
     let shove = null;
     if (into !== null && !blame.length) {
@@ -470,7 +436,7 @@ export function explain(s, dir, opts = {}) {
       // A piece that is also throwing something cannot displace the cart's load as well: both
       // would land in the cell past the cart, and only one thing goes in a cell.
       if (shove.blame) blame.push(...shove.blame);
-      else if (shove.out !== NONE) blame.push(c2);
+      else if (throws && shove.out !== NONE) blame.push(c2);
     }
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
     const next = cloneState(s);
@@ -480,12 +446,10 @@ export function explain(s, dir, opts = {}) {
     if (pours) {
       step.spawned.push({ o: NONE, at: c2, from: [tx, ty], effect: 'pours' });
       cell(next, c2[0], c2[1]).water = true;
-    } else if (drops === TRASH) {
-      step.spawned.push({ o: TRASH, at: c2, from: [tx, ty], effect: effectOf(cell(next, c2[0], c2[1]), TRASH) });
-      layTrash(cell(next, c2[0], c2[1]));                           // fills the canal, like a fan
-    } else {
-      step.spawned.push({ o: drops, at: c2, from: [tx, ty] });
-      cell(next, c2[0], c2[1]).o = drops;
+    } else if (drops !== undefined) {
+      step.spawned.push({ o: drops, at: c2, from: [tx, ty],
+        effect: effectOf(cell(next, c2[0], c2[1]), drops) });
+      drop(cell(next, c2[0], c2[1]), drops);                        // trash fills the canal
     }
     if (shove) applyIntoCart(s, next, into, shove, slides, step);
     else cell(next, c1[0], c1[1]).o = slides;
@@ -494,28 +458,12 @@ export function explain(s, dir, opts = {}) {
     return done(next, PUSH, step);
   }
 
-  if (o === CAN_EMPTY) {
-    const c1 = [tx + dx, ty + dy];
-    if (!canRest(s, c1[0], c1[1]))
-      return { ok: false, reason: reasonFor(s, [c1], 'canRoom'), blame: [c1] };
-    const into = cartAt(s, c1);
-    const shove = into !== null ? intoCart(s, into, c1, dx, dy) : null;
-    if (shove?.blame) return { ok: false, reason: reasonFor(s, shove.blame, 'canRoom'), blame: shove.blame };
-    const next = cloneState(s);
-    const step = mkStep({
-      moved: [{ o: CAN_EMPTY, from: [tx, ty], to: c1, ...(into !== null && { parent: into }) }],
-    });
-    if (shove) applyIntoCart(s, next, into, shove, CAN_EMPTY, step);
-    else cell(next, c1[0], c1[1]).o = CAN_EMPTY;
-    cell(next, tx, ty).o = NONE;
-    next.rac = { x: tx, y: ty };
-    return done(next, PUSH, step);
-  }
-
-  // The wheelie bin rolls until something stops it, and a full one dumps its bag out the
-  // back on impact. The raccoon does not follow it — the bin leaves from under the shove,
-  // which is what keeps a one-cell roll from dropping a bag onto his own cell.
-  if (o === WHEELIE || o === WHEELIE_EMPTY) {
+  // The wheelie bin rolls until something stops it, and a full one dumps its bag out the back
+  // on impact — the same act a cart's tip performs, into the cell it just vacated. The one
+  // difference is that the raccoon does not follow a bin in, so that cell is always free to
+  // him. A cart computes his landing instead; the bin keeps the constant until its shipped
+  // pars have been re-verified against the general rule.
+  if (isRoller(target)) {
     let rx = tx, ry = ty;
     while (isOccupiable(s, rx + dx, ry + dy)) { rx += dx; ry += dy; }
     if (rx === tx && ry === ty) {
@@ -534,10 +482,11 @@ export function explain(s, dir, opts = {}) {
     if (back && !isOccupiable(rolled, back[0], back[1]))
       return { ok: false, reason: reasonFor(s, [back], 'canRoom'), blame: [back] };
 
-    const next = cloneState(rolled);
+    // Untraced, the mid-roll board is not wanted, so it is finished in place rather than cloned.
+    const next = opts.trace ? cloneState(rolled) : rolled;
     if (back) {
       cell(next, rx, ry).o = WHEELIE_EMPTY;
-      cell(next, back[0], back[1]).o = BAG;
+      drop(cell(next, back[0], back[1]), BAG);
     }
     if (!opts.trace) return { ok: true, kind: PUSH, next };
 
@@ -617,16 +566,30 @@ export const isWon = s => bagsLeft(s) === 0 && trashHeld(s) === 0 && atExit(s);
  * are one cart or two touching carts. A lane walks its cells in raster order and labels each
  * by first appearance, so it keys on the partition and not on whichever ids are in play.
  */
+// One pass, because this runs once per state the solver generates and a room reaches
+// hundreds of thousands. The label maps are made lazily — most boards have no furniture and
+// no cart, and an empty lane costs nothing.
 export const stateKey = s => {
-  const terrain = c => (c.water ? 1 : c.bridge ? 2 : 0);     // wall is static; these are not
-  const kinds = s.cells.map(r => r.map(c =>
-    String.fromCharCode(65 + (c.o * 3 + terrain(c)) * 2 + (isCart(c) ? 1 : 0))).join('')).join('/');
-  const lane = field => {
-    const label = new Map();
-    return s.cells.flat().filter(c => c[field] !== undefined).map(c => {
-      if (!label.has(c[field])) label.set(c[field], label.size);
-      return String.fromCharCode(65 + label.get(c[field]));
-    }).join('');
-  };
-  return `${kinds}|${lane('pid')}|${lane('cart')}|${s.rac.x},${s.rac.y}`;
+  let kinds = '', pids = '', carts = '';
+  let pidLabels = null, cartLabels = null;
+  for (let y = 0; y < s.rows; y++) {
+    if (y) kinds += '/';
+    const row = s.cells[y];
+    for (let x = 0; x < s.cols; x++) {
+      const c = row[x];
+      const terrain = c.water ? 1 : c.bridge ? 2 : 0;        // wall is static; these are not
+      kinds += String.fromCharCode(65 + (c.o * 3 + terrain) * 2 + (c.cart !== undefined ? 1 : 0));
+      if (c.pid !== undefined) {
+        pidLabels ??= new Map();
+        if (!pidLabels.has(c.pid)) pidLabels.set(c.pid, pidLabels.size);
+        pids += String.fromCharCode(65 + pidLabels.get(c.pid));
+      }
+      if (c.cart !== undefined) {
+        cartLabels ??= new Map();
+        if (!cartLabels.has(c.cart)) cartLabels.set(c.cart, cartLabels.size);
+        carts += String.fromCharCode(65 + cartLabels.get(c.cart));
+      }
+    }
+  }
+  return `${kinds}|${pids}|${carts}|${s.rac.x},${s.rac.y}`;
 };
