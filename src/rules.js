@@ -194,70 +194,58 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
     const d = cell(next, ...at(p, k)); d.cart = cid; d.o = loads[i][j].o;
   }));
 
-  let n = 0;
+  // One branch per step, and the stop is a step like the rest of them. Rolling, the cart takes
+  // in whatever it runs onto; stopped, it takes in nothing — and either way the load nudges one
+  // slot back and whatever leaves the trail slot lands ONE CELL BEHIND the cart's final
+  // position. Rolling that is the cell being vacated, stopped it is the one vacated last step,
+  // so the two need no separate rule. Bare floor is the third case: nothing comes in, so
+  // nothing nudges and the load simply travels along.
+  let n = 0, lastRoll = -1;
   for (;;) {
     const ahead = aheadAt(n);
-    if (!ahead.every(([x, y]) => cartCanEnter(next, x, y))) break;
-    const taken = ahead.map(([x, y]) => cell(next, x, y).o);
-    const step = trace ? mkStep({ piece: { kind: 'cart', ref: cid, dx, dy } }) : null;
-    const shed = [];
+    const rolling = ahead.every(([x, y]) => cartCanEnter(next, x, y));
+    const taken = rolling ? ahead.map(([x, y]) => cell(next, x, y).o) : ahead.map(() => NONE);
+    const end = rolling ? n + 1 : n;              // where the cart stands once this step is over
+    const step = trace ? mkStep(rolling ? { piece: { kind: 'cart', ref: cid, dx, dy } } : {}) : null;
+    const spill = [];
+
     files.forEach((f, i) => {
-      if (taken[i] === NONE) return;               // nothing enters: this load just rides along
-      const load = loads[i], out = load[load.length - 1];
-      // from === to throughout: an item shifting one slot back while the cart moves one cell
-      // forward cancels exactly, so only `parent` changes. A renderer that saw a position
-      // change here would snap it.
-      if (step) {
-        load.forEach((it, j) => {
-          if (it.o === NONE) return;
-          const on = at(f[j], n);
-          step.moved.push(j === load.length - 1
-            ? { o: it.o, from: on, to: on, parent: null, effect: effectOf(cell(next, ...on), it.o) }
-            : { o: it.o, from: on, to: on, parent: cid });
-        });
-        step.moved.push({ o: taken[i], from: ahead[i], to: ahead[i], parent: cid });
+      if (rolling && taken[i] === NONE) return;
+      const load = loads[i], depth = load.length, out = load[depth - 1];
+      const behind = at(f[depth - 1], end - 1);
+      // Rolling, `behind` is the cell the cart is stepping off and is free by construction.
+      // Stopped, it is a cell the cart came through, which something shed earlier may hold.
+      if (!rolling && out.o !== NONE && !isOccupiable(next, ...behind)) return;
+
+      // While the cart moves, a slot back and a cell forward cancel, so a rider reports
+      // from === to and a renderer never snaps it. Stopped, the same nudge is a real cell.
+      for (let j = depth - 1; j > 0; j--) {
+        const it = load[j] = load[j - 1];
+        if (step && it.o !== NONE)
+          step.moved.push({ o: it.o, from: at(f[j - 1], n), to: at(f[j], end), parent: cid });
       }
-      for (let k = load.length - 1; k > 0; k--) load[k] = load[k - 1];
       load[0] = { o: taken[i] };
-      if (out.o !== NONE) shed.push([at(f[f.length - 1], n), out.o]);
+      if (step && taken[i] !== NONE)
+        step.moved.push({ o: taken[i], from: ahead[i], to: at(f[0], end), parent: cid });
+      if (out.o !== NONE) {
+        if (step) step.moved.push({
+          o: out.o, from: at(f[depth - 1], n), to: behind, parent: null,
+          effect: effectOf(cell(next, ...behind), out.o),
+        });
+        spill.push([behind, out.o]);
+      }
     });
-    repaint(n + 1, n);
-    n++;
-    for (const [[x, y], o] of shed) drop(cell(next, x, y), o);
-    if (trace) { frames.push(cloneState(next)); steps.push(step); }
+
+    repaint(end, n);
+    n = end;
+    for (const [[x, y], o] of spill) drop(cell(next, x, y), o);
+    if (trace && (rolling || step.moved.length)) {
+      frames.push(cloneState(next)); steps.push(step);
+      if (rolling) lastRoll = steps.length - 1;
+    }
+    if (!rolling) break;
   }
-  if (trace && steps.length) steps[steps.length - 1].impact = true;
-
-  // The tip.
-  const tip = trace ? mkStep() : null;
-  files.forEach((f, i) => {
-    const depth = loads[i].length, trail = f[depth - 1];
-    const held = [];
-    for (let j = 0; j < depth; j++)
-      if (loads[i][j].o !== NONE) held.push({ ...loads[i][j], from: at(f[j], n) });
-    if (!held.length) return;
-
-    const out = [];
-    for (let k = 1; k <= n && held.length; k++) {
-      const to = at(trail, n - k);
-      if (!isOccupiable(next, ...to)) break;
-      out.push({ ...held.pop(), to });
-    }
-    for (let j = 0; j < depth; j++) cell(next, ...at(f[j], n)).o = NONE;
-    held.forEach((it, k) => {
-      const to = at(f[depth - held.length + k], n);
-      cell(next, ...to).o = it.o;
-      if (tip && (it.from[0] !== to[0] || it.from[1] !== to[1]))
-        tip.moved.push({ o: it.o, from: it.from, to, parent: cid });
-    });
-    for (const it of out) {
-      if (tip) tip.moved.push({
-        o: it.o, from: it.from, to: it.to, parent: null, effect: effectOf(cell(next, ...it.to), it.o),
-      });
-      drop(cell(next, ...it.to), it.o);
-    }
-  });
-  if (trace && tip.moved.length) { frames.push(cloneState(next)); steps.push(tip); }
+  if (trace && lastRoll >= 0) steps[lastRoll].impact = true;
 
   // After the unload, which may have taken `entry`. He moves on the first cell of travel if
   // at all, so every frame after the first carries him there.
@@ -380,7 +368,9 @@ export function explain(s, dir, opts = {}) {
     return done(next, PUSH, step);
   }
 
-  // Diverges from `shoveCart` on where the raccoon ends up. Unreconciled — see TODO.md.
+  // The bin leaves from under the shove rather than being followed, which is what lets it be
+  // sent across water and shoved again from the bank. Where the raccoon ends up is the same
+  // rule as everywhere else — see the landing below.
   if (isRoller(target)) {
     let rx = tx, ry = ty;
     while (isOccupiable(s, rx + dx, ry + dy)) { rx += dx; ry += dy; }
@@ -404,6 +394,10 @@ export function explain(s, dir, opts = {}) {
       cell(next, rx, ry).o = WHEELIE_EMPTY;
       drop(cell(next, back[0], back[1]), BAG);
     }
+    // He advances into the cell he shoved, the same as every other push. The one thing that can
+    // deny him is the bag this bin just dropped: on a one-cell roll that lands on the bin's own
+    // start cell. Same test the cart uses on the cell it vacated.
+    next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
     if (!opts.trace) return { ok: true, kind: PUSH, next };
 
     const frames = [cloneState(s), rolled];
@@ -418,6 +412,8 @@ export function explain(s, dir, opts = {}) {
         spawned: [{ o: BAG, at: back, from: [rx, ry] }],
       }));
     }
+    // He leaves on the first beat, so every frame after the opening one carries him there.
+    for (let k = 1; k < frames.length; k++) frames[k].rac = { ...next.rac };
     return { ok: true, kind: PUSH, next, frames, steps };
   }
 

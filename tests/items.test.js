@@ -39,19 +39,21 @@ test('a stack is worth two bags — the loose one and the one still in the can',
   assert.equal(bagsLeft(S(['--$--', '--C--', '--@--', 'E----'])), 2);
 });
 
-test('wheelie bin rolls until stopped, dumps out the back, raccoon stays put', () => {
+test('wheelie bin rolls until stopped, dumps out the back, and he takes the cell it left', () => {
   assert.deepEqual(after(['-----', '-----', '-----', '--W--', 'E-@--'], 'u'),
-                          ['--w--', '--$--', '-----', '-----', 'E-@--']);
+                          ['--w--', '--$--', '-----', '--@--', 'E----']);
 });
 
-test('a one-cell roll drops the bag on the cell the bin just vacated', () => {
+test('a one-cell roll drops the bag on the cell the bin just vacated — so he cannot follow', () => {
+  // The one push that does not advance him, and the bag is the reason. Same test the cart
+  // applies to the cell it vacated.
   assert.deepEqual(after(['--#--', '-----', '--W--', '--@--', 'E----'], 'u'),
                           ['--#--', '--w--', '--$--', '--@--', 'E----']);
 });
 
 test('an emptied wheelie bin still rolls', () => {
   assert.deepEqual(after(['-----', '-----', '--w--', '--@--', 'E----'], 'u'),
-                          ['--w--', '-----', '-----', '--@--', 'E----']);
+                          ['--w--', '-----', '--@--', '-----', 'E----']);
 });
 
 test('a wheelie bin with nowhere to roll is refused', () => {
@@ -60,7 +62,7 @@ test('a wheelie bin with nowhere to roll is refused', () => {
 
 test('a rolling bin stops short of the exit rather than occupying it', () => {
   assert.deepEqual(after(['--E--', '-----', '--w--', '--@--', '-----'], 'u'),
-                          ['--E--', '--w--', '-----', '--@--', '-----']);
+                          ['--E--', '--w--', '--@--', '-----', '-----']);
 });
 
 // Water holds any object and refuses only the raccoon. See src/rules.js `isOccupiable`.
@@ -134,10 +136,12 @@ test('the bin parks itself on the far side of the bridge it just built', () => {
   assert.equal(explain(s, 'u').reason, 'canRoom');   // the bin is in the way now
 });
 
-test('a wheelie bin rolls clean across a canal — he never follows it, so nothing stops it', () => {
+test('a wheelie bin rolls clean across a canal, and he steps only into the cell it left', () => {
+  // Objects rest in water and the raccoon does not, but that never comes up: he advances one
+  // cell, into the dry cell the bin vacated, however far the bin itself went.
   const w = ['-----', '--~--', '-----', '-----', '-----'];
   assert.deepEqual(after(['-----', '-----', '--w--', '--@--', 'E----'], 'u', w),
-                          ['--w--', '-----', '-----', '--@--', 'E----']);
+                          ['--w--', '-----', '--@--', '-----', 'E----']);
 });
 
 // The water jug: the same two-cell shove as the recycle bin, but what lands two ahead is

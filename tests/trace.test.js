@@ -177,21 +177,39 @@ test('swallowing and shedding are changes of parent, not of position', () => {
 });
 
 test('the tip is the one time cart cargo genuinely travels', () => {
-  // Two cells of runway, two cans: both come out, filling the run backward from the cart with
-  // no gap. Each reports the cell it was standing in when the cart stopped, so a renderer can
-  // fly it from there.
+  // Two cells of travel, two cans, and one comes out — into the cell the cart left on its LAST
+  // step, not the far end of what it crossed. Each report names the cell the can stood in when
+  // the cart stopped, so a renderer can fly it from there.
   const r = audit('cart-tip', ['@cc--#', 'E-----'], 'r', { cart: ['-PP---', '------'] });
   const tip = r.steps.at(-1);
   assert.equal(tip.piece, null, 'the cart has already stopped; only the load moves');
   const out = tip.moved.filter(m => m.parent === null);
-  assert.equal(out.length, 2, 'the run behind was two cells long');
-  assert.deepEqual(out.map(m => m.from), [[3, 0], [4, 0]], 'from the slots they rode in');
-  assert.deepEqual(out.map(m => m.to), [[2, 0], [1, 0]], 'nearest the cart first, contiguous');
-  assert.equal(tip.moved.filter(m => m.parent !== null).length, 0, 'nothing left aboard');
+  assert.deepEqual(out.map(m => m.from), [[3, 0]], 'from the slot it rode in');
+  assert.deepEqual(out.map(m => m.to), [[2, 0]], 'the cell just vacated, not cell 1');
+  assert.deepEqual(tip.moved.filter(m => m.parent !== null).map(m => m.to), [[3, 0]],
+    'the other settles into the slot that freed up, still aboard');
   for (const m of tip.moved) assert.notDeepEqual(m.from, m.to, 'everything in a tip moves');
 });
 
-test('a shorter run leaves the rest aboard, settled against the back of the basket', () => {
+test('nothing a cart reports ever crosses more than one cell', () => {
+  // The invariant that keeps a renderer honest. Rolling, a slot back and a cell forward cancel
+  // and cargo reports from === to; stopped, the same nudge is one real cell. Nothing composes
+  // the two into a longer vector, so no load is ever drawn flying across the board.
+  for (const grid of [
+    ['@$-----#', 'E-------'],       // bag in the trail slot
+    ['@-$----#', 'E-------'],       // bag in the lead slot
+    ['@--xxx-#', 'E-------'],       // swallowing, shedding and stopping
+    ['@cc-x-#', 'E------'],
+  ]) {
+    const r = audit('one-cell', grid, 'r', { cart: ['-PP-----', '--------'].map(c => c.slice(0, grid[0].length)) });
+    for (const st of r.steps) for (const m of st.moved) {
+      const d = Math.abs(m.to[0] - m.from[0]) + Math.abs(m.to[1] - m.from[1]);
+      assert.ok(d <= 1, `${grid[0]}: ${JSON.stringify(m)} crossed ${d} cells`);
+    }
+  }
+});
+
+test('the shortest roll there is still tips one, into the trail slot’s own start cell', () => {
   const r = audit('cart-part', ['@cc-#', 'E----'], 'r', { cart: ['-PP--', '-----'] });
   const tip = r.steps.at(-1);
   assert.deepEqual(tip.moved.filter(m => m.parent === null).map(m => m.to), [[1, 0]]);

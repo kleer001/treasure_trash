@@ -35,7 +35,7 @@
 
 :solution L6
 :label  par
-:moves  UluuRdR!lddd
+:moves  UluuRldR!lddd
 :note   Roll the bin up, go over the top, roll the emptied bin clear of the bag it dropped, then strike that bag sideways and walk down to the exit.
 
 
@@ -55,19 +55,19 @@
 
 :solution L10
 :label  par
-:moves  uuulDdddlU!drrddLuL!r
+:moves  uuulDddlU!drrddLruL!r
 
 :solution L11
 :label  par
-:moves  rrUuurD!ulluuRdR!lulD!ul
+:moves  rrUurD!ulluuRldR!lulD!ul
 
 :solution L12
 :label  par
-:moves  uuuurrDdL!rddrddLuL!ruuuu
+:moves  uuuurrDdlU!ddddRruL!ruuuu
 
 :solution L13
 :label  par
-:moves  uuuulDddlU!ddddRrU!dlllluR!l
+:moves  uuuulDdlU!ddddRU!dlllluR!l
 
 :solution L14
 :label  par

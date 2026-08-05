@@ -59,11 +59,18 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
 - **The shopping cart has no room.** Built, tested and benched; no shipped level contains
   one. It has several distinct behaviors to teach and will need more than one room. Play the
   bench before designing them — the bench, not this file, is where the behavior is legible.
-- **The wheelie bin and the cart disagree about the raccoon's landing.** Marked in
-  `rules.js`, untested either way, and L0–L17 ship bins — so reconciling them should be
-  expected to move pars. Decide which one is right before adding a cart room.
+- **The raccoon's landing is one rule now.** Every push advances him into the cell he shoved,
+  if that cell is clear once the shove resolves. Only two things deny him: a one-cell wheelie
+  roll, whose bag lands on the bin's own start cell, and a cart whose unload took the cell it
+  vacated. Reconciling this moved L6 (11 → 12) and L13 (25 → 23) and re-routed L10–L12.
 - **A cart against a wall is confined to that line.** Worth knowing when placing one: a
   room that wants it parked reachable has to leave a lane behind it.
+- **A cart carries what it swallows.** A shove is one nudge and a newcomer enters at the lead
+  slot, so anything picked up mid-roll finishes the shove aboard and needs a second shove to
+  come down. That is the piece's point — it hauls — but it means a room that pins a loaded
+  cart in a dead end keeps what is in it. Shoving along the wall line re-files the cart
+  broadside, where every file is one slot deep and sheds at once; a room with no such lane has
+  to not want the cargo back.
 - **A cart room may be expensive to verify.** `analyze` on a 10×7 sandbox with two carts
   reached 529k states in 75s; shipped rooms run 3–3,089. `verify.mjs` calls `analyze` per
   level, so a cart room of that size would dominate CI. Untested which of board size, cart

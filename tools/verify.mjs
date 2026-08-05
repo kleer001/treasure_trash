@@ -136,8 +136,14 @@ const docPath = resolve(root, 'levels.md');
 let doc = null;
 try { doc = readFileSync(docPath, 'utf8'); } catch { /* doc is optional */ }
 if (doc === null) console.log('  · ../levels.md not found, skipping');
-else for (const l of pack.levels)
+else for (const l of pack.levels) {
   check(`levels.md quotes ${l.id}'s solve`, doc.includes(l.solve), `\`${l.solve}\``);
+  // The table quotes the par too, and a solve that changed length without it is a silent
+  // drift the solve check alone cannot see.
+  const row = doc.split('\n').find(r => r.startsWith(`| ${l.id} |`));
+  check(`levels.md quotes ${l.id}'s par`, !!row && row.split('|')[3].trim() === String(l.par),
+    row ? `row says ${row.split('|')[3].trim()}, pack says ${l.par}` : 'no table row');
+}
 
 section(failures ? `FAIL — ${failures} check(s)` : 'ALL PASS');
 process.exit(failures ? 1 : 0);
