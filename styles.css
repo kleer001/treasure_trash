@@ -26,6 +26,8 @@
   .moves b{color:var(--ink)}
   .warn{display:none;font-weight:800;color:#fff;background:var(--red);padding:.15rem .7rem;border-radius:4px;transform:rotate(1deg)}
   .warn.show{display:inline-block}
+  /* Busy is a nudge, not a refusal, so it borrows the aim colour rather than the red. */
+  .warn.busy{background:var(--yel);color:#5a4500;transform:rotate(-1deg)}
   .arm{display:none;font-weight:800;color:#5a4500;background:var(--yel);padding:.15rem .7rem;border-radius:4px;transform:rotate(-1deg)}
   .arm.show{display:inline-block}
   canvas{display:block;margin:.4rem 0 1rem;image-rendering:auto;max-width:100%;height:auto;border:2px solid var(--ink);background:var(--panel)}

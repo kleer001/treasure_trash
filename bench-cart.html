@@ -188,6 +188,8 @@
   }
   .log.no { color: var(--halt); }
   .log.yes { color: var(--ink-soft); }
+  /* Busy is a nudge, not a refusal — the red belongs to the board saying no. */
+  .log.busy { color: var(--cart); }
 
   /* --- panel --- */
   .panel { display: grid; gap: calc(var(--step) * 3); align-content: start; }
@@ -358,8 +360,7 @@ import {
 } from './src/rules.js';
 import { toState } from './src/format.js';
 import {
-  CART, COUCH, RACCOON, SPLASH, advance, applyStep, commit, easeOut, rollEase, settle,
-  stageFrom,
+  CART, COUCH, RACCOON, SPLASH, advance, applyStep, easeOut, rollEase, settle, stageFrom,
   timeline,
 } from './src/stage.js';
 import { createSprites, drawOccupant, exitArrowDir } from './src/sprites.js';
@@ -466,7 +467,10 @@ const WHY = {
 };
 
 function go(dir) {
-  stop();
+  // Locked while a shove plays: the board and the drawing stay in step, and nothing about what
+  // is legal depends on what is on screen. Cleared the instant the move lands — see `tick`.
+  if (anim) { log = { busy: true, text: 'one thing at a time — he only has the two paws' };
+              draw(); return; }
   const before = state;
   const r = explain(before, dir, { trace: true });
   if (!r.ok) { log = { ok: false, text: WHY[r.reason] ?? r.reason }; draw(); return; }
@@ -506,7 +510,7 @@ function tick() {
   if (t < 1) { raf = requestAnimationFrame(tick); return; }
   settle(stage);
   board = state;
-  if (++anim.si >= anim.segs.length) { stop(); draw(); return; }
+  if (++anim.si >= anim.segs.length) { stop(); if (log?.busy) log = null; draw(); return; }
   anim.k = -1; anim.t0 = performance.now();
   raf = requestAnimationFrame(tick);
 }
@@ -521,14 +525,12 @@ function tick() {
 function stop() {
   cancelAnimationFrame(raf); raf = 0;
   if (!anim) return;
-  // `commit`, not `settle`: the steps are taken on so the stage matches the board, but nothing
-  // is dragged to its target. Whatever comes next picks the pieces up where they got to.
-  if (anim.k >= 0) commit(stage);
+  if (anim.k >= 0) settle(stage);                       // the step that was in flight
   for (let si = anim.si; si < anim.segs.length; si++) {
     const items = anim.segs[si].items;
     for (let k = si === anim.si ? anim.k + 1 : 0; k < items.length; k++) {
       applyStep(stage, items[k].step, items[k].racTo);
-      commit(stage);
+      settle(stage);
     }
   }
   anim = null; board = state;
@@ -600,8 +602,9 @@ function draw() {
   ex.textContent = lit ? 'OPEN' : 'DARK'; ex.className = lit ? 'lit' : 'dark';
   $('s-moves').textContent = past.length;
   const lg = $('log');
-  lg.textContent = !log ? '' : log.ok ? `→ ${log.text}` : `✕ ${log.text}`;
-  lg.className = 'log' + (log ? (log.ok ? ' yes' : ' no') : '');
+  lg.textContent = !log ? '' : log.busy ? `⏳ ${log.text}`
+    : log.ok ? `→ ${log.text}` : `✕ ${log.text}`;
+  lg.className = 'log' + (!log ? '' : log.busy ? ' busy' : log.ok ? ' yes' : ' no');
   if (isWon(s)) { lg.textContent = '★ out, with the alley wrecked'; lg.className = 'log yes'; }
 }
 
