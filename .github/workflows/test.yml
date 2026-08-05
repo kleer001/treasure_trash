@@ -19,3 +19,8 @@ jobs:
       # the tests green and silently invalidate a declared par.
       - name: Verify the level pack
         run: node tools/verify.mjs
+      # The bundler flattens every module into one scope, so it breaks in ways the served
+      # game cannot: a module left out, an alias dropped, two modules declaring one name.
+      # It carries guards for all three, and they only fire if something runs the build.
+      - name: Bundle the artifact
+        run: node tools/build-artifact.mjs

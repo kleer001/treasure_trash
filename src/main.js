@@ -7,6 +7,8 @@ import {
 } from './rules.js';
 import { parseLevelPack, toState } from './format.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
+// stage owns the motion envelopes
+import { easeOut } from './stage.js';
 
 const CANF = CAN_FULL, CANE = CAN_EMPTY;
 const CS=76, PAD=9;
@@ -90,7 +92,6 @@ function fxPhase(){
 // only remembers where the pieces WERE, so nothing ever teleports between cells. `hide`
 // names the cells whose occupant the animation draws itself, so nothing is painted twice.
 const MV = { [MOVE]:120, [PUSH]:175, [TEAR]:230 };
-const easeOut = t => 1 - Math.pow(1 - t, 3);
 let mv = null;
 
 function startMv(prev, kind, dir){

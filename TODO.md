@@ -8,9 +8,10 @@
   provably-minimal par found by exhaustive search rather than asserted.
 - Crow is pinned, parked until the raccoon-alone game proves fun.
 - **The game lives in `src/`.** `rules.js` is the engine of record, `format.js` the
-  `.tt`/`.sol` parser, `solver.js` the exhaustive search, `main.js` presentation and
-  input. `tools/` is offline only — `verify.mjs`, `metrics.mjs`, `build-artifact.mjs` —
-  and `src/` never imports it.
+  `.tt`/`.sol` parser, `solver.js` the exhaustive search, `stage.js` the objects and their
+  positions, `sprites.js` the drawings, `main.js` presentation and input. `tools/` is
+  offline only — `verify.mjs`, `metrics.mjs`, `build-artifact.mjs` — and `src/` never
+  imports it.
 - Levels are data: `levels/*.tt` + `*.sol`, one rules module shared by the player, the
   solver and the tests, and a verifier that proves par minimal rather than trusting it.
 - Objects built and unit-tested: bag, metal can, spilled trash, recycle bin, wheelie bin,
@@ -61,6 +62,11 @@
   contains one. It also needs teaching: end-on it picks up, broadside it sets down, the load
   slides back out into the run it vacated when it stops, and a cart out in the canal is gone
   for good.
+- **The wheelie bin has not been re-verified against the general rule.** It does what a
+  cart's tip does, but it keeps the raccoon on the bank as a constant instead of computing
+  where he lands the way `shoveCart` now does. The divergence is marked in `rules.js` and
+  is untested either way. L0–L17 ship bins and their pars depend on the current behavior,
+  so re-verifying means re-running `verify.mjs` and expecting pars to move.
 - **A cart that reaches a wall stays there.** Nothing can stand on a wall, so the cell you
   would shove from does not exist and the cart is confined to that line for the rest of the
   game. That is fine now the load always slides back out — but a room that wants a cart
