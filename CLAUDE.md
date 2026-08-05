@@ -36,18 +36,13 @@ around it — art, audio, progression, and the solvability indicator.
 
 ## Changing the design
 
-**Pre-alpha, and the rules are in flux. So prose does not state them.** No doc, comment or
-commit message says what a piece does, what refuses what, or what the fan covers. `rules.js`
-says it, the tests pin it, `verify.mjs` proves it against the level data. Anything else is a
-second copy that goes stale and then argues with the code — two hands on one pencil.
+**Pre-alpha, and the rules are in flux. So prose does not state them** — see
+[`CLEAN_PROSE.md`](./CLEAN_PROSE.md), which is the rule and the reasoning. In one line: if a
+sentence could become false when someone edits `rules.js`, delete it and point at the code.
+Don't sync the docs to a rules change; if there is something to sync, that is the bug.
 
-What prose is still for: what a file *is*, where a thing lives, how to run it, why a
-non-obvious decision went the way it did. Not behavior.
-
-So: don't sync the docs to a rules change — there should be nothing there to sync. If you
-find prose describing mechanics, delete it rather than correct it; accuracy is not the
-point, absence is. When a new piece needs a new occupant code, a new glyph or a new lane in
-`stateKey`, add it. The engine is meant to grow.
+When a new piece needs a new occupant code, a new glyph or a new lane in `stateKey`, add it.
+The engine is meant to grow.
 
 Raise a design concern **once**, in a sentence or two, and then build what was asked. The
 owner has the context; a second round of pushback is noise. The things worth stopping for are
@@ -87,6 +82,8 @@ These govern how code is written. They are not design arguments.
 
 ## Docs
 
+- `CLEAN_PROSE.md` — why no doc here describes the game, and what prose is for instead.
+  Read it before writing any of the others.
 - `README.md` — what it is, how to play, how to check it.
 - `levels.md` — index of the shipped rooms. The rooms themselves are `levels/act1.tt`.
 - `FORMATS.md` — the `.tt`/`.sol` file syntax. Not what the pieces do.
