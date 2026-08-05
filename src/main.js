@@ -2,13 +2,16 @@
 // ES modules need http://, so run ./run.sh rather than opening the file.
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
-  MOVE, PUSH, TEAR, DIRS,
-  explain, isWon, bagsLeft, trashHeld, fan, inGrid, cell, cloneState, pieceCells, isMultiCell,
+  MOVE, DIRS,
+  explain, isWon, bagsLeft, trashHeld, fan, inGrid, cell, cloneState, isMultiCell,
 } from './rules.js';
 import { parseLevelPack, toState } from './format.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
-// stage owns the motion envelopes
-import { easeOut } from './stage.js';
+// stage owns the objects, their motion and its envelopes
+import {
+  CART, COUCH, RACCOON, SPLASH, advance, applyStep, easeOut, rollEase, settle, stageFrom,
+  timeline,
+} from './stage.js';
 
 const CANF = CAN_FULL, CANE = CAN_EMPTY;
 const CS=76, PAD=9;
@@ -88,47 +91,63 @@ function fxPhase(){
   return null;                                 // done
 }
 // ---- the move animation --------------------------------------------------------------
-// An accepted action is already committed to `state` by the time this runs; the animation
-// only remembers where the pieces WERE, so nothing ever teleports between cells. `hide`
-// names the cells whose occupant the animation draws itself, so nothing is painted twice.
-const MV = { [MOVE]:120, [PUSH]:175, [TEAR]:230 };
-let mv = null;
+// Driven by what the rules REPORT moved, not by diffing two boards. A diff cannot tell a
+// wheelie bin's dropped bag from the bin itself — both simply appear — so it had to fly
+// everything out of the shove cell. `stage` owns the objects and their fractional positions,
+// `timeline` cuts the traced action into segments, and this only keeps the clock.
+//
+// Time is milliseconds per CELL of travel, so a bin crossing five cells takes five times as
+// long as one crossing a single cell rather than being crammed into the same beat.
+const CELL_MS = 110;
+let stage = null, board = null, anim = null;
+const slow = matchMedia('(prefers-reduced-motion: reduce)');
 
-function startMv(prev, kind, dir){
-  const [dx,dy] = DIRS[dir];
-  const bx = prev.rac.x + dx, by = prev.rac.y + dy;      // the cell he acts into
-  const m = { t0: performance.now(), dur: MV[kind], hide: new Set(), parts: [],
-              rac: [prev.rac.x, prev.rac.y, state.rac.x, state.rac.y] };
-  if(kind === TEAR){
-    m.parts.push({ what:'bag', from:[bx,by], to:[bx,by], burst:true });
-    for(const [tx,ty] of fan(bx,by,dx,dy)){
-      m.hide.add(`${tx},${ty}`);
-      m.parts.push({ what:'trash', from:[tx,ty], to:[tx,ty], src:[bx,by] });
-    }
-  } else if(kind === PUSH && isMultiCell(cell(prev,bx,by).o)){
-    // A multi-cell piece is one body, so it slides as one. The per-cell diff below would
-    // read a translated couch as several unrelated pieces all flying out of the shove cell,
-    // which is the one shape it cannot describe.
-    const pc = cell(prev,bx,by), own = pieceCells(prev, pc.pid);
-    for(const [x,y] of own){ m.hide.add(`${x},${y}`); m.hide.add(`${x+dx},${y+dy}`); }
-    m.parts.push({ what:'body', o:pc.o, cells:own, dx, dy });
-  } else if(kind === PUSH){
-    // Whatever the shove produced, slide it out of the cell that was shoved. Reading the
-    // two boards rather than naming the piece keeps this correct for every pushable —
-    // a can and its ejected bag, a bin and the trash it drops, a wheelie bin that rolls
-    // clean across the room and leaves its bag behind.
-    for(let y=0; y<state.rows; y++) for(let x=0; x<state.cols; x++){
-      const now = cell(state,x,y).o;
-      if(now === NONE || now === cell(prev,x,y).o) continue;
-      m.hide.add(`${x},${y}`);
-      m.parts.push({ what:'piece', o:now, from:[bx,by], to:[x,y] });
-    }
-  }
-  mv = m;
+function startMv(prev, r){
+  stage = stageFrom(prev, cur + 1);
+  board = prev;
+  anim = { segs: timeline(r, CELL_MS), si: 0, k: -1, t0: performance.now() };
   if(!raf) raf = requestAnimationFrame(tick);
 }
-/** Eased progress of the running move, or null once it has played out. */
-function mvT(){ const e = (performance.now() - mv.t0) / mv.dur; return e >= 1 ? null : easeOut(e); }
+
+/** Walk the clock; returns false once the whole action has played out. */
+function stepMv(){
+  const seg = anim.segs[anim.si];
+  const t = Math.min(1, (performance.now() - anim.t0) / seg.dur);
+  // Progress is measured in CELLS, so the whole part names the step and the fraction is the
+  // progress inside it. That is what keeps velocity continuous across a step boundary: the
+  // envelope spans the whole roll, and the steps are just where it crosses an edge.
+  const d = (seg.roll ? rollEase(t, seg.cells) : easeOut(t)) * seg.items.length;
+  const k = Math.min(seg.items.length - 1, Math.floor(d));
+  while(anim.k < k){
+    if(anim.k >= 0) settle(stage);
+    anim.k++;
+    const it = seg.items[anim.k];
+    board = it.board;
+    applyStep(stage, it.step, it.racTo);
+  }
+  advance(stage, slow.matches ? 0 : d - k);
+  if(t < 1) return true;
+  settle(stage);
+  board = state;
+  if(++anim.si >= anim.segs.length) return false;
+  anim.k = -1; anim.t0 = performance.now();
+  return true;
+}
+
+/** Land the whole action at once — an input cutting an animation short still has to finish it. */
+function landMv(){
+  // The step that was in flight first: `applyStep` finds a sprite by its ANCHOR, so leaving one
+  // part-way through a beat makes every step after it fail to find what it names.
+  if(anim.k >= 0) settle(stage);
+  for(let s = anim.si; s < anim.segs.length; s++){
+    const items = anim.segs[s].items;
+    for(let i = (s === anim.si ? anim.k + 1 : 0); i < items.length; i++){
+      applyStep(stage, items[i].step, items[i].racTo);
+      settle(stage);
+    }
+  }
+  anim = null; board = state;
+}
 
 // ---- the win: a short confetti blast, then straight on to the next room ----------------
 // Seeded from the level index, so a replay of the same room throws the same confetti.
@@ -173,10 +192,10 @@ function tick(){
     if(ph && ph.flash && !fx.beeped){ fx.beeped = true; beep(false); }
     if(!ph) fx = null;
   }
-  if(mv && mvT() === null) mv = null;
+  if(anim && !stepMv()) anim = null;
   if(party && performance.now() - party.t0 >= WIN_MS){ handOver(); return; }
   render();
-  if(fx || mv || party) raf = requestAnimationFrame(tick);
+  if(fx || anim || party) raf = requestAnimationFrame(tick);
 }
 
 // The blast ends and the next room loads; the chime is not consulted and keeps ringing.
@@ -184,7 +203,13 @@ function handOver(){
   party = null;
   if(cur < LEVELS.length - 1) load(cur + 1); else render();
 }
-const cancelAnim = () => { if(raf) cancelAnimationFrame(raf); raf = 0; fx = null; mv = null; party = null; };
+// Cutting an action short still has to LAND it: the board was committed the moment the shove
+// was legal, so the stage has to be walked through whatever steps are left or it would keep
+// drawing pieces on cells they have already left.
+const cancelAnim = () => {
+  if(raf) cancelAnimationFrame(raf); raf = 0; fx = null; party = null;
+  if(anim) landMv();
+};
 
 // ---- audio: a procedural two-tone "no" for a refused input.
 let ac = null;
@@ -234,8 +259,8 @@ const arming = () => LEVELS[cur].arm === true;
 function act(dir){
   audio(); primeWinChime();              // first input is the gesture that unlocks audio
   if(won){ handOver(); return; }         // done admiring it? go straight to the next room
-  if(fx || mv){ cancelAnim(); render(); }   // any input skips an animation already playing
-  const r = explain(state, dir);
+  if(fx || anim){ cancelAnim(); render(); }   // any input skips an animation already playing
+  const r = explain(state, dir, { trace: true });
 
   if(!r.ok){                       // refused — play the whole no, then rewind it
     blocked = { cells:r.blame, reason:r.reason, dir };
@@ -248,51 +273,48 @@ function act(dir){
   const prev = state;
   history.push(cloneState(state)); state = r.next; moves++;
   blocked = null; armed = null;
-  startMv(prev, r.kind, dir);
+  startMv(prev, r);
   if(isWon(state)){ won = true; startParty(); }
   render();
 }
-function undo(){ cancelAnim(); if(history.length){ state=history.pop(); moves--; won=false; blocked=null; armed=null; render(); } }
+function undo(){
+  cancelAnim();
+  if(history.length){ state=history.pop(); moves--; won=false; blocked=null; armed=null; rest(); render(); }
+}
 function restart(){ load(cur); }
 function load(i){
   cancelAnim(); fxSeen = new Set();         // a new room earns the full explanation again
   cur=(i+LEVELS.length)%LEVELS.length;
   state=toState(LEVELS[cur]); start=state; history=[]; moves=0; won=false;
   blocked=null; armed=null;
-  render();
+  rest(); render();
 }
+/** The stage at rest on the current board — every jump that is not an action goes through here. */
+function rest(){ anim = null; board = state; stage = stageFrom(state, cur + 1); }
 
 // ---- render ----
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 const SP = createSprites({ ctx, cell: CS, pad: PAD });
+// Couches under carts, carts under loose things, cargo over the cart it rides, him on top.
+const LAYER = sp => sp.kind === COUCH ? 0 : sp.kind === CART ? 1
+  : sp.kind === RACCOON ? 4 : (sp.parent === null ? 2 : 3);
+
 function render(){
-  const s=state;
+  const s=state, b=board ?? state;
   const ph = fx ? fxPhase() : null;
   const fxCells = new Set((ph && fx.showBurst ? fx.cells : []).map(([x,y])=>`${x},${y}`));
   cv.width=s.cols*CS; cv.height=s.rows*CS;
   ctx.clearRect(0,0,cv.width,cv.height);
-  for(let y=0;y<s.rows;y++) for(let x=0;x<s.cols;x++){
-    const c=cell(s,x,y); if(c.wall) continue;
-    // Three terrains, and the occupant draws on top of whichever it is. A filled cell is
-    // floor now — things rest on it, he walks it — but it keeps the canal's dark rim so you
-    // can still see where the water was and what it cost to cross.
+  // Terrain only — the ground is the one thing that is still a property of the square. Read
+  // from the board the animation is currently on, so a canal fills as the trash lands in it.
+  for(let y=0;y<b.rows;y++) for(let x=0;x<b.cols;x++){
+    const c=cell(b,x,y); if(c.wall) continue;
+    // A filled cell is floor now — things rest on it, he walks it — but it keeps the canal's
+    // dark rim so you can still see where the water was and what it cost to cross.
     if(c.water)       SP.water(x,y,false);
     else if(c.bridge) SP.water(x,y,true,hash(x,y));
     else              SP.floor(x,y);
     if(c.exit) SP.exit(x,y, bagsLeft(s)===0 && trashHeld(s)===0, exitArrowDir(s.cols,s.rows,x,y));
-    if(mv && mv.hide.has(`${x},${y}`)) continue;   // in flight — the move animation draws it
-    if(isMultiCell(c.o)) continue;                 // drawn whole, after the loop
-    // a bag mid-refusal deflates; everything else draws at rest
-    drawOccupant(SP, CODES, c.o, x, y,
-      { k: ph && fx.bx===x && fx.by===y ? 1-ph.burst : 1, seed: hash(x,y) });
-  }
-  // Multi-cell pieces are drawn per PIECE rather than per cell, so a couch comes out as one
-  // slab with no seam down the middle — which is the only way "one couch" reads differently
-  // from "two couches touching", and the rules very much tell them apart.
-  for(const pid of new Set(s.cells.flat().filter(c => c.pid !== undefined).map(c => c.pid))){
-    const own = pieceCells(s, pid);
-    if(mv && own.some(([x,y]) => mv.hide.has(`${x},${y}`))) continue;
-    SP.furniture(own);
   }
   // the debris of a burst that is being refused: it flies out, reaches the cell that
   // won't take it, and retracts. None of it is board state.
@@ -300,33 +322,31 @@ function render(){
     if(inGrid(s,fxx,fxy) && !cell(s,fxx,fxy).wall)
       SP.trash(fxx,fxy,{ seed:hash(fxx,fxy), k:ph.burst, src:[fx.bx,fx.by] });
 
-  // Pieces in flight: a torn bag deflating as its fan grows, a shoved can crossing the gap,
-  // an ejected bag sailing past it. Drawn from where they were toward where they now are.
-  if(mv){
-    const t = mvT() ?? 1;
-    for(const p of mv.parts){
-      if(p.what==='body'){ SP.furniture(p.cells, p.dx*t, p.dy*t); continue; }  // one body, one offset
-      const x = p.from[0]+(p.to[0]-p.from[0])*t, y = p.from[1]+(p.to[1]-p.from[1])*t;
-      if(p.what==='trash')      SP.trash(p.from[0], p.from[1], { seed:hash(p.from[0],p.from[1]), k:t, src:p.src });  // integer cell: stable colours
-      else if(p.what==='bag')   SP.bag(x, y, p.burst ? 1-t : 1);
-      else if(p.what==='piece') drawOccupant(SP, CODES, p.o, x, y, { seed:hash(p.to[0],p.to[1]) });
+  // Everything else is a sprite with a position of its own, so a couch comes out as one slab
+  // with no seam, cargo is carried rather than redrawn, and a bin's bag leaves the bin.
+  for(const sp of [...stage.sprites].sort((a,b)=>LAYER(a)-LAYER(b))){
+    if(sp.kind === RACCOON){
+      // A refusal is a lunge from where he stands, not travel — the stage knows nothing of it.
+      if(ph){ const k = ph.lunge*0.42; SP.raccoon(s.rac.x+fx.dx*k, s.rac.y+fx.dy*k); }
+      else SP.raccoon(sp.x, sp.y);
     }
+    else if(sp.kind === COUCH) SP.furniture(sp.cells, sp.x, sp.y);
+    else if(sp.kind === CART)  SP.cart(sp.cells, sp.x, sp.y);
+    else if(sp.kind === SPLASH) SP.splash(sp.x, sp.y);
+    else drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
+      seed: sp.seed,
+      // a bag mid-refusal deflates where it stands; a torn one deflates as its fan grows
+      k: sp.dying ? (sp.deflate ?? 1)
+        : ph && fx.bx===Math.round(sp.x) && fx.by===Math.round(sp.y) ? 1-ph.burst : 1,
+    });
   }
-
-  if(ph){
-    const k = ph.lunge*0.42;
-    SP.raccoon(s.rac.x+fx.dx*k, s.rac.y+fx.dy*k);
-  } else if(mv){
-    const t = mvT() ?? 1, [ax,ay,bx,by] = mv.rac;
-    SP.raccoon(ax+(bx-ax)*t, ay+(by-ay)*t);
-  } else SP.raccoon(s.rac.x,s.rac.y);
 
   // Fan preview, over everything including the exit sign. Always pale yellow: it answers
   // "where would this land", which has the same answer whether or not the strike is legal.
   // Red belongs to the blocking cell alone, and only once you have tried. Arming narrows
   // the preview to the aimed direction so two adjacent bags do not light ten cells at once.
   const red = new Set((blocked?.cells ?? []).map(([x,y])=>`${x},${y}`));
-  for(const dir of (ph || mv ? [] : armed ? [armed] : ['u','d','l','r'])){
+  for(const dir of (ph || anim ? [] : armed ? [armed] : ['u','d','l','r'])){
     const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
     const bx=s.rac.x+dx, by=s.rac.y+dy;
     if(!inGrid(s,bx,by) || cell(s,bx,by).o!==BAG) continue;   // fan preview: bags only

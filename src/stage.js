@@ -191,6 +191,45 @@ export function pileLook(seed) {
   });
 }
 
+// --- the timeline -------------------------------------------------------------------------
+
+/** The furthest any one thing travels in a step, in cells. One is the floor: a tear moves
+ *  nothing and still takes a beat. */
+const dist = st => Math.max(1,
+  ...st.moved.map(m => Math.abs(m.to[0] - m.from[0]) + Math.abs(m.to[1] - m.from[1])));
+
+/**
+ * A traced action, cut into the segments a clock can play. One shove is one move but can be
+ * several cells of travel, and the cells are not independent: a cart accelerates once, holds
+ * speed, and stops when something stops it. So consecutive cart steps are welded into ONE
+ * segment with one envelope across the whole run, rather than a string of little eased hops
+ * that would read as stuttering.
+ *
+ * `cellTime` is milliseconds per cell of travel, so a long roll takes proportionally longer
+ * than a short one instead of being crammed into the same beat.
+ */
+export function timeline(r, cellTime) {
+  const segs = [];
+  let i = 0;
+  const entry = k => ({ step: r.steps[k], racTo: r.frames[k + 1].rac, board: r.frames[k] });
+  while (i < r.steps.length) {
+    if (r.steps[i].piece && r.steps[i].piece.kind === 'cart') {
+      const run = [];
+      while (i < r.steps.length && r.steps[i].piece && r.steps[i].piece.kind === 'cart') run.push(entry(i++));
+      segs.push({ items: run, cells: run.length, dur: run.length * cellTime, roll: true });
+    } else {
+      const it = entry(i++);
+      const roll = it.step.impact === true;
+      // A step that ended against something immovable is a roll and is paced by how far it
+      // rolled — a wheelie bin crossing five cells reports one step, not five. Everything
+      // else is ONE beat however far its pieces fly: a tip is a tip whether the load lands
+      // next door or four cells back, and a tear is a tear.
+      segs.push({ items: [it], cells: dist(it.step), dur: (roll ? dist(it.step) : 1) * cellTime, roll });
+    }
+  }
+  return segs;
+}
+
 // --- motion envelopes ---------------------------------------------------------------------
 
 /** Slows into its target — for whatever stops itself: the raccoon, a shoved can, tipped cargo. */
