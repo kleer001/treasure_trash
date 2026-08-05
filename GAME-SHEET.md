@@ -64,8 +64,9 @@ solid shapes stacking up in it, so the mess is legible at a glance. When you lin
 a tear, a preview tints the cells the trash is about to fill, so you always see the
 wall before you build it. The one exception to the flat bright palette is the exit: a
 real white-on-green EXIT sign, dark while bags remain, lit the moment the last one
-tears. Procedural WebAudio: a dry step, a paper-and-plastic burst on the tear, a flat
-clunk when a can won't budge, and a short buzz when the alley refuses you.
+tears. Procedural WebAudio — a dry step, a paper-and-plastic burst on the tear, a flat
+clunk when a can won't budge, a short buzz when the alley refuses you — of which only the
+win chime is built so far.
 
 ## Open naming question
 

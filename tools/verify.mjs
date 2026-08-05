@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import {
   parseLevelPack, formatLevelPack, parseSolutionPack, formatSolutionPack,
-  parseLurd, formatLurd, toState, toGrid, toWater,
+  parseLurd, formatLurd, toState, toGrid, toWater, toCart,
 } from '../src/format.js';
 import { analyze, replay } from '../src/solver.js';
 import { isWon, bagsLeft } from '../src/rules.js';
@@ -66,6 +66,9 @@ for (const level of pack.levels) {
   check('water mask round-trips through the serialiser',
     (toWater(start) ?? []).join('\n') === (level.water ?? []).join('\n'),
     level.water ? `${level.water.length} rows` : 'no water');
+  check('cart mask round-trips through the serialiser',
+    (toCart(start) ?? []).join('\n') === (level.cart ?? []).join('\n'),
+    level.cart ? `${level.cart.length} rows` : 'no carts');
 
   const a = analyze(start);
   check('solvable', a.minMoves !== null, `${a.reachable} reachable states`);

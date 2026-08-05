@@ -3,14 +3,18 @@
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
   MOVE, PUSH, TEAR, DIRS,
-  explain, isWon, bagsLeft, fan, inGrid, cell, cloneState, pieceCells, isMultiCell,
+  explain, isWon, bagsLeft, trashHeld, fan, inGrid, cell, cloneState, pieceCells, isMultiCell,
 } from './rules.js';
 import { parseLevelPack, toState } from './format.js';
+import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
+// stage owns the motion envelopes
+import { easeOut } from './stage.js';
 
 const CANF = CAN_FULL, CANE = CAN_EMPTY;
 const CS=76, PAD=9;
-const C = { red:"#ff4b3e", yel:"#ffcf00", blu:"#2d7dd2", tea:"#17c3b2", pnk:"#ff5da2", ink:"#1a1a1a",
-  grn:"#2e9e5b" };   // exit-sign green — ISO 3864 "safe condition", not a Memphis accent
+// The occupant codes the sprite dispatcher needs; it takes them rather than importing the
+// rules, so the art has no idea a rulebook exists.
+const CODES = { BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG };
 
 const WHY = {
   edge:    "that's the edge of the alley",
@@ -88,7 +92,6 @@ function fxPhase(){
 // only remembers where the pieces WERE, so nothing ever teleports between cells. `hide`
 // names the cells whose occupant the animation draws itself, so nothing is painted twice.
 const MV = { [MOVE]:120, [PUSH]:175, [TEAR]:230 };
-const easeOut = t => 1 - Math.pow(1 - t, 3);
 let mv = null;
 
 function startMv(prev, kind, dir){
@@ -225,8 +228,7 @@ function playWinChime(){
 }
 
 // ---- input ----
-// Arming (`:arm on`, per level) makes every board-changing action ask twice; walking is
-// never armed, because it is the only verb that writes nothing to the board. See format.js.
+// Arming (`:arm on`, per level). Input layer only — see format.js.
 const arming = () => LEVELS[cur].arm === true;
 
 function act(dir){
@@ -262,6 +264,7 @@ function load(i){
 
 // ---- render ----
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const SP = createSprites({ ctx, cell: CS, pad: PAD });
 function render(){
   const s=state;
   const ph = fx ? fxPhase() : null;
@@ -273,14 +276,15 @@ function render(){
     // Three terrains, and the occupant draws on top of whichever it is. A filled cell is
     // floor now — things rest on it, he walks it — but it keeps the canal's dark rim so you
     // can still see where the water was and what it cost to cross.
-    if(c.water)       drawWater(x,y,false);
-    else if(c.bridge) drawWater(x,y,true);
-    else              drawFloor(x,y);
-    if(c.exit) drawExit(x,y, bagsLeft(s)===0);
+    if(c.water)       SP.water(x,y,false);
+    else if(c.bridge) SP.water(x,y,true,hash(x,y));
+    else              SP.floor(x,y);
+    if(c.exit) SP.exit(x,y, bagsLeft(s)===0 && trashHeld(s)===0, exitArrowDir(s.cols,s.rows,x,y));
     if(mv && mv.hide.has(`${x},${y}`)) continue;   // in flight — the move animation draws it
     if(isMultiCell(c.o)) continue;                 // drawn whole, after the loop
     // a bag mid-refusal deflates; everything else draws at rest
-    drawOccupant(c.o, x, y, ph && fx.bx===x && fx.by===y ? 1-ph.burst : 1);
+    drawOccupant(SP, CODES, c.o, x, y,
+      { k: ph && fx.bx===x && fx.by===y ? 1-ph.burst : 1, seed: hash(x,y) });
   }
   // Multi-cell pieces are drawn per PIECE rather than per cell, so a couch comes out as one
   // slab with no seam down the middle — which is the only way "one couch" reads differently
@@ -288,33 +292,34 @@ function render(){
   for(const pid of new Set(s.cells.flat().filter(c => c.pid !== undefined).map(c => c.pid))){
     const own = pieceCells(s, pid);
     if(mv && own.some(([x,y]) => mv.hide.has(`${x},${y}`))) continue;
-    drawFurniture(own);
+    SP.furniture(own);
   }
   // the debris of a burst that is being refused: it flies out, reaches the cell that
   // won't take it, and retracts. None of it is board state.
   if(ph) for(const [fxx,fxy] of (fx.showBurst ? fx.cells : []))
-    if(inGrid(s,fxx,fxy) && !cell(s,fxx,fxy).wall) drawTrash(fxx,fxy, ph.burst, [fx.bx,fx.by]);
+    if(inGrid(s,fxx,fxy) && !cell(s,fxx,fxy).wall)
+      SP.trash(fxx,fxy,{ seed:hash(fxx,fxy), k:ph.burst, src:[fx.bx,fx.by] });
 
   // Pieces in flight: a torn bag deflating as its fan grows, a shoved can crossing the gap,
   // an ejected bag sailing past it. Drawn from where they were toward where they now are.
   if(mv){
     const t = mvT() ?? 1;
     for(const p of mv.parts){
-      if(p.what==='body'){ drawFurniture(p.cells, p.dx*t, p.dy*t); continue; }  // one body, one offset
+      if(p.what==='body'){ SP.furniture(p.cells, p.dx*t, p.dy*t); continue; }  // one body, one offset
       const x = p.from[0]+(p.to[0]-p.from[0])*t, y = p.from[1]+(p.to[1]-p.from[1])*t;
-      if(p.what==='trash')      drawTrash(p.from[0], p.from[1], t, p.src);  // integer cell: stable colours
-      else if(p.what==='bag')   drawBag(x, y, p.burst ? 1-t : 1);
-      else if(p.what==='piece') drawOccupant(p.o, x, y);
+      if(p.what==='trash')      SP.trash(p.from[0], p.from[1], { seed:hash(p.from[0],p.from[1]), k:t, src:p.src });  // integer cell: stable colours
+      else if(p.what==='bag')   SP.bag(x, y, p.burst ? 1-t : 1);
+      else if(p.what==='piece') drawOccupant(SP, CODES, p.o, x, y, { seed:hash(p.to[0],p.to[1]) });
     }
   }
 
   if(ph){
     const k = ph.lunge*0.42;
-    drawRaccoon(s.rac.x+fx.dx*k, s.rac.y+fx.dy*k);
+    SP.raccoon(s.rac.x+fx.dx*k, s.rac.y+fx.dy*k);
   } else if(mv){
     const t = mvT() ?? 1, [ax,ay,bx,by] = mv.rac;
-    drawRaccoon(ax+(bx-ax)*t, ay+(by-ay)*t);
-  } else drawRaccoon(s.rac.x,s.rac.y);
+    SP.raccoon(ax+(bx-ax)*t, ay+(by-ay)*t);
+  } else SP.raccoon(s.rac.x,s.rac.y);
 
   // Fan preview, over everything including the exit sign. Always pale yellow: it answers
   // "where would this land", which has the same answer whether or not the strike is legal.
@@ -421,287 +426,11 @@ function drawEdgeBar(x,y,dir){
   ctx.restore();
 }
 
-// One place that draws an occupant, shared by the board loop and the move animation.
-// Coordinates may be fractional.
-function drawOccupant(o, x, y, k=1){
-  if(o===TRASH)              drawTrash(x,y);
-  else if(o===BAG)           drawBag(x,y,k);
-  else if(o===CANF)          drawCan(x,y,true);
-  else if(o===CANE)          drawCan(x,y,false);
-  else if(o===BIN)           drawRecycleBin(x,y);
-  else if(o===STACK)         drawStack(x,y);
-  else if(o===WHEELIE)       drawWheelie(x,y,true);
-  else if(o===WHEELIE_EMPTY) drawWheelie(x,y,false);
-  else if(o===JUG)           drawJug(x,y);
-}
-
+// Cell coordinates to pixels. The overlays below draw in the same space as the sprites.
 function px(x){return x*CS}
-function drawFloor(x,y){ ctx.fillStyle="#fff"; ctx.strokeStyle="#e6e6e2"; ctx.lineWidth=1;
-  ctx.fillRect(px(x)+1,px(y)+1,CS-2,CS-2); ctx.strokeRect(px(x)+1.5,px(y)+1.5,CS-3,CS-3); }
-// Open water is drawn darker than anything else on the board, with ripples, so it reads as
-// not-walkable. A filled cell keeps the dark rim and takes the ordinary trash glyph.
-function drawWater(x,y,filled){
-  const x0=px(x), y0=px(y);
-  ctx.fillStyle = filled ? "#7fb7c4" : "#2e6f8e";
-  ctx.fillRect(x0+1,y0+1,CS-2,CS-2);
-  if(filled){ drawTrash(x,y); return; }
-  ctx.strokeStyle="rgba(255,255,255,.45)"; ctx.lineWidth=2; ctx.lineCap="round";
-  for(let i=1;i<=2;i++){
-    const yy=y0+CS*(i/3);
-    ctx.beginPath();
-    ctx.moveTo(x0+6,yy);
-    ctx.quadraticCurveTo(x0+CS/3,yy-4, x0+CS/2,yy);
-    ctx.quadraticCurveTo(x0+2*CS/3,yy+4, x0+CS-6,yy);
-    ctx.stroke();
-  }
-}
-// The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
-// "safe condition" coding (ISO 7010 E002). Lit = every bag torn; unlit = work left to do.
-// The arrow points at the nearest board edge — the direction he's actually leaving in.
-function exitArrowDir(s,x,y){
-  const d=[[y,[0,-1]],[s.rows-1-y,[0,1]],[x,[-1,0]],[s.cols-1-x,[1,0]]];
-  return d.reduce((a,b)=>b[0]<a[0]?b:a)[1];
-}
-function drawExit(x,y,lit){
-  const s=state, [dx,dy]=exitArrowDir(s,x,y);
-  const x0=px(x), y0=px(y), m=8, w=CS-2*m, cx=x0+CS/2, cy=y0+CS/2;
-  ctx.save();
-  // the sign plate
-  ctx.fillStyle = lit ? C.grn : "rgba(46,158,91,.12)";
-  ctx.fillRect(x0+m, y0+m, w, w);
-  if(!lit){
-    ctx.strokeStyle="rgba(46,158,91,.6)"; ctx.lineWidth=2; ctx.setLineDash([5,4]);
-    ctx.strokeRect(x0+m+1, y0+m+1, w-2, w-2); ctx.setLineDash([]);
-  }
-  const fg = lit ? "#fff" : "rgba(46,158,91,.55)";
-  // legend
-  ctx.fillStyle=fg;
-  ctx.font="700 12px -apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
-  ctx.textAlign="center"; ctx.textBaseline="middle";
-  ctx.fillText("EXIT", cx, y0+m+11);
-  // arrow, rotated to point out of the room
-  ctx.translate(cx, cy+7); ctx.rotate(Math.atan2(dy,dx));
-  const a=w*0.30, H=w*0.24, h=w*0.09;
-  ctx.beginPath();
-  ctx.moveTo(a,0); ctx.lineTo(0,-H); ctx.lineTo(0,-h); ctx.lineTo(-a,-h);
-  ctx.lineTo(-a,h); ctx.lineTo(0,h); ctx.lineTo(0,H); ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
+// A stand-in seed per cell, until main.js runs off the stage and every pile carries its own.
 function hash(x,y){ return ((x*73856093)^(y*19349663))>>>0; }
-// `src` is the cell of the bag this debris came out of. While k<1 every speck is in
-// flight from that bag's centre to its resting place, so a burst throws its mess outward
-// across the board instead of fading up in place. At rest (k=1) src is irrelevant.
-function drawTrash(x,y,k=1,src=null){
-  if(k<=0) return;
-  const cols=[C.red,C.yel,C.blu,C.tea,C.pnk]; let h=hash(x,y);
-  const x0=px(x), y0=px(y), M=16, R=CS-2*M;   // M = margin from cell edge; dot centers stay inside [M, CS-M]
-  const flying = k<1 && src;
-  ctx.save();
-  // Settled trash is clipped to its own cell — a hard guarantee it never bleeds. Debris
-  // still in the air must cross the cells between the bag and where it lands, so the clip
-  // comes off for exactly as long as it is flying.
-  if(!flying){ ctx.beginPath(); ctx.rect(x0+2, y0+2, CS-4, CS-4); ctx.clip(); }
-  const sx = flying ? px(src[0])+CS/2 : x0+CS/2;
-  const sy = flying ? px(src[1])+CS/2 : y0+CS/2;
-  for(let i=0;i<6;i++){ h=(h*1103515245+12345)>>>0;
-    const ox=M+(h%R), oy=M+((h>>8)%R), r=3+((h>>16)%3);          // center in [16,59], radius 3–5 -> span [11,64] of 76
-    ctx.fillStyle=cols[(h>>4)%5];
-    const ax=sx+(x0+ox-sx)*k, ay=sy+(y0+oy-sy)*k;
-    ctx.beginPath(); ctx.arc(ax, ay, r*Math.max(.25,k), 0, 7); ctx.fill();
-  }
-  ctx.restore();
-}
-function drawBag(x,y,k=1){
-  if(k<=0) return;
-  const cx0=px(x)+CS/2, cy0=px(y)+CS/2;
-  ctx.save(); ctx.translate(cx0,cy0); ctx.scale(k,k); ctx.translate(-cx0,-cy0);
-  drawBagBody(x,y);
-  ctx.restore();
-}
-function drawBagBody(x,y){
-  const cx=px(x)+CS/2, top=px(y)+PAD+8, w=CS-2*PAD-6, h=CS-2*PAD-8;
-  ctx.fillStyle="#161616";
-  ctx.beginPath();
-  ctx.moveTo(cx-w/2, top+8);
-  ctx.quadraticCurveTo(cx-w/2, top+h, cx, top+h);
-  ctx.quadraticCurveTo(cx+w/2, top+h, cx+w/2, top+8);
-  ctx.lineTo(cx+w/2-4, top+2); ctx.lineTo(cx+6, top+6);
-  ctx.lineTo(cx-6, top+6); ctx.lineTo(cx-w/2+4, top+2); ctx.closePath(); ctx.fill();
-  // shiny glint
-  ctx.fillStyle=C.yel; drawStar(cx+6, top+h*0.5, 5);
-}
-function drawStar(cx,cy,r){ ctx.beginPath();
-  for(let i=0;i<8;i++){ const a=i*Math.PI/4, rr=i%2?r*.4:r; ctx.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr);} ctx.closePath(); ctx.fill(); }
-function drawCan(x,y,full){
-  const cx=px(x)+CS/2, w=CS-2*PAD-8, top=px(y)+PAD+6, h=CS-2*PAD-6;
-  // body
-  ctx.fillStyle="#b9c0c7"; ctx.strokeStyle="#7d858c"; ctx.lineWidth=2;
-  ctx.fillRect(cx-w/2, top, w, h); ctx.strokeRect(cx-w/2, top, w, h);
-  // ridges
-  ctx.strokeStyle="#9aa2a9"; ctx.lineWidth=1;
-  for(let i=1;i<3;i++){ ctx.beginPath(); ctx.moveTo(cx-w/2, top+i*h/3); ctx.lineTo(cx+w/2, top+i*h/3); ctx.stroke(); }
-  // rim / top
-  ctx.fillStyle="#cfd5da"; ctx.strokeStyle="#7d858c"; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.ellipse(cx, top, w/2, 6, 0,0,7); ctx.fill(); ctx.stroke();
-  if(full){ // black bag bulging out
-    ctx.fillStyle="#161616";
-    ctx.beginPath(); ctx.ellipse(cx, top-3, w/2-3, 9, 0, 0, 7); ctx.fill();
-    ctx.fillStyle=C.yel; drawStar(cx+5, top-4, 4);
-  } else { // open dark mouth
-    ctx.fillStyle="#3a4046"; ctx.beginPath(); ctx.ellipse(cx, top, w/2-3, 4, 0,0,7); ctx.fill();
-  }
-}
-// The recycle bin: blue, with the chasing-arrows triangle. Blue reads as "recycling" the
-// world over, and it keeps the bin from being mistaken for the grey metal can.
-function drawRecycleBin(x,y){
-  const cx=px(x)+CS/2, w=CS-2*PAD-6, top=px(y)+PAD+6, h=CS-2*PAD-8;
-  ctx.save();
-  ctx.fillStyle="#2d7dd2"; ctx.strokeStyle="#1b4f86"; ctx.lineWidth=2;
-  ctx.fillRect(cx-w/2, top, w, h); ctx.strokeRect(cx-w/2, top, w, h);
-  ctx.fillStyle="#4a95e0"; ctx.fillRect(cx-w/2, top, w, 7);        // lid
-  ctx.strokeStyle="#1b4f86"; ctx.strokeRect(cx-w/2, top, w, 7);
-  // chasing arrows, drawn as a plain triangle outline — legible at 76px, unlike the real mark
-  ctx.strokeStyle="#fff"; ctx.lineWidth=3; ctx.lineJoin="round";
-  const r=w*0.26, my=top+h*0.62;
-  ctx.beginPath();
-  for(let i=0;i<3;i++){ const a=-Math.PI/2 + i*2*Math.PI/3;
-    ctx[i?'lineTo':'moveTo'](cx+Math.cos(a)*r, my+Math.sin(a)*r); }
-  ctx.closePath(); ctx.stroke();
-  ctx.restore();
-}
 
-// The couch is drawn from its whole footprint, not a cell at a time: only the outer edges
-// are stroked, because an internal seam would read as two couches. `ox`/`oy` offset the slide.
-function drawFurniture(cells, ox=0, oy=0){
-  const has = new Set(cells.map(([x,y])=>`${x},${y}`));
-  const at = (x,y) => has.has(`${x},${y}`);
-  const M = 6;
-  ctx.save();
-  ctx.fillStyle="#9c6249";
-  for(const [cx,cy] of cells){
-    const x0=px(cx+ox), y0=px(cy+oy);
-    const l=at(cx-1,cy), r=at(cx+1,cy), u=at(cx,cy-1), d=at(cx,cy+1);
-    ctx.fillRect(x0+(l?0:M), y0+(u?0:M), CS-(l?0:M)-(r?0:M), CS-(u?0:M)-(d?0:M));
-  }
-  ctx.fillStyle="rgba(255,255,255,.13)";           // one cushion per cell
-  for(const [cx,cy] of cells)
-    ctx.fillRect(px(cx+ox)+M+6, px(cy+oy)+M+6, CS-2*M-12, CS-2*M-12);
-  ctx.strokeStyle="#5c382a"; ctx.lineWidth=2.5; ctx.lineCap="round";
-  ctx.beginPath();
-  for(const [cx,cy] of cells){
-    const x0=px(cx+ox), y0=px(cy+oy), a=M, b=CS-M;
-    if(!at(cx,cy-1)){ ctx.moveTo(x0+a,y0+a); ctx.lineTo(x0+b,y0+a); }
-    if(!at(cx,cy+1)){ ctx.moveTo(x0+a,y0+b); ctx.lineTo(x0+b,y0+b); }
-    if(!at(cx-1,cy)){ ctx.moveTo(x0+a,y0+a); ctx.lineTo(x0+a,y0+b); }
-    if(!at(cx+1,cy)){ ctx.moveTo(x0+b,y0+a); ctx.lineTo(x0+b,y0+b); }
-  }
-  ctx.stroke();
-  ctx.restore();
-}
-
-// The water jug, drawn as a cooler bottle. Its water uses the canal's exact blue; the thin
-// white inner rim keeps it reading as translucent plastic against both floor and canal.
-function drawJug(x,y){
-  const bx=px(x)+CS/2-4, w=CS-2*PAD-16, top=px(y)+PAD+5, h=CS-2*PAD-8;
-  const neck=w*0.32, shoulder=top+10, wl=top+h*0.34, bot=top+h;
-  const L=bx-w/2, R=bx+w/2;
-  const body=()=>{                                       // shoulders in to a short neck
-    ctx.beginPath();
-    ctx.moveTo(bx-neck/2, top); ctx.lineTo(bx+neck/2, top);
-    ctx.lineTo(bx+neck/2, shoulder-4); ctx.lineTo(R, shoulder);
-    ctx.lineTo(R, bot); ctx.lineTo(L, bot);
-    ctx.lineTo(L, shoulder); ctx.lineTo(bx-neck/2, shoulder-4);
-    ctx.closePath();
-  };
-  ctx.save();
-  ctx.lineJoin="round"; ctx.lineCap="round";
-  ctx.strokeStyle="#1b4f86"; ctx.lineWidth=2;
-  // the handle first, so the body's fill covers where it meets the shoulder
-  ctx.beginPath(); ctx.moveTo(R-2, shoulder+8);
-  ctx.quadraticCurveTo(R+12, top+h*0.48, R-2, top+h*0.74); ctx.stroke();
-  ctx.fillStyle="#1b4f86";                               // the cap, sitting on the neck
-  ctx.fillRect(bx-neck/2-2, top-4, neck+4, 5);
-
-  body();
-  ctx.fillStyle="#cdeef9"; ctx.fill();                   // the air above the water: the light bit
-  ctx.save(); ctx.clip();
-  ctx.fillStyle="#2e6f8e"; ctx.fillRect(L, wl, w, bot-wl);
-  // two moulded ribs, the way a ten-gallon bottle is banded
-  ctx.strokeStyle="rgba(255,255,255,.65)"; ctx.lineWidth=2;
-  for(const t of [0.60, 0.82]){
-    const yy=top+h*t;
-    ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(R, yy); ctx.stroke();
-  }
-  ctx.strokeStyle="rgba(255,255,255,.9)"; ctx.lineWidth=2;   // the waterline, brightest
-  ctx.beginPath(); ctx.moveTo(L, wl+2); ctx.quadraticCurveTo(bx, wl-4, R, wl+2); ctx.stroke();
-  ctx.strokeStyle="rgba(255,255,255,.85)"; ctx.lineWidth=4;  // clipped, so only the inner half lands
-  body(); ctx.stroke();
-  ctx.restore();
-  ctx.strokeStyle="#1b4f86"; ctx.lineWidth=2;
-  body(); ctx.stroke();
-  ctx.restore();
-}
-
-// A loose bag riding a still-full can: the can sits low, the bag perches on top.
-function drawStack(x,y){
-  const cx=px(x)+CS/2, w=CS-2*PAD-14, top=px(y)+CS*0.46, h=CS*0.36;
-  ctx.save();
-  ctx.fillStyle="#b9c0c7"; ctx.strokeStyle="#7d858c"; ctx.lineWidth=2;
-  ctx.fillRect(cx-w/2, top, w, h); ctx.strokeRect(cx-w/2, top, w, h);
-  ctx.fillStyle="#cfd5da"; ctx.beginPath(); ctx.ellipse(cx, top, w/2, 5, 0,0,7); ctx.fill(); ctx.stroke();
-  // the bag on top
-  ctx.fillStyle="#161616";
-  ctx.beginPath(); ctx.ellipse(cx, top-11, w/2+3, 11, 0, 0, 7); ctx.fill();
-  ctx.fillStyle=C.yel; drawStar(cx+6, top-13, 4);
-  ctx.restore();
-}
-
-// The wheelie bin: taller than the can, on wheels. Full = lid propped open by the bag inside.
-function drawWheelie(x,y,full){
-  const cx=px(x)+CS/2, w=CS-2*PAD-10, top=px(y)+PAD+9, h=CS-2*PAD-16;
-  ctx.save();
-  ctx.fillStyle="#3f7d4f"; ctx.strokeStyle="#255034"; ctx.lineWidth=2;
-  ctx.fillRect(cx-w/2, top, w, h); ctx.strokeRect(cx-w/2, top, w, h);
-  ctx.strokeStyle="#2f6a40"; ctx.lineWidth=1;
-  for(let i=1;i<3;i++){ ctx.beginPath(); ctx.moveTo(cx-w/2, top+i*h/3); ctx.lineTo(cx+w/2, top+i*h/3); ctx.stroke(); }
-  // wheels
-  ctx.fillStyle="#22252a";
-  ctx.beginPath(); ctx.arc(cx-w/2+5, top+h+4, 5, 0,7); ctx.arc(cx+w/2-5, top+h+4, 5, 0,7); ctx.fill();
-  // lid, tilted open when there is a bag under it
-  ctx.save();
-  ctx.translate(cx-w/2, top);
-  if(full) ctx.rotate(-0.42);
-  ctx.fillStyle="#4f9a63"; ctx.strokeStyle="#255034"; ctx.lineWidth=2;
-  ctx.fillRect(-2, -8, w+4, 8); ctx.strokeRect(-2, -8, w+4, 8);
-  ctx.restore();
-  if(full){                                    // the bag showing through the gap
-    ctx.fillStyle="#161616";
-    ctx.beginPath(); ctx.ellipse(cx+3, top-2, w/2-4, 7, 0, 0, 7); ctx.fill();
-    ctx.fillStyle=C.yel; drawStar(cx+8, top-3, 4);
-  }
-  ctx.restore();
-}
-
-function drawRaccoon(x,y){
-  const cx=x*CS+CS/2, cy=y*CS+CS/2, r=CS/2-PAD-4;   // x,y may be fractional mid-lunge
-  // tail hint
-  ctx.fillStyle="#8b8f95"; ctx.beginPath(); ctx.arc(cx+r*0.7, cy+r*0.6, r*0.5, 0,7); ctx.fill();
-  ctx.fillStyle="#4a4e54"; ctx.beginPath(); ctx.arc(cx+r*0.95, cy+r*0.75, r*0.28, 0,7); ctx.fill();
-  // ears
-  ctx.fillStyle="#6b7076"; ctx.beginPath(); ctx.arc(cx-r*0.6,cy-r*0.7,r*0.32,0,7); ctx.arc(cx+r*0.6,cy-r*0.7,r*0.32,0,7); ctx.fill();
-  // head
-  ctx.fillStyle="#9aa0a6"; ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill();
-  // mask band
-  ctx.fillStyle="#2b2f34"; ctx.beginPath(); ctx.ellipse(cx,cy-r*0.05,r*0.95,r*0.42,0,0,7); ctx.fill();
-  // muzzle
-  ctx.fillStyle="#eceef0"; ctx.beginPath(); ctx.ellipse(cx,cy+r*0.45,r*0.5,r*0.35,0,0,7); ctx.fill();
-  // eyes
-  ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(cx-r*0.35,cy-r*0.05,r*0.2,0,7); ctx.arc(cx+r*0.35,cy-r*0.05,r*0.2,0,7); ctx.fill();
-  ctx.fillStyle="#111"; ctx.beginPath(); ctx.arc(cx-r*0.35,cy-r*0.02,r*0.1,0,7); ctx.arc(cx+r*0.35,cy-r*0.02,r*0.1,0,7); ctx.fill();
-  // nose
-  ctx.fillStyle="#111"; ctx.beginPath(); ctx.arc(cx,cy+r*0.35,r*0.12,0,7); ctx.fill();
-}
 
 // ---- wire up ----
 const KEY={ArrowUp:'u',ArrowDown:'d',ArrowLeft:'l',ArrowRight:'r',

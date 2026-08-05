@@ -17,11 +17,34 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = f => readFileSync(resolve(root, f), 'utf8');
 const out = process.argv[2] ?? resolve(root, 'artifact.html');
 
-// Strip module syntax so the sources can share one script scope.
+// Strip module syntax so the sources can share one script scope. An ALIASED import has to
+// survive as an alias: delete `PALETTE as C` outright and every use of C is a ReferenceError.
 const demodule = src => src
-  .replace(/^import\s+\{[\s\S]*?\}\s+from\s+'[^']+';\s*$/gm, '')
+  .replace(/^import\s+\{([\s\S]*?)\}\s+from\s+'[^']+';\s*$/gm, (_, names) => names.split(',')
+    .map(n => /^\s*(\S+)\s+as\s+(\S+)\s*$/.exec(n))
+    .filter(Boolean)
+    .map(([, exported, local]) => `const ${local} = ${exported};`)
+    .join('\n'))
   .replace(/^import\s+[\s\S]*?\s+from\s+'[^']+';\s*$/gm, '')
   .replace(/^export\s+/gm, '');
+
+// The entry module and everything it reaches, dependencies first. Walked rather than listed:
+// a hand-kept list is how src/sprites.js came to be imported by the game and left out of the
+// bundle, which builds clean and then throws on the first frame.
+const ENTRY = 'main.js';
+const RELATIVE_IMPORT = /^import\s+(?:\{[\s\S]*?\}|[^'";]+?)\s+from\s+'\.\/([^']+)';\s*$/gm;
+
+function moduleOrder(entry) {
+  const order = [], done = new Set(), open = new Set();
+  (function visit(f) {
+    if (done.has(f)) return;
+    if (open.has(f)) throw new Error(`import cycle through src/${f}`);
+    open.add(f);
+    for (const [, dep] of read(`src/${f}`).matchAll(RELATIVE_IMPORT)) visit(dep);
+    open.delete(f); done.add(f); order.push(f);
+  })(entry);
+  return order;
+}
 
 // This file is inserted into a document whose <head> belongs to the viewer, so it cannot
 // carry a <meta charset>. If the host serves it as anything but UTF-8, every em dash and
@@ -42,8 +65,9 @@ const stripCssComments = s => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\n{3,}
 const page = read('index.html');
 const style = stripCssComments(read('styles.css'));
 const body = /<body>\s*([\s\S]*?)\s*<script type="module"/.exec(page)[1];
-// The page now loads its module from src/main.js rather than carrying it inline.
-const script = read('src/main.js');
+// The page loads its module from src/main.js rather than carrying it inline.
+const modules = moduleOrder(ENTRY);
+const script = read(`src/${ENTRY}`);
 
 // Levels are data on disk; inline them verbatim so the pack stays the single source.
 const pack = read('levels/act1.tt');
@@ -57,8 +81,18 @@ const inlined = demodule(script)
   .replace(/const sfx = await fetch\([^)]*\);[\s\S]*?winBytes = await sfx\.arrayBuffer\(\);/,
     'winBytes = Uint8Array.from(atob(WIN_CHIME_B64), c => c.charCodeAt(0)).buffer;');
 
-if (inlined.includes('fetch(')) throw new Error('a fetch survived bundling — the CSP would block it');
-if (/^\s*(import|export)\s/m.test(inlined)) throw new Error('module syntax survived bundling');
+// Dependencies in order, then the entry with its fetches already replaced.
+const bundled = modules
+  .map(f => `// ---- src/${f} ----\n${f === ENTRY ? inlined : demodule(read(`src/${f}`))}`)
+  .join('\n');
+
+if (bundled.includes('fetch(')) throw new Error('a fetch survived bundling — the CSP would block it');
+if (/^\s*(import|export)\s/m.test(bundled)) throw new Error('module syntax survived bundling');
+// One scope for every module means a name two of them both declare is a SyntaxError the
+// browser only reaches at load. Parse it here instead. Wrapped because a module may use
+// top-level await and a bare Function body may not.
+try { new Function(`async () => {\n${bundled}\n}`); }
+catch (e) { throw new Error(`the bundle does not parse: ${e.message}`); }
 
 // Artifact-only: the game normally owns the whole page, but inside the viewer it sits in a
 // themed frame. Pin the light ground it was designed against rather than half-inherit one.
@@ -79,12 +113,7 @@ ${asciiMarkup(body.replace('<canvas id="cv"', '<p class="focusnote" id="focusnot
 const LEVEL_PACK = ${asciiScript(JSON.stringify(pack))};
 const WIN_CHIME_B64 = ${JSON.stringify(chime)};
 
-// ---- src/rules.js ----
-${asciiScript(demodule(read('src/rules.js')))}
-// ---- src/format.js ----
-${asciiScript(demodule(read('src/format.js')))}
-// ---- src/main.js ----
-${asciiScript(inlined)}
+${asciiScript(bundled)}
 
 // Artifacts render in an iframe, so keystrokes go nowhere until the frame has focus.
 cv.addEventListener('click', () => cv.focus());

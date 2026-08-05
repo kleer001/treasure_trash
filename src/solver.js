@@ -25,6 +25,9 @@ export function analyze(start) {
   states.set(rootKey, { state: start, depth: 0, edges: [], prev: null, prevAction: null });
 
   // --- forward BFS over the full reachable graph
+  // How often the exit itself refuses an action is counted here rather than in a second sweep:
+  // the BFS already visits every state and every direction, and already has the reason in hand.
+  let exitRefusals = 0;
   let frontier = [rootKey];
   while (frontier.length) {
     const next = [];
@@ -32,7 +35,7 @@ export function analyze(start) {
       const node = states.get(key);
       for (const dir of DIR_ORDER) {
         const r = explain(node.state, dir);
-        if (!r.ok) continue;
+        if (!r.ok) { if (r.reason === 'exit') exitRefusals++; continue; }
         const k = stateKey(r.next);
         if (!states.has(k)) {
           states.set(k, { state: r.next, depth: node.depth + 1, edges: [], prev: key, prevAction: { dir, kind: r.kind } });
@@ -82,15 +85,6 @@ export function analyze(start) {
       });
     }
   }
-  // How often the exit itself refuses an action, over the whole graph. verify.mjs
-  // asserts this is non-zero in any room that has a bag.
-  let exitRefusals = 0;
-  for (const [, node] of states)
-    for (const dir of DIR_ORDER) {
-      const r = explain(node.state, dir);
-      if (!r.ok && r.reason === 'exit') exitRefusals++;
-    }
-
   return {
     states, minMoves, shortestLurd, shortestCount, dead, traps, exitRefusals,
     silentTraps: traps.filter(t => t.kind === MOVE),

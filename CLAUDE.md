@@ -4,22 +4,26 @@ A browser game budded from **Trace ROM Studio**. Vanilla JS, ES modules, no buil
 
 ## This game
 
-An untimed, single-raccoon, Sokoban-family block-pusher. Tearing a bag sprays a 2×3 fan of
-permanent trash ahead of the strike; nothing ever clears it. Win by opening every bag and
-standing on the exit, which the engine refuses to let anything else occupy.
+An untimed, single-raccoon, Sokoban-family block-pusher.
 
 `src/rules.js` is the engine of record — the game, the solver and the tests all import it,
 and `tools/verify.mjs` proves every claim a level file makes against that same module.
-`levels.md` documents the shipped rooms; `TODO.md` says where the work is.
+**It is also the only description of what the pieces do.** No doc restates the rules; a doc
+that did would be wrong within the week. `levels.md` indexes the shipped rooms; `TODO.md`
+says where the work is.
 
 The core mechanic is built and playable: `./run.sh`, then L0–L17. Missing is everything
 around it — art, audio, progression, and the solvability indicator.
 
 ## Run & test
 
-- `./run.sh [port]` — no-cache dev server (default 8000). Open the URL.
+- `./run.sh [port]` — no-cache dev server (default 8000). Scans upward for a free port and
+  opens the page. ES modules, `fetch` and relative paths all behave differently under
+  `file://`, so **a served page is the only supported way to run it.**
 - `npm test` — Node's built-in runner (`node --test`); specs in `tests/*.test.js`.
 - `node tools/verify.mjs` — checks every claim the level files make.
+- `./package.sh` — builds `dist/treasure-trash.zip` for itch.io, `index.html` at the archive
+  root. Add new runtime assets to its `RUNTIME` list; the zip stays out of git.
 
 ## Platform
 
@@ -30,7 +34,27 @@ around it — art, audio, progression, and the solvability indicator.
 - Ships to GitHub Pages via `.github/workflows/pages.yml`; tests run in CI via
   `.github/workflows/test.yml`.
 
-## Conventions
+## Changing the design
+
+**Pre-alpha, and the rules are in flux. So prose does not state them** — see
+[`CLEAN_PROSE.md`](./CLEAN_PROSE.md), which is the rule and the reasoning. In one line: if a
+sentence could become false when someone edits `rules.js`, delete it and point at the code.
+Don't sync the docs to a rules change; if there is something to sync, that is the bug.
+
+When a new piece needs a new occupant code, a new glyph or a new lane in `stateKey`, add it.
+The engine is meant to grow.
+
+Raise a design concern **once**, in a sentence or two, and then build what was asked. The
+owner has the context; a second round of pushback is noise. The things worth stopping for are
+narrow and mechanical: a change that would make a shipped level unsolvable, silently
+invalidate a declared par, or break `tools/verify.mjs`. Those are checkable — say which one,
+show the failure, and keep going.
+
+The one hard stop is **release** — see the studio's release gate. Nothing before it blocks.
+
+## Code conventions
+
+These govern how code is written. They are not design arguments.
 
 - `camelCase` functions/vars, `PascalCase` classes, `UPPER_SNAKE` constants.
 - Validate at boundaries; trust internal functions; fail loudly — one path, no silent
@@ -49,17 +73,20 @@ around it — art, audio, progression, and the solvability indicator.
   scanline/CRT overlay, sprites, HUD, the studio logo — is another layer on top of or
   under it. Each layer honors one contract, `{ name, draw(ctx, frame) }`, added with
   `compositor.add(...)`.
-- **SOLID, pragmatically** (this is a small game): one job per module (`rng`, `board`,
-  `render`, `audio`, `input`); extend with new data or new modules rather than editing the
-  core loop; variants of a thing honor the same contract; small module surfaces; core
+- **SOLID, pragmatically** (this is a small game): one job per module — `rules` decides,
+  `format` parses, `stage` holds objects and their positions, `sprites` draws them, `rng`
+  seeds, `main` wires input and presentation; extend with new data or new modules rather
+  than editing the core loop; variants of a thing honor the same contract; small module surfaces; core
   logic never reaches for the DOM, canvas or audio directly — pass those in at the
   boundary, so the game logic stays pure and testable.
 
 ## Docs
 
+- `CLEAN_PROSE.md` — why no doc here describes the game, and what prose is for instead.
+  Read it before writing any of the others.
 - `README.md` — what it is, how to play, how to check it.
-- `levels.md` — the shipped rooms, with diagrams, solves and measured counts.
-- `FORMATS.md` — the `.tt`/`.sol` file formats and what the verifier enforces.
+- `levels.md` — index of the shipped rooms. The rooms themselves are `levels/act1.tt`.
+- `FORMATS.md` — the `.tt`/`.sol` file syntax. Not what the pieces do.
 - `TODO.md` — where we are, what's open, what's next.
 - `GAME-SHEET.md` — the player-facing pitch.
 - `MARKETING-PLAN.md`, `promo.html`, `ITCH-PAGE.md`, `video_shot_list.md` — launch
