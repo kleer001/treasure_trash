@@ -314,9 +314,9 @@ export function toWater(s) {
 
 // --- solutions --------------------------------------------------------------
 // LURD, extended for a third action class:
-//   lowercase l u r d = move        (step onto empty floor)
-//   uppercase L U R D = push        (shove a can)
-//   uppercase + '!'   = pounce-tear (burst a bag — the irreversible one)
+//   lowercase l u r d = move
+//   uppercase L U R D = push
+//   uppercase + '!'   = pounce-tear
 
 export function parseLurd(str, where = 'solution') {
   const actions = [];
