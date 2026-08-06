@@ -6,7 +6,7 @@ Eighteen rooms, no install, no timer. Arrows or WASD, `U` to undo, `R` to restar
 
 A **Trace ROM Studio** game.
 An untimed, single-raccoon, Sokoban-family **block-pusher**: you tear open garbage bags
-in an alley, and every torn bag sprays a **directional 2×3 fan of trash that stays**.
+in an alley, and every torn bag sprays a **directional fan of trash that stays**.
 The puzzle is choosing each strike's direction and order so your own mess never blocks
 another bag's fan, your path, or your way out. Win by opening every bag **and** standing
 on the exit.
