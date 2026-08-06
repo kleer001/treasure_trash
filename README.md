@@ -21,10 +21,11 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 |---|---|
 | `src/` | The game: `rules.js` (the engine of record), `format.js`, `solver.js`, `stage.js`, `sprites.js`, `main.js`. |
 | `levels/`, `FORMATS.md` | The `.tt`/`.sol` level pack and the file syntax. |
-| `levels.md` | Index of the shipped rooms L0–L17. |
-| `tools/` | Offline only: `verify.mjs`, `metrics.mjs`, `build-artifact.mjs`. |
+| `levels.md` | Index of the shipped rooms. |
+| `tools/` | Offline only: `verify.mjs`, `metrics.mjs`, `build-artifact.mjs`, `draft-room.mjs`. |
 | `bench-cart.html` | The mechanic bench: a served page that imports `src/` to try one piece at a time. Presentation only — it carries no copy of the engine, and `verify.mjs` fails if any page does. |
 | `TODO.md` | Where we are, what's open, and the next move. |
+| `BREADCRUMB.md` | The trail for one job in progress: the cart's tutorial rooms. |
 | `GAME-SHEET.md` | Player-facing pitch (the fantasy, the loop, the hook). |
 | `SPEC-SHEET.md` | Design sketchpad. Nothing in it is binding, and it is never synced to the code. |
 | `RELEASE-CHECKLIST.md` | The one hard stop, worked once at ship. Post-beta — closed until then. |

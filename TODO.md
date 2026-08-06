@@ -4,7 +4,7 @@
 the pitch. **None of them say what the pieces do — `src/rules.js` does.**
 
 ## Where we are
-- The raccoon's core mechanic is built and playable — L0–L17, each solvable in a
+- The raccoon's core mechanic is built and playable — every shipped room solvable in a
   provably-minimal par found by exhaustive search rather than asserted.
 - Crow is pinned, parked until the raccoon-alone game proves fun.
 - **The game lives in `src/`.** `rules.js` is the engine of record, `format.js` the
@@ -24,7 +24,7 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   `verify.mjs` fails the build if a page does.
 
 ## NEXT MOVE — everything around the mechanic
-`./run.sh`, then L0–L17. `npm test` and `node tools/verify.mjs` are green.
+`./run.sh`, then pick a room. `npm test` and `node tools/verify.mjs` are green.
 - **The solvability indicator.** `solver.js` already detects a dead board offline; wire it
   to run after each state change and surface a non-blocking "can no longer be won." The
   positional soft-lock is currently silent, and a dead board should announce itself.
@@ -61,9 +61,10 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   the last-moved direction, or tint the two differently.
 - **Playtest the exit.** Mechanically verified but not felt — is the walk to `E` tension
   or filler? Cheapest test: play L1–L3 and see if the last move is ever a decision.
-- **The shopping cart has no room.** Built, tested and benched; no shipped level contains
-  one. It has several distinct behaviors to teach and will need more than one room. Play the
-  bench before designing them — the bench, not this file, is where the behavior is legible.
+- **The cart tutorial is part-built** — L18 is in, 019–031 are not. The arc, the tool that
+  drafts rooms against the verifier, and what the verifier actually requires are all in
+  [`BREADCRUMB.md`](./BREADCRUMB.md). Play the bench before designing more; the bench, not this
+  file, is where the behavior is legible.
 - **The raccoon's landing is one rule now.** Every push advances him into the cell he shoved,
   if that cell is clear once the shove resolves. Only two things deny him: a one-cell wheelie
   roll, whose bag lands on the bin's own start cell, and a cart whose unload took the cell it

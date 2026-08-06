@@ -12,7 +12,7 @@ and `tools/verify.mjs` proves every claim a level file makes against that same m
 that did would be wrong within the week. `levels.md` indexes the shipped rooms; `TODO.md`
 says where the work is.
 
-The core mechanic is built and playable: `./run.sh`, then L0–L17. Missing is everything
+The core mechanic is built and playable: `./run.sh`, then the level picker. Missing is everything
 around it — art, audio, progression, and the solvability indicator.
 
 ## Run & test
