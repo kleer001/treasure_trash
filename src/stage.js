@@ -59,7 +59,7 @@ export function stageFrom(state, seed = 1) {
   return stage;
 }
 
-/** A rigid body's cells as offsets from its origin. Nothing rotates, so these hold for life. */
+/** Nothing rotates, so a body's offsets hold for life. */
 const offsets = (cells, ox, oy) => cells.map(([x, y]) => [x - ox, y - oy]);
 
 const atCell = (sp, x, y) => sp.ax === x && sp.ay === y;
@@ -161,7 +161,6 @@ const HIT = 0.62;
  *  board says it is on. */
 export const bump = u => (u < HIT ? u / HIT : Math.pow(1 - (u - HIT) / (1 - HIT), 2));
 
-/** End of a beat: snap to targets, retire what the step consumed, commit code changes. */
 export function settle(stage) {
   advance(stage, 1);
   stage.sprites = stage.sprites.filter(sp => !sp.dying && !sp.spent);

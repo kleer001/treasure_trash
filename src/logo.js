@@ -43,14 +43,12 @@ export function scanlineBands(height, cfg = LOGO_DEFAULTS) {
   return bands;
 }
 
-/** Vertical placement of the rows, centered as a block. Returns {text, cy} per row. */
 export function rowLayout(cfg = LOGO_DEFAULTS) {
   const { rows, rowGap, height } = cfg;
   const firstCy = height / 2 - ((rows.length - 1) * rowGap) / 2;
   return rows.map((text, i) => ({ text, cy: firstCy + i * rowGap }));
 }
 
-/** Draw one row centered at (width/2, cy), stretched to targetWidth. */
 function drawJustifiedRow(ctx, text, cy, cfg) {
   const natural = ctx.measureText(text).width;
   const scaleX = natural > 0 ? cfg.targetWidth / natural : 1;
@@ -61,7 +59,7 @@ function drawJustifiedRow(ctx, text, cy, cfg) {
   ctx.restore();
 }
 
-/** Render the wordmark. `options` shallow-overrides LOGO_DEFAULTS. */
+/** `options` shallow-overrides LOGO_DEFAULTS. */
 export function drawLogo(ctx, options = {}) {
   if (!ctx || typeof ctx.fillRect !== 'function' || typeof ctx.clip !== 'function') {
     throw new Error('drawLogo() requires a 2D canvas context');

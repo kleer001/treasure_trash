@@ -9,7 +9,7 @@ export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
 // or two, and only `pid` says which. `stateKey` encodes the partition as well as the codes.
 export const isMultiCell = o => o === FURNITURE;
 
-/** Every cell of the piece `pid`, in raster order. Boards are tiny; this scans the whole one. */
+/** Boards are tiny, so this scans the whole one rather than keeping an index. */
 export function pieceCells(s, pid) {
   const out = [];
   for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++)
@@ -21,7 +21,6 @@ export function pieceCells(s, pid) {
 // and like `pid`, two adjacent cart cells may be one cart or two.
 export const isCart = c => c.cart !== undefined;
 
-/** Every cell of cart `cid`, in raster order. */
 export function cartCells(s, cid) {
   const out = [];
   for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++)
@@ -79,10 +78,8 @@ export const isOccupiable = (s, x, y) =>
 
 export const canRest = (s, x, y) => isOccupiable(s, x, y) || cartAt(s, [x, y]) !== null;
 
-/** The cart a cell belongs to, or null. */
 const cartAt = (s, [x, y]) => (inGrid(s, x, y) && isCart(cell(s, x, y)) ? cell(s, x, y).cart : null);
 
-/** Returns the file, the cell past it, and what comes out — or `blame` when it cannot. */
 function intoCart(s, cid, entry, dx, dy) {
   const file = [];
   for (let p = entry; cartAt(s, p) === cid; p = [p[0] + dx, p[1] + dy]) file.push(p);
@@ -93,7 +90,6 @@ function intoCart(s, cid, entry, dx, dy) {
   return { file, beyond, out };
 }
 
-/** Apply that shove to `next`, and say so in `step`. */
 function applyIntoCart(s, next, cid, { file, beyond, out }, o, step) {
   for (let j = file.length - 1; j > 0; j--) {
     const was = cell(s, ...file[j - 1]).o;
@@ -111,7 +107,6 @@ function applyIntoCart(s, next, cid, { file, beyond, out }, o, step) {
   }
 }
 
-/** Spill test. */
 export const canPour = (s, x, y) =>
   isOccupiable(s, x, y) && !cell(s, x, y).water && !cell(s, x, y).bridge;
 
@@ -182,7 +177,6 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
   const next = cloneState(s);
   const frames = trace ? [cloneState(s)] : null;
   const steps = trace ? [] : null;
-  // Each file's load, lead-first.
   const loads = files.map(f => f.map(([x, y]) => ({ o: cell(s, x, y).o })));
   const repaint = (k, from) => files.forEach((f, i) => f.forEach((p, j) => {
     const c = cell(next, ...at(p, from)); c.o = NONE; c.cart = undefined;
@@ -394,16 +388,13 @@ export function explain(s, dir, opts = {}) {
   throw new Error(`unknown occupant ${o} at ${tx},${ty}`);
 }
 
-/** Apply a direction. Returns the next state, or null if the action is illegal. */
 export function step(s, dir) {
   const r = explain(s, dir);
   return r.ok ? r.next : null;
 }
 
-/**
- * Apply a declared action {dir, kind}. Throws if the board does not produce exactly that
- * kind, which is what makes a solution file self-checking rather than a hint.
- */
+/** Throws unless the board produces exactly the declared `kind`, which is what makes a solution
+ *  file self-checking rather than a hint. */
 export function applyAction(s, { dir, kind }) {
   const r = explain(s, dir);
   if (!r.ok) throw new Error(`illegal ${kind} ${dir}: blocked by ${r.reason}`);

@@ -98,7 +98,6 @@ function pathTo(states, key) {
   return out.reverse();
 }
 
-/** Count distinct shortest action-sequences by DP over BFS layers. */
 function countShortestPaths(states, rootKey, targets, minMoves) {
   const byDepth = [];
   for (const [k, n] of states) (byDepth[n.depth] ??= []).push(k);
@@ -116,7 +115,7 @@ function countShortestPaths(states, rootKey, targets, minMoves) {
   return [...targets].reduce((a, k) => a + (ways.get(k) ?? 0), 0);
 }
 
-/** Replay a declared solution through the engine. Throws on the first disagreement. */
+/** Throws on the first disagreement between the declared solution and the engine. */
 export function replay(start, actions) {
   let s = cloneState(start);
   const trace = [s];

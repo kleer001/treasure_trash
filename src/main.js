@@ -117,7 +117,7 @@ function startMv(prev, r){
   if(!raf) raf = requestAnimationFrame(tick);
 }
 
-/** Walk the clock; returns false once the whole action has played out. */
+/** Returns false once the whole action has played out. */
 function stepMv(){
   const seg = anim.segs[anim.si];
   const t = Math.min(1, (performance.now() - anim.t0) / seg.dur);
