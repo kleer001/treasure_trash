@@ -491,10 +491,13 @@ document.getElementById('controls').addEventListener('click',e=>{
 });
 
 // Levels are data on disk, in the same pack the verifier checks. Fail loudly.
-const res = await fetch('../levels/act1.tt');
+// Resolved against this module, not the document: on a project Pages site the page sits a
+// directory down, so a document-relative '../' climbs out of the deployment entirely.
+const asset = p => new URL(p, import.meta.url);
+const res = await fetch(asset('../levels/act1.tt'));
 if(!res.ok) throw new Error(`cannot load levels/act1.tt (${res.status}) — serve with ./run.sh`);
 LEVELS = parseLevelPack(await res.text()).levels;
-const sfx = await fetch('../sfx/win-chime.mp3');
+const sfx = await fetch(asset('../sfx/win-chime.mp3'));
 if(!sfx.ok) throw new Error(`cannot load sfx/win-chime.mp3 (${sfx.status}) — serve with ./run.sh`);
 winBytes = await sfx.arrayBuffer();
 // One square per room, five across, however many rows the pack needs. Built once; only the
