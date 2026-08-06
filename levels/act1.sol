@@ -84,3 +84,8 @@
 :solution L17
 :label  par
 :moves  uurDR!lu
+
+:solution L18
+:label  par
+:moves  ddRU!dl
+:note   Down to the exit row, shove the cart clear of the strike square, then burst the bag upward and step back onto the door.

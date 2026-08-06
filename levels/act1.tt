@@ -327,3 +327,23 @@ E$---@
 @F---
 -----
 :end
+
+:level  L18
+:name   Out of the Way
+:teach  a cart rolls until something stops it, and he follows it in
+:arm    on
+:par    6
+:traps  0
+:solves 1
+:solve  ddRU!dl
+:note   The cart is only in the way of one square, and that square is the one he has to strike from. Shove it and it does not move over politely — it runs to the wall, because a cart goes until something stops it.
+:grid
+@----
+-$---
+E----
+:end
+:cart
+-----
+-----
+-PP--
+:end

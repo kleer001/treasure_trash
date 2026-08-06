@@ -30,6 +30,7 @@ The token count is the par.
 | L15 | Two Crossings | 8 | `L!rR!uulL!r` |
 | L16 | Wet the Landing | 6 | `UruU!ll` |
 | L17 | Both Ends | 7 | `uurDR!lu` |
+| L18 | Out of the Way | 6 | `ddRU!dl` |
 
 Trap and solve counts are declared per level in `act1.tt` and verified there. Run
 `node tools/verify.mjs` for the current numbers rather than reading them here.
