@@ -65,7 +65,7 @@ test('a rolling bin stops short of the exit rather than occupying it', () => {
                           ['--E--', '--w--', '--@--', '-----', '-----']);
 });
 
-// Water holds any object and refuses only the raccoon. See src/rules.js `isOccupiable`.
+// The shared canal board for the water cases below. See src/rules.js `isOccupiable`.
 const CANAL = ['-----', '~~~~~', '-----', '-----', '-----'];
 
 test('the raccoon will not step into open water', () => {
