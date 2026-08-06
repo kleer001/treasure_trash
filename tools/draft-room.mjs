@@ -62,6 +62,43 @@ export function cartMustMove(room) {
   } catch { return true; }                 // frozen board is not even legal: it has to move
 }
 
+const wallAt = (room, x, y) => ({
+  ...room,
+  grid: room.grid.map((row, j) =>
+    (j === y ? row.slice(0, x) + '#' + row.slice(x + 1) : row)),
+});
+
+/**
+ * Fill in the floor the solve never needed, so the room comes out shaped rather than
+ * rectangular. Walls only ever remove options, so par cannot fall — what they buy is fewer
+ * alternate solutions and a smaller graph. Greedy in raster order to a fixed point.
+ *
+ * `accept` sees the walled room's draft and the unwalled one's, and says whether the wall is
+ * worth it. The default keeps par, refuses extra solutions, and will not wall away a room's
+ * last way to lose: a wall that removes the final trap is a wall that removes the lesson.
+ * Walls can only ever take traps away, so a room that arrives with none keeps none.
+ */
+export function tighten(room, accept = (d, base) =>
+  d.par === base.par && d.solves <= base.solves && d.traps >= Math.min(base.traps, 1)) {
+  let best = draft({ id: 'tighten', ...room });
+  if (!best.ok) return null;
+  const base = best;
+  let cur = room, moved = true;
+  while (moved) {
+    moved = false;
+    for (let y = 0; y < cur.grid.length; y++) for (let x = 0; x < cur.grid[y].length; x++) {
+      if (cur.grid[y][x] !== '-') continue;
+      if (cur.cart?.[y]?.[x] !== undefined && cur.cart[y][x] !== '-') continue;
+      if (cur.water?.[y]?.[x] !== undefined && cur.water[y][x] !== '-') continue;
+      const cand = wallAt(cur, x, y);
+      const d = draft({ id: 'tighten', ...cand });
+      if (!d.ok || !accept(d, base) || !cartMustMove(cand)) continue;
+      cur = cand; best = d; moved = true;
+    }
+  }
+  return { room: cur, draft: best, was: base };
+}
+
 /** A room as it goes in the pack, numbers filled from `draft`. Every block closes itself. */
 export function ttBlock(room, d) {
   const L = [`:level  ${room.id}`, `:name   ${room.name}`];
@@ -75,11 +112,19 @@ export function ttBlock(room, d) {
   return L.join('\n');
 }
 
-/** Every room of this shape: one cart, the given loose pieces, a raccoon and an exit. */
-export function* rooms({ w, h, pieces = ['$'], exitAt = null, walled = false }) {
+/**
+ * Every room of this shape: one cart, the given loose pieces, a raccoon and an exit.
+ *
+ * `plan` is a mask of strings — '#' is wall, anything else is free floor — so the outline can
+ * be anything, not just a rectangle. It sets `w`/`h` when they are not given. `walled` is the
+ * plain rectangle-with-a-border case.
+ */
+export function* rooms({ w, h, pieces = ['$'], exitAt = null, walled = false, plan = null }) {
+  if (plan) { h = plan.length; w = Math.max(...plan.map(r => r.length)); }
+  const isWall = (x, y) => (plan ? (plan[y]?.[x] ?? '#') === '#'
+    : walled && (x === 0 || y === 0 || x === w - 1 || y === h - 1));
   const inside = [];
-  const lo = walled ? 1 : 0, hiX = walled ? w - 1 : w, hiY = walled ? h - 1 : h;
-  for (let y = lo; y < hiY; y++) for (let x = lo; x < hiX; x++) inside.push([x, y]);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (!isWall(x, y)) inside.push([x, y]);
   const key = ([x, y]) => `${x},${y}`;
   const at = new Set(inside.map(key));
   const carts = [];
@@ -106,8 +151,7 @@ export function* rooms({ w, h, pieces = ['$'], exitAt = null, walled = false }) 
         };
         for (const arrangement of place(pieces, [])) {
           const grid = Array.from({ length: h }, (_, y) =>
-            Array.from({ length: w }, (_, x) =>
-              (walled && (x === 0 || y === 0 || x === w - 1 || y === h - 1)) ? '#' : '-'));
+            Array.from({ length: w }, (_, x) => (isWall(x, y) ? '#' : '-')));
           const mask = grid.map(r => r.map(() => '-'));
           grid[ex[1]][ex[0]] = 'E';
           grid[rac[1]][rac[0]] = '@';
