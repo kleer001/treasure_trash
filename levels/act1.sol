@@ -89,3 +89,63 @@
 :label  par
 :moves  ddRU!dl
 :note   Down to the exit row, shove the cart clear of the strike square, then burst the bag upward and step back onto the door.
+
+:solution L19
+:label  par
+:moves  LdllluRR!l
+:note   Shove the cart across the row: it swallows the spill and the bag both, and parks against the door. Walk round, shove it back, and it sets the bag down again and carries the spill clear of the blast.
+
+:solution L20
+:label  par
+:moves  DldRR!l
+:note   Shove the cart down onto the bag, walk round to its left, then shove it across: the bag comes out beside the door and the spill goes with the cart.
+
+:solution L21
+:label  par
+:moves  LdlUrrruL!r
+:note   Shove the cart onto the spill, walk under it and shove it up to set the spill down clear of the door, then go round and burst the bag from the door.
+
+:solution L22
+:label  par
+:moves  uRD!ul
+:note   Step onto the door, shove the can into the basket, and the cell he needs to strike from is free.
+
+:solution L23
+:label  par
+:moves  uRRD!ul
+:note   Step onto the door, shove the bin into the basket for free, roll the basket clear, and the bin lands with its trash behind it.
+
+:solution L24
+:label  par
+:moves  uRRD!ul
+:note   The bin's room with a jug in its place, and the bin's solution solves it.
+
+:solution L25
+:label  par
+:moves  rRU!d
+:note   Step onto the door, shove the cart, stay put because the can lands in the way, and burst the bag upward from where you are standing.
+
+:solution L26
+:label  par
+:moves  ddlUruuLD!uru
+:note   Down and round to get under the near cart, shove it up into the far one, then work the bag back out and burst it on the way to the door.
+
+:solution L27
+:label  par
+:moves  LullDR!lu
+:note   Shove the cart over the can, walk round to the bag it dropped, and burst it back toward the door.
+
+:solution L28
+:label  par
+:moves  ULlullDR!lu
+:note   Lift the bin down a row with the cart, roll it along that row, then burst the bag it leaves behind.
+
+:solution L29
+:label  par
+:moves  RUddrrUruuLrdL!r
+:note   Shove the couch up out of the row, then work round and drive the cart into it — the couch stops the cart on the door row, with the bag set down beside the door.
+
+:solution L30
+:label  par
+:moves  UdlluuRD!ul
+:note   Put the jug in the basket, walk the long way round to the door side of it, and shove the basket off — standing where you do, the jug cannot be put down, so it goes with it.

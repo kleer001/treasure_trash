@@ -347,3 +347,239 @@ E----
 -----
 -PP--
 :end
+
+:level  L19
+:name   Nothing Else Moves It
+:teach  spilled trash — no shove will touch it, and a cart takes in whatever it rolls over
+:par    9
+:traps  1
+:solves 1
+:solve  LdllluRR!l
+:note   The bag is one square from the door and he still cannot burst it: the spill next to it stands in the blast. The cart is the only thing on the board that will pick that spill up.
+:grid
+-----
+E$x-@
+-----
+:end
+:cart
+---P-
+---P-
+-----
+:end
+
+:level  L20
+:name   Out the Back
+:teach  a load rides in the basket until the next shove puts it out the back
+:par    6
+:traps  2
+:solves 1
+:solve  DldRR!l
+:note   The bag sits in the corner and the spill stands in its blast. One shove down takes the bag aboard; one shove across sets it down by the door and carries the spill off the same trip.
+:grid
+-@###
+---##
+E-x--
+#$---
+:end
+:cart
+-----
+-P---
+-P---
+-----
+:end
+
+:level  L21
+:name   Still in the Basket
+:teach  the exit stays dark while the cart is carrying rubbish
+:par    10
+:traps  1
+:solves 1
+:solve  LdlUrrruL!r
+:note   The first shove puts the spill in the basket and it stays there while he walks. Burst the bag, stand on the door with the spill still aboard, and nothing happens: set it down first.
+:grid
+----#
+---$E
+x--@-
+#--##
+:end
+:cart
+-----
+-----
+-PP--
+-----
+:end
+
+:level  L22
+:name   Load It Yourself
+:teach  a cart takes a shove from outside — a piece can be put in rather than rolled over
+:par    5
+:traps  0
+:solves 1
+:solve  uRD!ul
+:note   He has to stand where the can stands, and the door is behind him so the can cannot go that way. It goes the only way left, and the basket is what makes that a legal shove.
+:grid
+Ec--#
+@$-##
+---##
+:end
+:cart
+--PP-
+-----
+-----
+:end
+
+:level  L23
+:name   Bin in the Basket
+:teach  a bin costs nothing to put in the basket; the cost arrives where the cart sets it down
+:par    6
+:traps  4
+:solves 1
+:solve  uRRD!ul
+:note   The bin stands on the square he has to strike from, and the door is behind him, so it goes right. Into the basket it goes for free — and the trash turns up later, on the cell the cart backs out of.
+:grid
+Eb---
+@$---
+----#
+:end
+:cart
+--P--
+--P--
+-----
+:end
+
+:level  L24
+:name   Jug in the Basket
+:teach  the same rule with a jug — free going in, and what it sheds lands where the cart puts it down
+:par    6
+:traps  4
+:solves 1
+:solve  uRRD!ul
+:note   Put a jug where the bin was and nothing changes: the same six moves, the same free shove into the basket, the same bill arriving on the cell the cart backs out of. What lands there is water instead of trash.
+:grid
+Ej---
+@$---
+----#
+:end
+:cart
+--P--
+--P--
+-----
+:end
+
+:level  L25
+:name   No Room to Follow
+:teach  he steps in behind a cart only when the square it left is empty
+:par    4
+:traps  0
+:solves 1
+:solve  rRU!d
+:note   The can the cart picks up comes straight back out onto the square he would have stepped into, so he keeps the door — and the door is the only square the bag can be burst from.
+:grid
+#---#
+#-$--
+#@E-c
+:end
+:cart
+-----
+---P-
+---P-
+:end
+
+:level  L26
+:name   Two Carts
+:teach  a cart stops dead against another cart, and sets its load down where it stopped
+:par    12
+:traps  3
+:solves 1
+:solve  ddlUruuLD!uru
+:note   Shove the near cart up and it does not run to the wall — the far one is in the way, so it stops a square short, and the bag it picked up on the way comes back out behind it, one square nearer than it was.
+:grid
+#--E#
+--$@#
+----#
+#---#
+:end
+:cart
+-PP--
+-----
+-QQ--
+-----
+:end
+
+:level  L27
+:name   Can in the Basket
+:teach  a full can keeps its bag while it rides — and sheds it where the cart sets it down
+:par    8
+:traps  2
+:solves 1
+:solve  LullDR!lu
+:note   The cart runs over the can on its way to the wall and carries it a square. Setting it down is what pops the bag out, so the square the cart stopped on is the square he has to work from.
+:grid
+-E--#
+-C-@#
+----#
+:end
+:cart
+-----
+--P--
+--P--
+:end
+
+:level  L28
+:name   Carried, Not Rolled
+:teach  the basket is the only way to shift a wheelie bin without rolling it
+:par    10
+:traps  5
+:solves 1
+:solve  ULlullDR!lu
+:note   Roll the bin from where it stands and it runs the top row, where its bag is no use to him. So the cart takes it down a row first, and only then is it rolled.
+:grid
+E--W--
+------
+---#@-
+:end
+:cart
+------
+---PP-
+------
+:end
+
+:level  L29
+:name   The Couch Stops It
+:teach  a couch stops a cart dead, so where the couch is left decides where the cart parks
+:par    15
+:traps  17
+:solves 1
+:solve  RUddrrUruuLrdL!r
+:note   The couch is in the cart's way and in his, so it moves first — and where he leaves it is the wall the cart will come to rest against. Park it right and the cart brings the bag down to the door row on its way.
+:grid
+-----
+-FF$-
+@---E
+-----
+:end
+:cart
+-----
+-----
+-PP--
+-----
+:end
+
+:level  L30
+:name   He Stops the Pour
+:teach  a container will not empty onto the square he is standing on — it rides on instead
+:par    10
+:traps  1
+:solves 1
+:solve  UdlluuRD!ul
+:note   The jug goes into the basket for nothing. Shove the basket away and it should be set down behind and tipped — but he is standing on the square the water would land on, so it is not set down at all. It rides on, and the floor he needs stays dry.
+:grid
+E----
+-$j##
+--@##
+:end
+:cart
+-PP--
+-----
+-----
+:end

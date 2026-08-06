@@ -31,6 +31,18 @@ The token count is the par.
 | L16 | Wet the Landing | 6 | `UruU!ll` |
 | L17 | Both Ends | 7 | `uurDR!lu` |
 | L18 | Out of the Way | 6 | `ddRU!dl` |
+| L19 | Nothing Else Moves It | 9 | `LdllluRR!l` |
+| L20 | Out the Back | 6 | `DldRR!l` |
+| L21 | Still in the Basket | 10 | `LdlUrrruL!r` |
+| L22 | Load It Yourself | 5 | `uRD!ul` |
+| L23 | Bin in the Basket | 6 | `uRRD!ul` |
+| L24 | Jug in the Basket | 6 | `uRRD!ul` |
+| L25 | No Room to Follow | 4 | `rRU!d` |
+| L26 | Two Carts | 12 | `ddlUruuLD!uru` |
+| L27 | Can in the Basket | 8 | `LullDR!lu` |
+| L28 | Carried, Not Rolled | 10 | `ULlullDR!lu` |
+| L29 | The Couch Stops It | 15 | `RUddrrUruuLrdL!r` |
+| L30 | He Stops the Pour | 10 | `UdlluuRD!ul` |
 
 Trap and solve counts are declared per level in `act1.tt` and verified there. Run
 `node tools/verify.mjs` for the current numbers rather than reading them here.
