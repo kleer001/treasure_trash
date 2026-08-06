@@ -1,7 +1,7 @@
 # CLEAN PROSE
 
-Governs every `.md` here, every comment in `src/` and `tools/`, and every commit message.
-A paragraph and a `//` line are the same thing at different sizes.
+Governs every `.md` here, every comment in `src/`, `tools/`, `tests/` and the pages, and every
+commit message. A paragraph and a `//` line are the same thing at different sizes.
 
 ## The rule
 
@@ -42,8 +42,13 @@ and goes; if nothing is left standing, put it back.
 
 ## Exceptions
 
-- **`levels.md`'s `:solve` strings** — `verify.mjs` asserts each one appears there verbatim.
-  Checked data, not prose; it cannot rot without turning CI red.
-- **`GAME-SHEET.md`** — the player-facing pitch, governed by `RELEASE-CHECKLIST.md`.
+Prose is safe when something checks it, when its reader is not holding the pencil, or when it
+declares itself non-binding.
 
-Prose is safe when something checks it, or when its reader is not holding the pencil.
+- **checked** — `levels.md`'s `:solve` strings, which `verify.mjs` asserts appear verbatim; a
+  comment whose assertions sit right below it
+- **not their pencil** — `GAME-SHEET.md`, `publishing/`
+- **self-declared stale** — `SPEC-SHEET.md`, which opens by saying so
+
+An exception is a claim about the file, not about the sentence. In a file with no exception, a
+rule statement is still a rule statement.
