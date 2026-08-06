@@ -53,8 +53,8 @@ That rot is not neutral. It costs four ways:
 4. **It lies to the agent.** Most of the reading here is done by a model, and a model does not
    discount a comment against the code the way you do — it takes the sentence as ground truth and
    reasons from it. Misleading text inside code costs roughly a quarter of code-reasoning accuracy
-   ([CodeCrash](https://openreview.net/forum?id=CAB0EjD9EK)), and thinking it through first
-   recovers only about half of that. Absent comments cost far less. An agent lives in the code; it
+   ([CodeCrash](https://openreview.net/forum?id=CAB0EjD9EK)), and thinking it through first wins
+   back under half of that. Absent comments cost far less. An agent lives in the code; it
    only needs telling what the code cannot say.
 
 The trigger for writing this down: a docs pass that "corrected" a stale claim about how many motion
