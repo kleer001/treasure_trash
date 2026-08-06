@@ -87,10 +87,12 @@ function intoCart(s, cid, entry, dx, dy) {
   const beyond = [last[0] + dx, last[1] + dy];
   const out = cell(s, ...last).o;
   if (out !== NONE && !isOccupiable(s, ...beyond)) return { blame: [beyond] };
-  return { file, beyond, out };
+  if (out !== NONE && !tipFits(s, out, beyond, dx, dy))
+    return { blame: [tipsInto(out, beyond, dx, dy)] };
+  return { file, beyond, out, dx, dy };
 }
 
-function applyIntoCart(s, next, cid, { file, beyond, out }, o, step) {
+function applyIntoCart(s, next, cid, { file, beyond, out, dx, dy }, o, step) {
   for (let j = file.length - 1; j > 0; j--) {
     const was = cell(s, ...file[j - 1]).o;
     cell(next, ...file[j]).o = was;
@@ -102,8 +104,10 @@ function applyIntoCart(s, next, cid, { file, beyond, out }, o, step) {
     if (step) step.moved.push({
       o: out, from: file[file.length - 1], to: beyond, parent: null,
       effect: effectOf(cell(next, ...beyond), out),
+      ...(landsAs(out) !== out && { becomes: landsAs(out) }),
     });
     drop(cell(next, ...beyond), out);
+    tipOut(next, out, beyond, dx, dy, step);
   }
 }
 
@@ -145,6 +149,51 @@ const drop = (c, o) => { if (o === TRASH) layTrash(c); else c.o = o; };
 const mkStep = (over = {}) => ({ moved: [], spawned: [], gone: [], piece: null, impact: false, ...over });
 const effectOf = (c, o) => (o === TRASH && c.water ? 'fills' : 'rest');
 
+// --- tipping -------------------------------------------------------------------------------
+// A container comes to rest in three places — the cell a shove slides it to, the cell a cart
+// ejects it onto, and the cell it is displaced to when something else is shoved into the cart
+// behind it. All three go through `tipFits` and `tipOut`, so no caller can disagree with
+// another about what a container owes on landing.
+
+const sheds = o => {
+  const t = SLIDES[o];
+  return t && (t.drops !== undefined || t.pours === true) ? t : null;
+};
+
+const tipCell = ([x, y], dx, dy) => [x + dx, y + dy];
+
+/** `at` is where the container lands, (dx,dy) the direction it was travelling. */
+export const tipFits = (s, o, at, dx, dy) => {
+  const t = sheds(o);
+  if (!t) return true;
+  const [x, y] = tipCell(at, dx, dy);
+  // He is the one occupant `isOccupiable` cannot see, and he is in the way: standing on the
+  // cell, he stops the container emptying onto it. It keeps its slot until he moves.
+  if (s.rac.x === x && s.rac.y === y) return false;
+  return (t.pours ? canPour : isOccupiable)(s, x, y);
+};
+
+export const tipsInto = (o, at, dx, dy) => (sheds(o) ? tipCell(at, dx, dy) : null);
+
+/** The one place a container sheds. `at` already holds it; this is the bill for landing. */
+function tipOut(s, o, at, dx, dy, step) {
+  const t = sheds(o);
+  if (!t) return;
+  const c = tipCell(at, dx, dy);
+  const target = cell(s, ...c);
+  if (t.pours) {
+    if (step) step.spawned.push({ o: NONE, at: c, from: at, effect: 'pours' });
+    target.water = true;
+  } else {
+    if (step) step.spawned.push({ o: t.drops, at: c, from: at, effect: effectOf(target, t.drops) });
+    drop(target, t.drops);
+  }
+  if (t.slides !== o) cell(s, ...at).o = t.slides;
+}
+
+/** What a container reads as once it has landed and shed. */
+const landsAs = o => (sheds(o) ? SLIDES[o].slides : o);
+
 const cartCanEnter = (s, x, y) => {
   if (!inGrid(s, x, y)) return false;
   const c = cell(s, x, y);
@@ -169,10 +218,17 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
     });
   const aheadAt = k => files.map(f => at(f[0], k + 1));
 
-  if (!aheadAt(0).every(([x, y]) => cartCanEnter(s, x, y))) {
-    const blame = aheadAt(0).filter(([x, y]) => !cartCanEnter(s, x, y));
-    return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
-  }
+  // Two ways the first beat can be refused: nowhere to roll, or a load that would be pushed
+  // out by the swallow with nowhere to shed. Past the first beat the same condition just
+  // stops the cart, which is an ordinary way for a roll to end rather than a refusal.
+  const first = aheadAt(0);
+  const blame = first.filter(([x, y]) => !cartCanEnter(s, x, y));
+  if (!blame.length) files.forEach((f, i) => {
+    const back = f[f.length - 1], out = cell(s, ...back).o;
+    if (out === NONE || cell(s, ...first[i]).o === NONE) return;
+    if (!tipFits(s, out, back, -dx, -dy)) blame.push(tipsInto(out, back, -dx, -dy));
+  });
+  if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
 
   const next = cloneState(s);
   const frames = trace ? [cloneState(s)] : null;
@@ -186,8 +242,17 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
   let n = 0, lastRoll = -1;
   for (;;) {
     const ahead = aheadAt(n);
-    const rolling = ahead.every(([x, y]) => cartCanEnter(next, x, y));
-    const taken = rolling ? ahead.map(([x, y]) => cell(next, x, y).o) : ahead.map(() => NONE);
+    // The cell a swallow pushes the old load back onto is one the cart is vacating this beat,
+    // so only the cell that load would shed into has to be free.
+    const canShed = i => {
+      const load = loads[i], out = load[load.length - 1];
+      if (out.o === NONE) return true;
+      return tipFits(next, out.o, at(files[i][load.length - 1], n), -dx, -dy);
+    };
+    const clear = ahead.every(([x, y]) => cartCanEnter(next, x, y));
+    const incoming = clear ? ahead.map(([x, y]) => cell(next, x, y).o) : ahead.map(() => NONE);
+    const rolling = clear && files.every((f, i) => incoming[i] === NONE || canShed(i));
+    const taken = rolling ? incoming : ahead.map(() => NONE);
     const end = rolling ? n + 1 : n;              // where the cart stands once this step is over
     const step = trace ? mkStep(rolling ? { piece: { kind: 'cart', ref: cid, dx, dy } } : {}) : null;
     const spill = [];
@@ -196,7 +261,8 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
       if (rolling && taken[i] === NONE) return;
       const load = loads[i], depth = load.length, out = load[depth - 1];
       const behind = at(f[depth - 1], end - 1);
-      if (!rolling && out.o !== NONE && !isOccupiable(next, ...behind)) return;
+      if (!rolling && out.o !== NONE
+          && (!isOccupiable(next, ...behind) || !tipFits(next, out.o, behind, -dx, -dy))) return;
 
       for (let j = depth - 1; j > 0; j--) {
         const it = load[j] = load[j - 1];
@@ -210,6 +276,7 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
         if (step) step.moved.push({
           o: out.o, from: at(f[depth - 1], n), to: behind, parent: null,
           effect: effectOf(cell(next, ...behind), out.o),
+          ...(landsAs(out.o) !== out.o && { becomes: landsAs(out.o) }),
         });
         spill.push([behind, out.o]);
       }
@@ -217,7 +284,10 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
 
     repaint(end, n);
     n = end;
-    for (const [[x, y], o] of spill) drop(cell(next, x, y), o);
+    for (const [[x, y], o] of spill) {
+      drop(cell(next, x, y), o);
+      tipOut(next, o, [x, y], -dx, -dy, step);
+    }
     if (trace && (rolling || step.moved.length)) {
       frames.push(cloneState(next)); steps.push(step);
       if (rolling) lastRoll = steps.length - 1;
@@ -310,34 +380,33 @@ export function explain(s, dir, opts = {}) {
   // One shape of shove for everything in SLIDES, so the clearance test lives in one place.
   if (SLIDES[o]) {
     const { slides, drops, pours } = SLIDES[o];
-    const throws = drops !== undefined || pours === true;
     const c1 = [tx + dx, ty + dy], c2 = [tx + 2 * dx, ty + 2 * dy];
-    const fits = pours ? canPour : isOccupiable;
+    const into = cartAt(s, c1);
+    const tips = into === null && (drops !== undefined || pours === true);
     const blame = [];
     if (!canRest(s, c1[0], c1[1])) blame.push(c1);
-    if (throws && !fits(s, c2[0], c2[1])) blame.push(c2);
-    const into = cartAt(s, c1);
+    if (tips && !tipFits(s, o, c1, dx, dy)) blame.push(c2);
     let shove = null;
     if (into !== null && !blame.length) {
       shove = intoCart(s, into, c1, dx, dy);
       if (shove.blame) blame.push(...shove.blame);
-      else if (throws && shove.out !== NONE) blame.push(c2);
     }
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
+    const lands = tips ? slides : o;
     const next = cloneState(s);
     // The load leaves the piece, so it flies from the piece's own cell rather than appearing.
     const step = mkStep({ moved: [{ o, from: [tx, ty], to: c1,
-      ...(slides !== o && { becomes: slides }), ...(into !== null && { parent: into }) }] });
-    if (pours) {
+      ...(lands !== o && { becomes: lands }), ...(into !== null && { parent: into }) }] });
+    if (tips && pours) {
       step.spawned.push({ o: NONE, at: c2, from: [tx, ty], effect: 'pours' });
       cell(next, c2[0], c2[1]).water = true;
-    } else if (drops !== undefined) {
+    } else if (tips) {
       step.spawned.push({ o: drops, at: c2, from: [tx, ty],
         effect: effectOf(cell(next, c2[0], c2[1]), drops) });
       drop(cell(next, c2[0], c2[1]), drops);
     }
-    if (shove) applyIntoCart(s, next, into, shove, slides, step);
-    else cell(next, c1[0], c1[1]).o = slides;
+    if (shove) applyIntoCart(s, next, into, shove, lands, step);
+    else cell(next, c1[0], c1[1]).o = lands;
     cell(next, tx, ty).o = NONE;
     next.rac = { x: tx, y: ty };
     return done(next, PUSH, step);

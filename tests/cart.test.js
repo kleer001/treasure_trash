@@ -305,24 +305,53 @@ test('a full cart with nowhere to put the overflow refuses the shove', () => {
   assert.equal(refused(['@ccc#', '----E'], ['--PP-', '-----'], 'r'), 'canRoom');
 });
 
-test('every shovable piece can go in, and what it ejects still cannot', () => {
-  for (const g of ['C', 'S', 'b']) {
-    // the piece lands in the cart's near slot, its load flies past onto open floor
-    // a cart standing broadside, so the piece lands in it and its load flies past onto floor
+test('every shovable piece can go in, and rides in whatever state it went in as', () => {
+  for (const g of ['C', 'S', 'b', 'j']) {
     const next = act([`@${g}---E`, '------'], ['--P---', '--P---'], 'r');
     assert.equal(cell(next, 2, 0).cart !== undefined, true, `${g} should ride`);
-    assert.equal(cell(next, 2, 0).o !== 0, true, `${g} should actually be in the slot`);
+    assert.deepEqual(toGrid(next), [`-@${g}--E`, '------'], `${g} should be aboard unchanged`);
+    assert.equal(toWater(next), null, `${g} should not have wet anything`);
   }
-  // ...but a load thrown at a cart bounces off it: the bin's trash has only the far slot to
-  // land in, and a cart catches what is pushed into it, not what is dropped on it.
-  assert.equal(refused(['@b---E'], ['--PP--'], 'r'), 'canRoom');
-  // and a piece that is throwing something cannot displace the cart's load as well — both
-  // would land in the cell past the cart
-  assert.equal(refused(['@bc--E', '------'], ['--P---', '--P---'], 'r'), 'canRoom');
 });
 
-test('a jug shoved into a cart still will not pour into one', () => {
-  assert.equal(refused(['@j---E'], ['--PP--'], 'r'), 'canRoom');
+test('a container shoved into a basket needs no room past the basket', () => {
+  // Nothing lands beyond it, so the far slot being cart, wall or occupied is not its business.
+  assert.deepEqual(toGrid(act(['@b---E'], ['--PP--'], 'r')), ['-@b--E']);
+  assert.deepEqual(toGrid(act(['@j---E'], ['--PP--'], 'r')), ['-@j--E']);
+  assert.deepEqual(toGrid(act(['@b--#', '----E'], ['--PP-', '-----'], 'r')), ['-@b-#', '----E']);
+});
+
+test('a container displaced out the far side of a basket sheds where it lands', () => {
+  const next = act(['@bb--E', '------'], ['--P---', '--P---'], 'r');
+  assert.deepEqual(toGrid(next), ['-@bbxE', '------'],
+    'the shoved bin rides at cell 2; the one it displaced landed at cell 3 and shed at cell 4');
+  assert.equal(cell(next, 2, 0).cart !== undefined, true, 'the new one is riding');
+  assert.equal(cell(next, 3, 0).cart, undefined, 'the old one is on the floor');
+});
+
+test('a cart sets its load down on the floor, and the landing is where it sheds', () => {
+  const next = act(['E-b-@', '-----'], ['---P-', '---P-'], 'l');
+  assert.deepEqual(toGrid(next), ['E-bx@', '-----'],
+    'the bin went in at cell 2, came back out there, and shed into the cell the cart left');
+  assert.equal(cell(next, 2, 0).cart, undefined, 'it is on the floor, not aboard');
+});
+
+test('he stops a container emptying onto the square he is standing on', () => {
+  // Every container the cart could set down here would shed backwards onto him, so none of
+  // them is set down at all — each keeps its slot, and he follows the cart in.
+  for (const g of ['j', 'C', 'b', 'S']) {
+    const next = act([`-${g}#--`, '--E$-', '-@---', '---##'],
+                     ['-----', 'PP---', '-----', '-----'], 'u');
+    assert.equal(cell(next, 1, 0).cart !== undefined, true, `${g} should still be aboard`);
+    assert.equal(cell(next, 1, 0).o !== 0, true, `${g} should still be in the slot`);
+    assert.equal(cell(next, next.rac.x, next.rac.y).o, 0, `${g} should not shed onto him`);
+    assert.equal(cell(next, next.rac.x, next.rac.y).water ?? false, false, `${g} should not wet him`);
+    assert.deepEqual(next.rac, { x: 1, y: 1 }, `${g}: nothing was set down, so he follows in`);
+  }
+});
+
+test('a cart will not swallow when the load it would push out has nowhere to shed', () => {
+  assert.equal(refused(['E-cb#', '----@'], ['---P-', '---P-'], 'l'), 'canRoom');
 });
 
 test('a fan still cannot throw trash into a cart', () => {
