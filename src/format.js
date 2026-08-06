@@ -80,7 +80,6 @@ function labelBlobs(cells, glyphs, id, field, what, wrongSize) {
   }
 }
 
-/** Raster-order piece ids → the pool letters the writer spells them with. */
 function poolLetters(s, field, pool, what) {
   const letters = new Map();
   for (const row of s.cells) for (const c of row) {
@@ -211,7 +210,7 @@ export function formatLevelPack(pack) {
   return out.join('\n').replace(/\n+$/, '\n');
 }
 
-/** Build a runnable state from a parsed level. Validates structure at the boundary. */
+/** Validates structure at the boundary, so everything downstream can trust the result. */
 export function toState(level) {
   const rows = level.grid.length;
   const cols = Math.max(...level.grid.map(r => r.length));
@@ -289,7 +288,7 @@ export function toState(level) {
   return { cols, rows, cells, rac };
 }
 
-/** Serialise a live state back to occupant glyphs — used for traces and round-trip checks. */
+/** Used for traces and for the round-trip checks in `verify.mjs`. */
 export function toGrid(s) {
   const letters = poolLetters(s, 'pid', FURN_POOL, 'furniture pieces');
   return s.cells.map((row, y) =>
@@ -305,7 +304,7 @@ export function toCart(s) {
     row.map(c => (c.cart === undefined ? '-' : letters.get(c.cart))).join(''));
 }
 
-/** The matching terrain mask, or null if the board never had a canal at all. */
+/** Null only when the board never had a canal — a fully filled one still gets a mask. */
 export function toWater(s) {
   if (!s.cells.some(row => row.some(c => c.water || c.bridge))) return null;
   return s.cells.map(row =>
@@ -314,9 +313,9 @@ export function toWater(s) {
 
 // --- solutions --------------------------------------------------------------
 // LURD, extended for a third action class:
-//   lowercase l u r d = move        (step onto empty floor)
-//   uppercase L U R D = push        (shove a can)
-//   uppercase + '!'   = pounce-tear (burst a bag — the irreversible one)
+//   lowercase l u r d = move
+//   uppercase L U R D = push
+//   uppercase + '!'   = pounce-tear
 
 export function parseLurd(str, where = 'solution') {
   const actions = [];

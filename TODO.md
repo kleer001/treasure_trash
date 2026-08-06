@@ -53,9 +53,9 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   out of walking; L11 and L13 have zero coupling between their bags; L11 stays playable
   for 34 moves after it is lost. The bank cannot supply replacements — 0 of its 226 rooms
   pass the same filters. The generator that produced them is not in the repo.
-- **L15 lost its question.** It was the pack's only room that asked *which bag first*; a
-  rules change took that away, and its order metric went 1/2 → 2/2. Re-picking it needs a
-  sweep against the current rules.
+- **L15 lost its question.** It was the pack's only room that asked *which bag first*, and a
+  rules change took that away. Re-picking it needs a sweep against the current rules; run
+  `tools/metrics.mjs` for where its order metric stands now.
 - **Passive fan preview can be ambiguous.** With arming off and the raccoon between two
   bags (L3), both previews light and the player can't tell them apart. Options: preview only
   the last-moved direction, or tint the two differently.
@@ -65,21 +65,12 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   drafts rooms against the verifier, and what the verifier actually requires are all in
   [`BREADCRUMB.md`](./BREADCRUMB.md). Play the bench before designing more; the bench, not this
   file, is where the behavior is legible.
-- **The raccoon's landing is one rule now.** Every push advances him into the cell he shoved,
-  if that cell is clear once the shove resolves. Only two things deny him: a one-cell wheelie
-  roll, whose bag lands on the bin's own start cell, and a cart whose unload took the cell it
-  vacated. Reconciling this moved L6 (11 → 12) and L13 (25 → 23) and re-routed L10–L12.
-- **A cart against a wall is confined to that line.** Worth knowing when placing one: a
-  room that wants it parked reachable has to leave a lane behind it.
-- **A cart carries what it swallows.** A shove is one nudge and a newcomer enters at the lead
-  slot, so anything picked up mid-roll finishes the shove aboard and needs a second shove to
-  come down. That is the piece's point — it hauls — but it means a room that pins a loaded
-  cart in a dead end keeps what is in it. Shoving along the wall line re-files the cart
-  broadside, where every file is one slot deep and sheds at once; a room with no such lane has
-  to not want the cargo back.
-- **The bag-on-can stack has no room.** It holds two bags and both pay the adjacency tax,
-  so every solvable room built around it comes out at par 20 with 5–10 optimal lines and
-  300+ soft-locks. That is an expert-act piece, not an introduction.
+- **Leave a lane behind a cart you want parked reachable**, and check it on the bench before
+  the room goes in.
+- **A room that pins a loaded cart in a dead end keeps what is in it.** Either give it a lane
+  to shed along, or design the room not to want the cargo back.
+- **The bag-on-can stack has no room.** Every solvable room built around it came out long,
+  with many optimal lines and heavy soft-locking. An expert-act piece, not an introduction.
 
 ## How to run / verify (local)
 ```

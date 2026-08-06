@@ -1,7 +1,3 @@
-// The shopping cart: a rigid two-cell piece that rolls, and whose two cells are cargo slots.
-// A file is one slot deep broadside and two deep end-on, which is why the same cart behaves
-// differently along its two axes.
-
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { explain, isWon, bagsLeft, trashHeld, stateKey, cell } from '../src/rules.js';

@@ -91,7 +91,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
     },
 
     // The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
-    // "safe condition" coding (ISO 7010 E002). Lit = the alley is finished; unlit = work left.
+    // "safe condition" coding (ISO 7010 E002). The caller decides whether it is `lit`.
     // `dir` points at the board edge he is actually leaving by — see `exitArrowDir`.
     exit(x, y, lit, dir = [0, -1]) {
       const [dx, dy] = dir;

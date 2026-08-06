@@ -41,8 +41,7 @@ export function draft(room) {
 
   const bags = bagsLeft(s);
   if (a.silentTraps.length) no(`a plain move can lose the room (${a.silentTraps[0].lurd})`);
-  // The one design rule a room can fail: in a room with a bag the exit has to be a constraint
-  // and not just a destination. See verify.mjs.
+  // The one design rule a room can fail — see verify.mjs.
   if (bags > 0 && a.exitRefusals === 0) no('the exit forbids no action — it is only a destination');
 
   Object.assign(out, { par: a.minMoves, solve: a.shortestLurd, solves: a.shortestCount,
@@ -51,9 +50,8 @@ export function draft(room) {
 }
 
 /**
- * Must the cart actually be SHOVED? Freeze it — turn its cells into wall — and see whether the
- * room still solves. If it does, the cart is scenery the player walks around: it may lengthen
- * the route, but the room teaches nothing about the piece.
+ * Must the cart actually be SHOVED? False means it is scenery the player walks around: it may
+ * lengthen the route, but the room teaches nothing about the piece.
  */
 export function cartMustMove(room) {
   if (!room.cart) return null;

@@ -39,9 +39,8 @@ const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"
   [WHEELIE_EMPTY]:"an empty wheelie bin", [JUG]:"the water jug", [FURNITURE]:"the couch" };
 function whyText(b){
   const base = WHY[b.reason];
-  // 'water' covers three different noes now that the canal takes objects: he won't wade in,
-  // he won't wade in AFTER something, and the jug won't pour on anything but dry ground.
-  // Which one it is depends on where the blame landed and what is sitting there.
+  // One reason code, several different noes: which one it is depends on where the blame
+  // landed and what is sitting there.
   if(b.reason === 'water'){
     const [bx,by] = b.cells[0] ?? [];
     if(bx === undefined || !inGrid(state,bx,by)) return base;
@@ -118,7 +117,7 @@ function startMv(prev, r){
   if(!raf) raf = requestAnimationFrame(tick);
 }
 
-/** Walk the clock; returns false once the whole action has played out. */
+/** Returns false once the whole action has played out. */
 function stepMv(){
   const seg = anim.segs[anim.si];
   const t = Math.min(1, (performance.now() - anim.t0) / seg.dur);
@@ -323,8 +322,8 @@ function render(){
   // from the board the animation is currently on, so a canal fills as the trash lands in it.
   for(let y=0;y<b.rows;y++) for(let x=0;x<b.cols;x++){
     const c=cell(b,x,y); if(c.wall) continue;
-    // A filled cell is floor now — things rest on it, he walks it — but it keeps the canal's
-    // dark rim so you can still see where the water was and what it cost to cross.
+    // A filled cell keeps the canal's dark rim, so you can still see where the water was and
+    // what it cost to cross.
     if(c.water)       SP.water(x,y,false);
     else if(c.bridge) SP.water(x,y,true,hash(x,y));
     else              SP.floor(x,y);
@@ -378,8 +377,7 @@ function render(){
   if(armed){
     const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[armed];
     const ax=s.rac.x+dx, ay=s.rac.y+dy, o=cell(s,ax,ay).o;
-    // For a push, show where the can lands (and, for a full can, where its bag lands) —
-    // the push is as permanent as the tear, so it gets the same look-before-you-commit.
+    // A push is as permanent as a tear, so it gets the same look-before-you-commit.
     if(o===CANE||o===CANF){
       drawLanding(ax+dx, ay+dy);
       if(o===CANF) drawLanding(ax+2*dx, ay+2*dy);

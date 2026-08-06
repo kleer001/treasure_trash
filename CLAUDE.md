@@ -8,8 +8,8 @@ An untimed, single-raccoon, Sokoban-family block-pusher.
 
 `src/rules.js` is the engine of record — the game, the solver and the tests all import it,
 and `tools/verify.mjs` proves every claim a level file makes against that same module.
-**It is also the only description of what the pieces do.** No doc restates the rules; a doc
-that did would be wrong within the week. `levels.md` indexes the shipped rooms; `TODO.md`
+**It is also the only description of what the pieces do.** No doc and no comment restates the
+rules; either would be wrong within the week. `levels.md` indexes the shipped rooms; `TODO.md`
 says where the work is.
 
 The core mechanic is built and playable: `./run.sh`, then the level picker. Missing is everything
@@ -42,9 +42,10 @@ around it — art, audio, progression, and the solvability indicator.
 ## Changing the design
 
 **A prototype, and the rules are in flux. So prose does not state them** — see
-[`CLEAN_PROSE.md`](./CLEAN_PROSE.md), which is the rule and the reasoning. In one line: if a
-sentence could become false when someone edits `rules.js`, delete it and point at the code.
-Don't sync the docs to a rules change; if there is something to sync, that is the bug.
+[`CLEAN_PROSE.md`](./CLEAN_PROSE.md), which is the rule and the reasoning. It governs docs,
+comments and commit messages alike. In two lines: delete a sentence that could become false when
+someone edits the code it describes, and delete one that says what the code already says. Don't
+sync prose to a rules change; if there is something to sync, that is the bug.
 
 When a new piece needs a new occupant code, a new glyph or a new lane in `stateKey`, add it.
 The engine is meant to grow.
@@ -65,6 +66,8 @@ These govern how code is written. They are not design arguments.
 - Validate at boundaries; trust internal functions; fail loudly — one path, no silent
   fallbacks.
 - New behavior gets a test that fails before the change and passes after.
+- Comments carry what the code cannot — see [`CLEAN_PROSE.md`](./CLEAN_PROSE.md). A comment that
+  restates the line below it, or the signature above it, is deleted rather than reworded.
 - Atomic conventional commits: `feat:`, `fix:`, `docs:`, `test:`, `chore:`.
 
 ## Architecture
@@ -87,8 +90,8 @@ These govern how code is written. They are not design arguments.
 
 ## Docs
 
-- `CLEAN_PROSE.md` — why no doc here describes the game, and what prose is for instead.
-  Read it before writing any of the others.
+- `CLEAN_PROSE.md` — what words here are for, in docs and comments alike. Read it before writing
+  any of the others, and before writing a comment.
 - `README.md` — what it is, how to play, how to check it.
 - `levels.md` — index of the shipped rooms. The rooms themselves are `levels/act1.tt`.
 - `FORMATS.md` — the `.tt`/`.sol` file syntax. Not what the pieces do.
