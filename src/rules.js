@@ -61,7 +61,6 @@ export const cell = (s, x, y) => s.cells[y][x];
 // holds one occupant, and terrain has to be able to coexist with one. Only `wall` is static,
 // so `stateKey` encodes the other two.
 
-/** Dry ground with nothing on it; a bridge counts. */
 export const isClearFloor = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).water
   && cell(s, x, y).o === NONE && !isCart(cell(s, x, y));
@@ -74,12 +73,10 @@ export function layTrash(c) {
   else c.o = TRASH;
 }
 
-// Where an OBJECT can come to rest — not the raccoon, who goes through `isClearFloor`.
 export const isOccupiable = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).exit
   && cell(s, x, y).o === NONE && !isCart(cell(s, x, y));
 
-/** Resting test for a SHOVED piece; anything thrown uses `isOccupiable`. See `intoCart`. */
 export const canRest = (s, x, y) => isOccupiable(s, x, y) || cartAt(s, [x, y]) !== null;
 
 /** The cart a cell belongs to, or null. */
@@ -118,7 +115,6 @@ function applyIntoCart(s, next, cid, { file, beyond, out }, o, step) {
 export const canPour = (s, x, y) =>
   isOccupiable(s, x, y) && !cell(s, x, y).water && !cell(s, x, y).bridge;
 
-/** The fan cells for a strike at (bx,by) heading (dx,dy). */
 export function fan(bx, by, dx, dy) {
   const px = -dy, py = dx;
   return [
@@ -154,7 +150,6 @@ const drop = (c, o) => { if (o === TRASH) layTrash(c); else c.o = o; };
 const mkStep = (over = {}) => ({ moved: [], spawned: [], gone: [], piece: null, impact: false, ...over });
 const effectOf = (c, o) => (o === TRASH && c.water ? 'fills' : 'rest');
 
-/** Advance test for a rolling cart. */
 const cartCanEnter = (s, x, y) => {
   if (!inGrid(s, x, y)) return false;
   const c = cell(s, x, y);
@@ -194,12 +189,6 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
     const d = cell(next, ...at(p, k)); d.cart = cid; d.o = loads[i][j].o;
   }));
 
-  // One branch per step, and the stop is a step like the rest of them. Rolling, the cart takes
-  // in whatever it runs onto; stopped, it takes in nothing — and either way the load nudges one
-  // slot back and whatever leaves the trail slot lands ONE CELL BEHIND the cart's final
-  // position. Rolling that is the cell being vacated, stopped it is the one vacated last step,
-  // so the two need no separate rule. Bare floor is the third case: nothing comes in, so
-  // nothing nudges and the load simply travels along.
   let n = 0, lastRoll = -1;
   for (;;) {
     const ahead = aheadAt(n);
@@ -213,12 +202,8 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
       if (rolling && taken[i] === NONE) return;
       const load = loads[i], depth = load.length, out = load[depth - 1];
       const behind = at(f[depth - 1], end - 1);
-      // Rolling, `behind` is the cell the cart is stepping off and is free by construction.
-      // Stopped, it is a cell the cart came through, which something shed earlier may hold.
       if (!rolling && out.o !== NONE && !isOccupiable(next, ...behind)) return;
 
-      // While the cart moves, a slot back and a cell forward cancel, so a rider reports
-      // from === to and a renderer never snaps it. Stopped, the same nudge is a real cell.
       for (let j = depth - 1; j > 0; j--) {
         const it = load[j] = load[j - 1];
         if (step && it.o !== NONE)
@@ -247,8 +232,6 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
   }
   if (trace && lastRoll >= 0) steps[lastRoll].impact = true;
 
-  // After the unload, which may have taken `entry`. He moves on the first cell of travel if
-  // at all, so every frame after the first carries him there.
   next.rac = isClearFloor(next, entry[0], entry[1]) ? { x: entry[0], y: entry[1] } : { ...s.rac };
   if (trace) for (let k = 1; k < frames.length; k++) frames[k].rac = { ...next.rac };
 
@@ -312,7 +295,6 @@ export function explain(s, dir, opts = {}) {
     return done(next, TEAR, step);
   }
 
-  // Clearance is the translated footprint minus the cells it vacates.
   if (isMultiCell(o)) {
     const own = pieceCells(s, target.pid);
     const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
@@ -336,7 +318,7 @@ export function explain(s, dir, opts = {}) {
     const { slides, drops, pours } = SLIDES[o];
     const throws = drops !== undefined || pours === true;
     const c1 = [tx + dx, ty + dy], c2 = [tx + 2 * dx, ty + 2 * dy];
-    const fits = pours ? canPour : isOccupiable;      // the jug's spill needs dry ground
+    const fits = pours ? canPour : isOccupiable;
     const blame = [];
     if (!canRest(s, c1[0], c1[1])) blame.push(c1);
     if (throws && !fits(s, c2[0], c2[1])) blame.push(c2);
@@ -344,7 +326,6 @@ export function explain(s, dir, opts = {}) {
     let shove = null;
     if (into !== null && !blame.length) {
       shove = intoCart(s, into, c1, dx, dy);
-      // Both would land in `c2`, and only one thing goes in a cell.
       if (shove.blame) blame.push(...shove.blame);
       else if (throws && shove.out !== NONE) blame.push(c2);
     }
@@ -359,7 +340,7 @@ export function explain(s, dir, opts = {}) {
     } else if (drops !== undefined) {
       step.spawned.push({ o: drops, at: c2, from: [tx, ty],
         effect: effectOf(cell(next, c2[0], c2[1]), drops) });
-      drop(cell(next, c2[0], c2[1]), drops);                        // trash fills the canal
+      drop(cell(next, c2[0], c2[1]), drops);
     }
     if (shove) applyIntoCart(s, next, into, shove, slides, step);
     else cell(next, c1[0], c1[1]).o = slides;
@@ -368,9 +349,6 @@ export function explain(s, dir, opts = {}) {
     return done(next, PUSH, step);
   }
 
-  // The bin leaves from under the shove rather than being followed, which is what lets it be
-  // sent across water and shoved again from the bank. Where the raccoon ends up is the same
-  // rule as everywhere else — see the landing below.
   if (isRoller(target)) {
     let rx = tx, ry = ty;
     while (isOccupiable(s, rx + dx, ry + dy)) { rx += dx; ry += dy; }
@@ -382,7 +360,7 @@ export function explain(s, dir, opts = {}) {
     // halfway down the alley.
     const rolled = cloneState(s);
     cell(rolled, tx, ty).o = NONE;
-    cell(rolled, rx, ry).o = o;                       // still full for the whole of the roll
+    cell(rolled, rx, ry).o = o;
     // Tested against `rolled`, not `s`: on a one-cell roll this cell is the bin's own start.
     const back = o === WHEELIE ? [rx - dx, ry - dy] : null;
     if (back && !isOccupiable(rolled, back[0], back[1]))
@@ -394,25 +372,21 @@ export function explain(s, dir, opts = {}) {
       cell(next, rx, ry).o = WHEELIE_EMPTY;
       drop(cell(next, back[0], back[1]), BAG);
     }
-    // He advances into the cell he shoved, the same as every other push. The one thing that can
-    // deny him is the bag this bin just dropped: on a one-cell roll that lands on the bin's own
-    // start cell. Same test the cart uses on the cell it vacated.
     next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
     if (!opts.trace) return { ok: true, kind: PUSH, next };
 
     const frames = [cloneState(s), rolled];
     const steps = [mkStep({
       moved: [{ o, from: [tx, ty], to: [rx, ry] }],
-      impact: true,                                   // it stopped because something stopped it
+      impact: true,
     })];
     if (back) {
       frames.push(next);
-      steps.push(mkStep({                             // and only now does it empty
+      steps.push(mkStep({
         moved: [{ o: WHEELIE, from: [rx, ry], to: [rx, ry], becomes: WHEELIE_EMPTY }],
         spawned: [{ o: BAG, at: back, from: [rx, ry] }],
       }));
     }
-    // He leaves on the first beat, so every frame after the opening one carries him there.
     for (let k = 1; k < frames.length; k++) frames[k].rac = { ...next.rac };
     return { ok: true, kind: PUSH, next, frames, steps };
   }
@@ -437,14 +411,13 @@ export function applyAction(s, { dir, kind }) {
   return r.next;
 }
 
-const BAGS_IN = { [BAG]: 1, [CAN_FULL]: 1, [WHEELIE]: 1, [STACK]: 2 };   // a stack holds two
+const BAGS_IN = { [BAG]: 1, [CAN_FULL]: 1, [WHEELIE]: 1, [STACK]: 2 };
 export function bagsLeft(s) {
   let k = 0;
   for (const row of s.cells) for (const c of row) k += BAGS_IN[c.o] ?? 0;
   return k;
 }
 
-/** Piles of trash riding in a cart — TRASH only, not every occupant a cart can hold. */
 export function trashHeld(s) {
   let k = 0;
   for (const row of s.cells) for (const c of row) if (isCart(c) && c.o === TRASH) k++;
