@@ -136,14 +136,12 @@ export function applyStep(stage, step, racTo = null) {
  *
  * `cells` is how many cells of travel that `u` buys — the pace of the beat. Duration belongs to
  * the beat and distance belongs to the sprite, so one `u` for everybody stretches whatever
- * crossed a single cell over however long the FURTHEST traveller took: the raccoon shoving a
- * bin five cells walks his one cell five times too slowly. At `cells` to the beat, a sprite
- * crossing `d` of them is done in `d/cells` of it and then holds where it landed.
+ * crossed a single cell over however long the FURTHEST traveller took. At `cells` to the beat,
+ * a sprite crossing `d` of them is done in `d/cells` of it and then holds where it landed.
  *
- * `cells = 0` is the other kind of beat — a tip, a tear — which is one beat however far its
- * pieces fly, so everything in it lands together. A nudge and a deflate always keep the beat's
- * own time: a nudged sprite has no distance to normalise by, and a deflating one is timed by
- * the beat that consumed it rather than by how far it drifted.
+ * `cells = 0` is the beat that has no pace: everything in it lands together. A nudge and a
+ * deflate always keep the beat's own time — a nudged sprite has no distance to normalise by,
+ * and a deflating one is timed by the beat that consumed it rather than by how far it drifted.
  */
 export function advance(stage, u, cells = 0) {
   for (const sp of stage.sprites) {
@@ -208,15 +206,14 @@ export function pileLook(seed) {
 
 // --- the timeline -------------------------------------------------------------------------
 
-/** The furthest any one thing travels in a step, in cells. One is the floor: a tear moves
- *  nothing and still takes a beat. */
+/** The furthest any one thing travels in a step, in cells. One is the floor, so a step that
+ *  moves nothing still takes a beat. */
 const dist = st => Math.max(1,
   ...st.moved.map(m => Math.abs(m.to[0] - m.from[0]) + Math.abs(m.to[1] - m.from[1])));
 
 /**
- * A traced action, cut into the segments a clock can play. One shove is one move but can be
- * several cells of travel, and the cells are not independent: a cart accelerates once, holds
- * speed, and stops when something stops it. So consecutive cart steps are welded into ONE
+ * A traced action, cut into the segments a clock can play. One action can be several cells of
+ * travel, and the cells are not independent, so consecutive cart steps are welded into ONE
  * segment with one envelope across the whole run, rather than a string of little eased hops
  * that would read as stuttering.
  *
@@ -231,16 +228,14 @@ export function timeline(r, cellTime) {
     if (r.steps[i].piece && r.steps[i].piece.kind === 'cart') {
       const run = [];
       while (i < r.steps.length && r.steps[i].piece && r.steps[i].piece.kind === 'cart') run.push(entry(i++));
-      // `pace` is cells per item — what one beat's worth of `u` buys. A cart reports one step
-      // per cell, so its items are one cell each.
+      // `pace` is cells per item — what one beat's worth of `u` buys.
       segs.push({ items: run, cells: run.length, dur: run.length * cellTime, roll: true, pace: 1 });
     } else {
       const it = entry(i++);
       const roll = it.step.impact === true;
-      // A step that ended against something immovable is a roll and is paced by how far it
-      // rolled — a wheelie bin crossing five cells reports one step, not five. Everything
-      // else is ONE beat however far its pieces fly: a tip is a tip whether the load lands
-      // next door or four cells back, and a tear is a tear, so those get no pace at all.
+      // A step reporting `impact` is paced by how far it travelled, since it may report one
+      // step for many cells. Everything else is ONE beat however far its pieces fly, so it
+      // gets no pace at all.
       segs.push({ items: [it], cells: dist(it.step), dur: (roll ? dist(it.step) : 1) * cellTime,
                   roll, pace: roll ? dist(it.step) : 0 });
     }
@@ -250,7 +245,7 @@ export function timeline(r, cellTime) {
 
 // --- motion envelopes ---------------------------------------------------------------------
 
-/** Slows into its target — for whatever stops itself: the raccoon, a shoved can, tipped cargo. */
+/** Slows into its target — for whatever stops itself. */
 export const easeOut = t => 1 - Math.pow(1 - t, 3);
 
 /**
