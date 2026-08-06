@@ -20,13 +20,11 @@ import {
   DIR_ORDER, DIRS, MOVE, TEAR, BAG, explain, cell, fan, canStand, isOccupiable, bagsLeft,
 } from '../src/rules.js';
 
-const FAN_CELLS = 5;   // a tear always spends exactly five cells of floor, never fewer
+const FAN_CELLS = fan(0, 0, 1, 0).length;
 
-/** Dry ground: the floor budget a room starts with, before anything stands on it.
- *  Water is not floor — it is floor you can buy, at five cells a bag or one a bin. */
-const floorCells = s => s.cells.flat().filter(c => !c.wall && !c.water).length;   // bridges count: they are floor
+/** Dry ground: the floor budget a room starts with, before anything stands on it. */
+const floorCells = s => s.cells.flat().filter(c => !c.wall && !c.water).length;
 
-/** Everywhere the raccoon can still walk, bridges included. */
 const freeCells = (s) => {
   let n = 0;
   for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) if (canStand(s, x, y)) n++;
@@ -44,7 +42,6 @@ function coupling(s) {
     if (cell(s, x, y).o === BAG) bags.push([x, y]);
   if (bags.length < 2) return null;
 
-  // The cells bag B needs for direction d: its fan, plus the cell you must stand on.
   const needs = (bx, by, dir) => {
     const [dx, dy] = DIRS[dir];
     return [...fan(bx, by, dx, dy), [bx - dx, by - dy]];
@@ -73,10 +70,8 @@ function coupling(s) {
  * of those leave a winnable board. `safe < first` is the room asking "which one first?";
  * `safe === first` means the order is free and the room only asks about direction.
  *
- * CAVEAT: it counts distinct *cells*, not distinct bags. In a room with loose bags only
- * those are the same thing. In a room with a can or a wheelie bin, one bag can be torn at
- * several different cells depending on where the container put it, so `first` overcounts —
- * which is why L10 and L11 read 1/4 with only two bags between them.
+ * CAVEAT: it counts distinct *cells*, not distinct bags, so any room where one bag can be
+ * torn from more than one cell reads high.
  */
 function orderChoices(a, start) {
   const intact = bagsLeft(start);
@@ -154,8 +149,6 @@ export function metrics(level) {
     const before = final;
     final = explain(final, act.dir).next;
     for (let y = 0; y < final.rows; y++) for (let x = 0; x < final.cols; x++)
-      // A canal cell that became a bridge. Objects shoved into the water are the opposite of
-      // this — they kill the cell rather than fill it — and they never set `bridge`.
       if (cell(final, x, y).bridge && !cell(before, x, y).bridge) bridges++;
   }
 
@@ -167,7 +160,7 @@ export function metrics(level) {
     par: a.minMoves, solves: a.shortestCount, states: a.reachable,
     traps: a.traps.length, exitRefusals: a.exitRefusals,
     bags, decisions, tears, walks,
-    // The floor a room is obliged to spend: five cells per tear, over the floor it has.
+    // The floor a room is obliged to spend, over the floor it has.
     tightness: +(FAN_CELLS * bags / floor).toFixed(2),
     // What is left to stand on once the room is won. Low = the walk out was threaded.
     slack: freeCells(final),

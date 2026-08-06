@@ -121,8 +121,7 @@ for (const level of pack.levels) {
   if (level.arm) check('an arming room declares what it teaches', !!level.teach, level.teach ?? '');
   console.log(`    · arming ${level.arm ? 'ON (introduces a piece)' : 'off'}`);
 
-  // In any room with a bag, the exit's position must rule out at least one otherwise-legal
-  // action: how many (state, direction) pairs does the exit itself refuse?
+  // Counted as (state, direction) pairs the exit itself refuses.
   if (bags > 0)
     check('the exit forbids at least one action', a.exitRefusals > 0,
       `${a.exitRefusals} refusal(s) caused by the exit`);
