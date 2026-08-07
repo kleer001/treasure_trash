@@ -61,6 +61,52 @@ Key data shapes — the ones you keep having to look up.
 What's seeded and what a seed reproduces. House rule (this one *is* a rule, and it
 lives in `CLAUDE.md`, not here): `mulberry32`, never `Math.random()` in game logic.
 
+## The fertility survey
+
+`tools/survey.mjs` samples 200 random placements of every legal group of four pieces on an
+8×4, and writes one row per group to `levels/fertility.jsonl`. It answers one question —
+which mixtures of the roster make rooms at all — and it is a map, not a source of levels.
+
+Run: 586 groups, 117,200 placements, 74 minutes on 30 workers. 4,783 solvable, 907 that
+also clear par ≥ 12, ≤ 2 shortest solves and ≥ 1 trap. 289 groups never yielded a single
+solvable room.
+
+**Homogeneous bag sets are barren.** Every group whose only carrier is the loose bag —
+`$$$$` through `$$$P` — came in at or near zero. The roster, not the box count, is where
+the rooms are. That is the assumption the survey was built to test, and it does not hold
+here.
+
+**Marginal fertility, per 1000 placements of every group containing the piece:**
+
+| piece | solvable | interesting |
+|---|---|---|
+| `B` full recycle bin | 86.6 | 14.5 |
+| `P` cart | 62.0 | 11.5 |
+| `x` spilled trash | 50.4 | 9.1 |
+| `j` water jug | 45.7 | 9.0 |
+| `$` bag | 42.6 | 9.7 |
+| `F` couch | 41.9 | 8.4 |
+| `w` empty wheelie | 40.4 | 8.2 |
+| `c` empty can | 32.6 | 6.2 |
+| `W` wheelie | 30.8 | 7.6 |
+| `C` full can | 14.0 | 4.2 |
+| `S` bag-on-can stack | 5.1 | 1.0 |
+
+**The stack is the barren one, by an order of magnitude.** 5.1 against 62.5 for every group
+without it — and not a measurement artifact: stack groups hit the enumeration cap at 21%,
+against 19% for the rest, so they were not discarded more often, they simply do not make
+rooms. Its best group manages 5 interesting rooms in 200.
+
+**The cart earns its cost.** Second most fertile piece in the roster. It multiplies the
+state graph, but the rooms are there.
+
+**What the map cannot see.** 19.8% of placements exceeded the 50,000-state enumeration
+bound and were counted rather than analysed. Fertility is flat across the groups that hit
+that bound 0–39% of the time (43.8, 43.4 and 42.2 solvable per 1000), so the ranking is not
+an artifact of the cap; only the 63 groups above 40% fall off, and those are the loosest
+boards in the set. Sampling is random placement on an open rectangle: nothing here says
+anything about outlines, and walls are the untested axis.
+
 ## Open questions
 
 What you don't know yet, and what would answer it — usually a playtest. Scratch them

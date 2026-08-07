@@ -26,6 +26,9 @@ around it — art, audio, progression, and the solvability indicator.
 - `npm test` — Node's built-in runner (`node --test`); specs in `tests/*.test.js`.
 - `node tools/verify.mjs` — checks every claim the level files make, and that no page inlines
   the engine instead of importing it.
+- `node tools/survey.mjs` — samples every legal group of four pieces and writes which ones
+  make rooms at all to `levels/fertility.jsonl`. Long-running and parallel; findings are
+  read in `SPEC-SHEET.md`.
 - `publishing/package.sh` — builds `dist/treasure-trash.zip` for itch.io, `index.html` at the
   archive root. Run it from the game root; add new runtime assets to its `RUNTIME` list, and
   the zip stays out of git.

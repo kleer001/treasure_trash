@@ -158,7 +158,13 @@ export function staticallyDead(s) {
 }
 
 // ---------------------------------------------------------------- one group
-const MAX_STATES = 200_000;
+// Above this the room is discarded as too big to enumerate rather than analysed. It is a
+// design bound as much as a memory one: the largest room the pack has ever shipped reaches
+// 42,662 states, and `analyze` holds every one of them as a cloned board, so a fleet of
+// workers each chasing a millon-state graph exhausts the machine before it finds anything
+// worth keeping. A room that needs more than this is too loose to be the kind of room the
+// survey is looking for.
+const MAX_STATES = 50_000;
 
 // What makes a room worth a second look. Deliberately loose: this pass ranks GROUPS against
 // each other, and a group that only ever yields par-6 rooms is a finding, not a failure.
@@ -202,7 +208,10 @@ function surveyGroup(group, samples, seed) {
 // may run on import — a module that surveys when you require it is a module you cannot compose.
 if (!isMainThread) {
   const { chunk, samples, seed } = workerData;
-  parentPort.postMessage(chunk.map((g, i) => surveyGroup(g, samples, seed + i)));
+  // One message per group, not one per chunk: a chunk takes long enough that a run reporting
+  // only on completion gives no way to tell slow from stuck.
+  chunk.forEach((g, i) => parentPort.postMessage(surveyGroup(g, samples, seed + i)));
+  parentPort.postMessage(null);                    // this worker has no more groups
 } else if (import.meta.url === `file://${process.argv[1]}`) {
   const arg = (flag, dflt) => {
     const i = process.argv.indexOf(flag);
@@ -230,11 +239,16 @@ if (!isMainThread) {
   const rows = [];
   await Promise.all(chunks.filter(c => c.length).map((chunk, w) => new Promise((res, rej) => {
     const worker = new Worker(self, { workerData: { chunk, samples, seed: 1 + w * 10007 } });
-    worker.on('message', got => {
-      rows.push(...got);
-      done += got.length;
-      console.log(`  worker ${w} done — ${done}/${list.length} groups, ${((Date.now() - t0) / 1000).toFixed(0)}s`);
-      res();
+    worker.on('message', row => {
+      if (row === null) return res();
+      rows.push(row);
+      done++;
+      const el = (Date.now() - t0) / 1000;
+      const eta = done ? ((el / done) * (list.length - done)) / 60 : 0;
+      console.log(`  ${String(done).padStart(3)}/${list.length}  ${row.group.padEnd(5)}`
+        + ` solvable ${String(row.solvable).padStart(3)}  interesting ${String(row.interesting).padStart(3)}`
+        + `  tooBig ${String(row.tooBig).padStart(3)}  ${(row.ms / 1000).toFixed(0)}s`
+        + `   [${el.toFixed(0)}s elapsed, ~${eta.toFixed(0)}m left]`);
     });
     worker.on('error', rej);
   })));
