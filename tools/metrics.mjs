@@ -7,9 +7,16 @@
 // `verify.mjs` checks a room is legal; this measures what it costs the player. Nothing
 // here fails a build — it prints a table.
 //
-// Why not Sokoban's difficulty features: those are box-to-goal features (goal distance,
-// congestion along a box's path to its goal), and this game has no goals, so they have
-// nothing to attach to. What replaces them is below.
+// Why not Sokoban's box-to-goal features: goal distance and congestion-along-a-box's-path
+// need goals, and this game has none, so they have nothing to attach to. What replaces them
+// is below.
+//
+// Two of Sokoban's features DO carry over, because they measure the shape of the solution
+// rather than its relation to a goal — see `solveShape`. Taylor & Parberry (GAMEON-NA 2011,
+// "Procedural Generation of Sokoban Levels") report box LINES as the metric that "corresponds
+// fairly well with the difficulty of the resulting level" and box CHANGES as one that "may be
+// an even better measure", and warn that raw push and move counts are not difficulty at all:
+// a solution that shoves one thing down a long corridor scores high and plays tedious.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +25,7 @@ import { parseLevelPack, parseLurd, toState } from '../src/format.js';
 import { analyze } from '../src/solver.js';
 import {
   DIR_ORDER, DIRS, MOVE, TEAR, BAG, explain, cell, fan, canStand, isOccupiable, bagsLeft,
+  isWon,
 } from '../src/rules.js';
 
 const FAN_CELLS = fan(0, 0, 1, 0).length;
@@ -127,6 +135,160 @@ function postMortem(a) {
     worstStates = Math.max(worstStates, seen.size);
   }
   return { depth: worstDepth, states: worstStates };
+}
+
+/**
+ * The shape of a solution, in Sokoban's terms adapted to a roster of pieces.
+ *
+ *   lines    a maximal run of consecutive actions on the SAME piece in the SAME direction
+ *            counts once. Walking between two shoves of one piece does not break the run.
+ *   changes  how many times the solution stops working one piece and starts on another.
+ *   pieces   how many distinct pieces the solution ever touches.
+ *
+ * Identity only ever has to be decided between ADJACENT actions, which is what makes this
+ * exact without threading ids through the whole board: a single-cell piece is the same one
+ * the previous action moved if this action's target is where that one put it, and a cart or
+ * couch carries its own ref.
+ */
+export function solveShape(start, actions) {
+  let s = start, prev = null;
+  let lines = 0, changes = 0, pushes = 0;
+  const touched = new Set();
+  // A moving piece changes cell every shove, so counting cells would count one can four times.
+  // The token follows the piece from the cell it left to the cell it landed on.
+  const tokenAt = new Map();
+  let nextTok = 0;
+
+  for (const act of actions) {
+    const r = explain(s, act.dir, { trace: true });
+    if (!r.ok) throw new Error(`solveShape: illegal ${act.kind} ${act.dir}`);
+    const [dx, dy] = DIRS[act.dir];
+    const target = [s.rac.x + dx, s.rac.y + dy];
+    s = r.next;
+    if (act.kind === MOVE) continue;                 // walking is not work on a piece
+    pushes++;
+
+    const st = r.steps[0];
+    // A tear consumes the bag, so nothing after it can be the same piece.
+    const id = act.kind === TEAR ? { type: 'gone' }
+      : st.piece ? { type: 'ref', kind: st.piece.kind, ref: st.piece.ref }
+      : { type: 'cell', from: target, to: st.moved[0]?.to ?? target };
+
+    if (id.type === 'ref') touched.add(`${id.kind}${id.ref}`);
+    else {
+      const here = `${target[0]},${target[1]}`;
+      const tok = tokenAt.get(here) ?? `p${nextTok++}`;
+      tokenAt.delete(here);
+      touched.add(tok);
+      // A torn bag is consumed; anything else carries its token to where it landed.
+      if (id.type === 'cell') tokenAt.set(`${id.to[0]},${id.to[1]}`, tok);
+    }
+
+    const same = prev !== null && (
+      (id.type === 'ref' && prev.id.type === 'ref'
+        && id.kind === prev.id.kind && id.ref === prev.id.ref)
+      || (id.type === 'cell' && prev.id.type === 'cell'
+        && prev.id.to[0] === id.from[0] && prev.id.to[1] === id.from[1]));
+
+    if (!same) changes++;
+    if (!same || prev.dir !== act.dir) lines++;
+    prev = { id, dir: act.dir };
+  }
+  // The first piece worked is not a CHANGE of piece — it is where the count starts.
+  return { lines, changes: Math.max(0, changes - 1), pushes, pieces: touched.size };
+}
+
+/**
+ * Where the ways to lose sit RELATIVE TO OPTIMAL PLAY, read off a finished `analyze`.
+ *
+ * A raw trap count says nothing about whether a player will ever meet one. L29 shipped with
+ * seventeen ways to lose and every one of them hung off a branch a solver would never walk;
+ * the first way to lose was eight moves down a line a player would have restarted from.
+ *
+ * The states considered are every state on SOME shortest solve, not one canonical line — a
+ * player solving optimally may take any of them.
+ *
+ *   onPath      fraction of the solve's depths at which optimal play can still lose the room
+ *   firstOnPath the earliest such depth, or null if optimal play can never go wrong
+ */
+export function pathBite(a) {
+  const par = a.minMoves;
+  if (par === null) return { onPath: 0, bitten: 0, firstOnPath: null };
+
+  const onDag = new Set();
+  for (const [k, n] of a.states) if (n.depth === par && isWon(n.state)) onDag.add(k);
+  const byDepth = [];
+  for (const [k, n] of a.states) (byDepth[n.depth] ??= []).push(k);
+  for (let d = par; d > 0; d--)
+    for (const k of byDepth[d - 1] ?? [])
+      if (a.states.get(k).edges.some(e => onDag.has(e.to) && a.states.get(e.to).depth === d))
+        onDag.add(k);
+
+  const bittenAt = new Array(par).fill(false);
+  for (const k of onDag) {
+    const n = a.states.get(k);
+    if (n.depth >= par) continue;
+    if (n.edges.some(e => a.dead.has(e.to))) bittenAt[n.depth] = true;
+  }
+  const bitten = bittenAt.filter(Boolean).length;
+  const first = bittenAt.indexOf(true);
+  return { onPath: bitten / par, bitten, firstOnPath: first === -1 ? null : first };
+}
+
+// ---------------------------------------------------------------- room structure
+// Structural rejects, from the same paper, applied to the EMPTY room before anything is
+// placed on it. The open-floor rule is the load-bearing one: a room with a large clear
+// rectangle has "very bushy, but not very deep state spaces", so it costs a great deal to
+// enumerate and buys very little difficulty for the price.
+
+/** The largest w*h all-floor axis-aligned rectangle, as {w,h}; walls are what break it up. */
+export function largestOpenBlock(isFloor, cols, rows) {
+  let best = { w: 0, h: 0, area: 0 };
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    if (!isFloor(x, y)) continue;
+    for (let h = 1; y + h <= rows; h++) {
+      let w = 0;
+      while (x + w < cols) {
+        let ok = true;
+        for (let j = 0; j < h && ok; j++) if (!isFloor(x + w, y + j)) ok = false;
+        if (!ok) break;
+        w++;
+      }
+      if (!w) break;
+      if (w * h > best.area) best = { w, h, area: w * h };
+    }
+  }
+  return best;
+}
+
+/** One contiguous run of floor, or the room is really two rooms. */
+export function floorIsConnected(isFloor, cols, rows) {
+  const all = [];
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) if (isFloor(x, y)) all.push([x, y]);
+  if (!all.length) return false;
+  const seen = new Set([`${all[0][0]},${all[0][1]}`]);
+  const stack = [all[0]];
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+      if (nx < 0 || ny < 0 || nx >= cols || ny >= rows || !isFloor(nx, ny)) continue;
+      const k = `${nx},${ny}`;
+      if (seen.has(k)) continue;
+      seen.add(k); stack.push([nx, ny]);
+    }
+  }
+  return seen.size === all.length;
+}
+
+/** A floor cell walled on three sides is a niche: dead space, or a trivial parking spot. */
+export function hasNiche(isFloor, cols, rows) {
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    if (!isFloor(x, y)) continue;
+    const open = [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]
+      .filter(([nx, ny]) => nx >= 0 && ny >= 0 && nx < cols && ny < rows && isFloor(nx, ny));
+    if (open.length <= 1) return true;
+  }
+  return false;
 }
 
 export function metrics(level) {

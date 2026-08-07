@@ -131,8 +131,10 @@ export function place(group, rnd) {
 // exist because the full analysis costs four to five orders of magnitude more, and the great
 // majority of random boards never had a chance.
 //
-// Winning needs `bagsLeft` to reach 0, and only a TEAR removes a bag. So a board on which no
-// bag can ever be struck is dead on arrival.
+// Winning needs `bagsLeft` to reach 0. A LOOSE bag leaves the board only by being torn, and
+// tearing needs a clear fan — so a loose bag with no fan in any direction can never be
+// removed by anything, and the board is dead before a move is played. Measured against walls,
+// the exit and the grid edge, none of which move, and a bag does not move either.
 const FAN = (bx, by, dx, dy) => {
   const px = -dy, py = dx;
   return [[bx + px, by + py], [bx - px, by - py], [bx + dx, by + dy],
@@ -206,7 +208,9 @@ function surveyGroup(group, samples, seed) {
 // ---------------------------------------------------------------- workers
 // `groups`, `place` and `staticallyDead` are imported by the harvest pass, so neither branch
 // may run on import — a module that surveys when you require it is a module you cannot compose.
-if (!isMainThread) {
+// The tag matters: this module is imported by other tools, and their workers would
+// otherwise run this branch against workerData meant for them.
+if (!isMainThread && workerData?.tool === 'survey') {
   const { chunk, samples, seed } = workerData;
   // One message per group, not one per chunk: a chunk takes long enough that a run reporting
   // only on completion gives no way to tell slow from stuck.
@@ -238,7 +242,7 @@ if (!isMainThread) {
   let done = 0;
   const rows = [];
   await Promise.all(chunks.filter(c => c.length).map((chunk, w) => new Promise((res, rej) => {
-    const worker = new Worker(self, { workerData: { chunk, samples, seed: 1 + w * 10007 } });
+    const worker = new Worker(self, { workerData: { tool: 'survey', chunk, samples, seed: 1 + w * 10007 } });
     worker.on('message', row => {
       if (row === null) return res();
       rows.push(row);
