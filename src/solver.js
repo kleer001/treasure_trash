@@ -8,8 +8,21 @@
 import { DIR_ORDER, MOVE, explain, isWon, stateKey, cloneState, cell } from './rules.js';
 import { formatLurd } from './format.js';
 
+/** Thrown by `analyze` when `maxStates` is exceeded, so a caller can tell a room that is too
+ *  big to enumerate from one that is merely unsolvable. */
+export class TooManyStates extends Error {
+  constructor(limit) { super(`state graph exceeds ${limit} states`); this.limit = limit; }
+}
+
 /**
  * Enumerate the level's whole state graph.
+ *
+ * `opts.maxStates` bounds the enumeration and THROWS `TooManyStates` when the bound is passed.
+ * It never truncates: a partial graph would report a wrong par and a wrong trap count, and
+ * every claim downstream of this function is only worth anything because the graph is whole.
+ * Unbounded by default — a caller that has not thought about the bound gets the exact answer
+ * or an out-of-memory crash, never a quiet lie.
+ *
  * Returns:
  *   states       Map key -> { state, depth, edges:[{dir,kind,to}] }
  *   minMoves     length of the shortest win, or null if unsolvable
@@ -19,7 +32,8 @@ import { formatLurd } from './format.js';
  *   traps        [{ lurd, dir, kind, buriesExit }] live -> dead transitions
  *   silentTraps  subset of traps whose action is a plain MOVE
  */
-export function analyze(start) {
+export function analyze(start, opts = {}) {
+  const maxStates = opts.maxStates ?? Infinity;
   const states = new Map();
   const rootKey = stateKey(start);
   states.set(rootKey, { state: start, depth: 0, edges: [], prev: null, prevAction: null });
@@ -38,6 +52,7 @@ export function analyze(start) {
         if (!r.ok) { if (r.reason === 'exit') exitRefusals++; continue; }
         const k = stateKey(r.next);
         if (!states.has(k)) {
+          if (states.size >= maxStates) throw new TooManyStates(maxStates);
           states.set(k, { state: r.next, depth: node.depth + 1, edges: [], prev: key, prevAction: { dir, kind: r.kind } });
           next.push(k);
         }
