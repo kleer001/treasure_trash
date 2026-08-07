@@ -465,8 +465,10 @@ function render(){
     : bestMoves !== null ? `${'★'.repeat(st)}${'☆'.repeat(3-st)} best ${bestMoves}` : '';
   sc.className = 'score'+(bestMoves!==null||won?' show':'')+(beat?' beat':'');
   const lo=document.getElementById('lost');
-  // It names the way back, because the point of saying it is that you can still act on it.
-  lo.innerHTML = lost ? '<b>✕</b> this room can no longer be won — undo (U) or restart (R)' : '';
+  // Short enough to sit on the moves row: a standing notice that pushes the board down the
+  // page every time it appears is a bigger interruption than the thing it is reporting. It
+  // still names the way back, because the point of saying it is that you can act on it.
+  lo.innerHTML = lost ? '<b>✕</b> unwinnable — undo or restart' : '';
   lo.className = 'lost'+(lost?' show':'');
   document.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(i===cur?' on':''));
 }

@@ -101,7 +101,7 @@ ${style}
 :root, :root[data-theme="dark"], :root[data-theme="light"]{ color-scheme: light; }
 body{ background:#ffffff; color:#1a1a1a; }
 .focusnote{background:#fff8d6;border:2px solid #1a1a1a;border-radius:4px;padding:.5rem .8rem;
-  font-size:.85em;font-weight:600;margin:.6rem 0;transform:rotate(-.4deg)}
+  font-size:.85em;font-weight:600;margin:.6rem 0}
 .focusnote.gone{display:none}
 canvas:focus{outline:3px solid #2d7dd2;outline-offset:3px}
 @media (prefers-reduced-motion: reduce){ canvas{transition:none} }

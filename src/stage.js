@@ -59,7 +59,7 @@ export function stageFrom(state, seed = 1) {
   return stage;
 }
 
-/** Nothing rotates, so a body's offsets hold for life. */
+/** A body's parts keep their places relative to its anchor, so its offsets hold for life. */
 const offsets = (cells, ox, oy) => cells.map(([x, y]) => [x - ox, y - oy]);
 
 const atCell = (sp, x, y) => sp.ax === x && sp.ay === y;

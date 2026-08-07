@@ -14,7 +14,7 @@
   /* The level picker: one button showing where you are, and a grid behind it. A strip of
      eighteen tabs was already crowding the header, and the pack is going to keep growing. */
   .picker{display:inline-flex;align-items:baseline;gap:.4rem;font:inherit;cursor:pointer;
-    border:2px solid var(--ink);background:#fff;padding:.2rem .7rem;border-radius:4px;transform:rotate(-1deg)}
+    border:2px solid var(--ink);background:#fff;padding:.2rem .7rem;border-radius:4px}
   .picker b{font-size:1.15rem;font-weight:800;font-variant-numeric:tabular-nums}
   .picker span{font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
   .picker:hover{background:var(--yel)}
@@ -35,10 +35,9 @@
     padding:.55rem .8rem;cursor:pointer;font-weight:800;list-style:none;
     position:sticky;top:0;background:var(--bg);z-index:1}
   .act-group summary::-webkit-details-marker{display:none}
-  /* The triangle is drawn rather than borrowed, so it turns the same way in every browser. */
-  .act-group summary::before{content:"▸";display:inline-block;margin-right:.1rem;
-    transition:transform .12s ease;color:var(--muted)}
-  .act-group[open] summary::before{transform:rotate(90deg)}
+  /* Drawn rather than borrowed, so open and shut look the same in every browser. */
+  .act-group summary::before{content:"▸";display:inline-block;margin-right:.1rem;color:var(--muted)}
+  .act-group[open] summary::before{content:"▾"}
   .act-group summary:hover{background:var(--panel)}
   .act-group summary .range{font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;
     margin-left:auto;font-size:.85rem}
@@ -66,16 +65,16 @@
   .name{font-weight:800}
   .moves{color:var(--muted)}
   .moves b{color:var(--ink)}
-  .warn{display:none;font-weight:800;color:#fff;background:var(--red);padding:.15rem .7rem;border-radius:4px;transform:rotate(1deg)}
+  .warn{display:none;font-weight:800;color:#fff;background:var(--red);padding:.15rem .7rem;border-radius:4px}
   .warn.show{display:inline-block}
   /* Busy is a nudge, not a refusal, so it borrows the aim colour rather than the red. */
-  .warn.busy{background:var(--yel);color:#5a4500;transform:rotate(-1deg)}
-  .arm{display:none;font-weight:800;color:#5a4500;background:var(--yel);padding:.15rem .7rem;border-radius:4px;transform:rotate(-1deg)}
+  .warn.busy{background:var(--yel);color:#5a4500}
+  .arm{display:none;font-weight:800;color:#5a4500;background:var(--yel);padding:.15rem .7rem;border-radius:4px}
   .arm.show{display:inline-block}
   /* A refusal is a momentary no and wears the red. This is a standing fact about the board,
      so it is quieter and does not blink: it must not read as "your last move was illegal". */
   .lost{display:none;font-weight:800;color:var(--ink);background:var(--panel);
-    border:2px solid var(--ink);padding:.15rem .7rem;border-radius:4px}
+    border:2px solid var(--ink);padding:.1rem .6rem;border-radius:4px;white-space:nowrap}
   .lost.show{display:inline-block}
   .lost b{color:var(--red)}
   canvas{display:block;margin:.4rem 0 1rem;image-rendering:auto;max-width:100%;height:auto;border:2px solid var(--ink);background:var(--panel)}
