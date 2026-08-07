@@ -6,3 +6,10 @@ artifact.html
 
 # the itch.io upload built by ./package.sh
 dist/
+
+# Scratch output of tools/act2.mjs — the table rows to paste into levels.md. Keeping a copy
+# would be a second, unverified table: verify.mjs checks levels.md, not this.
+levels/act*.md
+
+# Browser-tool captures
+.playwright-mcp/

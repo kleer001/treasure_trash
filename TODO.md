@@ -17,8 +17,9 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
 - **The game lives in `src/`.** `rules.js` is the engine of record, `format.js` the
   `.tt`/`.sol` parser, `solver.js` the exhaustive search, `stage.js` the objects and their
   positions, `sprites.js` the drawings, `main.js` presentation and input. `tools/` is
-  offline only — `verify.mjs`, `metrics.mjs`, `survey.mjs`, `build-artifact.mjs` — and
-  `src/` never imports it.
+  offline only — `verify.mjs`, `metrics.mjs`, `build-artifact.mjs`, and the room pipeline
+  (`survey` → `harvest` → `score` → `shapes` → `sets` → `pick`/`act2`) — and `src/` never
+  imports it.
 - Levels are data: `levels/*.tt` + `*.sol`, one rules module shared by the player, the
   solver and the tests, and a verifier that proves par minimal rather than trusting it.
 - Objects built and unit-tested: bag, metal can, spilled trash, recycle bin, wheelie bin,
@@ -40,7 +41,10 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   pattern is ordered layers via `src/compositor.js`. Worth doing before the art pass. It
   already draws sprites in layer order — that ordering is the thing the compositor should own.
 - **Audio** — procedural WebAudio. The only sound today is the win chime.
-- **Art pass**, and more rooms toward a full Act 1.
+- **Name Act 2.** Thirty rooms ship with `TODO name L31`-style placeholders, and the HUD shows
+  them to the player. Each room's `:note` already says which set and which ramp it belongs to,
+  which is the context to write from.
+- **Art pass.**
 - **`tools/build-artifact.mjs` does not build.** Pre-existing, and not the indicator's doing:
   the win-chime `fetch` in `main.js` survives bundling and trips the tool's own CSP guard.
   The served game is unaffected; only the single-file publish path is.

@@ -2,129 +2,112 @@ fresh
 
 ## Summary
 
-The recycle bin now has a terminal state and counts as a bag, and the fertility survey has
-run: `levels/fertility.jsonl` maps which mixed groups of four pieces make rooms at all.
-The next job is the **deep harvest** — the survey ranks groups against each other at 200
-samples, which surfaces only a handful of keepers per group, nowhere near enough to pick
-twenty levels from.
+Two acts ship: Act 1 closed at 31 rooms (L0–L30), Act 2 built at 30 (L31–L60, ten sets of
+three, every room an H). The room pipeline that produced Act 2 is in `tools/` end to end, the
+game tracks progress and stars, and a dead board announces itself.
+
+The open work is **writing**: all thirty Act 2 rooms carry `TODO name L31`-style placeholders,
+and the HUD shows them to the player.
 
 ## Todos
 
 ### Parallel
-- [ ] #2 **A scorer worth the compute.** Rank candidates on where the traps sit, not how
-      many; on distinctness from the rooms already chosen; and on order-sensitivity. Each is
-      expensive per room, which is what the cores are for. Existing pieces: `tighten` in
-      `tools/draft-room.mjs`, and the metrics in `tools/metrics.mjs`.
-- [ ] #3 **The solvability indicator** (also in `TODO.md`). `solver.js` computes deadness
-      offline already; wire it to run after each state change and surface a non-blocking "can
-      no longer be won". Best done before any long room ships — see the frustration note in
-      Context. **Design note not yet settled:** `analyze()` from the current state is the
-      wrong primitive — it computes far more than the question needs. What the indicator
-      wants is "is a win still reachable from here", a forward search that stops at the first
-      win. Unwinnable is the expensive case, since it enumerates everything still reachable.
-      Whether that runs on the main thread or in a worker is the open call.
-- [ ] #5 **A cart rolls into open water and comes to rest there.** Nothing stops it, the
-      water is unchanged, and the raccoon can neither follow it nor stand on it — so a cart
-      can be lost permanently, by accident, with no warning. Undesigned rather than broken.
-      Costs nothing until a room holds both a canal and a cart.
-- [ ] #10 **Decide the stack's fate.** The survey put a number on what was already suspected:
-      `S` is last in the roster by an order of magnitude, 5.1 solvable per 1000 against 62.5
-      for every group without it, at the same enumeration-cap rate. Cut it from the roster or
-      keep it as an expert-act piece — but it will not carry an introduction. Owner's call;
-      the evidence side is closed.
-
-### Sequential
-- [ ] #7 (needs: #1) **Harvest deep on the groups the map calls fertile.** 62 groups produced
-      6 or more interesting rooms per 200 placements; they are listed in Context. Sample those
-      at depth rather than re-running the whole space.
-- [ ] #8 (needs: #7) Build the act. Target ~20 rooms on a deliberate par curve, 14 climbing to
-      35 — Microban's band, and roughly double the current ceiling of 23.
-
-## Done
-- [x] #1 The fertility survey — `tools/survey.mjs`, map in `levels/fertility.jsonl`.
+- [ ] #11 **Name Act 2.** Thirty rooms need a `:name` and a `:note` in `levels/act2.tt`, and the
+      matching name in the `levels.md` Act 2 table. Each room's `:note` already records which
+      set it belongs to and which ramp that set uses, which is the context to write from.
+      `tools/verify.mjs` does not require a name, so nothing fails today — it just reads wrong.
+- [ ] #5 **A cart rolls into open water and comes to rest there.** Nothing stops it, the water
+      is unchanged, and the raccoon can neither follow it nor stand on it — so a cart can be
+      lost permanently, by accident, with no warning. Undesigned rather than broken. Costs
+      nothing until a room holds both a canal and a cart.
+- [ ] #10 **Decide the stack's fate.** `S` is last in the roster by an order of magnitude — 5.1
+      solvable rooms per 1000 placements against 62.5 for every group without it, at the same
+      enumeration-cap rate. It appears in no shipped Act 2 room. Cut it, or keep it as an
+      expert-act piece; it will not carry an introduction.
+- [ ] #12 **`tools/build-artifact.mjs` does not build**, and did not before any of this
+      session's work: the win-chime `fetch` in `main.js` survives bundling and trips the tool's
+      own CSP guard. The served game is unaffected; only the single-file publish path is.
+- [ ] #13 **Render through the compositor.** `main.js` draws straight to the canvas; the house
+      pattern is ordered layers via `src/compositor.js`, which the game still does not import.
+      Worth doing before the art pass.
 
 ## Context
 
-### The survey, and what it settled
+### What was built, and the one number behind each
 
-- **Run:** 586 legal groups, 117,200 placements on 8×4, 74 minutes on 30 workers. 4,783
-  solvable; 907 also clear par ≥ 12, ≤ 2 shortest solves, ≥ 1 trap. 289 groups never yielded
-  one solvable room. Findings written up in `SPEC-SHEET.md`; raw map in
-  `levels/fertility.jsonl`.
-- **Homogeneous bag sets are barren.** Every group whose only carrier is the loose bag came
-  in at or near zero. That was the assumption worth testing and it does not hold here.
-- **Marginal fertility, solvable per 1000:** `B` 86.6, `P` 62.0, `x` 50.4, `j` 45.7, `$` 42.6,
-  `F` 41.9, `w` 40.4, `c` 32.6, `W` 30.8, `C` 14.0, `S` 5.1.
-- **What the map cannot see.** 19.8% of placements exceeded the 50,000-state bound and were
-  counted, not analysed. Fertility is flat across the 0–39% bands (43.8 / 43.4 / 42.2), so the
-  ranking is not a cap artifact; only the 63 groups above 40% fall away. Placement is random
-  on an open rectangle — **outlines are the untested axis.**
-- **The empty bin is not a starting piece.** Emptied, it slides one and sheds nothing, which
-  is the empty can's whole behaviour; sampling both would rank one piece twice. It still
-  arises in play, as what a full bin becomes.
+- **The recycle bin got a terminal state.** It was the only container that never emptied, so it
+  could never be an objective. It now does full→empty like the can and the wheelie (`B`/`b`),
+  which puts it in `BAGS_IN`.
+- **`tools/survey.mjs`** mapped which mixed piece groups make rooms at all. 586 groups, 117,200
+  placements. **Homogeneous bag sets are barren** — every group whose only carrier is the loose
+  bag scored at or near zero. Marginal fertility, solvable per 1000: `B` 86.6, `P` 62.0, `x`
+  50.4, `j` 45.7, `$` 42.6, `F` 41.9, `w` 40.4, `c` 32.6, `W` 30.8, `C` 14.0, `S` 5.1.
+- **`tools/harvest.mjs`** grew 6,651 rooms on outlines. Building rooms with walls rather than as
+  open rectangles took the too-big-to-enumerate rate from 20% to 7% and roughly tripled the keep
+  rate. Taylor & Parberry (GAMEON-NA 2011) reject any level holding a 3×4 clear block for making
+  state spaces "very bushy, but not very deep"; that is exactly what the open 8×4 was doing.
+- **`tools/score.mjs`** ranks on solution SHAPE, from the same paper: box **lines** (a run of
+  shoves on one piece in one direction counts once) and box **changes** (how often the solution
+  puts one piece down and picks another up). Push and move counts measure tedium, not
+  difficulty. `pathBite` adds the axis Sokoban lacks — see below.
+- **`tools/pick.mjs`** tightens before scoring, because `tighten` moves traps, solves and the
+  graph, all scored terms. On one candidate it cut 31,012 states to 290 at the same par.
+- **`tools/shapes.mjs`** enumerates outline families. Of L, U and H, **only H passes the
+  open-floor rule** — an L is a rectangle minus a corner and a U minus a bite, so both leave a
+  big open hall, at every size tried. 48 H variants pass; every one has a two-cell neck, which
+  restricts tearing.
+- **`tools/sets.mjs`** builds three-room sets sharing an outline: UPGRADE fills a container
+  already standing there (`c`→`C`, `w`→`W`, `b`→`B`) so a rung adds a bag without adding a body;
+  ADDITION puts a piece down; PAR rearranges one cast.
+- **The solvability indicator** (`deadScan` in `src/solver.js`) walks the room's graph once when
+  it opens, a slice per frame, then every move is a Set lookup. Not a worker: the artifact
+  bundle inlines `src/` behind a CSP that would refuse to load one.
+- **Progress** (`src/progress.js`) keeps the best run per room in `localStorage`. Three stars is
+  a claim about OPTIMALITY, because par here is provably minimal; the second band is
+  proportional (`≤ ceil(par × 1.25)`) so short rooms are not brutal.
 
-### The 62 groups worth harvesting deep
+### The finding that shaped the design
 
-```
-xBBj BBBF BBBP $wBP WBPP WBjP WwBP xBBP $BPP $BjF xWwB WBFP $xWP $cBB $WjP CwBj wBBP
-BBFF $BjP $wwB xWBP $xwB WwwB xxWB CxBj CxwB xWWj xxBB wBBj $BFP xWBF $BBP xWBj $cBj
-WwBF $WPP CxxB CBFP cWBF cWwB BBjP BBPP cxBB BBjF xBBB $wBF CBPP $cxB cxWB cBBB WwBj
-CBjP xWWP $wBB $cWw $Wjj $CxP CBjF $Www $CPP $WwB $xWF
-```
+**Losable and self-announcing pull against each other.** Of 5,578 eligible harvested rooms,
+exactly ONE both lets optimal play go wrong at 15% of its steps and ends within 12 moves of the
+mistake; median `onPath` is 0. This is causal: the mess is permanent, so a losable room has many
+live-to-dead edges, and every dead state is still playable. It worsens with length — median
+`blind` runs 27 at par 12–17 and 47 at par 30–45. Selection cannot buy its way out, which is why
+the indicator is the enabling feature rather than a nicety.
 
-### Measured earlier, still worth trusting
+### Act 2's real cost, recorded openly
 
-- **Trap position beats trap count.** L29 shipped with 17 traps all off the par line — the
-  first way to lose was eight moves down a branch a player would have restarted from. Score
-  rooms on `biteSteps` and `firstBite`, not on `:traps`.
+The piece cap in `tools/act2.mjs` is 0.8, not a half, so the bin appears in 24 of 30 rooms. The
+bin is the most fertile piece in the roster and on H outlines it is close to load-bearing: of 56
+candidate sets exactly one contains no bin, and a deliberate bin-free search over 47 bin-free
+fertile mixtures found that single set. Half a cap buys a 24-room act. `--maxpiece` changes it.
+
+### Still worth trusting
+
+- **Trap position beats trap count.** L29 shipped 17 traps all off the solution line. Score on
+  `onPath` and `firstOnPath`, never on `:traps`.
 - **`tighten` strips teeth if allowed to.** Its default refuses to remove a room's last trap.
-  Walls cannot lower par — they only remove options — but they do remove ways to lose, and
-  can create new ones (L27 gained a trap when walled).
-- **The documented Sokoban frustration is not length.** It is a long solution with no way to
-  tell whether you already derailed it — "negative freedom, where a lack of constraints sows
-  doubt" (Electron Dance, *Claustrophobia*). This game has an answer Sokoban lacks: its mess
-  is permanent and visible, and `solver.js` already computes deadness. That is what makes #3
-  a prerequisite for long rooms rather than a nicety.
-- **Verification scales; enumeration does not.** 8×8 with four bags and a cart is 42,662
-  states and 4.2s to verify — but 2.4×10¹¹ boards to enumerate. Hand-design plus `tighten`
-  plus verify is the method above roughly 6×4.
-- **Bag count is monotone.** Only a tear reduces it, and by one. A full can, a stack and a
-  wheelie all conserve it. The state graph is layered in that dimension.
-- **Comparator, measured from source.** Microban's 155 levels: median 10×8 including the wall
-  border, median 4 boxes, early solutions 33–41 moves.
+- **Comparator, measured from source.** Sokoban's genre unit is ~50 rooms per set (Sasquatch I–XII);
+  Microban's 155 are small one-concept rooms for beginners. Ordering is plain ascending
+  difficulty. Sasquatch III is built on design symmetry — a set organised around a formal device
+  has good precedent.
+- **Minicosmos pairs a layout with itself plus a stone** "as a nice way of providing hints". The
+  UPGRADE ramp is that device translated for a game where an extra body chokes the board.
 
-### Backward generation, pinned for after the first rooms exist
+### Data on disk
 
-Walking back from a win is how most Sokoban generators work, and it half-applies here. Pushes
-invert cleanly, emitters too if the history is being constructed rather than read. Tearing
-does not: all trash is identical, so the board cannot say which cells came from which tear.
-The inverse is one-to-many — which suits generation, since the choice of which five cells
-revert to floor *is* the construction. **The real reason to want it is that it is the only
-way to aim at a par directly** rather than fish for one.
+`levels/fertility.jsonl` (group map), `levels/harvest.jsonl` (6,651 rooms, every metric),
+`levels/sets.jsonl` (56 candidate sets). Re-ranking is a query over these; only a change to what
+is MEASURED needs another run.
 
-### Tools
+### Run it
 
-- `tools/survey.mjs` — `groups()`, `place()`, `staticallyDead()`, and the CLI. Caps
-  enumeration at 50k states and reports per group. `analyze()` takes `maxStates` and THROWS
-  `TooManyStates`; it never truncates, because a partial graph reports a wrong par.
-- `tools/draft-room.mjs` — `draft` (every check `verify.mjs` applies), `cartMustMove`,
-  `rooms({w,h,pieces,exitAt,plan})`, `tighten`, `ttBlock`. `rooms()` always places a cart;
-  a cartless search needs its own sampler.
-
-Adding a room: draft or search → `tighten` → paste `ttBlock` output into `levels/act1.tt` →
-add the `:solution` entry to `levels/act1.sol` → add the row to the `levels.md` table →
-`node tools/verify.mjs` and `npm test`.
-
-### Watch for
-
-Groups that are duplicates in disguise. A full can and a stack ask the cart almost the same
-question; the map will rank both while they teach one thing.
+`./run.sh`, `npm test` (222 specs), `node tools/verify.mjs` (both acts, 1,243 checks). All green.
 
 ## Next Step
 
-Harvest deep (#7) on the 62 groups listed above. The survey ranked groups at 200 samples
-each, which surfaces only a handful of keepers per group — far short of what picking twenty
-levels needs. Reuse `place()` and the 50k cap from `tools/survey.mjs`; what is missing is a
-scorer (#2) good enough to choose between the keepers once there are hundreds of them.
+Name Act 2 (#11). Thirty rooms in `levels/act2.tt`, each with a `:note` recording its set and
+ramp; the same names go in the `levels.md` Act 2 table. Nothing else in the pipeline is waiting
+on anything.
 
 /home/menser/Dropbox/ai/code/treasure_trash
