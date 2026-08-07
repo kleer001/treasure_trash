@@ -25,7 +25,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
-import { toState } from '../src/format.js';
+import { toState, toGrid, toCart } from '../src/format.js';
 import { analyze } from '../src/solver.js';
 import { tighten, ttBlock } from './draft-room.mjs';
 import { measure } from './harvest.mjs';
@@ -92,8 +92,50 @@ export function choose(scored, { want, lo, hi, bands = 5, maxPieceShare = 0.5, p
   return { picked: taken.sort((a, b) => a.par - b.par), short, byPiece, byBand, edges };
 }
 
+/**
+ * Choose an act made of SETS rather than of loose rooms. A set is three rooms sharing one
+ * outline and one way of getting harder; `tools/sets.mjs` builds them.
+ *
+ * Ordered by `onPath` — how much of the solve optimal play can still lose from — with par as
+ * the tie-break. Trap COUNT is deliberately not the axis: L29 shipped seventeen ways to lose
+ * and every one of them hung off a branch a solver would never walk.
+ *
+ * One outline per set, so ten sets are ten different H variants rather than one drawn ten
+ * times, and the ramps are spread so the act does not run a single device end to end.
+ */
+export function chooseSets(sets, { want = 10, maxPieceShare = 0.5, maxPerRamp = 5 } = {}) {
+  const rank = s => {
+    const on = s.rooms.reduce((a, r) => a + (r.onPath ?? 0), 0) / s.rooms.length;
+    return { on, par: s.rooms[s.rooms.length - 1].par };
+  };
+  const ordered = [...sets].sort((a, b) => {
+    const A = rank(a), B = rank(b);
+    return B.on - A.on || B.par - A.par;
+  });
+
+  const cap = Math.max(1, Math.floor(want * 3 * maxPieceShare));
+  const taken = [], byShape = new Set(), byRamp = {}, byPiece = {};
+  const piecesOf = s => new Set(s.rooms.flatMap(r => [...r.group]));
+
+  for (const s of ordered) {
+    if (taken.length >= want) break;
+    if (byShape.has(s.shape)) continue;
+    if ((byRamp[s.ramp] ?? 0) >= maxPerRamp) continue;
+    let over = false;
+    for (const p of piecesOf(s)) if ((byPiece[p] ?? 0) + s.rooms.length > cap) over = true;
+    if (over) continue;
+    taken.push(s);
+    byShape.add(s.shape);
+    byRamp[s.ramp] = (byRamp[s.ramp] ?? 0) + 1;
+    for (const p of piecesOf(s)) byPiece[p] = (byPiece[p] ?? 0) + s.rooms.length;
+  }
+  // Easiest first: the act climbs in the axis it was ranked on.
+  taken.reverse();
+  return { sets: taken, byRamp, byPiece, short: Math.max(0, want - taken.length) };
+}
+
 /** The three files a room has to appear in, so it cannot land in two of them. */
-export function emit(picked, { first = 31, pack = 'Treasure Trash — Act 2' }) {
+export function emit(picked, { first = 31, pack = 'Treasure Trash — Act 2', noteFor = null }) {
   const id = i => `L${first + i}`;
   const tt = [`:pack   ${pack}`, ':format 1', ';',
     '; Names, teach lines and notes are the one part of a room that is not computed.',
@@ -102,10 +144,15 @@ export function emit(picked, { first = 31, pack = 'Treasure Trash — Act 2' }) 
   const sol = [`:pack   ${pack}`, ':format 1', ''];
   const md = [];
   picked.forEach((r, i) => {
+    // Write the CANONICAL grid and mask, not the one the generator happened to build. The
+    // pools hand out letters in placement order and the serialiser reads them back in raster
+    // order, so a room with two carts can round-trip as Q-then-P and fail its own verifier.
+    const s = toState({ id: id(i), grid: r.grid, ...(r.cart && { cart: r.cart }) });
+    const canonCart = toCart(s);
     const room = {
       id: id(i), name: `TODO name ${id(i)}`,
-      note: `TODO note — ${r.group}, ${r.lines} lines, ${r.changes} changes`,
-      grid: r.grid, ...(r.cart && { cart: r.cart }),
+      note: noteFor ? noteFor(r, i) : `TODO note — ${r.group}, ${r.lines} lines, ${r.changes} changes`,
+      grid: toGrid(s), ...(canonCart && { cart: canonCart }),
     };
     tt.push(ttBlock(room, { par: r.par, traps: r.traps, solves: r.solves, solve: r.solve }), '');
     sol.push(`:solution ${id(i)}`, `:moves  ${r.solve}`, '');

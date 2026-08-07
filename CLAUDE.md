@@ -37,6 +37,10 @@ around it — art, audio, progression, and the solvability indicator.
 - `node tools/pick.mjs` — tightens a shortlist, re-measures it, and chooses an act under par-band
   and piece-spread constraints, writing the `.tt`, `.sol` and table rows together. Names, teach
   lines and notes come out as placeholders: they are the part nothing can compute.
+- `node tools/shapes.mjs` — the outline families, enumerated and filtered. Draw one to see it.
+- `node tools/sets.mjs` — finds SETS of three rooms sharing an outline, each set getting harder
+  in one stated way. Writes `levels/sets.jsonl`.
+- `node tools/act2.mjs` — chooses ten sets from that file and writes the act.
 - `publishing/package.sh` — builds `dist/treasure-trash.zip` for itch.io, `index.html` at the
   archive root. Run it from the game root; add new runtime assets to its `RUNTIME` list, and
   the zip stays out of git.

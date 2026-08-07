@@ -4,9 +4,10 @@
 the pitch. **None of them say what the pieces do — `src/rules.js` does.**
 
 ## Where we are
-- **Act 1 is closed at 31 rooms** (L0–L30). It arms every piece the game has. New rooms go in
-  a new act: `src/main.js` has an `ACTS` list, `verify.mjs` discovers `levels/act*.tt`, and
-  `publishing/package.sh` ships all of them.
+- **Act 1 is closed at 31 rooms** (L0–L30). It arms every piece the game has.
+- **Act 2 is in: 30 rooms (L31–L60), ten sets of three, every room an H.** Names and notes are
+  still placeholders — that is the open work on it. `src/main.js` has an `ACTS` list,
+  `verify.mjs` discovers `levels/act*.tt`, and `publishing/package.sh` ships all of them.
 - The raccoon's core mechanic is built and playable — every shipped room solvable in a
   provably-minimal par found by exhaustive search rather than asserted.
 - Crow is pinned, parked until the raccoon-alone game proves fun.

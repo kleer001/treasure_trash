@@ -542,7 +542,7 @@ document.getElementById('controls').addEventListener('click',e=>{
 const asset = p => new URL(p, import.meta.url);
 // Acts are separate files, played end to end. The list is the running order; a room's id is
 // unique across the whole game, so nothing downstream has to know which act it came from.
-const ACTS = ['act1.tt'];
+const ACTS = ['act1.tt', 'act2.tt'];
 for(const act of ACTS){
   const res = await fetch(asset(`../levels/${act}`));
   if(!res.ok) throw new Error(`cannot load levels/${act} (${res.status}) — serve with ./run.sh`);
