@@ -66,7 +66,7 @@ viewer renders roughly right. `.` is floor here, not a goal square.
 | `C` / `c` | full can / empty can |
 | `S` | bag-on-can stack |
 | `W` / `w` | wheelie bin, full / empty |
-| `b` | recycle bin |
+| `B` / `b` | recycle bin, full / empty |
 | `j` | water jug |
 | `x` | spilled trash |
 | `F` `G` `H` `K` `M` `N` | furniture — one letter per piece |

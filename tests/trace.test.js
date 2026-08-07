@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   explain, cell, cartCells, pieceCells, bagsLeft, NONE,
-  BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
+  BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
 } from '../src/rules.js';
 import { toState } from '../src/format.js';
 
@@ -101,7 +101,7 @@ test('a fan cell over the canal reports that it fills rather than rests', () => 
 test('each two-cell piece moves itself and launches its load from its own cell', () => {
   for (const [g, o, becomes, load] of [
     ['C', CAN_FULL, CAN_EMPTY, BAG], ['S', STACK, CAN_FULL, BAG],
-    ['b', BIN, undefined, TRASH], ['j', JUG, undefined, NONE],
+    ['B', BIN, BIN_EMPTY, TRASH], ['j', JUG, undefined, NONE],
   ]) {
     const r = audit(`two-cell ${g}`, ['-----', '-----', `--${g}--`, '--@--', 'E----'], 'u');
     const [step] = r.steps;

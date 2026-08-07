@@ -3,7 +3,8 @@
 
 // Occupant codes. `stateKey` encodes each as one printable character, so the list can grow.
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
-             BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9, FURNITURE = 10;
+             BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9, FURNITURE = 10,
+             BIN_EMPTY = 11;
 
 // The one code a cell does not fully describe: two adjacent FURNITURE cells may be one couch
 // or two, and only `pid` says which. `stateKey` encodes the partition as well as the codes.
@@ -36,9 +37,10 @@ export const isRoller = c => !isCart(c) && (c.o === WHEELIE || c.o === WHEELIE_E
 const SLIDES = {
   [CAN_FULL]:  { slides: CAN_EMPTY, drops: BAG },
   [STACK]:     { slides: CAN_FULL,  drops: BAG },
-  [BIN]:       { slides: BIN,       drops: TRASH },
+  [BIN]:       { slides: BIN_EMPTY, drops: TRASH },
   [JUG]:       { slides: JUG,       pours: true },
   [CAN_EMPTY]: { slides: CAN_EMPTY },
+  [BIN_EMPTY]: { slides: BIN_EMPTY },
 };
 
 // Direction letters are the solution format's alphabet — see FORMATS.md.
@@ -471,7 +473,7 @@ export function applyAction(s, { dir, kind }) {
   return r.next;
 }
 
-const BAGS_IN = { [BAG]: 1, [CAN_FULL]: 1, [WHEELIE]: 1, [STACK]: 2 };
+const BAGS_IN = { [BAG]: 1, [CAN_FULL]: 1, [WHEELIE]: 1, [STACK]: 2, [BIN]: 1 };
 export function bagsLeft(s) {
   let k = 0;
   for (const row of s.cells) for (const c of row) k += BAGS_IN[c.o] ?? 0;

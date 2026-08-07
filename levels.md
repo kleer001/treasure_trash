@@ -20,7 +20,7 @@ The token count is the par.
 | L5 | Recycling Day | 6 | `luRU!dl` |
 | L6 | Runaway Bin | 12 | `UluuRldR!lddd` |
 | L7 | Three Bags Full | 13 | `lldR!ldD!ulluR!l` |
-| L8 | Bin Night | 15 | `lDldL!rurrdLLdR!l` |
+| L8 | Bin Night | 15 | `LDldL!rurrdLLdR!l` |
 | L9 | Tight Corner | 17 | `uruullDurrddD!ulU!d` |
 | L10 | Long Way Round | 19 | `uuulDddlU!drrddLruL!r` |
 | L11 | Crosstown | 21 | `rrUurD!ulluuRldR!lulD!ul` |

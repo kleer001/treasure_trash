@@ -21,12 +21,31 @@ const refused = (grid, dir, water) => {
 };
 
 test('recycle bin slides one and drops one cell of trash directly ahead', () => {
-  assert.deepEqual(after(['-----', '-----', '--b--', '--@--', 'E----'], 'u'),
+  assert.deepEqual(after(['-----', '-----', '--B--', '--@--', 'E----'], 'u'),
                           ['--x--', '--b--', '--@--', '-----', 'E----']);
 });
 
 test('recycle bin is refused when its trash would land on the exit', () => {
-  assert.equal(refused(['--E--', '-----', '--b--', '--@--', '-----'], 'u'), 'exit');
+  assert.equal(refused(['--E--', '-----', '--B--', '--@--', '-----'], 'u'), 'exit');
+});
+
+test('an emptied recycle bin slides like an empty can — it has nothing left to drop', () => {
+  assert.deepEqual(after(['-----', '-----', '--b--', '--@--', 'E----'], 'u'),
+                          ['-----', '--b--', '--@--', '-----', 'E----']);
+});
+
+// The room's objective, not scenery: it is one shove from spent, and until it is taken the
+// exit stays dark.
+test('a full recycle bin is worth a bag, and shoving it once spends it', () => {
+  assert.equal(bagsLeft(S(['--B--', '--@--', 'E----'])), 1);
+  assert.equal(bagsLeft(S(['--b--', '--@--', 'E----'])), 0);
+  assert.equal(bagsLeft(act(['-----', '-----', '--B--', '--@--', 'E----'], 'u')), 0);
+});
+
+test('an emptied bin is not refused by the exit — there is no drop to land on it', () => {
+  assert.equal(refused(['--E--', '-----', '--B--', '--@--', '-----'], 'u'), 'exit');
+  assert.deepEqual(after(['--E--', '-----', '--b--', '--@--', '-----'], 'u'),
+                          ['--E--', '--b--', '--@--', '-----', '-----']);
 });
 
 test('bag-on-can stack launches the bag two and slides the can one, still full', () => {
@@ -123,17 +142,19 @@ test('a full can ejects its bag into the water, and that bag can never be opened
 
 test('the recycle bin bridges one cell — one spent for one gained', () => {
   const w = ['--~--', '-----', '-----', '-----', '-----'];
-  const g = ['-----', '-----', '--b--', '--@--', 'E----'];
+  const g = ['-----', '-----', '--B--', '--@--', 'E----'];
   assert.deepEqual(after(g, 'u', w), ['-----', '--b--', '--@--', '-----', 'E----']);
   assert.deepEqual(afterWet(g, 'u', w), ['--=--', '-----', '-----', '-----', '-----']);
 });
 
 // A water cell's only dry neighbours are its two banks, so the bin ends up standing on the
-// one cell that approaches the bridge it just made.
-test('the bin parks itself on the far side of the bridge it just built', () => {
+// one cell that approaches the bridge it just made — and it is spent, so it can be shoved
+// out onto its own plank rather than standing there as a second obstacle.
+test('a spent bin steps aside onto the plank it laid', () => {
   const w = ['--~--', '-----', '-----', '-----', '-----'];
-  const s = act(['-----', '-----', '--b--', '--@--', 'E----'], 'u', w);
-  assert.equal(explain(s, 'u').reason, 'canRoom');   // the bin is in the way now
+  const s = act(['-----', '-----', '--B--', '--@--', 'E----'], 'u', w);
+  assert.deepEqual(toGrid(act(toGrid(s), 'u', toWater(s))),
+                   ['--b--', '--@--', '-----', '-----', 'E----']);
 });
 
 test('a wheelie bin rolls clean across a canal, and he steps only into the cell it left', () => {

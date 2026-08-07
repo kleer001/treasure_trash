@@ -1,7 +1,8 @@
 // Presentation and input only — the rules live in src/rules.js.
 // ES modules need http://, so run ./run.sh rather than opening the file.
 import {
-  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
+  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
+  FURNITURE,
   MOVE, DIRS,
   explain, isWon, bagsLeft, trashHeld, fan, inGrid, cell, cloneState, isMultiCell,
 } from './rules.js';
@@ -20,7 +21,8 @@ const pad = id => String(id).replace(/\D+/g,'').padStart(3,'0');
 const CS=76, PAD=9;
 // The occupant codes the sprite dispatcher needs; it takes them rather than importing the
 // rules, so the art has no idea a rulebook exists.
-const CODES = { BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG };
+const CODES = { BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY,
+  JUG };
 
 const WHY = {
   edge:    "that's the edge of the alley",
@@ -35,7 +37,8 @@ const WHY = {
 };
 // Name the thing in the way rather than saying "blocked": the red cell already carries that.
 const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"your own trash",
-  [BIN]:"the recycle bin", [STACK]:"a bag on a can", [WHEELIE]:"a wheelie bin",
+  [BIN]:"a full recycle bin", [BIN_EMPTY]:"an empty recycle bin",
+  [STACK]:"a bag on a can", [WHEELIE]:"a wheelie bin",
   [WHEELIE_EMPTY]:"an empty wheelie bin", [JUG]:"the water jug", [FURNITURE]:"the couch" };
 function whyText(b){
   const base = WHY[b.reason];

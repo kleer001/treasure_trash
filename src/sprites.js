@@ -18,6 +18,7 @@ export const PALETTE = {
   metal: '#b9c0c7', metalEdge: '#7d858c', metalRidge: '#9aa2a9',
   metalRim: '#cfd5da', metalMouth: '#3a4046',
   binBody: '#2d7dd2', binEdge: '#1b4f86', binLid: '#4a95e0', binMark: '#fff',
+  binMouth: '#16365c',
   couch: '#9c6249', couchEdge: '#5c382a', couchCushion: 'rgba(255,255,255,.13)',
   jugAir: '#cdeef9', jugWater: '#2e6f8e', jugEdge: '#1b4f86',
   wheelie: '#3f7d4f', wheelieEdge: '#255034', wheelieRidge: '#2f6a40',
@@ -223,13 +224,21 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
 
     // Blue reads as "recycling" the world over, and it keeps the bin from being mistaken for
     // the grey metal can.
-    recycleBin(x, y) {
+    recycleBin(x, y, full) {
       const cx = px(x) + CS / 2, w = CS - 2 * PAD - 6, top = px(y) + PAD + 6, h = CS - 2 * PAD - 8;
       ctx.save();
       ctx.fillStyle = P.binBody; ctx.strokeStyle = P.binEdge; ctx.lineWidth = 2;
       ctx.fillRect(cx - w / 2, top, w, h); ctx.strokeRect(cx - w / 2, top, w, h);
-      ctx.fillStyle = P.binLid; ctx.fillRect(cx - w / 2, top, w, 7);
-      ctx.strokeStyle = P.binEdge; ctx.strokeRect(cx - w / 2, top, w, 7);
+      if (!full) {                                   // the mouth the tipped-back lid uncovers
+        ctx.fillStyle = P.binMouth;
+        ctx.fillRect(cx - w / 2 + 2, top + 1, w - 4, 6);
+      }
+      ctx.save();
+      ctx.translate(cx - w / 2, top);
+      if (!full) ctx.rotate(-0.38);                  // tipped back, and nothing left to hold in
+      ctx.fillStyle = P.binLid; ctx.fillRect(0, 0, w, 7);
+      ctx.strokeStyle = P.binEdge; ctx.strokeRect(0, 0, w, 7);
+      ctx.restore();
       // chasing arrows as a plain triangle outline — legible small, unlike the real mark
       ctx.strokeStyle = P.binMark; ctx.lineWidth = 3; ctx.lineJoin = 'round';
       const r = w * 0.26, my = top + h * 0.62;
@@ -412,7 +421,8 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   else if (o === codes.BAG) sprites.bag(x, y, k);
   else if (o === codes.CAN_FULL) sprites.can(x, y, true);
   else if (o === codes.CAN_EMPTY) sprites.can(x, y, false);
-  else if (o === codes.BIN) sprites.recycleBin(x, y);
+  else if (o === codes.BIN) sprites.recycleBin(x, y, true);
+  else if (o === codes.BIN_EMPTY) sprites.recycleBin(x, y, false);
   else if (o === codes.STACK) sprites.stack(x, y);
   else if (o === codes.WHEELIE) sprites.wheelie(x, y, true);
   else if (o === codes.WHEELIE_EMPTY) sprites.wheelie(x, y, false);

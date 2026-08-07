@@ -355,7 +355,7 @@ if (location.protocol === 'file:') document.addEventListener('DOMContentLoaded',
 // The bench: presentation only. The engine is imported, never copied — this page and the
 // game run the same modules, so the demo cannot drift from what it demonstrates.
 import {
-  BAG, BIN, CAN_EMPTY, CAN_FULL, JUG, STACK, TRASH, WHEELIE, WHEELIE_EMPTY,
+  BAG, BIN, BIN_EMPTY, CAN_EMPTY, CAN_FULL, JUG, STACK, TRASH, WHEELIE, WHEELIE_EMPTY,
   bagsLeft, cell, explain, fan, isWon, step, trashHeld,
 } from './src/rules.js';
 import { toState } from './src/format.js';
@@ -437,7 +437,8 @@ const CASES = [
 
 // The occupant codes the shared dispatcher needs. Passing them keeps src/sprites.js free of
 // any dependency on the rules — it draws things, it does not know what they do.
-const CODES = { BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG };
+const CODES = { BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE,
+  WHEELIE_EMPTY, JUG };
 // A stand-in seed for a filled canal cell, which is terrain rather than a sprite.
 const hashCell = (x, y) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
 

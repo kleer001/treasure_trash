@@ -47,7 +47,7 @@
 
 :solution L8
 :label  par
-:moves  lDldL!rurrdLLdR!l
+:moves  LDldL!rurrdLLdR!l
 
 :solution L9
 :label  par
