@@ -29,6 +29,10 @@ around it — art, audio, progression, and the solvability indicator.
 - `node tools/survey.mjs` — samples every legal group of four pieces and writes which ones
   make rooms at all to `levels/fertility.jsonl`. Long-running and parallel; findings are
   read in `SPEC-SHEET.md`.
+- `node tools/harvest.mjs` — samples the fertile groups deeply, on outlines rather than open
+  rectangles, and stores every metric per room in `levels/harvest.jsonl`.
+- `node tools/score.mjs` — ranks that file. Scoring is a query over stored metrics, so new
+  weights cost a second rather than another harvest.
 - `publishing/package.sh` — builds `dist/treasure-trash.zip` for itch.io, `index.html` at the
   archive root. Run it from the game root; add new runtime assets to its `RUNTIME` list, and
   the zip stays out of git.

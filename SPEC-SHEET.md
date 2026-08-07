@@ -107,6 +107,58 @@ an artifact of the cap; only the 63 groups above 40% fall off, and those are the
 boards in the set. Sampling is random placement on an open rectangle: nothing here says
 anything about outlines, and walls are the untested axis.
 
+## The harvest, and the wall it hit
+
+`tools/harvest.mjs` samples the groups the map calls fertile, builds them on OUTLINES rather
+than open rectangles, and stores every metric per room to `levels/harvest.jsonl`.
+`tools/score.mjs` ranks that file, so changing the weights is a query and not another run.
+
+Two metrics come from Taylor & Parberry (GAMEON-NA 2011). **Box lines** — a run of shoves on
+one piece in one direction counts once — is the one they find tracks difficulty; **box
+changes** — how often the solution puts one piece down and picks another up — they suspect is
+better still. Both are indifferent to walking, which is the point: push and move counts
+measure tedium, not difficulty.
+
+The same paper's structural rejects apply here, and one of them was load-bearing. A room
+holding a 3×4 clear block has "very bushy, but not very deep state spaces". The survey's open
+8×4 is nothing but such blocks; one placement in five blew past the state cap and returned
+nothing for the cost. Outlined, that fell to one in fourteen and the keep rate roughly tripled.
+
+Run: 62 groups, 74,400 outlined placements, 25 minutes, 6,651 rooms kept.
+
+**The generated rooms beat the shipped pack on solution shape.** Top candidates reach 11 lines
+and 8 changes; the shipped pack tops out at 5 and 4, and L12 spends par 23 on 4 lines — which
+is the same thing `metrics.mjs` has been saying about L7–L13 all along, now with a number.
+
+### The tradeoff that selection cannot fix
+
+Two properties matter and they turn out to be nearly incompatible:
+
+- **`onPath`** — the fraction of the solve's depths at which *optimal* play can still throw the
+  room away. A trap off the line is a trap nobody meets.
+- **`blind`** — how far the room stays playable after it has already been lost.
+
+| | blind ≤ 5 | ≤ 10 | ≤ 15 | ≤ 20 | ≤ 30 |
+|---|---|---|---|---|---|
+| onPath ≥ 0.05 | 4 | 29 | 81 | 178 | 474 |
+| onPath ≥ 0.10 | 0 | 1 | 15 | 41 | 128 |
+| onPath ≥ 0.15 | 0 | 0 | 6 | 11 | 42 |
+| onPath ≥ 0.20 | 0 | 0 | 1 | 1 | 10 |
+| onPath ≥ 0.30 | 0 | 0 | 0 | 0 | 0 |
+
+Of 5,578 eligible rooms, **one** both bites the road at 15% and ends within 12 moves of the
+mistake. Median `onPath` is 0 — half of all eligible rooms are rooms optimal play cannot lose.
+
+This is causal, not bad luck. The mess is permanent, so a room where the good line can go
+wrong is a room with many live-to-dead edges, and every dead state is still *playable* — you
+can keep shoving things around forever. Losable and self-announcing pull against each other by
+construction. And it worsens with length: median `blind` runs 27 at par 12–17 and 47 at par
+30–45, so the ambition of a par-35 room makes it worse, not better.
+
+**So the solvability indicator is not a nicety, it is the enabling feature.** No amount of
+sampling buys a pack of long, losable, self-announcing rooms, because the rules make them
+nearly incompatible; a room that announces its own death is the only way to have both.
+
 ## Open questions
 
 What you don't know yet, and what would answer it — usually a playtest. Scratch them
