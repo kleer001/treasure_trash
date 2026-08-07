@@ -547,21 +547,21 @@ E--W--
 :level  L29
 :name   The Couch Stops It
 :teach  a couch stops a cart dead, so where the couch is left decides where the cart parks
-:par    15
-:traps  17
+:par    19
+:traps  6
 :solves 1
-:solve  RUddrrUruuLrdL!r
-:note   The couch is in the cart's way and in his, so it moves first — and where he leaves it is the wall the cart will come to rest against. Park it right and the cart brings the bag down to the door row on its way.
+:solve  dlUruulLrrddlUddlU!d
+:note   The cart runs at the couch and parks against it, and that parking square is the whole room: reach it the wrong way round and the bag can no longer be freed. The first move already has a way to get this wrong.
 :grid
------
--FF$-
-@---E
------
+-FF--
+#-$--
+#---@
+##E--
 :end
 :cart
 -----
 -----
--PP--
+--PP-
 -----
 :end
 

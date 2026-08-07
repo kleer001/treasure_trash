@@ -41,7 +41,7 @@ The token count is the par.
 | L26 | Two Carts | 12 | `ddlUruuLD!uru` |
 | L27 | Can in the Basket | 8 | `LullDR!lu` |
 | L28 | Carried, Not Rolled | 10 | `ULlullDR!lu` |
-| L29 | The Couch Stops It | 15 | `RUddrrUruuLrdL!r` |
+| L29 | The Couch Stops It | 19 | `dlUruulLrrddlUddlU!d` |
 | L30 | He Stops the Pour | 10 | `UdlluuRD!ul` |
 
 Trap and solve counts are declared per level in `act1.tt` and verified there. Run

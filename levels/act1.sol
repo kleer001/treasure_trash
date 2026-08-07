@@ -142,8 +142,8 @@
 
 :solution L29
 :label  par
-:moves  RUddrrUruuLrdL!r
-:note   Shove the couch up out of the row, then work round and drive the cart into it — the couch stops the cart on the door row, with the bag set down beside the door.
+:moves  dlUruulLrrddlUddlU!d
+:note   Drive the cart into the couch early, then work the bag down the shaft the walls leave you and burst it at the bottom.
 
 :solution L30
 :label  par
