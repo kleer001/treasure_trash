@@ -14,15 +14,33 @@ the game. The survey is the correction.
 ## Todos
 
 ### Parallel
-- [ ] #1 **The fertility survey.** ~715 multisets of four pieces from the roster × ~500 random
-      placements each (~360k boards; minutes on 32 cores), on an 8×4. Output is a map of which
-      groups yield solvable, interesting rooms at all — not levels. Two filters on the multiset
-      *before* placing anything:
-      **(a)** at least one bag-carrier (`$ C W S`), or `bagsLeft` is 0 and the room is won by
-      walking to the exit; **(b)** at least one permanent emitter (`$ b j`), or it plays like
-      generic Sokoban. `C` and `S` eject a bag but emit nothing permanent, so they do not
-      satisfy (b). Sample randomly — `rooms()` enumerates, and this placement space is far too
-      large to walk.
+- [ ] #1 **The fertility survey.** Output is a map of which piece groups yield solvable,
+      interesting rooms at all — not levels.
+
+      **The alphabet.** Nine single-cell object types: `$` bag, `C` full can, `c` empty can,
+      `x` spilled trash, `S` bag-on-can stack, `W` wheelie, `w` empty wheelie, `b` recycle bin,
+      `j` water jug. Furniture (a blob of 2+ cells) and the cart (exactly 2, in its own mask)
+      are not single cells; carry them as present/absent toggles on each group rather than as
+      members of the four.
+
+      **The filters on a multiset, before placing anything.**
+      (a) At least one bag-carrier. `BAGS_IN` counts only `$`=1, `C`=1, `W`=1, `S`=2; with none
+      of them `bagsLeft` is 0 and the exit is live from move one.
+      (b) Total bags in roughly 2–4. Four stacks is eight bags, and the par runs away from the
+      target band.
+      Do **not** filter on "has a permanent emitter". Winning requires `bagsLeft` to reach 0,
+      only a tear removes a bag, and every tear lays a permanent fan — so every winnable room
+      emits, by construction. What `b` and `j` add is emission *decoupled from the objective*, a
+      mess placed by choice rather than by the win condition. Stratify on their presence and
+      compare fertility; do not require them.
+
+      **The size.** multisets of 4 from 9 = C(12,4) = 495; minus the 70 drawn entirely from the
+      five non-carriers (`c x w b j`) = 425 valid groups; × 2 cart × 2 furniture = 1,700 groups.
+      At ~500 random placements each that is ~850k boards, about 3 minutes on 32 cores at the
+      post-pre-filter rate.
+
+      **The board.** 8×4. Sample placements randomly — `rooms()` enumerates, and this space is
+      far too large to walk.
 - [ ] #2 **A scorer worth the compute.** Rank candidates on where the traps sit, not how many;
       on distinctness from the rooms already chosen; and on order-sensitivity. Each is
       expensive per room, which is what the cores are for. Existing pieces: `hardness()` in the
@@ -125,8 +143,9 @@ question; a fertility map will rank both highly while they teach one thing.
 
 ## Next Step
 
-Build the fertility survey (#1). Random placement sampling on an 8×4, multisets filtered for a
-bag-carrier and a permanent emitter, ~500 samples per group, output a fertility map rather than
+Build the fertility survey (#1). Random placement sampling on an 8×4; multisets of four from
+the nine single-cell types, filtered for at least one bag-carrier and a total of roughly 2–4
+bags; cart and furniture as toggles; ~500 samples per group; output a fertility map rather than
 levels. 8×4 over 7×3 because a horizontal tear needs a row above and below the bag, so on three
 rows only the middle one can ever be struck sideways.
 
