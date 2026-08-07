@@ -25,7 +25,8 @@ around it — art, audio, progression, and the solvability indicator.
   piece does. Nothing here may carry its own copy of the engine; `verify.mjs` enforces that.
 - `npm test` — Node's built-in runner (`node --test`); specs in `tests/*.test.js`.
 - `node tools/verify.mjs` — checks every claim the level files make, and that no page inlines
-  the engine instead of importing it.
+  the engine instead of importing it. Run bare it verifies every `levels/act*.tt`; name a pack
+  to check just one.
 - `node tools/survey.mjs` — samples every legal group of four pieces and writes which ones
   make rooms at all to `levels/fertility.jsonl`. Long-running and parallel; findings are
   read in `SPEC-SHEET.md`.
@@ -33,6 +34,9 @@ around it — art, audio, progression, and the solvability indicator.
   rectangles, and stores every metric per room in `levels/harvest.jsonl`.
 - `node tools/score.mjs` — ranks that file. Scoring is a query over stored metrics, so new
   weights cost a second rather than another harvest.
+- `node tools/pick.mjs` — tightens a shortlist, re-measures it, and chooses an act under par-band
+  and piece-spread constraints, writing the `.tt`, `.sol` and table rows together. Names, teach
+  lines and notes come out as placeholders: they are the part nothing can compute.
 - `publishing/package.sh` — builds `dist/treasure-trash.zip` for itch.io, `index.html` at the
   archive root. Run it from the game root; add new runtime assets to its `RUNTIME` list, and
   the zip stays out of git.

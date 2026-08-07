@@ -124,7 +124,7 @@ export function placeOn(group, plan, w, h, rnd) {
 }
 
 /** Everything a scorer could want about one keeper, so weights can change without a re-run. */
-function measure(group, room, s, a, w, h) {
+export function measure(group, room, s, a, w, h) {
   const acts = parseLurd(a.shortestLurd);
   const shape = solveShape(s, acts);
   const trapDepths = a.traps.map(t => parseLurd(t.lurd).length - 1);

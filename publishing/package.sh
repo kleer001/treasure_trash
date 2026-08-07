@@ -11,8 +11,9 @@ OUT="dist/$NAME.zip"
 
 # What a player needs at runtime — not the repo. Docs, tests, tools, promo
 # pages and workflows stay out; add asset directories here as the game grows.
-# levels/act1.sol and levels/bank.jsonl are verifier and generator data, not runtime.
-RUNTIME=(index.html styles.css src fonts levels/act1.tt sfx)
+# The .sol packs and the jsonl banks are verifier and generator data, not runtime.
+RUNTIME=(index.html styles.css src fonts sfx)
+RUNTIME+=(levels/act*.tt)   # every act; .sol and the jsonl banks are offline data
 
 rm -f "$OUT"
 mkdir -p dist

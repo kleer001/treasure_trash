@@ -540,9 +540,14 @@ document.getElementById('controls').addEventListener('click',e=>{
 // Resolved against this module, not the document: on a project Pages site the page sits a
 // directory down, so a document-relative '../' climbs out of the deployment entirely.
 const asset = p => new URL(p, import.meta.url);
-const res = await fetch(asset('../levels/act1.tt'));
-if(!res.ok) throw new Error(`cannot load levels/act1.tt (${res.status}) — serve with ./run.sh`);
-LEVELS = parseLevelPack(await res.text()).levels;
+// Acts are separate files, played end to end. The list is the running order; a room's id is
+// unique across the whole game, so nothing downstream has to know which act it came from.
+const ACTS = ['act1.tt'];
+for(const act of ACTS){
+  const res = await fetch(asset(`../levels/${act}`));
+  if(!res.ok) throw new Error(`cannot load levels/${act} (${res.status}) — serve with ./run.sh`);
+  LEVELS.push(...parseLevelPack(await res.text()).levels);
+}
 const sfx = await fetch(asset('../sfx/win-chime.mp3'));
 if(!sfx.ok) throw new Error(`cannot load sfx/win-chime.mp3 (${sfx.status}) — serve with ./run.sh`);
 winBytes = await sfx.arrayBuffer();
