@@ -26,8 +26,24 @@
   .sheethead{display:flex;align-items:center;justify-content:space-between;gap:1rem;
     padding:.6rem .8rem;border-bottom:2px solid var(--ink);font-weight:800}
   .sheethead .act{padding:.1rem .5rem}
+  /* One fold per act, and the list of folds is what scrolls. Sixty rooms in one grid is a
+     scroll with no landmarks; folded, the act you are in is the only one open. */
+  .acts{overflow-y:auto}
+  .act-group + .act-group{border-top:2px solid var(--line)}
+  /* Sticky, so the act you are not in stays findable while you scroll the one you are. */
+  .act-group summary{display:flex;align-items:baseline;justify-content:space-between;gap:.6rem;
+    padding:.55rem .8rem;cursor:pointer;font-weight:800;list-style:none;
+    position:sticky;top:0;background:var(--bg);z-index:1}
+  .act-group summary::-webkit-details-marker{display:none}
+  /* The triangle is drawn rather than borrowed, so it turns the same way in every browser. */
+  .act-group summary::before{content:"▸";display:inline-block;margin-right:.1rem;
+    transition:transform .12s ease;color:var(--muted)}
+  .act-group[open] summary::before{transform:rotate(90deg)}
+  .act-group summary:hover{background:var(--panel)}
+  .act-group summary .range{font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;
+    margin-left:auto;font-size:.85rem}
   /* Five across, however many down, and the box scrolls rather than the page. */
-  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;padding:.8rem;overflow-y:auto}
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;padding:.2rem .8rem .8rem}
   .cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;cursor:pointer;
     font:inherit;font-weight:800;font-variant-numeric:tabular-nums;font-size:.92rem;
     border:2px solid var(--ink);background:#fff;border-radius:4px}

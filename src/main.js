@@ -61,6 +61,8 @@ function whyText(b){
 }
 
 let LEVELS = [], cur=0, state=null, start=null, history=[], moves=0, won=false;
+// One entry per act: { label, from, to } as indices into LEVELS. The picker folds on it.
+const ACT_OF = [], CELLS = [];
 let blocked = null;   // { cells, reason, dir } — cleared by the next legal action
 // Set when the player shoves during a move and cleared the instant that move lands, so the
 // notice is never on screen for longer than the thing it is apologising for.
@@ -543,29 +545,55 @@ const asset = p => new URL(p, import.meta.url);
 // Acts are separate files, played end to end. The list is the running order; a room's id is
 // unique across the whole game, so nothing downstream has to know which act it came from.
 const ACTS = ['act1.tt', 'act2.tt'];
+// Which rooms came from which act. The pack names itself; the file name is the fallback so a
+// pack with no `:pack` line still gets a heading rather than an empty one.
+// Short enough to sit on one line beside the room range: the pack's own trailing name, with
+// any parenthetical dropped. "Treasure Trash — Act 1 (raccoon only, crow pinned)" -> "Act 1".
+const actLabel = (name, file) =>
+  (name ?? '').split('—').pop().replace(/\s*\(.*\)\s*$/, '').trim()
+  || file.replace(/\.tt$/, '');
 for(const act of ACTS){
   const res = await fetch(asset(`../levels/${act}`));
   if(!res.ok) throw new Error(`cannot load levels/${act} (${res.status}) — serve with ./run.sh`);
-  LEVELS.push(...parseLevelPack(await res.text()).levels);
+  const pack = parseLevelPack(await res.text());
+  const from = LEVELS.length;
+  LEVELS.push(...pack.levels);
+  ACT_OF.push({ label: actLabel(pack.meta.pack, act), from, to: LEVELS.length - 1 });
 }
 const sfx = await fetch(asset('../sfx/win-chime.mp3'));
 if(!sfx.ok) throw new Error(`cannot load sfx/win-chime.mp3 (${sfx.status}) — serve with ./run.sh`);
 winBytes = await sfx.arrayBuffer();
-// One square per room, five across, however many rows the pack needs. Built once; only the
-// current-room marker changes as you play.
+// One fold per act, one square per room. Built once; only the current-room marker and which
+// fold is open change as you play. `<details>` rather than a hand-rolled accordion, so the
+// keyboard and the screen reader get the behaviour for free.
 const grid=document.getElementById('lvlgrid'), sheet=document.getElementById('sheet');
-LEVELS.forEach((L,i)=>{
-  const b=document.createElement('button');
-  b.className='cell'; b.textContent=pad(L.id); b.title=L.name ?? L.id;
-  b.onclick=()=>{ closePicker(); load(i); };
-  grid.appendChild(b);
-});
+for(const a of ACT_OF){
+  const fold=document.createElement('details'); fold.className='act-group';
+  const head=document.createElement('summary');
+  head.append(a.label);
+  const range=document.createElement('span'); range.className='range';
+  range.textContent=`${pad(LEVELS[a.from].id)}–${pad(LEVELS[a.to].id)} · ${a.to-a.from+1}`;
+  head.append(range);
+  fold.append(head);
+  const g=document.createElement('div'); g.className='grid';
+  for(let i=a.from;i<=a.to;i++){
+    const b=document.createElement('button');
+    b.className='cell'; b.textContent=pad(LEVELS[i].id); b.title=LEVELS[i].name ?? LEVELS[i].id;
+    b.onclick=()=>{ closePicker(); load(i); };
+    g.append(b); CELLS[i]=b;
+  }
+  fold.append(g);
+  grid.append(fold);
+}
 function openPicker(){
-  [...grid.children].forEach((b,i)=>b.setAttribute('aria-current',String(i===cur)));
+  CELLS.forEach((b,i)=>b.setAttribute('aria-current',String(i===cur)));
+  // Open the act you are in and fold the rest, every time — the picker should answer "where
+  // am I" rather than remember where you were last browsing.
+  [...grid.children].forEach((fold,k)=>{ fold.open = cur>=ACT_OF[k].from && cur<=ACT_OF[k].to; });
   sheet.hidden=false;
   document.getElementById('picker').setAttribute('aria-expanded','true');
-  grid.children[cur]?.scrollIntoView({block:'nearest'});
-  grid.children[cur]?.focus();
+  CELLS[cur]?.scrollIntoView({block:'nearest'});
+  CELLS[cur]?.focus();
 }
 function closePicker(){
   sheet.hidden=true;
