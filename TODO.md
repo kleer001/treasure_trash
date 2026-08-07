@@ -10,8 +10,8 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
 - **The game lives in `src/`.** `rules.js` is the engine of record, `format.js` the
   `.tt`/`.sol` parser, `solver.js` the exhaustive search, `stage.js` the objects and their
   positions, `sprites.js` the drawings, `main.js` presentation and input. `tools/` is
-  offline only — `verify.mjs`, `metrics.mjs`, `build-artifact.mjs` — and `src/` never
-  imports it.
+  offline only — `verify.mjs`, `metrics.mjs`, `survey.mjs`, `build-artifact.mjs` — and
+  `src/` never imports it.
 - Levels are data: `levels/*.tt` + `*.sol`, one rules module shared by the player, the
   solver and the tests, and a verifier that proves par minimal rather than trusting it.
 - Objects built and unit-tested: bag, metal can, spilled trash, recycle bin, wheelie bin,
@@ -69,8 +69,15 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   the room goes in.
 - **A room that pins a loaded cart in a dead end keeps what is in it.** Either give it a lane
   to shed along, or design the room not to want the cargo back.
-- **The bag-on-can stack has no room.** Every solvable room built around it came out long,
-  with many optimal lines and heavy soft-locking. An expert-act piece, not an introduction.
+- **The bag-on-can stack has no room, and now there is a number on it.** Every solvable room
+  built around it came out long, with many optimal lines and heavy soft-locking. The
+  fertility survey puts it last in the roster by an order of magnitude — 5.1 solvable rooms
+  per 1000 placements against 62.5 for every group without it, at the same enumeration-cap
+  rate, so it is the piece and not the measurement. Cut it or accept it as an expert-act
+  piece; there is no third reading left.
+- **The cart is worth its state graph.** Second most fertile piece in the survey. The open
+  question about whether it belongs in the real act is answered on the evidence side; what
+  is left is taste.
 
 ## How to run / verify (local)
 ```
