@@ -2,31 +2,31 @@
 :format 1
 
 :solution L31
-:moves  ddlllllluurDldRRRRRRuur
-
-:solution L32
-:moves  ddlldlLLuluurDldRRdrrurruurDu
-
-:solution L33
-:moves  ddlldlLulDuluurDldRRdrrurruurDu
-
-:solution L34
 :moves  drrUrrrDDlU!dllulllldlll
 
-:solution L35
+:solution L32
 :moves  drrUrrrDullddrU!dllulllldlll
 
-:solution L36
+:solution L33
 :moves  drrdrrrUddLuluUrD!ulldlllldlll
 
-:solution L37
+:solution L34
 :moves  uurU!drrrdLulDL!rrrrrrr
 
+:solution L35
+:moves  rddlUluRU!dlllllllluR!lddrrru
+
+:solution L36
+:moves  uluuurrDrdLdllURRdL!ruRRdL!ruRRRRu
+
+:solution L37
+:moves  urrrrddrUlulllldll
+
 :solution L38
-:moves  lddrUluRU!dlllllllluR!lddrrru
+:moves  urrdLurrrddrUlLulllldl
 
 :solution L39
-:moves  uluuurrDrdLdllURRdL!ruRRdL!ruRRRRu
+:moves  urrrrddrUlulldRullldRlll
 
 :solution L40
 :moves  dlldddLLuR!l
@@ -56,13 +56,13 @@
 :moves  rrruLdlUUruLurRrdLDlddRluurD!uuullDR!lul
 
 :solution L49
-:moves  ulURUrrrrd
+:moves  luURUrrrrd
 
 :solution L50
-:moves  ulURruLulDrrrrrd
+:moves  luURruLulDrrrrrd
 
 :solution L51
-:moves  ulURruLulDrrrrrrDl
+:moves  luURruLulDrrrrrrDl
 
 :solution L52
 :moves  dddlLruUruuLrddlU!drruu
@@ -71,22 +71,22 @@
 :moves  dddlLruruulDdrddLruulD!uuurr
 
 :solution L54
-:moves  rdddllLrurUruuLlDdrddLruulD!uuurD!ur
+:moves  rddlUdlLrurruuLlDdrddLruulD!uuurD!ur
 
 :solution L55
-:moves  uulllldllluRdDr
+:moves  ullulldllluRdDr
 
 :solution L56
-:moves  uulllldRlllluRdDr
+:moves  ullulldRlllluRdDr
 
 :solution L57
-:moves  uulllldRlllluRdlddrUr
+:moves  ullulldRlllluRdrddlUr
 
 :solution L58
-:moves  uuurrrrrrdrUlUdddr
+:moves  ruuurrrrrdrUlUdddr
 
 :solution L59
-:moves  uuururrrdLrrrdrUlUdddr
+:moves  ruuururrdLrrrdrUlUdddr
 
 :solution L60
-:moves  uuururrrdLrrrdrUlUddrddlUr
+:moves  ruuururrdLrrrdrUlUddrddlUr

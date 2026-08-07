@@ -40,6 +40,8 @@ around it — art, audio, progression, and the solvability indicator.
 - `node tools/shapes.mjs` — the outline families, enumerated and filtered. Draw one to see it.
 - `node tools/sets.mjs` — finds SETS of three rooms sharing an outline, each set getting harder
   in one stated way. Writes `levels/sets.jsonl`.
+- `node tools/shrink.mjs` — walls off the floor a set's solutions never touch, the same walls
+  across all three of its rooms. Par is preserved; what goes is the travel across dead space.
 - `node tools/act2.mjs` — chooses ten sets from that file and writes the act.
 - `publishing/package.sh` — builds `dist/treasure-trash.zip` for itch.io, `index.html` at the
   archive root. Run it from the game root; add new runtime assets to its `RUNTIME` list, and

@@ -8,6 +8,10 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
 - **Progress is tracked** in `src/progress.js` — best run per room in `localStorage`, three
   stars for matching par, two within a quarter over, one for finishing. The picker greys what
   is done, tallies each act, and folds an act away once it is complete.
+- **Act 2 is shrink-wrapped.** `tools/shrink.mjs` walls off floor no solution touches, per SET
+  so the three rooms keep one outline. Unused floor across the act went 40% to 22% — tighter
+  than Act 1's 27%. Par is untouched by construction, so the *length* of the journey is
+  unchanged; what went is the dead space it crossed.
 - **Act 2 is in: 30 rooms (L31–L60), ten sets of three, every room an H.** Names and notes are
   still placeholders — that is the open work on it. `src/main.js` has an `ACTS` list,
   `verify.mjs` discovers `levels/act*.tt`, and `publishing/package.sh` ships all of them.

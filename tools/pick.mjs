@@ -108,9 +108,11 @@ export function chooseSets(sets, { want = 10, maxPieceShare = 0.5, maxPerRamp = 
     const on = s.rooms.reduce((a, r) => a + (r.onPath ?? 0), 0) / s.rooms.length;
     return { on, par: s.rooms[s.rooms.length - 1].par };
   };
+  // The shape label is the last tie-break so the act does not depend on the order the
+  // candidate file happened to be written in — a parallel search finishes out of order.
   const ordered = [...sets].sort((a, b) => {
     const A = rank(a), B = rank(b);
-    return B.on - A.on || B.par - A.par;
+    return B.on - A.on || B.par - A.par || a.shape.localeCompare(b.shape);
   });
 
   const cap = Math.max(1, Math.floor(want * 3 * maxPieceShare));
