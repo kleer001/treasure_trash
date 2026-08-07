@@ -140,15 +140,15 @@ export function* rooms({ w, h, pieces = ['$'], exitAt = null, walled = false, pl
         if (cart.some(c => key(c) === key(ex) || key(c) === key(rac))) continue;
         const taken = new Set([key(ex), key(rac), ...cart.map(key)]);
         const spots = inside.filter(c => !taken.has(key(c)));
-        const place = (rest, used) => {
-          if (!rest.length) return [used];
-          const acc = [];
+        // Lazy: four pieces on a big board is millions of arrangements, and collecting them
+        // first costs the memory to hold every one and a spread wide enough to blow the stack.
+        function* place(rest, used) {
+          if (!rest.length) { yield used; return; }
           for (const c of spots) {
             if (used.some(u => key(u[1]) === key(c))) continue;
-            acc.push(...place(rest.slice(1), [...used, [rest[0], c]]));
+            yield* place(rest.slice(1), [...used, [rest[0], c]]);
           }
-          return acc;
-        };
+        }
         for (const arrangement of place(pieces, [])) {
           const grid = Array.from({ length: h }, (_, y) =>
             Array.from({ length: w }, (_, x) => (isWall(x, y) ? '#' : '-')));
