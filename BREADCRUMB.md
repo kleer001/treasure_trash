@@ -48,6 +48,23 @@ the game. The survey is the correction.
 
       **The board.** 8×4. Sample placements randomly — `rooms()` enumerates, and this space is
       far too large to walk.
+- [ ] #9 **Give the recycle bin a terminal state, and count it as a bag.** Wanted: a room whose
+      objective is one hard-to-reach bin. Blocked today, and measured: `SLIDES[BIN]` is
+      `{ slides: BIN, drops: TRASH }`, so a bin stays a bin forever — across all 125 reachable
+      states of L5 the bin count never falls below 1. Adding `[BIN]: 1` to `BAGS_IN` therefore
+      makes `bagsLeft` unreachable-from-zero and every bin room unwinnable; tried it, and L5, L8
+      and L9 all fail as `shortest=null`, 24 checks in total.
+      **The fix the roster already implies:** the pack does full→empty twice, `C`→`c` and
+      `W`→`w`. Do the same for the bin — the first shove drops its trash and empties it, after
+      which it is an inert pushable like an empty can. Then it can carry a bag and discharge by
+      being shoved once, and a bin stops being an infinite trash fountain.
+      **Two open decisions.** (i) The glyph: convention is uppercase-full/lowercase-empty, but
+      the bin is already lowercase `b`, so either add a new letter for the emptied bin or swap
+      to `B`/`b` and migrate the three shipped rooms — safe either way, since `verify.mjs`
+      proves every par. (ii) Whether L5, L8 and L9 survive a rework or need re-searching; L5's
+      solve already shoves its bin, so it may come through at the same par.
+      **Knock-on:** the bin becomes a bag-carrier, so the survey's non-carriers drop from seven
+      to six (`c x w j`, couch, cart) and the group count goes 791 → 1001 − C(9,4) = **875**.
 - [ ] #2 **A scorer worth the compute.** Rank candidates on where the traps sit, not how many;
       on distinctness from the rooms already chosen; and on order-sensitivity. Each is
       expensive per room, which is what the cores are for. Existing pieces: `hardness()` in the
