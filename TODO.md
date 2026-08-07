@@ -18,6 +18,10 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   water jug, furniture, the bag-on-can stack and the shopping cart.
 - The stand-in art lives in `src/sprites.js`, bound to a canvas and a cell size at the
   boundary, so the game and the mechanic bench draw the same raccoon.
+- **The solvability indicator is in.** A dead board announces itself in the HUD, without
+  blocking play: the room's whole graph is walked once when it opens, a slice per frame, and
+  every move after that is a lookup. `deadScan` in `solver.js` is the incremental form and is
+  tested to agree with `analyze` on every shipped room.
 - **One engine, one motion system.** `bench-cart.html` is presentation only and imports `src/`,
   and the game animates from the motion `explain(…, {trace:true})` reports rather than from a
   board diff. Motion is paced per CELL. Nothing may carry its own copy of a module —
@@ -25,14 +29,14 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
 
 ## NEXT MOVE — everything around the mechanic
 `./run.sh`, then pick a room. `npm test` and `node tools/verify.mjs` are green.
-- **The solvability indicator.** `solver.js` already detects a dead board offline; wire it
-  to run after each state change and surface a non-blocking "can no longer be won." The
-  positional soft-lock is currently silent, and a dead board should announce itself.
 - **Render through the compositor.** `main.js` draws straight to the canvas; the house
   pattern is ordered layers via `src/compositor.js`. Worth doing before the art pass. It
   already draws sprites in layer order — that ordering is the thing the compositor should own.
 - **Audio** — procedural WebAudio. The only sound today is the win chime.
 - **Art pass**, and more rooms toward a full Act 1.
+- **`tools/build-artifact.mjs` does not build.** Pre-existing, and not the indicator's doing:
+  the win-chime `fetch` in `main.js` survives bundling and trips the tool's own CSP guard.
+  The served game is unaffected; only the single-file publish path is.
 - `src/logo.js` and `src/compositor.js` are still scaffolding the game does not import;
   `main.js` uses its own inline LCG for confetti rather than `mulberry32`. Wire them in or
   drop them. (`src/rng.js` is now in use — `stage.js` seeds sprites with it.)

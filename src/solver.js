@@ -107,6 +107,63 @@ export function analyze(start, opts = {}) {
   };
 }
 
+/**
+ * The set of boards from which the room can no longer be won — everything `analyze` computes
+ * about liveness, and nothing else.
+ *
+ * A GENERATOR, driven a slice at a time, because this runs in the page: the rooms this pack
+ * is heading toward reach tens of thousands of states, and computing that in one go would
+ * stall the frame it started on. Yields `{ scanned }` every `budget` expansions and RETURNS
+ * the dead set.
+ *
+ * Where `analyze` keeps a cloned board per state so it can report paths and pars, this keeps
+ * only keys and adjacency — boards are dropped as soon as they are expanded. That is what
+ * makes it affordable to run for every room the player opens.
+ */
+export function* deadScan(start, opts = {}) {
+  const budget = opts.budget ?? 1200;
+  const adj = new Map();                       // key -> [key], the only thing retained
+  const wins = [];
+  const seen = new Set([stateKey(start)]);
+  let frontier = [[stateKey(start), start]];
+  let work = 0;
+
+  while (frontier.length) {
+    const next = [];
+    for (const [key, s] of frontier) {
+      const outs = [];
+      for (const dir of DIR_ORDER) {
+        const r = explain(s, dir);
+        if (!r.ok) continue;
+        const k = stateKey(r.next);
+        outs.push(k);
+        if (!seen.has(k)) { seen.add(k); next.push([k, r.next]); }
+      }
+      adj.set(key, outs);
+      if (isWon(s)) wins.push(key);
+      if (++work % budget === 0) yield { scanned: work };
+    }
+    frontier = next;                           // the previous layer's boards go out of scope
+  }
+
+  const rev = new Map();
+  for (const [k, outs] of adj) for (const o of outs) {
+    if (!rev.has(o)) rev.set(o, []);
+    rev.get(o).push(k);
+  }
+  const live = new Set(wins);
+  const stack = [...wins];
+  while (stack.length) {
+    const k = stack.pop();
+    for (const p of rev.get(k) ?? []) if (!live.has(p)) { live.add(p); stack.push(p); }
+    if (++work % budget === 0) yield { scanned: work };
+  }
+
+  const dead = new Set();
+  for (const k of adj.keys()) if (!live.has(k)) dead.add(k);
+  return dead;
+}
+
 function pathTo(states, key) {
   const out = [];
   for (let k = key; states.get(k).prev !== null; k = states.get(k).prev) out.push(states.get(k).prevAction);

@@ -4,9 +4,10 @@ import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
   FURNITURE,
   MOVE, DIRS,
-  explain, isWon, bagsLeft, trashHeld, fan, inGrid, cell, cloneState, isMultiCell,
+  explain, isWon, bagsLeft, trashHeld, fan, inGrid, cell, cloneState, isMultiCell, stateKey,
 } from './rules.js';
 import { parseLevelPack, toState } from './format.js';
+import { deadScan } from './solver.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
 // stage owns the objects, their motion and its envelopes
 import {
@@ -64,6 +65,11 @@ let blocked = null;   // { cells, reason, dir } — cleared by the next legal ac
 // Set when the player shoves during a move and cleared the instant that move lands, so the
 // notice is never on screen for longer than the thing it is apologising for.
 let busy = false;
+// The solvability indicator. `deadKeys` is every board this room can no longer be won from —
+// a property of the ROOM, so it is computed once when the room opens and then only looked up.
+// Until it arrives `lost` stays false: an indicator that has not finished thinking says
+// nothing rather than guessing.
+let deadKeys = null, scan = null, scanRaf = 0, lost = false;
 let armed = null;     // direction of a tear that is aimed but not yet committed
 
 // ---- the rejection animation ---------------------------------------------------------
@@ -291,11 +297,12 @@ function act(dir){
   blocked = null; armed = null;
   startMv(prev, r);
   if(isWon(state)){ won = true; startParty(); }
+  readLost();
   render();
 }
 function undo(){
   cancelAnim(); busy = false;
-  if(history.length){ state=history.pop(); moves--; won=false; blocked=null; armed=null; rest(); render(); }
+  if(history.length){ state=history.pop(); moves--; won=false; blocked=null; armed=null; rest(); readLost(); render(); }
 }
 function restart(){ load(cur); }
 function load(i){
@@ -303,7 +310,39 @@ function load(i){
   cur=(i+LEVELS.length)%LEVELS.length;
   state=toState(LEVELS[cur]); start=state; history=[]; moves=0; won=false;
   blocked=null; armed=null;
+  startScan();
   rest(); render();
+}
+
+// ---- the solvability indicator ----
+// The mess here is permanent, so a room can be lost long before it ends, and Sokoban's
+// documented frustration is exactly that: a long solution with no way to tell whether you
+// already derailed it. The whole graph is walked once per room to answer it.
+
+/** Whether the board he is standing on can still be won. Silent until the scan lands. */
+function readLost(){ lost = !!deadKeys && !won && deadKeys.has(stateKey(state)); }
+
+function startScan(){
+  if(scanRaf) cancelAnimationFrame(scanRaf);
+  deadKeys = null; lost = false;
+  scan = deadScan(state);
+  scanRaf = requestAnimationFrame(pumpScan);
+}
+
+// A slice per frame rather than one blocking pass: the rooms this pack is growing toward
+// reach tens of thousands of boards, and the player is owed a responsive first move more
+// than an instant verdict.
+function pumpScan(){
+  scanRaf = 0;
+  const t0 = performance.now();
+  while(performance.now() - t0 < 6){
+    const r = scan.next();
+    if(!r.done) continue;
+    deadKeys = r.value; scan = null;
+    readLost(); render();                 // the room may already have been lost while it thought
+    return;
+  }
+  scanRaf = requestAnimationFrame(pumpScan);
 }
 /** The stage at rest on the current board — every jump that is not an action goes through here. */
 function rest(){ anim = null; board = state; stage = stageFrom(state, cur + 1); }
@@ -408,6 +447,10 @@ function render(){
   const am=document.getElementById('arm');
   am.textContent = armed ? `${({u:'↑',d:'↓',l:'←',r:'→'})[armed]} again to ${armedVerb()}` : '';
   am.className = 'arm'+(armed?' show':'');
+  const lo=document.getElementById('lost');
+  // It names the way back, because the point of saying it is that you can still act on it.
+  lo.innerHTML = lost ? '<b>✕</b> this room can no longer be won — undo (U) or restart (R)' : '';
+  lo.className = 'lost'+(lost?' show':'');
   document.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(i===cur?' on':''));
 }
 

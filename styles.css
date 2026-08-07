@@ -43,6 +43,12 @@
   .warn.busy{background:var(--yel);color:#5a4500;transform:rotate(-1deg)}
   .arm{display:none;font-weight:800;color:#5a4500;background:var(--yel);padding:.15rem .7rem;border-radius:4px;transform:rotate(-1deg)}
   .arm.show{display:inline-block}
+  /* A refusal is a momentary no and wears the red. This is a standing fact about the board,
+     so it is quieter and does not blink: it must not read as "your last move was illegal". */
+  .lost{display:none;font-weight:800;color:var(--ink);background:var(--panel);
+    border:2px solid var(--ink);padding:.15rem .7rem;border-radius:4px}
+  .lost.show{display:inline-block}
+  .lost b{color:var(--red)}
   canvas{display:block;margin:.4rem 0 1rem;image-rendering:auto;max-width:100%;height:auto;border:2px solid var(--ink);background:var(--panel)}
   /* Under the board, in the order you reach for them: the d-pad as a WASD triangle, then
      moving between rooms, then the two that undo what you did inside one. */
