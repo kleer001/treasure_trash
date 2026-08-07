@@ -8,6 +8,7 @@ import {
 } from './rules.js';
 import { parseLevelPack, toState } from './format.js';
 import { deadScan } from './solver.js';
+import { createProgress } from './progress.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
 // stage owns the objects, their motion and its envelopes
 import {
@@ -63,6 +64,8 @@ function whyText(b){
 let LEVELS = [], cur=0, state=null, start=null, history=[], moves=0, won=false;
 // One entry per act: { label, from, to } as indices into LEVELS. The picker folds on it.
 const ACT_OF = [], CELLS = [];
+const progress = createProgress(window.localStorage);
+let beat = false;      // this run set a new record for the room, and the win screen says so
 let blocked = null;   // { cells, reason, dir } — cleared by the next legal action
 // Set when the player shoves during a move and cleared the instant that move lands, so the
 // notice is never on screen for longer than the thing it is apologising for.
@@ -298,7 +301,7 @@ function act(dir){
   history.push(cloneState(state)); state = r.next; moves++;
   blocked = null; armed = null;
   startMv(prev, r);
-  if(isWon(state)){ won = true; startParty(); }
+  if(isWon(state)){ won = true; beat = progress.record(LEVELS[cur].id, moves); startParty(); }
   readLost();
   render();
 }
@@ -311,7 +314,7 @@ function load(i){
   cancelAnim(); busy = false; fxSeen = new Set();         // a new room earns the full explanation again
   cur=(i+LEVELS.length)%LEVELS.length;
   state=toState(LEVELS[cur]); start=state; history=[]; moves=0; won=false;
-  blocked=null; armed=null;
+  blocked=null; armed=null; beat=false;
   startScan();
   rest(); render();
 }
@@ -449,6 +452,12 @@ function render(){
   const am=document.getElementById('arm');
   am.textContent = armed ? `${({u:'↑',d:'↓',l:'←',r:'→'})[armed]} again to ${armedVerb()}` : '';
   am.className = 'arm'+(armed?' show':'');
+  const sc=document.getElementById('score');
+  const st=progress.stars(LEVELS[cur].id, LEVELS[cur].par), bestMoves=progress.best(LEVELS[cur].id);
+  // Par is the proven minimum, so "over par" is an exact number rather than a designer's guess.
+  sc.textContent = won ? `${'★'.repeat(st)}${'☆'.repeat(3-st)}${beat?' new best!':''}`
+    : bestMoves !== null ? `${'★'.repeat(st)}${'☆'.repeat(3-st)} best ${bestMoves}` : '';
+  sc.className = 'score'+(bestMoves!==null||won?' show':'')+(beat?' beat':'');
   const lo=document.getElementById('lost');
   // It names the way back, because the point of saying it is that you can still act on it.
   lo.innerHTML = lost ? '<b>✕</b> this room can no longer be won — undo (U) or restart (R)' : '';
@@ -572,24 +581,57 @@ for(const a of ACT_OF){
   const head=document.createElement('summary');
   head.append(a.label);
   const range=document.createElement('span'); range.className='range';
-  range.textContent=`${pad(LEVELS[a.from].id)}–${pad(LEVELS[a.to].id)} · ${a.to-a.from+1}`;
-  head.append(range);
+  range.textContent=`${pad(LEVELS[a.from].id)}–${pad(LEVELS[a.to].id)}`;
+  const tag=document.createElement('span'); tag.className='tally';
+  head.append(range,tag);
   fold.append(head);
   const g=document.createElement('div'); g.className='grid';
   for(let i=a.from;i<=a.to;i++){
     const b=document.createElement('button');
-    b.className='cell'; b.textContent=pad(LEVELS[i].id); b.title=LEVELS[i].name ?? LEVELS[i].id;
+    b.className='cell';
+    const n=document.createElement('span'); n.className='no'; n.textContent=pad(LEVELS[i].id);
+    const s=document.createElement('span'); s.className='stars';
+    b.append(n,s);
     b.onclick=()=>{ closePicker(); load(i); };
     g.append(b); CELLS[i]=b;
   }
   fold.append(g);
   grid.append(fold);
+  a.fold=fold; a.tag=tag;
 }
+
+/** Paint what the player has done. Called on open, so it is never stale. */
+function paintProgress(){
+  LEVELS.forEach((L,i)=>{
+    const b=CELLS[i]; if(!b) return;
+    const n=progress.stars(L.id, L.par), done=progress.done(L.id);
+    b.className='cell'+(done?' done':'');
+    b.setAttribute('aria-current',String(i===cur));
+    // Filled stars only. At this size a hollow star reads as a filled one, so the count has
+    // to be legible by LENGTH rather than by shape.
+    b.querySelector('.stars').textContent = '★'.repeat(n);
+    const bestMoves=progress.best(L.id);
+    b.title = `${L.name ?? L.id} — par ${L.par}`
+      + (done ? ` · best ${bestMoves} (${n}/3)` : ' · not finished');
+  });
+  for(const a of ACT_OF){
+    const t=progress.tally(LEVELS.slice(a.from,a.to+1));
+    a.done=t.complete;
+    a.tag.textContent = t.complete
+      ? `✓ ${t.earned}/${t.possible}★`
+      : `${t.done}/${t.total} · ${t.earned}★`;
+    a.fold.classList.toggle('finished', t.complete);
+  }
+}
+
 function openPicker(){
-  CELLS.forEach((b,i)=>b.setAttribute('aria-current',String(i===cur)));
-  // Open the act you are in and fold the rest, every time — the picker should answer "where
-  // am I" rather than remember where you were last browsing.
-  [...grid.children].forEach((fold,k)=>{ fold.open = cur>=ACT_OF[k].from && cur<=ACT_OF[k].to; });
+  paintProgress();
+  // Open the act you are in — unless you have finished it, in which case the useful thing to
+  // show is the first act you have not. A finished act folds itself away.
+  const here = ACT_OF.findIndex(a => cur>=a.from && cur<=a.to);
+  const next = ACT_OF.findIndex(a => !a.done);
+  const show = (ACT_OF[here]?.done && next !== -1) ? next : here;
+  ACT_OF.forEach((a,k)=>{ a.fold.open = k===show; });
   sheet.hidden=false;
   document.getElementById('picker').setAttribute('aria-expanded','true');
   CELLS[cur]?.scrollIntoView({block:'nearest'});

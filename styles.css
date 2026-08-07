@@ -44,11 +44,24 @@
     margin-left:auto;font-size:.85rem}
   /* Five across, however many down, and the box scrolls rather than the page. */
   .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;padding:.2rem .8rem .8rem}
-  .cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  .cell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:.1rem;cursor:pointer;
     font:inherit;font-weight:800;font-variant-numeric:tabular-nums;font-size:.92rem;
     border:2px solid var(--ink);background:#fff;border-radius:4px}
-  .cell:hover{background:var(--yel)}
-  .cell[aria-current="true"]{background:var(--blu);color:#fff}
+  .cell .stars{font-size:.62rem;line-height:1;letter-spacing:-.05em;color:#e0a800;height:.7em}
+  /* A finished room recedes: the ones still to do are what the picker is for. */
+  .cell.done{background:var(--panel);color:var(--muted);border-color:var(--line)}
+  .cell:hover{background:var(--yel);color:var(--ink)}
+  .cell[aria-current="true"]{background:var(--blu);color:#fff;border-color:var(--ink)}
+  .cell[aria-current="true"] .stars{color:#fff;text-shadow:none}
+  .act-group summary .tally{font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;
+    font-size:.85rem;min-width:5.2rem;text-align:right}
+  .act-group.finished summary{color:var(--muted)}
+  .act-group.finished summary .tally{color:var(--tea)}
+  .score{font-weight:800;color:#5a4500;background:var(--yel);padding:.15rem .7rem;
+    border-radius:4px;display:none;letter-spacing:.04em}
+  .score.show{display:inline-block}
+  .score.beat{background:var(--tea);color:#fff}
   .hud{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin:.5rem 0}
   .name{font-weight:800}
   .moves{color:var(--muted)}

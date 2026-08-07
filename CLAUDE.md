@@ -101,7 +101,8 @@ These govern how code is written. They are not design arguments.
   seeds, `main` wires input and presentation; extend with new data or new modules rather
   than editing the core loop; variants of a thing honor the same contract; small module surfaces; core
   logic never reaches for the DOM, canvas or audio directly — pass those in at the
-  boundary, so the game logic stays pure and testable.
+  boundary, so the game logic stays pure and testable. `progress` takes the store the same
+  way, which is why it is testable against a plain object.
 
 ## Docs
 
