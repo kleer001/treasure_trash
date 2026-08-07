@@ -14,40 +14,6 @@ the game. The survey is the correction.
 ## Todos
 
 ### Parallel
-- [ ] #1 **The fertility survey.** Output is a map of which piece groups yield solvable,
-      interesting rooms at all — not levels.
-
-      **The alphabet.** Objects are either POINTS (one cell) or DOMINOES (two cells, two
-      orientations), and a group of four draws from both. Points: `$` bag, `C` full can, `c`
-      empty can, `x` spilled trash, `S` bag-on-can stack, `W` wheelie, `w` empty wheelie, `b`
-      recycle bin, `j` water jug. Dominoes: a couch (furniture, in the occupant grid) and a
-      cart (in its own mask). Pool caps: at most 3 carts (`CART_POOL` is P/Q/R) and 6 couches
-      (`FURN_POOL` is F/G/H/K/M/N). Couches larger than two cells are legal — an L-shaped blob
-      is one piece — but hold that for a later pass.
-
-      **The filters on a multiset, before placing anything.**
-      (a) At least one bag-carrier. `BAGS_IN` counts only `$`=1, `C`=1, `W`=1, `S`=2 — the
-      bin, the jug, the empty can, the empty wheelie, loose trash, couches and carts all count
-      ZERO. With none of the four, `bagsLeft` is 0 and the exit is live from move one. A room
-      whose only object of interest is a recycle bin is a walk, not a puzzle: the win condition
-      has no notion of parking a bin anywhere. To build "one hard-to-reach objective in a big
-      complex", make the objective a bag and let the bin be what makes it hard — a mobile wall
-      that charges a cell of floor every time it shifts.
-      (b) Total bags in roughly 2–4. Four stacks is eight bags, and the par runs away from the
-      target band.
-      Do **not** filter on "has a permanent emitter". Winning requires `bagsLeft` to reach 0,
-      only a tear removes a bag, and every tear lays a permanent fan — so every winnable room
-      emits, by construction. What `b` and `j` add is emission *decoupled from the objective*, a
-      mess placed by choice rather than by the win condition. Stratify on their presence and
-      compare fertility; do not require them.
-
-      **The size.** multisets of 4 from 11 = C(14,4) = 1001; minus the 210 drawn entirely from
-      the seven non-carriers (`c x w b j`, couch, cart) = **791 valid groups**. At ~500 random
-      placements each that is ~396k boards, well under 3 minutes on 32 cores at the
-      post-pre-filter rate.
-
-      **The board.** 8×4. Sample placements randomly — `rooms()` enumerates, and this space is
-      far too large to walk.
 - [ ] #9 **Give the recycle bin a terminal state, and count it as a bag.** Wanted: a room whose
       objective is one hard-to-reach bin. Blocked today, and measured: `SLIDES[BIN]` is
       `{ slides: BIN, drops: TRASH }`, so a bin stays a bin forever — across all 125 reachable
@@ -84,6 +50,41 @@ the game. The survey is the correction.
       Cut unless a reason appears.
 
 ### Sequential
+- [ ] #1 (needs: #9) **The fertility survey.** Output is a map of which piece groups yield solvable,
+      interesting rooms at all — not levels.
+
+      **The alphabet.** Objects are either POINTS (one cell) or DOMINOES (two cells, two
+      orientations), and a group of four draws from both. Points: `$` bag, `C` full can, `c`
+      empty can, `x` spilled trash, `S` bag-on-can stack, `W` wheelie, `w` empty wheelie, `b`
+      recycle bin, `j` water jug. Dominoes: a couch (furniture, in the occupant grid) and a
+      cart (in its own mask). Pool caps: at most 3 carts (`CART_POOL` is P/Q/R) and 6 couches
+      (`FURN_POOL` is F/G/H/K/M/N). Couches larger than two cells are legal — an L-shaped blob
+      is one piece — but hold that for a later pass.
+
+      **The filters on a multiset, before placing anything.**
+      (a) At least one bag-carrier. `BAGS_IN` counts only `$`=1, `C`=1, `W`=1, `S`=2 — the
+      bin, the jug, the empty can, the empty wheelie, loose trash, couches and carts all count
+      ZERO. With none of the four, `bagsLeft` is 0 and the exit is live from move one. A room
+      whose only object of interest is a recycle bin is a walk, not a puzzle: the win condition
+      has no notion of parking a bin anywhere. To build "one hard-to-reach objective in a big
+      complex", make the objective a bag and let the bin be what makes it hard — a mobile wall
+      that charges a cell of floor every time it shifts.
+      (b) Total bags in roughly 2–4. Four stacks is eight bags, and the par runs away from the
+      target band.
+      Do **not** filter on "has a permanent emitter". Winning requires `bagsLeft` to reach 0,
+      only a tear removes a bag, and every tear lays a permanent fan — so every winnable room
+      emits, by construction. What `b` and `j` add is emission *decoupled from the objective*, a
+      mess placed by choice rather than by the win condition. Stratify on their presence and
+      compare fertility; do not require them.
+
+      **The size.** multisets of 4 from 11 = C(14,4) = 1001; minus the 210 drawn entirely from
+      the seven non-carriers (`c x w b j`, couch, cart) = **791 valid groups** — but see #9:
+      once the bin carries a bag it leaves that set and the count becomes **875**. At ~500 random
+      placements each that is ~396k boards, well under 3 minutes on 32 cores at the
+      post-pre-filter rate.
+
+      **The board.** 8×4. Sample placements randomly — `rooms()` enumerates, and this space is
+      far too large to walk.
 - [ ] #7 (needs: #1) Harvest deep on the groups that map as fertile. 500 samples ranks groups
       against each other; it surfaces only two or three solvable rooms for a good group, which
       is nowhere near enough to pick a level from.
@@ -167,7 +168,9 @@ question; a fertility map will rank both highly while they teach one thing.
 
 ## Next Step
 
-Build the fertility survey (#1). Random placement sampling on an 8×4; multisets of four drawn
+Sort out the recycle bin (#9) — it gates the survey, because a bin that carries a bag is a
+bin that leaves the non-carrier set and changes the alphabet the survey draws from. Then the
+fertility survey (#1). Random placement sampling on an 8×4; multisets of four drawn
 from eleven types — nine points plus two dominoes, the couch and the cart — filtered for at
 least one bag-carrier and a total of roughly 2–4 bags; ~500 samples per group; output a
 fertility map rather than levels. 8×4 over 7×3 because a horizontal tear needs a row above and below the bag, so on three
