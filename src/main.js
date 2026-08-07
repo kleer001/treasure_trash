@@ -281,13 +281,19 @@ const arming = () => LEVELS[cur].arm === true;
 function act(dir){
   audio(); primeWinChime();              // first input is the gesture that unlocks audio
   if(won){ handOver(); return; }         // done admiring it? go straight to the next room
-  // While a shove is playing out, the alley is his. Locking the input rather than interrupting
-  // it keeps the board and the drawing in step with no in-flight state to reconcile, and the
-  // wait is one cell's worth of animation — a beat, not a pause. `explain` is never reached, so
-  // nothing about what is LEGAL depends on what is on screen.
-  if(anim){ busy = true; render(); return; }
   if(fx){ cancelAnim(); render(); }           // a refusal is not travel: cut it short
   const r = explain(state, dir, { trace: true });
+
+  // While a shove plays out, his PAWS are busy — his feet are not. Walking writes nothing to
+  // the board, so it goes through and lands the shove it interrupted; anything that would move
+  // a piece waits for the one already moving.
+  //
+  // What is LEGAL still depends only on `state`: this reads `explain`'s answer to decide
+  // whether to wait, and never the other way round.
+  if(anim){
+    if(!r.ok || r.kind !== MOVE){ busy = true; render(); return; }
+    landMv(); busy = false;
+  }
 
   if(!r.ok){                       // refused — play the whole no, then rewind it
     blocked = { cells:r.blame, reason:r.reason, dir };
