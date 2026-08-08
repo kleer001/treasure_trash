@@ -52,8 +52,9 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   tested to agree with `analyze` on every shipped room.
 - **One engine, one motion system.** `bench-cart.html` is presentation only and imports `src/`,
   and the game animates from the motion `explain(…, {trace:true})` reports rather than from a
-  board diff. Motion is paced per CELL. Nothing may carry its own copy of a module —
-  `verify.mjs` fails the build if a page does.
+  board diff. Motion is paced per CELL. `verify.mjs` fails on a second copy of an engine module
+  anywhere in the tree — see **One engine** in `CLAUDE.md` for who that rule is aimed at, and
+  what a deliberate second implementation owes before it counts as one.
 
 ## NEXT MOVE — everything around the mechanic
 `./run.sh`, then pick a room. `npm test` and `node tools/verify.mjs` are green.
@@ -85,16 +86,16 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
 ## Backlog (tools & speed)
 - **`draft-room.mjs`'s `rooms()` is the redundancy `reroot` was written for.** It yields the
   product of every exit cell and every raccoon cell, and whoever consumes it enumerates each one
-  from scratch — but for a fixed board and exit, every raccoon start shares one graph. The
-  `resite` sweep that does this now runs about three times faster for it. Nothing hot goes
-  through `rooms()` today, which is the only reason it has not been done.
-- **The next real speed-up is representation, not language.** After the shared-board and
-  re-root work the profile is about half `analyze` itself and a sixth garbage collection: string
-  state keys hashed into a `Map`, one object per node, one per edge, one per back-pointer.
-  Integer keys over a flat edge array would plausibly take another 2–4× and keep one engine.
-  A C or WASM engine would take more and cost the thing the project is built on — `src/rules.js`
-  being the only description of what the pieces do, imported by the game, the solver, the tests
-  and the tools alike. `verify.mjs` already fails a build for a page that inlines a copy.
+  from scratch — but for a fixed board and exit, every raccoon start shares one graph, which is
+  what `reroot` walks. Nothing hot goes through `rooms()` today, which is the only reason it has
+  not been done.
+- **Spend representation before you spend a language.** After the shared-board and re-root
+  work the profile is about half `analyze` itself and a sixth garbage collection: string state
+  keys hashed into a `Map`, one object per node, one per edge, one per back-pointer. Integer
+  keys over a flat edge array would plausibly take another 2-4x, inside `src/`, with one engine
+  still. A native or WASM port would take more than that and is the owner's to sanction, not an
+  agent's to start; what it owes first is a differential check against `src/rules.js` that runs
+  every build. **One engine** in `CLAUDE.md` is the rule and the reasoning.
 
 ## Backlog (rooms & content)
 - **L7–L13 need regenerating, not re-sorting.** `tools/metrics.mjs` scores them: par

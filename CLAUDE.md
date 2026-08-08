@@ -22,11 +22,11 @@ around it — art, audio, progression, and the solvability indicator.
   `file://`, so **a served page is the only supported way to run it.**
 - `bench-cart.html` — the mechanic bench, served alongside the game at `/bench-cart.html`. It
   is presentation only and **imports `src/`**, so it cannot disagree with the game about what a
-  piece does. Nothing here may carry its own copy of the engine; `verify.mjs` enforces that.
+  piece does. See **One engine** below for what may and may not carry a copy of the rules.
 - `npm test` — Node's built-in runner (`node --test`); specs in `tests/*.test.js`.
-- `node tools/verify.mjs` — checks every claim the level files make, and that no page inlines
-  the engine instead of importing it. Run bare it verifies every `levels/act*.tt`; name a pack
-  to check just one.
+- `node tools/verify.mjs` — checks every claim the level files make, and that the engine is
+  defined in one place. Run bare it verifies every `levels/act*.tt`; name a pack to check
+  just one.
 - `node tools/survey.mjs` — samples every legal group of four pieces and writes which ones
   make rooms at all to `levels/fertility.jsonl`. Long-running and parallel; findings are
   read in `SPEC-SHEET.md`.
@@ -70,6 +70,35 @@ sync prose to a rules change; if there is something to sync, that is the bug.
 
 When a new piece needs a new occupant code, a new glyph or a new lane in `stateKey`, add it.
 The engine is meant to grow.
+
+### One engine
+
+**Agents: do not write a second implementation of the rules.** Not inlined into a page, not
+ported to another language, not a faster local copy of `explain` for one tool, not a throwaway
+you mean to delete. If a task seems to need one, the task is wrong — say so and stop. This is
+one of the narrow mechanical things below that are worth stopping for, and it is the one you
+are most likely to walk into while meaning well. `tools/verify.mjs` fails on a second copy of
+any engine module anywhere in the tree, and it fails on the copy rather than the intent, so one
+left half-written by an abandoned approach fails the build too.
+
+**Owner: it is your call, and here is the bill.** A second engine is not wrong, it is
+*expensive*, and the expense is paid later and by whoever is holding it then. `src/rules.js`
+is what the game, the solver, the tests, `verify.mjs` and every tool in the pipeline agree on;
+a second one is a second answer to what a piece does, and the two only stay equal while someone
+keeps making them equal. The bill comes due on the next rules change, and there is one already
+written down: the crow is an open decision, not a closed one, and giving it powers lands
+occupant codes, refusals and `stateKey` lanes on every implementation at once.
+
+What makes it affordable is the same thing that makes a par affordable: **proof, run every
+build, not a promise made once.** A sanctioned port ships with a differential check against
+`src/rules.js` — same par, same trap count, same distinct-solve count, on every shipped room
+and on randomly generated boards, in CI, failing the build on the first disagreement. Then it
+is registered in `SANCTIONED` in `verify.mjs`, which prints it on every run so it cannot become
+load-bearing quietly. Without that check it is not sanctioned, it is just a second copy.
+
+The pipeline is where the pressure to port comes from, and it is offline: it runs when the
+level design changes and nobody waits on it. `TODO.md` has what a representation change inside
+`src/` would buy, at none of the cost above, and it is the thing to spend first.
 
 Raise a design concern **once**, in a sentence or two, and then build what was asked. The
 owner has the context; a second round of pushback is noise. The things worth stopping for are
