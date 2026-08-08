@@ -27,6 +27,11 @@ around it — art, audio, progression, and the solvability indicator.
 - `node tools/verify.mjs` — checks every claim the level files make, and that the engine is
   defined in one place. Run bare it verifies every `levels/act*.tt`; name a pack to check
   just one.
+- `node tools/conform.mjs [--engine CMD]` — differential conformance: does another
+  implementation of the rules answer as `src/rules.js` does, on every shipped room, on a seeded
+  batch of generated ones, and step by step over the boards they reach? With no `--engine` it
+  runs `tools/conform-ref.mjs`, which is the protocol written out on top of `src/`. See
+  **One engine**.
 - `node tools/survey.mjs` — samples every legal group of four pieces and writes which ones
   make rooms at all to `levels/fertility.jsonl`. Long-running and parallel; findings are
   read in `SPEC-SHEET.md`.
@@ -90,11 +95,16 @@ written down: the crow is an open decision, not a closed one, and giving it powe
 occupant codes, refusals and `stateKey` lanes on every implementation at once.
 
 What makes it affordable is the same thing that makes a par affordable: **proof, run every
-build, not a promise made once.** A sanctioned port ships with a differential check against
-`src/rules.js` — same par, same trap count, same distinct-solve count, on every shipped room
-and on randomly generated boards, in CI, failing the build on the first disagreement. Then it
-is registered in `SANCTIONED` in `verify.mjs`, which prints it on every run so it cannot become
-load-bearing quietly. Without that check it is not sanctioned, it is just a second copy.
+build, not a promise made once.** That is `tools/conform.mjs`, and it is already wired into CI
+against the reference, so a port is not a new gate to build — it is a `--engine` argument to an
+existing one. A port earns its place by answering as `src/rules.js` does at both grains the
+harness asks at: whole rooms, and single boards a direction at a time. Then it is registered in
+`SANCTIONED` in `verify.mjs`, which prints it on every run so it cannot become load-bearing
+quietly. Without the check it is not sanctioned, it is just a second copy.
+
+Two things the harness is built to tell apart, because they are different bugs: a step that
+lands the wrong board, which it reports as the board and the direction; and a room whose par
+comes out wrong while every step of it agrees, which is the port's SEARCH and not its rules.
 
 The pipeline is where the pressure to port comes from, and it is offline: it runs when the
 level design changes and nobody waits on it. `TODO.md` has what a representation change inside

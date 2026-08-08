@@ -55,6 +55,13 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   board diff. Motion is paced per CELL. `verify.mjs` fails on a second copy of an engine module
   anywhere in the tree — see **One engine** in `CLAUDE.md` for who that rule is aimed at, and
   what a deliberate second implementation owes before it counts as one.
+- **The conformance gate is built and running.** `tools/conform.mjs` asks another
+  implementation what `src/rules.js` would answer — whole rooms, and single boards a direction
+  at a time — over every shipped room and a seeded batch of generated ones, and it is in CI.
+  With nothing registered it runs `tools/conform-ref.mjs`, so the gate is exercised rather than
+  waiting to be trusted the first time it matters. `tests/fixtures/bent-engine.mjs` bends one
+  rule at a time and the tests require each bend to be caught: a harness that cannot fail is a
+  green light wired to nothing. **A port is now a `--engine` argument, not a project.**
 
 ## NEXT MOVE — everything around the mechanic
 `./run.sh`, then pick a room. `npm test` and `node tools/verify.mjs` are green.

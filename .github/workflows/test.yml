@@ -19,6 +19,12 @@ jobs:
       # the tests green and silently invalidate a declared par.
       - name: Verify the level pack
         run: node tools/verify.mjs
+      # Every sanctioned second implementation of the rules, against src/rules.js, over every
+      # shipped room and a seeded batch of generated ones. With none registered this runs the
+      # reference adapter and proves the harness, which is the state it has to be kept in: a
+      # conformance suite first exercised on the day somebody needs it is not a gate.
+      - name: Conformance
+        run: node tools/conform.mjs
       # The bundler flattens every module into one scope, so it breaks in ways the served
       # game cannot: a module left out, an alias dropped, two modules declaring one name.
       # It carries guards for all three, and they only fire if something runs the build.
