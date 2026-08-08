@@ -24,7 +24,7 @@ import { bagsLeft } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 import { staticallyDead } from './survey.mjs';
 import {
-  solveShape, largestOpenBlock, floorIsConnected, hasNiche, pathBite,
+  solveShape, largestOpenBlock, floorIsConnected, hasNiche, pathBite, deadTravel,
 } from './metrics.mjs';
 import { parseLurd } from '../src/format.js';
 
@@ -159,6 +159,9 @@ export function measure(group, room, s, a, w, h) {
     // Where the ways to lose sit relative to optimal play. Nearly free here — the graph is
     // already built — and it is the number a raw trap count cannot stand in for.
     ...(({ onPath, bitten, firstOnPath }) => ({ onPath: +onPath.toFixed(3), bitten, firstOnPath }))(pathBite(a)),
+    // The walk in and the walk out. Placement hands the exit a random cell, so a room can be
+    // sound on every other number and still march the player across it after the last decision.
+    ...deadTravel(a),
     blind,
     lines: shape.lines, changes: shape.changes, pushes: shape.pushes, pieces: shape.pieces,
     walks: acts.length - shape.pushes,

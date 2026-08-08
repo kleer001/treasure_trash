@@ -15,6 +15,21 @@ import {
 } from '../src/format.js';
 import { analyze, replay } from '../src/solver.js';
 import { isWon, bagsLeft } from '../src/rules.js';
+import { deadTravel, isOneRoom } from './metrics.mjs';
+
+// How far a room may walk the player for nothing before it has to say so.
+//
+// Neither end of a solve is free. The walk IN is the room withholding its first decision; the
+// walk OUT is worse, because it comes after the last one — the puzzle is over and the player is
+// still holding the controller. Both are invisible to every other check: par counts them,
+// `:solves` and `:traps` are indifferent to them, and a room can pass everything above and
+// still open with a march down a corridor and close with a march to a door in the far corner.
+//
+// A room that wants a longer one declares it with `:lead`/`:tail`, and the declaration is
+// checked exactly, so it is a claim about the room rather than a way out of the bound. L12
+// is what that is for: it is NAMED "The Far Side" and it teaches distance.
+const LEAD_MAX = 4;
+const TAIL_MAX = 4;
 
 // Levels, and the doc this cross-checks, live at the repo root — one level up.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -68,6 +83,10 @@ for (const [levelPath, solPath] of PACKS) {
     const exitCell = start.cells.flat().find(c => c.exit);
     check('exit starts empty', exitCell.o === 0);
     check('raccoon does not start on the exit', !start.cells[start.rac.y][start.rac.x].exit);
+    // One room, not two. Only bare floor is ever walled, so a wall pass cannot wall a piece
+    // away — it walls AROUND it, and what is left is a cart in a sealed pocket: drawn, part of
+    // the room to look at, and reachable from nowhere in it.
+    check('every open cell is in one region', isOneRoom(start));
     check('grid round-trips through the serialiser', toGrid(start).join('\n') === level.grid.join('\n'));
     check('water mask round-trips through the serialiser',
       (toWater(start) ?? []).join('\n') === (level.water ?? []).join('\n'),
@@ -122,6 +141,15 @@ for (const [levelPath, solPath] of PACKS) {
     check('guard: no lethal plain move (vacuous while walking writes nothing)',
       a.silentTraps.length === 0,
       a.silentTraps.length ? `e.g. ${a.silentTraps[0].lurd}` : '');
+
+    // Dead travel, at both ends of the best line the player could take.
+    const { lead, tail } = deadTravel(a);
+    const walk = (what, got, declared, max) => check(
+      declared === undefined ? `the ${what} is at most ${max}` : `the declared ${what} is exact`,
+      declared === undefined ? got <= max : got === declared,
+      `${got}${declared === undefined ? '' : ` declared ${declared}`}`);
+    walk('walk to the first piece', lead, level.lead, LEAD_MAX);
+    walk('walk to the exit', tail, level.tail, TAIL_MAX);
 
     // A room that arms has to say which piece it is introducing.
     if (level.arm) check('an arming room declares what it teaches', !!level.teach, level.teach ?? '');

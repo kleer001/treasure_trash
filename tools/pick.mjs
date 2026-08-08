@@ -30,6 +30,7 @@ import { analyze } from '../src/solver.js';
 import { tighten, ttBlock } from './draft-room.mjs';
 import { measure } from './harvest.mjs';
 import { score, dedupe, REQUIRE, WEIGHTS } from './score.mjs';
+import { SET_TOP_MIN } from './sets.mjs';
 
 // The indicator now tells the player the room is lost, so a long dead tail costs far less
 // than it did when the loss was silent. It is still a cost — a room that ends promptly ties
@@ -121,6 +122,10 @@ export function chooseSets(sets, { want = 10, maxPieceShare = 0.5, maxPerRamp = 
 
   for (const s of ordered) {
     if (taken.length >= want) break;
+    // Re-asked here rather than trusted from `sets.mjs`, because `resite` runs in between and
+    // a set can lose a third of its par to the walk it was padded with. Where the top rung
+    // lands after that is where the set actually lands.
+    if (s.rooms[s.rooms.length - 1].par < SET_TOP_MIN) continue;
     if (byShape.has(s.shape)) continue;
     if ((byRamp[s.ramp] ?? 0) >= maxPerRamp) continue;
     let over = false;

@@ -211,10 +211,8 @@ export function solveShape(start, actions) {
  *   onPath      fraction of the solve's depths at which optimal play can still lose the room
  *   firstOnPath the earliest such depth, or null if optimal play can never go wrong
  */
-export function pathBite(a) {
+function shortestDag(a) {
   const par = a.minMoves;
-  if (par === null) return { onPath: 0, bitten: 0, firstOnPath: null };
-
   const onDag = new Set();
   for (const [k, n] of a.states) if (n.depth === par && isWon(n.state)) onDag.add(k);
   const byDepth = [];
@@ -223,7 +221,14 @@ export function pathBite(a) {
     for (const k of byDepth[d - 1] ?? [])
       if (a.states.get(k).edges.some(e => onDag.has(e.to) && a.states.get(e.to).depth === d))
         onDag.add(k);
+  return onDag;
+}
 
+export function pathBite(a) {
+  const par = a.minMoves;
+  if (par === null) return { onPath: 0, bitten: 0, firstOnPath: null };
+
+  const onDag = shortestDag(a);
   const bittenAt = new Array(par).fill(false);
   for (const k of onDag) {
     const n = a.states.get(k);
@@ -233,6 +238,39 @@ export function pathBite(a) {
   const bitten = bittenAt.filter(Boolean).length;
   const first = bittenAt.indexOf(true);
   return { onPath: bitten / par, bitten, firstOnPath: first === -1 ? null : first };
+}
+
+/**
+ * The two stretches of the best line on which nothing happens.
+ *
+ *   lead  actions before the first one that touches a piece — the walk in
+ *   tail  actions after the last one — the walk to the exit
+ *
+ * Both are the best the player can do, taken over the whole shortest-solve DAG rather than one
+ * canonical line, because a player solving optimally may take any of them. A room with nothing
+ * to touch is all walk: `lead` 0 and `tail` the whole par.
+ *
+ * Dead travel is not difficulty and it is not measured by anything else here. Par counts it,
+ * `walks` counts it wherever it falls, and `onPath` is a fraction of a par it inflates — so a
+ * room can walk the player six squares to the door after the last decision and read clean on
+ * every other number.
+ */
+export function deadTravel(a) {
+  const par = a.minMoves;
+  if (par === null) return { lead: 0, tail: 0 };
+  const onDag = shortestDag(a);
+  let firstWork = par, lastWork = 0, worked = false;
+  for (const k of onDag) {
+    const n = a.states.get(k);
+    for (const e of n.edges) {
+      if (e.kind === MOVE) continue;
+      if (!onDag.has(e.to) || a.states.get(e.to).depth !== n.depth + 1) continue;
+      worked = true;
+      if (n.depth < firstWork) firstWork = n.depth;
+      if (n.depth + 1 > lastWork) lastWork = n.depth + 1;
+    }
+  }
+  return worked ? { lead: firstWork, tail: par - lastWork } : { lead: 0, tail: par };
 }
 
 // ---------------------------------------------------------------- room structure
@@ -280,6 +318,17 @@ export function floorIsConnected(isFloor, cols, rows) {
   return seen.size === all.length;
 }
 
+/**
+ * `floorIsConnected` over a built board, counting every cell that is not a wall — including
+ * the ones a piece is standing on.
+ *
+ * Bare floor is not the question a finished room asks. A wall pass may only take bare floor,
+ * so a piece it cannot take survives while everything around it goes, and what is left is a
+ * cart in a sealed pocket: on screen, reachable-looking, and not.
+ */
+export const isOneRoom = s =>
+  floorIsConnected((x, y) => !s.cells[y][x].wall, s.cols, s.rows);
+
 /** A floor cell walled on three sides is a niche: dead space, or a trivial parking spot. */
 export function hasNiche(isFloor, cols, rows) {
   for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
@@ -300,9 +349,6 @@ export function metrics(level) {
   const tears = actions.filter(x => x.kind === TEAR).length;
   const walks = actions.length - decisions;
 
-  let opening = 0;
-  while (opening < actions.length && actions[opening].kind === MOVE) opening++;
-
   // Replay to the win to read the surviving floor and count the water the solution filled.
   // `coupling` only sees bag-on-bag interference, so a bag whose fan bridges a canal reads
   // as uncoupled — read `bridges` alongside it.
@@ -321,13 +367,12 @@ export function metrics(level) {
     id: level.id, name: level.name ?? '',
     par: a.minMoves, solves: a.shortestCount, states: a.reachable,
     traps: a.traps.length, exitRefusals: a.exitRefusals,
-    bags, decisions, tears, walks,
+    bags, decisions, tears, walks, ...deadTravel(a),
     // The floor a room is obliged to spend, over the floor it has.
     tightness: +(FAN_CELLS * bags / floor).toFixed(2),
     // What is left to stand on once the room is won. Low = the walk out was threaded.
     slack: freeCells(final),
     walkRatio: decisions ? +(walks / decisions).toFixed(2) : null,
-    opening,
     coupling: (v => v === null ? null : +v.toFixed(2))(coupling(start)),
     bridges,
     order: (o => `${o.safe}/${o.first}`)(orderChoices(a, start)),
@@ -344,7 +389,7 @@ export function metrics(level) {
 // Only when run as a script — `metrics` is imported by tools that scan candidate banks,
 // and a module that prints on import is a module you cannot compose.
 const COLS = [
-  ['id', 4], ['par', 4], ['bags', 5], ['decisions', 10], ['walkRatio', 10], ['opening', 8],
+  ['id', 4], ['par', 4], ['bags', 5], ['decisions', 10], ['walkRatio', 10], ['lead', 5], ['tail', 5],
   ['tightness', 10], ['slack', 6], ['coupling', 9], ['bridges', 8], ['order', 7], ['solves', 7],
   ['traps', 6], ['firstTrap', 10], ['pm', 4], ['firstRefusal', 13], ['firstExitRefusal', 17],
 ];

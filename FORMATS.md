@@ -41,6 +41,7 @@ Line-oriented. `;` starts a comment, `:` starts a directive, and everything insi
 | `:par` | int | solve length. Verified, not declared |
 | `:traps` | int | verified, not declared |
 | `:solves` | int | verified, not declared |
+| `:lead` `:tail` | int | optional. Dead travel at each end of the solve — see below |
 | `:solve` | LURD | the par solution, replayed by the verifier |
 | `:grid` … `:end` | glyphs | the occupant grid |
 | `:water` … `:end` | `~`/`=`/`-` | optional terrain mask over the grid |
@@ -48,6 +49,16 @@ Line-oriented. `;` starts a comment, `:` starts a directive, and everything insi
 
 A duplicate key or block, an unknown glyph, a non-integer where an int is wanted, or an
 unclosed block throws.
+
+### `:lead` and `:tail`
+
+`lead` is how many actions pass before the first one that touches a piece; `tail` is how many
+follow the last one. Both are measured over every shortest solve, so they are the best the
+player can do, and both are walking — nothing on the board changes during either.
+
+The verifier holds an undeclared room to a small bound at both ends. Writing the key raises the
+bound for that room and turns the number into a claim, checked exactly like `:par`: a room whose
+distance is the point says so, and cannot then drift.
 
 ### Glyphs
 

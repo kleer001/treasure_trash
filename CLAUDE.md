@@ -40,6 +40,9 @@ around it — art, audio, progression, and the solvability indicator.
 - `node tools/shapes.mjs` — the outline families, enumerated and filtered. Draw one to see it.
 - `node tools/sets.mjs` — finds SETS of three rooms sharing an outline, each set getting harder
   in one stated way. Writes `levels/sets.jsonl`.
+- `node tools/resite.mjs` — moves a set's exit and raccoon to the pair that walks the player
+  least, the same pair across all three of its rooms. Run it before `shrink`: walls cannot fix
+  a distant door, and a raccoon moved off the end of a corridor is what lets `shrink` take it.
 - `node tools/shrink.mjs` — walls off the floor a set's solutions never touch, the same walls
   across all three of its rooms. Par is preserved; what goes is the travel across dead space.
 - `node tools/act2.mjs` — chooses ten sets from that file and writes the act.

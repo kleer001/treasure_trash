@@ -14,6 +14,7 @@
 import { toState, toGrid, toWater, toCart } from '../src/format.js';
 import { analyze } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
+import { deadTravel, isOneRoom } from './metrics.mjs';
 
 /**
  * Everything verify.mjs would say about a candidate room, without putting it in the pack.
@@ -29,6 +30,7 @@ export function draft(room) {
   if (!exitCell) { no('no exit'); return out; }
   if (exitCell.o !== 0) no('exit does not start empty');
   if (s.cells[s.rac.y][s.rac.x].exit) no('raccoon starts on the exit');
+  if (!isOneRoom(s)) no('the open cells fall in more than one region');
   if (toGrid(s).join('\n') !== room.grid.join('\n')) no('grid does not round-trip');
   if (room.cart && toCart(s).join('\n') !== room.cart.join('\n')) no('cart mask does not round-trip');
   if (room.water && toWater(s).join('\n') !== room.water.join('\n')) no('water mask does not round-trip');
@@ -44,8 +46,12 @@ export function draft(room) {
   // The one design rule a room can fail — see verify.mjs.
   if (bags > 0 && a.exitRefusals === 0) no('the exit forbids no action — it is only a destination');
 
+  // `lead` and `tail` are reported, not judged. Verify holds them to a bound because a shipped
+  // room has to be sited well; a room still being drafted has not been sited yet, and rejecting
+  // it here would throw away the candidate instead of moving its exit.
   Object.assign(out, { par: a.minMoves, solve: a.shortestLurd, solves: a.shortestCount,
-                       traps: a.traps.length, bags, exitRefusals: a.exitRefusals });
+                       traps: a.traps.length, bags, exitRefusals: a.exitRefusals,
+                       ...deadTravel(a) });
   return out;
 }
 

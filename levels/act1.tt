@@ -219,6 +219,8 @@ E-----
 :par    23
 :traps  12
 :solves 5
+:lead   6
+:tail   5
 :solve  uuuurrDdlU!ddddRruL!ruuuu
 :note   Nothing here is subtle. The room is long because the pieces are far apart and the bin will not stop where you want it.
 :grid
@@ -236,6 +238,7 @@ E-----
 :par    23
 :traps  43
 :solves 2
+:lead   5
 :solve  uuuulDdlU!ddddRU!dlllluR!l
 :note   Two bags, a rolling bin, and an exit on the far wall. The last room in the pack and the only one that needs all of it at once.
 :grid

@@ -9,9 +9,14 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   stars for matching par, two within a quarter over, one for finishing. The picker greys what
   is done, tallies each act, and folds an act away once it is complete.
 - **Act 2 is shrink-wrapped.** `tools/shrink.mjs` walls off floor no solution touches, per SET
-  so the three rooms keep one outline. Unused floor across the act went 40% to 22% — tighter
-  than Act 1's 27%. Par is untouched by construction, so the *length* of the journey is
-  unchanged; what went is the dead space it crossed.
+  so the three rooms keep one outline. Par is untouched by construction, so the *length* of the
+  journey is unchanged; what went is the dead space it crossed.
+- **Act 2 is re-sited.** Walls could not reach the real complaint: the door was wherever
+  `placeOn` dropped it, so rooms opened with a march to the first piece and closed with a
+  longer one to the exit — L31 spent ten of its twenty-three moves after the last decision.
+  `tools/resite.mjs` picks the exit and the raccoon together, per set, on `deadTravel`. Both
+  ends of every room are now bounded, and `verify.mjs` holds the pack to it: over the bound, a
+  room declares `:lead`/`:tail` and the number is checked exactly.
 - **Act 2 is in: 30 rooms (L31–L60), ten sets of three, every room an H.** Names and notes are
   still placeholders — that is the open work on it. `src/main.js` has an `ACTS` list,
   `verify.mjs` discovers `levels/act*.tt`, and `publishing/package.sh` ships all of them.
@@ -22,8 +27,8 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   `.tt`/`.sol` parser, `solver.js` the exhaustive search, `stage.js` the objects and their
   positions, `sprites.js` the drawings, `main.js` presentation and input. `tools/` is
   offline only — `verify.mjs`, `metrics.mjs`, `build-artifact.mjs`, and the room pipeline
-  (`survey` → `harvest` → `score` → `shapes` → `sets` → `pick`/`act2`) — and `src/` never
-  imports it.
+  (`survey` → `harvest` → `score` → `shapes` → `sets` → `resite` → `shrink` → `pick`/`act2`) —
+  and `src/` never imports it.
 - Levels are data: `levels/*.tt` + `*.sol`, one rules module shared by the player, the
   solver and the tests, and a verifier that proves par minimal rather than trusting it.
 - Objects built and unit-tested: bag, metal can, spilled trash, recycle bin, wheelie bin,
@@ -79,7 +84,9 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   bags (L3), both previews light and the player can't tell them apart. Options: preview only
   the last-moved direction, or tint the two differently.
 - **Playtest the exit.** Mechanically verified but not felt — is the walk to `E` tension
-  or filler? Cheapest test: play L1–L3 and see if the last move is ever a decision.
+  or filler? Cheapest test: play L1–L3 and see if the last move is ever a decision. The bound
+  in `verify.mjs` says how long the walk may be, and nothing says how long it *should* be;
+  that number is a guess until somebody plays it.
 - **The cart tutorial is part-built** — L18 is in, 019–031 are not. The arc, the tool that
   drafts rooms against the verifier, and what the verifier actually requires are all in
   [`BREADCRUMB.md`](./BREADCRUMB.md). Play the bench before designing more; the bench, not this

@@ -26,7 +26,7 @@ import { toState } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { measure } from './harvest.mjs';
-import { pathBite } from './metrics.mjs';
+import { pathBite, isOneRoom, deadTravel } from './metrics.mjs';
 
 const MAX_STATES = 50_000;
 
@@ -37,6 +37,10 @@ const wallAt = (grid, x, y) =>
 function read(grid, cart) {
   let s;
   try { s = toState({ id: 's', grid, ...(cart && { cart }) }); } catch { return null; }
+  // Only bare floor is ever walled, so a piece is never walled away — it is walled AROUND.
+  // Seal the last route to a cart nobody visits and the cart is still drawn, still looks like
+  // part of the room, and cannot be reached from anywhere in it.
+  if (!isOneRoom(s)) return null;
   let a;
   try { a = analyze(s, { maxStates: MAX_STATES }); }
   catch (e) { if (e instanceof TooManyStates) return null; throw e; }
@@ -45,7 +49,7 @@ function read(grid, cart) {
   if (bagsLeft(s) > 0 && a.exitRefusals === 0) return null;
   const bite = pathBite(a);
   return { s, a, par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,
-           onPath: bite.onPath };
+           onPath: bite.onPath, ...deadTravel(a) };
 }
 
 /**
@@ -64,6 +68,10 @@ export function shrinkSet(set) {
     if (now.par !== base[i].par) return false;              // the room must ask the same thing
     if (now.solves > base[i].solves) return false;          // and not get looser
     if (now.traps < 1) return false;
+    // A wall keeps par and may drop optimal lines, so it can take away the line that walked
+    // least and leave a longer walk at the same length. `resite` chose that pair; this may
+    // not undo it.
+    if (now.lead > base[i].lead || now.tail > base[i].tail) return false;
     // Bite on the optimal line is the thing worth protecting. Off-line traps are expendable;
     // this is not.
     return now.onPath >= base[i].onPath - 1e-9;
