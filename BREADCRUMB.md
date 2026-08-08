@@ -3,8 +3,8 @@ fresh
 ## Summary
 
 Two acts ship: Act 1 closed at 31 rooms (L0–L30), Act 2 built at 30 (L31–L60, ten sets of
-three, every room an H). The room pipeline that produced Act 2 is in `tools/` end to end, the
-game tracks progress and stars, and a dead board announces itself.
+three, every room an H) and shrink-wrapped. The room pipeline that produced Act 2 is in
+`tools/` end to end, the game tracks progress and stars, and a dead board announces itself.
 
 The open work is **writing**: all thirty Act 2 rooms carry `TODO name L31`-style placeholders,
 and the HUD shows them to the player.
@@ -27,6 +27,16 @@ and the HUD shows them to the player.
 - [ ] #12 **`tools/build-artifact.mjs` does not build**, and did not before any of this
       session's work: the win-chime `fetch` in `main.js` survives bundling and trips the tool's
       own CSP guard. The served game is unaffected; only the single-file publish path is.
+- [ ] #14 **Act 2 rooms are tight now but the journeys are still long.** Shrinking removed the
+      dead space; it cannot shorten the route, because walls never lower par. Walking is 80% of
+      the average Act 2 solve against Act 1's 71%. Measured: the ten chosen sets average 0.19
+      lines-of-work per action, the median candidate is 0.15 and the densest available is 0.24
+      — but those densest sets score 1–4% `onPath`, so compactness is bought with the bite.
+      `chooseSets` in `tools/pick.mjs` is where that trade would be made.
+- [ ] #15 **Workers in `survey`, `harvest` and `sets` still push results in completion order**,
+      so their output files reorder themselves run to run. Harmless downstream today only
+      because `chooseSets` now breaks its last tie on the shape label; `tools/shrink.mjs` shows
+      the fix — carry the input index through and reassemble by it.
 - [ ] #13 **Render through the compositor.** `main.js` draws straight to the canvas; the house
       pattern is ordered layers via `src/compositor.js`, which the game still does not import.
       Worth doing before the art pass.
@@ -66,6 +76,13 @@ and the HUD shows them to the player.
   a claim about OPTIMALITY, because par here is provably minimal; the second band is
   proportional (`≤ ceil(par × 1.25)`) so short rooms are not brutal.
 
+- **`tools/shrink.mjs`** walls off the floor a set's solutions never touch — PER SET, since the
+  three rooms share an outline and that sharing is the set. Guards are stricter than
+  `tighten`'s default: par fixed, solves not up, and `onPath` must not fall. Act 2's unused
+  floor went 40% to 22%, tighter than Act 1's 27%, at identical pars. Run it on
+  `levels/sets.jsonl` before `tools/act2.mjs`; the sets path does NOT tighten on its own, which
+  is why the first Act 2 shipped fluffy.
+
 ### The finding that shaped the design
 
 **Losable and self-announcing pull against each other.** Of 5,578 eligible harvested rooms,
@@ -97,8 +114,12 @@ fertile mixtures found that single set. Half a cap buys a 24-room act. `--maxpie
 ### Data on disk
 
 `levels/fertility.jsonl` (group map), `levels/harvest.jsonl` (6,651 rooms, every metric),
-`levels/sets.jsonl` (56 candidate sets). Re-ranking is a query over these; only a change to what
-is MEASURED needs another run.
+`levels/sets.jsonl` (56 candidate sets, shrunk). Re-ranking is a query over these; only a change
+to what is MEASURED needs another run.
+
+Rebuilding the act: `sets.mjs` → `shrink.mjs` → `act2.mjs`, then paste the emitted
+`levels/act2.md` rows over the Act 2 table in `levels.md` (that file is scratch and gitignored —
+`verify.mjs` checks `levels.md`, not it), then `node tools/verify.mjs`.
 
 ### Run it
 
