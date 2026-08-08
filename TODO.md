@@ -82,6 +82,20 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   geometry, chosen for legibility. It argues against a game about grime; worth revisiting
   with a full board of trash on screen.
 
+## Backlog (tools & speed)
+- **`draft-room.mjs`'s `rooms()` is the redundancy `reroot` was written for.** It yields the
+  product of every exit cell and every raccoon cell, and whoever consumes it enumerates each one
+  from scratch — but for a fixed board and exit, every raccoon start shares one graph. The
+  `resite` sweep that does this now runs about three times faster for it. Nothing hot goes
+  through `rooms()` today, which is the only reason it has not been done.
+- **The next real speed-up is representation, not language.** After the shared-board and
+  re-root work the profile is about half `analyze` itself and a sixth garbage collection: string
+  state keys hashed into a `Map`, one object per node, one per edge, one per back-pointer.
+  Integer keys over a flat edge array would plausibly take another 2–4× and keep one engine.
+  A C or WASM engine would take more and cost the thing the project is built on — `src/rules.js`
+  being the only description of what the pieces do, imported by the game, the solver, the tests
+  and the tools alike. `verify.mjs` already fails a build for a page that inlines a copy.
+
 ## Backlog (rooms & content)
 - **L7–L13 need regenerating, not re-sorting.** `tools/metrics.mjs` scores them: par
   climbs 13 → 25 while board-changing decisions stay flat at 3–5, so the ladder is built

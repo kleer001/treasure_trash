@@ -24,7 +24,7 @@ import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { toState } from '../src/format.js';
-import { analyze, TooManyStates } from '../src/solver.js';
+import { analyze, reroot, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { measure } from './harvest.mjs';
 import { deadTravel, pathBite, isOneRoom } from './metrics.mjs';
@@ -59,14 +59,23 @@ const same = pts => pts.every(p => p && p[0] === pts[0][0] && p[1] === pts[0][1]
 // still enough is `chooseSets`' question, and it asks it.
 export const FLOOR = { parMin: PAR_MIN, parMax: PAR_MAX };
 
-/** Everything the guards need about one room, or null if it will not hold. */
-function read(grid, cart, { parMin, parMax }) {
+/**
+ * Everything the guards need about one room, or null if it will not hold.
+ *
+ * `cache` is a graph built for this same board and exit with the raccoon somewhere else; when
+ * it fits, the room is re-rooted instead of enumerated. `cache.put` is how a fresh enumeration
+ * gets offered back, so the first candidate of a sweep pays and the rest do not.
+ */
+function read(grid, cart, { parMin, parMax }, cache = null) {
   let s;
   try { s = toState({ id: 'r', grid, ...(cart && { cart }) }); } catch { return null; }
   if (!isOneRoom(s)) return null;
-  let a;
-  try { a = analyze(s, { maxStates: MAX_STATES }); }
-  catch (e) { if (e instanceof TooManyStates) return null; throw e; }
+  let a = cache?.graph ? reroot(cache.graph, s) : null;
+  if (!a) {
+    try { a = analyze(s, { maxStates: MAX_STATES }); }
+    catch (e) { if (e instanceof TooManyStates) return null; throw e; }
+    if (cache) cache.graph = a;
+  }
   if (a.minMoves === null) return null;
   if (a.minMoves < parMin || a.minMoves > parMax) return null;
   if (a.silentTraps.length) return null;
@@ -130,23 +139,41 @@ export function resiteSet(set, floor = FLOOR) {
 
   const at = (ex, rc) => grids.map(g =>
     put(put(put(put(g, exit, '-'), rac, '-'), ex, 'E'), rc, '@'));
-  const readsAt = (ex, rc) => at(ex, rc).map((g, i) => read(g, carts[i], floor));
-  const costAt = (ex, rc) =>
-    (ex[0] === rc[0] && ex[1] === rc[1]) ? null : cost(readsAt(ex, rc));
+  const readsAt = (ex, rc, caches = null) =>
+    at(ex, rc).map((g, i) => read(g, carts[i], floor, caches?.[i]));
+  const costAt = (ex, rc, caches) =>
+    (ex[0] === rc[0] && ex[1] === rc[1]) ? null : cost(readsAt(ex, rc, caches));
 
   const base = readsAt(exit, rac);
   let best = cost(base);
   if (best === null) return null;
   let bestExit = exit, bestRac = rac;
 
+  // A sweep is a function of the cell it pivots on, so re-running one whose pivot has not moved
+  // since re-asks every candidate the question it already answered. This is what makes the
+  // second round nearly free on a set that settled in the first.
+  let sweptExitAt = null, sweptRacAt = null;
+  const at2 = c => (c ? `${c[0]},${c[1]}` : '');
+
   for (let round = 0; round < ROUNDS; round++) {
-    for (const s of spots) {
-      const c = costAt(s, bestRac);
-      if (better(best, c)) { best = c; bestExit = s; }
+    // Moving the EXIT rebuilds the room: the exit refuses what may be shoved onto it, and it
+    // decides which boards are won. Every candidate is a different graph and has to be built.
+    if (sweptExitAt !== at2(bestRac)) {
+      sweptExitAt = at2(bestRac);
+      for (const s of spots) {
+        const c = costAt(s, bestRac, null);
+        if (better(best, c)) { best = c; bestExit = s; }
+      }
     }
-    for (const s of spots) {
-      const c = costAt(bestExit, s);
-      if (better(best, c)) { best = c; bestRac = s; }
+    // Moving the RACCOON does not. One graph per room serves the whole sweep, and each
+    // candidate is a walk of it rather than a rebuild of it.
+    if (sweptRacAt !== at2(bestExit)) {
+      sweptRacAt = at2(bestExit);
+      const caches = grids.map(() => ({ graph: null }));
+      for (const s of spots) {
+        const c = costAt(bestExit, s, caches);
+        if (better(best, c)) { best = c; bestRac = s; }
+      }
     }
   }
 

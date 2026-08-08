@@ -62,28 +62,36 @@ export function analyze(start, opts = {}) {
     frontier = next;
   }
 
+  // --- who has won: asked once, in Map order, because two passes over the graph asking the
+  // same question of every board is the whole board read twice.
+  const wins = [];
+  for (const [key, node] of states) if (isWon(node.state)) wins.push(key);
+
   // --- liveness: reverse-reachability from every winning state
   const reverse = new Map();
   for (const [key, node] of states) for (const e of node.edges) {
-    if (!reverse.has(e.to)) reverse.set(e.to, []);
-    reverse.get(e.to).push(key);
+    const back = reverse.get(e.to);
+    if (back) back.push(key); else reverse.set(e.to, [key]);
   }
 
-  const live = new Set();
-  const queue = [];
-  for (const [key, node] of states) if (isWon(node.state)) { live.add(key); queue.push(key); }
+  const live = new Set(wins);
+  const queue = [...wins];
   while (queue.length) {
     const k = queue.pop();
     for (const p of reverse.get(k) ?? []) if (!live.has(p)) { live.add(p); queue.push(p); }
   }
-  const dead = new Set([...states.keys()].filter(k => !live.has(k)));
+  const dead = new Set();
+  for (const k of states.keys()) if (!live.has(k)) dead.add(k);
 
   // --- shortest win: depth, a canonical path, and how many distinct ones exist
-  const wins = [...states.entries()].filter(([, n]) => isWon(n.state));
-  const minMoves = wins.length ? Math.min(...wins.map(([, n]) => n.depth)) : null;
+  let minMoves = null;
+  for (const k of wins) {
+    const d = states.get(k).depth;
+    if (minMoves === null || d < minMoves) minMoves = d;
+  }
   let shortestLurd = null, shortestCount = 0;
   if (minMoves !== null) {
-    const best = wins.filter(([, n]) => n.depth === minMoves).map(([k]) => k);
+    const best = wins.filter(k => states.get(k).depth === minMoves);
     shortestLurd = formatLurd(pathTo(states, best[0]));
     shortestCount = countShortestPaths(states, rootKey, new Set(best), minMoves);
   }
@@ -104,6 +112,63 @@ export function analyze(start, opts = {}) {
     states, minMoves, shortestLurd, shortestCount, dead, traps, exitRefusals,
     silentTraps: traps.filter(t => t.kind === MOVE),
     reachable: states.size,
+  };
+}
+
+/**
+ * The same room again, with the raccoon starting somewhere else.
+ *
+ * Where he starts picks the ROOT of the search. It does not touch the board, and the board is
+ * what decides every edge — so the graph `analyze` built is already the graph for every other
+ * start, and all that changes is the distances measured through it. Returns a fresh analysis
+ * over the same `states`, or NULL when it cannot promise that: if the new start reaches fewer
+ * states than the graph holds, then `dead`, `traps` and `exitRefusals` were counted over states
+ * this room no longer has, and the caller has to pay for a real `analyze`.
+ *
+ * `states` is re-labelled in place — depths and back-pointers belong to whoever last rooted it.
+ *
+ * This is what makes searching for a place to stand affordable: `tools/resite.mjs` tries every
+ * free cell in the room, and without this each one is a whole enumeration for an answer that
+ * differs only in where the counting started.
+ */
+export function reroot(a, start) {
+  const rootKey = stateKey(start);
+  if (!a.states.has(rootKey)) return null;
+
+  for (const node of a.states.values()) { node.depth = -1; node.prev = null; node.prevAction = null; }
+  a.states.get(rootKey).depth = 0;
+  // Discovery order, kept because the canonical solve is a TIE-BREAK on it: `analyze` reports
+  // the first shortest win its own search reached, and a re-root that reported a different one
+  // of the tied solves would rewrite `:solve` lines for rooms nothing had changed about.
+  const order = [rootKey];
+  let frontier = [rootKey];
+  while (frontier.length) {
+    const next = [];
+    for (const key of frontier) {
+      const node = a.states.get(key);
+      for (const e of node.edges) {
+        const to = a.states.get(e.to);
+        if (to.depth !== -1) continue;
+        to.depth = node.depth + 1; to.prev = key; to.prevAction = { dir: e.dir, kind: e.kind };
+        order.push(e.to); next.push(e.to);
+      }
+    }
+    frontier = next;
+  }
+  if (order.length !== a.states.size) return null;
+
+  // BFS discovers in non-decreasing depth, so the first win reached is a shortest one.
+  const best = order.find(k => isWon(a.states.get(k).state)) ?? null;
+  if (best === null) return { ...a, minMoves: null, shortestLurd: null, shortestCount: 0 };
+  const minMoves = a.states.get(best).depth;
+
+  const wins = new Set();
+  for (const [key, node] of a.states) if (node.depth === minMoves && isWon(node.state)) wins.add(key);
+  return {
+    ...a,
+    minMoves,
+    shortestLurd: formatLurd(pathTo(a.states, best)),
+    shortestCount: countShortestPaths(a.states, rootKey, wins, minMoves),
   };
 }
 
