@@ -2,91 +2,91 @@
 :format 1
 
 :solution L31
-:moves  drrUrrrDDlU!dllulllldlll
+:moves  LrrDDlU!d
 
 :solution L32
-:moves  drrUrrrDullddrU!dllulllldlll
+:moves  rDulLddrU!d
 
 :solution L33
-:moves  drrdrrrUddLuluUrD!ulldlllldlll
+:moves  LddrrdLuluurrDullddrU!d
 
 :solution L34
-:moves  uurU!drrrdLulDL!rrrrrrr
+:moves  LLLLLdllluU!d
 
 :solution L35
-:moves  rddlUluRU!dlllllllluR!lddrrru
+:moves  LLLLLdllluluurrdDRRdLullU!dDu
 
 :solution L36
-:moves  uluuurrDrdLdllURRdL!ruRRdL!ruRRRRu
+:moves  ulDllLldllluluurrdDrrdLullU!dDu
 
 :solution L37
-:moves  urrrrddrUlulllldll
+:moves  RrrrrrdrrUulD!uUl
 
 :solution L38
-:moves  urrdLurrrddrUlLulllldl
+:moves  RurrRdrrdrrUulD!uUl
 
 :solution L39
-:moves  urrrrddrUlulldRullldRlll
+:moves  RrruLullDurrdL!rrRdrrdrrUulD!uUl
 
 :solution L40
-:moves  dlldddLLuR!l
+:moves  RurrrdLddrUl
 
 :solution L41
-:moves  uluurrdDlU!ddRdr
+:moves  RuLrrrrdLddrUl
 
 :solution L42
-:moves  urrdLulluuLullDurD!urr
+:moves  RuLdlUrrrrrdLullllDrdrrrddrUl
 
 :solution L43
-:moves  lllDrdddLluRdrUuuluRl
+:moves  DrrrrruRu
 
 :solution L44
-:moves  lllDrdddLluRdrRlUuuluRl
+:moves  DrrrrruRDDldRuuuurDl
 
 :solution L45
-:moves  lllDrdddLluRdrRlURluuluRl
+:moves  DrRdrrruuRDDldRuuuurDl
 
 :solution L46
-:moves  urRuuull
+:moves  UrDrrRulll
 
 :solution L47
-:moves  rrUluuurRDdLddRluurD!uuulll
+:moves  UrrdrRulllldRu
 
 :solution L48
-:moves  rrruLdlUUruLurRrdLDlddRluurD!uuullDR!lul
+:moves  UrrdrRurrruurDldllllllldRu
 
 :solution L49
-:moves  luURUrrrrd
+:moves  DDrdrdLu
 
 :solution L50
-:moves  luURruLulDrrrrrd
+:moves  DDlllllldldlUrurrrrrrrrdrdLu
 
 :solution L51
-:moves  luURruLulDrrrrrrDl
+:moves  DrdLLLLLLLdldlUrrurrrrrrrdrdLu
 
 :solution L52
-:moves  dddlLruUruuLrddlU!drruu
+:moves  dDrdddLluRdrUuuluRl
 
 :solution L53
-:moves  dddlLruruulDdrddLruulD!uuurr
+:moves  dDrdddLluRdrRlUuuluRl
 
 :solution L54
-:moves  rddlUdlLrurruuLlDdrddLruulD!uuurD!ur
+:moves  dDrdddLluRdrRlURluuluRl
 
 :solution L55
-:moves  ullulldllluRdDr
+:moves  luUluRul
 
 :solution L56
-:moves  ullulldRlllluRdDr
+:moves  luURruLulDul
 
 :solution L57
-:moves  ullulldRlllluRdrddlUr
+:moves  luURrurrrrDullllLulDul
 
 :solution L58
-:moves  ruuurrrrrdrUlUdddr
+:moves  drUlUddr
 
 :solution L59
-:moves  ruuururrdLrrrdrUlUdddr
+:moves  drUlUdllLrrrdr
 
 :solution L60
-:moves  ruuururrdLrrrdrUlUddrddlUr
+:moves  drUlUdllLrrrdrddlUru

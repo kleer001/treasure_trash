@@ -6,6 +6,8 @@ import { deadTravel, isOneRoom } from '../tools/metrics.mjs';
 import { draft } from '../tools/draft-room.mjs';
 import { shrinkSet } from '../tools/shrink.mjs';
 import { resiteSet, cost } from '../tools/resite.mjs';
+import { WALK_MAX } from '../tools/metrics.mjs';
+import { chooseSets } from '../tools/pick.mjs';
 
 const travel = grid => deadTravel(analyze(toState({ id: 't', grid })));
 
@@ -100,6 +102,16 @@ test('a placement that breaks the ladder costs nothing — it is refused', () =>
   assert.notEqual(cost([rung(20), rung(25), rung(30)]), null);
   // Whether the top rung is still Act 2 is `chooseSets`' question, not this one.
   assert.notEqual(cost([rung(10), rung(11), rung(12)]), null);
+});
+
+// On some outlines the best pair `resite` can find is still a march. The pack cannot accept
+// those rooms, so they are refused where the act is assembled rather than found by the gate.
+test('a set that still walks too far is not chosen', () => {
+  const rung = (par, tail) => ({ par, lead: 0, tail, onPath: 0.5, traps: 1, group: '$' });
+  const set = (shape, tail) => ({ shape, ramp: 'par', rooms: [rung(19, 0), rung(21, 0), rung(23, tail)] });
+  const fine = set('fine', WALK_MAX.tail);
+  const { sets } = chooseSets([set('marching', WALK_MAX.tail + 1), fine], { want: 5 });
+  assert.deepEqual(sets.map(s => s.shape), ['fine']);
 });
 
 test('shrinking will not seal a piece into a pocket', () => {

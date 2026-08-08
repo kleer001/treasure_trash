@@ -19,13 +19,23 @@ test('the search produced sets of exactly three rooms', () => {
   for (const s of SETS) assert.equal(s.rooms.length, 3, `${s.ramp} ${s.shape}`);
 });
 
-test('every set climbs and lands where an Act 2 room belongs', () => {
+test('every set climbs, and stays in band while it does', () => {
   for (const s of SETS) {
     const pars = s.rooms.map(r => r.par);
     assert.ok(pars[0] < pars[1] && pars[1] < pars[2], `${s.ramp} ${s.shape}: pars ${pars}`);
-    assert.ok(pars[2] >= SET_TOP_MIN, `${s.ramp} ${s.shape} tops out at ${pars[2]}`);
     for (const p of pars) assert.ok(p >= PAR_MIN && p <= PAR_MAX, `par ${p} out of band`);
   }
+});
+
+// Where the top rung lands is asked of the file at SELECTION, not of every candidate in it:
+// `resite` runs after the search and gives back the par a set was padding with, so a candidate
+// may drop under the floor between being found and being chosen.
+test('a set that no longer reaches Act 2 is not chosen', () => {
+  const { sets } = chooseSets(SETS, { want: SETS.length });
+  for (const s of sets)
+    assert.ok(s.rooms[2].par >= SET_TOP_MIN, `${s.ramp} ${s.shape} tops out at ${s.rooms[2].par}`);
+  assert.ok(SETS.some(s => s.rooms[2].par < SET_TOP_MIN),
+    'nothing under the floor on disk, so this proves nothing — check the fixture');
 });
 
 test('every room has something to clear and a way to lose', () => {

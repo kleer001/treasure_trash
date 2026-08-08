@@ -13,10 +13,10 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   journey is unchanged; what went is the dead space it crossed.
 - **Act 2 is re-sited.** Walls could not reach the real complaint: the door was wherever
   `placeOn` dropped it, so rooms opened with a march to the first piece and closed with a
-  longer one to the exit — L31 spent ten of its twenty-three moves after the last decision.
-  `tools/resite.mjs` picks the exit and the raccoon together, per set, on `deadTravel`. Both
-  ends of every room are now bounded, and `verify.mjs` holds the pack to it: over the bound, a
-  room declares `:lead`/`:tail` and the number is checked exactly.
+  longer one to the exit, and nothing in the pipeline could see it.
+  `tools/resite.mjs` picks the exit and the raccoon together, per set, on `deadTravel`, and
+  `verify.mjs` now bounds both ends of every shipped room — over the bound, a room declares
+  `:lead`/`:tail` and the number is checked exactly.
 - **Act 2 is in: 30 rooms (L31–L60), ten sets of three, every room an H.** Names and notes are
   still placeholders — that is the open work on it. `src/main.js` has an `ACTS` list,
   `verify.mjs` discovers `levels/act*.tt`, and `publishing/package.sh` ships all of them.

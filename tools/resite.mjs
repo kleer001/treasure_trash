@@ -8,7 +8,6 @@
 // falls, and every score is a rate over a par the walk inflated. So a room can be sound on
 // every number in the harvest and still open with a march to the first piece and close with a
 // longer one to the door, and the numbers will call it a long room rather than an empty one.
-// L31 shipped at par 23 with ten of those moves falling after the last decision in it.
 //
 // This searches the two cells the generator threw away, and keeps the best pair by
 // `deadTravel`. Walls cannot fix it — `shrink` may only take floor no solution touches, and

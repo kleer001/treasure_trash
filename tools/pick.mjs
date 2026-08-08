@@ -31,6 +31,7 @@ import { tighten, ttBlock } from './draft-room.mjs';
 import { measure } from './harvest.mjs';
 import { score, dedupe, REQUIRE, WEIGHTS } from './score.mjs';
 import { SET_TOP_MIN } from './sets.mjs';
+import { WALK_MAX } from './metrics.mjs';
 
 // The indicator now tells the player the room is lost, so a long dead tail costs far less
 // than it did when the loss was silent. It is still a cost — a room that ends promptly ties
@@ -123,9 +124,13 @@ export function chooseSets(sets, { want = 10, maxPieceShare = 0.5, maxPerRamp = 
   for (const s of ordered) {
     if (taken.length >= want) break;
     // Re-asked here rather than trusted from `sets.mjs`, because `resite` runs in between and
-    // a set can lose a third of its par to the walk it was padded with. Where the top rung
-    // lands after that is where the set actually lands.
+    // takes back whatever par was padding. Where the top rung lands after that is where the
+    // set actually lands.
     if (s.rooms[s.rooms.length - 1].par < SET_TOP_MIN) continue;
+    // `resite` moves the pair to the best cells the outline has; on some outlines the best
+    // available is still a march. Those sets are not chosen, rather than chosen and then found
+    // by the verifier — a set the pack cannot accept is not a candidate.
+    if (s.rooms.some(r => r.lead > WALK_MAX.lead || r.tail > WALK_MAX.tail)) continue;
     if (byShape.has(s.shape)) continue;
     if ((byRamp[s.ramp] ?? 0) >= maxPerRamp) continue;
     let over = false;

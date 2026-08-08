@@ -55,45 +55,48 @@ repo; the bank of candidates it produced is, in `levels/bank.jsonl`.
 
 ## Act 2 — the H act
 
-Thirty rooms in ten sets of three. Every room is an **H**: two chambers joined by a neck, the
-one outline family whose state spaces stay deep rather than bushy. Each set holds one H variant
-and gets harder in a stated way — by filling a container that was already standing there, by
-adding a piece, or by rearranging the same cast. Sets are ordered by how much of the solution
-optimal play can still throw away.
+Thirty rooms in ten sets of three, each set drawn on one **H** — two chambers joined by a neck,
+the one outline family whose state spaces stay deep rather than bushy. What ships is the part of
+that H the rooms use: the exit and the raccoon are sited where they leave the player the least
+walking, and then every cell no solution touches is walled and the frame cropped away, so a set
+whose second chamber was only ever the walk to the door comes out smaller than the H it was
+drawn on. Each set gets harder in a stated way — by filling a container that was already
+standing there, by adding a piece, or by rearranging the same cast. Sets are ordered by how much
+of the solution optimal play can still throw away.
 
 The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 
 | Room | Name | Par | Solve |
 |---|---|---|---|
-| L31 | TODO name L31 | 23 | `drrUrrrDDlU!dllulllldlll` |
-| L32 | TODO name L32 | 27 | `drrUrrrDullddrU!dllulllldlll` |
-| L33 | TODO name L33 | 29 | `drrdrrrUddLuluUrD!ulldlllldlll` |
-| L34 | TODO name L34 | 21 | `uurU!drrrdLulDL!rrrrrrr` |
-| L35 | TODO name L35 | 27 | `rddlUluRU!dlllllllluR!lddrrru` |
-| L36 | TODO name L36 | 32 | `uluuurrDrdLdllURRdL!ruRRdL!ruRRRRu` |
-| L37 | TODO name L37 | 18 | `urrrrddrUlulllldll` |
-| L38 | TODO name L38 | 22 | `urrdLurrrddrUlLulllldl` |
-| L39 | TODO name L39 | 24 | `urrrrddrUlulldRullldRlll` |
-| L40 | TODO name L40 | 11 | `dlldddLLuR!l` |
-| L41 | TODO name L41 | 15 | `uluurrdDlU!ddRdr` |
-| L42 | TODO name L42 | 21 | `urrdLulluuLullDurD!urr` |
-| L43 | TODO name L43 | 21 | `lllDrdddLluRdrUuuluRl` |
-| L44 | TODO name L44 | 23 | `lllDrdddLluRdrRlUuuluRl` |
-| L45 | TODO name L45 | 25 | `lllDrdddLluRdrRlURluuluRl` |
-| L46 | TODO name L46 | 8 | `urRuuull` |
-| L47 | TODO name L47 | 26 | `rrUluuurRDdLddRluurD!uuulll` |
-| L48 | TODO name L48 | 38 | `rrruLdlUUruLurRrdLDlddRluurD!uuullDR!lul` |
-| L49 | TODO name L49 | 10 | `luURUrrrrd` |
-| L50 | TODO name L50 | 16 | `luURruLulDrrrrrd` |
-| L51 | TODO name L51 | 18 | `luURruLulDrrrrrrDl` |
-| L52 | TODO name L52 | 22 | `dddlLruUruuLrddlU!drruu` |
-| L53 | TODO name L53 | 27 | `dddlLruruulDdrddLruulD!uuurr` |
-| L54 | TODO name L54 | 34 | `rddlUdlLrurruuLlDdrddLruulD!uuurD!ur` |
-| L55 | TODO name L55 | 15 | `ullulldllluRdDr` |
-| L56 | TODO name L56 | 17 | `ullulldRlllluRdDr` |
-| L57 | TODO name L57 | 21 | `ullulldRlllluRdrddlUr` |
-| L58 | TODO name L58 | 18 | `ruuurrrrrdrUlUdddr` |
-| L59 | TODO name L59 | 22 | `ruuururrdLrrrdrUlUdddr` |
-| L60 | TODO name L60 | 26 | `ruuururrdLrrrdrUlUddrddlUr` |
+| L31 | TODO name L31 | 8 | `LrrDDlU!d` |
+| L32 | TODO name L32 | 10 | `rDulLddrU!d` |
+| L33 | TODO name L33 | 22 | `LddrrdLuluurrDullddrU!d` |
+| L34 | TODO name L34 | 12 | `LLLLLdllluU!d` |
+| L35 | TODO name L35 | 28 | `LLLLLdllluluurrdDRRdLullU!dDu` |
+| L36 | TODO name L36 | 30 | `ulDllLldllluluurrdDrrdLullU!dDu` |
+| L37 | TODO name L37 | 16 | `RrrrrrdrrUulD!uUl` |
+| L38 | TODO name L38 | 18 | `RurrRdrrdrrUulD!uUl` |
+| L39 | TODO name L39 | 30 | `RrruLullDurrdL!rrRdrrdrrUulD!uUl` |
+| L40 | TODO name L40 | 12 | `RurrrdLddrUl` |
+| L41 | TODO name L41 | 14 | `RuLrrrrdLddrUl` |
+| L42 | TODO name L42 | 29 | `RuLdlUrrrrrdLullllDrdrrrddrUl` |
+| L43 | TODO name L43 | 9 | `DrrrrruRu` |
+| L44 | TODO name L44 | 20 | `DrrrrruRDDldRuuuurDl` |
+| L45 | TODO name L45 | 22 | `DrRdrrruuRDDldRuuuurDl` |
+| L46 | TODO name L46 | 10 | `UrDrrRulll` |
+| L47 | TODO name L47 | 14 | `UrrdrRulllldRu` |
+| L48 | TODO name L48 | 26 | `UrrdrRurrruurDldllllllldRu` |
+| L49 | TODO name L49 | 8 | `DDrdrdLu` |
+| L50 | TODO name L50 | 28 | `DDlllllldldlUrurrrrrrrrdrdLu` |
+| L51 | TODO name L51 | 30 | `DrdLLLLLLLdldlUrrurrrrrrrdrdLu` |
+| L52 | TODO name L52 | 19 | `dDrdddLluRdrUuuluRl` |
+| L53 | TODO name L53 | 21 | `dDrdddLluRdrRlUuuluRl` |
+| L54 | TODO name L54 | 23 | `dDrdddLluRdrRlURluuluRl` |
+| L55 | TODO name L55 | 8 | `luUluRul` |
+| L56 | TODO name L56 | 12 | `luURruLulDul` |
+| L57 | TODO name L57 | 22 | `luURrurrrrDullllLulDul` |
+| L58 | TODO name L58 | 8 | `drUlUddr` |
+| L59 | TODO name L59 | 14 | `drUlUdllLrrrdr` |
+| L60 | TODO name L60 | 20 | `drUlUdllLrrrdrddlUru` |
 
 `tools/metrics.mjs` scores a room. Open questions about the pack live in `TODO.md`.

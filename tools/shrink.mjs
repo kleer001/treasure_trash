@@ -53,6 +53,26 @@ function read(grid, cart) {
 }
 
 /**
+ * Crop to the box that still holds something. A wall pass can retire a whole side of the
+ * outline, and what is left is frame: the room is drawn from the grid, so those columns are
+ * blank screen the player is asked to look at.
+ *
+ * One box for the set, because three rooms cropped to their own contents are three rooms of
+ * different sizes, and the shared outline is the set.
+ */
+function crop(grids, carts) {
+  const h = grids[0].length, w = grids[0][0].length;
+  let top = h, left = w, bottom = -1, right = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (grids.every(g => g[y][x] === '#')) continue;
+    top = Math.min(top, y); bottom = Math.max(bottom, y);
+    left = Math.min(left, x); right = Math.max(right, x);
+  }
+  const cut = rows => rows.slice(top, bottom + 1).map(r => r.slice(left, right + 1));
+  return [grids.map(cut), carts.map(c => c && cut(c))];
+}
+
+/**
  * Wall off every cell all three rooms can spare, greedily to a fixed point.
  * Returns the set re-measured, or null if it could not be read to begin with.
  */
@@ -89,8 +109,9 @@ export function shrinkSet(set) {
     }
   }
 
-  const rooms = grids.map((grid, i) => {
-    const room = { grid, ...(carts[i] && { cart: carts[i] }) };
+  const [cropped, croppedCarts] = crop(grids, carts);
+  const rooms = cropped.map((grid, i) => {
+    const room = { grid, ...(croppedCarts[i] && { cart: croppedCarts[i] }) };
     const s = toState({ id: 'r', ...room });
     const a = analyze(s, { maxStates: MAX_STATES });
     return measure(set.rooms[i].group, room, s, a, grid[0].length, grid.length);

@@ -252,9 +252,19 @@ export function pathBite(a) {
  *
  * Dead travel is not difficulty and it is not measured by anything else here. Par counts it,
  * `walks` counts it wherever it falls, and `onPath` is a fraction of a par it inflates — so a
- * room can walk the player six squares to the door after the last decision and read clean on
+ * room can walk the player clear across itself after the last decision and read clean on
  * every other number.
  */
+/**
+ * How much of it a room may have before it has to say so.
+ *
+ * `verify.mjs` holds the pack to this and `chooseSets` will not pick a set that would fail it,
+ * so the gate and the generator cannot disagree about what a well-sited room is. A shipped room
+ * over the bound declares `:lead`/`:tail` and has the number checked exactly; nothing computes
+ * a reason to write one, so a generated room is simply held to the bound.
+ */
+export const WALK_MAX = { lead: 4, tail: 4 };
+
 export function deadTravel(a) {
   const par = a.minMoves;
   if (par === null) return { lead: 0, tail: 0 };

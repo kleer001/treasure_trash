@@ -15,21 +15,16 @@ import {
 } from '../src/format.js';
 import { analyze, replay } from '../src/solver.js';
 import { isWon, bagsLeft } from '../src/rules.js';
-import { deadTravel, isOneRoom } from './metrics.mjs';
+import { deadTravel, isOneRoom, WALK_MAX } from './metrics.mjs';
 
-// How far a room may walk the player for nothing before it has to say so.
-//
 // Neither end of a solve is free. The walk IN is the room withholding its first decision; the
 // walk OUT is worse, because it comes after the last one — the puzzle is over and the player is
 // still holding the controller. Both are invisible to every other check: par counts them,
 // `:solves` and `:traps` are indifferent to them, and a room can pass everything above and
 // still open with a march down a corridor and close with a march to a door in the far corner.
 //
-// A room that wants a longer one declares it with `:lead`/`:tail`, and the declaration is
-// checked exactly, so it is a claim about the room rather than a way out of the bound. L12
-// is what that is for: it is NAMED "The Far Side" and it teaches distance.
-const LEAD_MAX = 4;
-const TAIL_MAX = 4;
+// A room whose distance is the point declares it with `:lead`/`:tail`, and the declaration is
+// checked exactly — a claim about the room rather than a way out of the bound.
 
 // Levels, and the doc this cross-checks, live at the repo root — one level up.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -148,8 +143,8 @@ for (const [levelPath, solPath] of PACKS) {
       declared === undefined ? `the ${what} is at most ${max}` : `the declared ${what} is exact`,
       declared === undefined ? got <= max : got === declared,
       `${got}${declared === undefined ? '' : ` declared ${declared}`}`);
-    walk('walk to the first piece', lead, level.lead, LEAD_MAX);
-    walk('walk to the exit', tail, level.tail, TAIL_MAX);
+    walk('walk to the first piece', lead, level.lead, WALK_MAX.lead);
+    walk('walk to the exit', tail, level.tail, WALK_MAX.tail);
 
     // A room that arms has to say which piece it is introducing.
     if (level.arm) check('an arming room declares what it teaches', !!level.teach, level.teach ?? '');
