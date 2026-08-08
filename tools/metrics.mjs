@@ -21,14 +21,21 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { parseLevelPack, parseLurd, toState } from '../src/format.js';
+import { parseLevelPack, parseLurd, toState, toGrid, toCart } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import {
-  DIR_ORDER, DIRS, MOVE, TEAR, BAG, explain, cell, fan, canStand, isOccupiable, bagsLeft,
+  DIR_ORDER, DIRS, MOVE, TEAR, BAG, NONE, explain, cell, fan, canStand, isOccupiable, bagsLeft,
   isWon,
 } from '../src/rules.js';
 
 const FAN_CELLS = fan(0, 0, 1, 0).length;
+
+/**
+ * The enumeration budget the offline pipeline works to. One number, because a predicate answered
+ * under one budget in one tool and a larger one in the next is a pipeline that rejects what it
+ * just produced, for a reason visible in neither file.
+ */
+export const MAX_STATES = 50_000;
 
 /** Dry ground: the floor budget a room starts with, before anything stands on it. */
 const floorCells = s => s.cells.flat().filter(c => !c.wall && !c.water).length;
@@ -211,7 +218,22 @@ export function solveShape(start, actions) {
  *   onPath      fraction of the solve's depths at which optimal play can still lose the room
  *   firstOnPath the earliest such depth, or null if optimal play can never go wrong
  */
-function shortestDag(a) {
+/**
+ * Every edge of the shortest-solve DAG that does work — a piece moves, tears or spills. What
+ * both the dead-travel measure and the inert-piece test are actually asking about, so it is
+ * defined once: two copies of this predicate would let `lead`/`tail` say a room does work at a
+ * depth where `inertPieces` says nothing was touched.
+ */
+function* dagWork(a, onDag = shortestDag(a)) {
+  for (const key of onDag) {
+    const n = a.states.get(key);
+    for (const e of n.edges)
+      if (e.kind !== MOVE && onDag.has(e.to) && a.states.get(e.to).depth === n.depth + 1)
+        yield [n, e];
+  }
+}
+
+export function shortestDag(a) {
   const par = a.minMoves;
   const onDag = new Set();
   for (const [k, n] of a.states) if (n.depth === par && isWon(n.state)) onDag.add(k);
@@ -224,11 +246,10 @@ function shortestDag(a) {
   return onDag;
 }
 
-export function pathBite(a) {
+export function pathBite(a, onDag = shortestDag(a)) {
   const par = a.minMoves;
   if (par === null) return { onPath: 0, bitten: 0, firstOnPath: null };
 
-  const onDag = shortestDag(a);
   const bittenAt = new Array(par).fill(false);
   for (const k of onDag) {
     const n = a.states.get(k);
@@ -265,22 +286,16 @@ export const WALK_MAX = { lead: 4, tail: 4 };
  * room can walk the player clear across itself after the last decision and read clean on
  * every other number.
  */
-export function deadTravel(a) {
+export function deadTravel(a, onDag) {
   const par = a.minMoves;
   if (par === null) return { lead: 0, tail: 0 };
-  const onDag = shortestDag(a);
   let firstWork = par, lastWork = 0, worked = false;
-  for (const k of onDag) {
-    const n = a.states.get(k);
-    for (const e of n.edges) {
-      if (e.kind === MOVE) continue;
-      if (!onDag.has(e.to) || a.states.get(e.to).depth !== n.depth + 1) continue;
-      worked = true;
-      if (n.depth < firstWork) firstWork = n.depth;
-      if (n.depth + 1 > lastWork) lastWork = n.depth + 1;
-    }
+  for (const [n] of dagWork(a, onDag ?? shortestDag(a))) {
+    worked = true;
+    if (n.depth < firstWork) firstWork = n.depth;
+    if (n.depth + 1 > lastWork) lastWork = n.depth + 1;
   }
-  return worked ? { lead: firstWork, tail: par - lastWork } : { lead: 0, tail: par };
+  return { lead: worked ? firstWork : 0, tail: par - lastWork };
 }
 
 // ---------------------------------------------------------------- inert pieces
@@ -290,75 +305,62 @@ export function deadTravel(a) {
 // instead that the board may be lying. Reachability is not the question, though the two look
 // alike from a sealed pocket: a piece can sit in the open, on a route, and still do nothing.
 
-/** The pool letters, by what they mean in a `.tt`. See FORMATS.md. */
-const FURN_LETTERS = new Set([...'FGHKMN']);
-const CART_LETTERS = new Set([...'PQR']);
-const LOOSE_GLYPHS = new Set([...'$CcxSWwBbj']);
-
 /**
- * The pieces of a room, as the file writes them: one entry per furniture blob, per cart, and
- * per single-cell occupant, each carrying the cells it stands on and which block it lives in.
+ * The pieces of a built board: one entry per furniture blob, per cart, and per other occupant,
+ * each carrying the cells it stands on and which block of the file writes it.
+ *
+ * Read off the STATE rather than off the grid text, because `toState` has already decided all
+ * of this — `pid` and `cart` are the 4-connected blobs `labelBlobs` labelled, and `o` is the
+ * occupant. A second reading here would be a second glyph table, and the day `rules.js` grows
+ * an occupant code (which CLAUDE.md invites) the table left behind would not know it: the new
+ * piece would simply stop being a piece, silently exempt from the gate below.
  */
-export function roomPieces(room) {
-  const rows = room.grid.length, cols = Math.max(...room.grid.map(r => r.length));
-  const at = (block, x, y) => block[y]?.[x] ?? '-';
-  const seen = new Set(), out = [];
-  const blob = (block, tag, x0, y0, ch) => {
-    const cells = [], stack = [[x0, y0]];
-    while (stack.length) {
-      const [x, y] = stack.pop();
-      if (x < 0 || y < 0 || x >= cols || y >= rows) continue;
-      if (at(block, x, y) !== ch || seen.has(`${tag}${x},${y}`)) continue;
-      seen.add(`${tag}${x},${y}`); cells.push([x, y]);
-      stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
-    }
-    return cells;
-  };
-  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
-    const ch = at(room.grid, x, y);
-    if (LOOSE_GLYPHS.has(ch)) out.push({ what: ch, block: 'grid', cells: [[x, y]] });
-    else if (FURN_LETTERS.has(ch) && !seen.has(`g${x},${y}`))
-      out.push({ what: ch, block: 'grid', cells: blob(room.grid, 'g', x, y, ch) });
+export function roomPieces(s) {
+  const grid = toGrid(s), cart = toCart(s);
+  const out = [], furn = new Map(), carts = new Map();
+  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) {
+    const c = s.cells[y][x];
+    if (c.pid !== undefined) group(furn, c.pid, 'grid', grid[y][x], x, y);
+    else if (c.o !== NONE) out.push({ what: grid[y][x], block: 'grid', cells: [[x, y]] });
+    // A cart is its mask, and its cargo is an occupant standing in it — two pieces, one cell.
+    if (c.cart !== undefined) group(carts, c.cart, 'cart', cart[y][x], x, y);
   }
-  if (room.cart) for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
-    const ch = at(room.cart, x, y);
-    if (CART_LETTERS.has(ch) && !seen.has(`c${x},${y}`))
-      out.push({ what: ch, block: 'cart', cells: blob(room.cart, 'c', x, y, ch) });
-  }
-  return out;
+  return [...out, ...furn.values(), ...carts.values()];
 }
 
+const group = (into, id, block, what, x, y) => {
+  const piece = into.get(id) ?? { what, block, cells: [] };
+  piece.cells.push([x, y]);
+  into.set(id, piece);
+};
+
 /** Every cell any shortest solve reads or writes — what the pieces in play are standing on. */
-function handledCells(a) {
-  const onDag = shortestDag(a);
+function handledCells(a, onDag) {
   const hit = new Set();
   const add = ([x, y]) => hit.add(`${x},${y}`);
-  for (const key of onDag) {
-    const n = a.states.get(key);
-    for (const e of n.edges) {
-      if (e.kind === MOVE) continue;
-      if (!onDag.has(e.to) || a.states.get(e.to).depth !== n.depth + 1) continue;
-      const [dx, dy] = DIRS[e.dir];
-      add([n.state.rac.x + dx, n.state.rac.y + dy]);       // the cell shoved or torn into
-      for (const st of explain(n.state, e.dir, { trace: true }).steps ?? []) {
-        for (const m of st.moved) { add(m.from); add(m.to); }
-        for (const s of st.spawned) { add(s.at); add(s.from); }
-        for (const g of st.gone) add(g.at);
-      }
+  for (const [n, e] of dagWork(a, onDag ?? shortestDag(a))) {
+    const [dx, dy] = DIRS[e.dir];
+    add([n.state.rac.x + dx, n.state.rac.y + dy]);         // the cell shoved or torn into
+    for (const st of explain(n.state, e.dir, { trace: true }).steps ?? []) {
+      for (const m of st.moved) { add(m.from); add(m.to); }
+      for (const s of st.spawned) { add(s.at); add(s.from); }
+      for (const g of st.gone) add(g.at);
     }
   }
   return hit;
 }
 
+/** What a room answers, in the three numbers a piece could change by being there. */
+const answerKey = a => `${a.minMoves}|${a.shortestCount}|${a.traps.length}`;
+
 // Taking a piece off the board gives its cells back, so the room MINUS a piece can enumerate
 // far larger than the room with it — this is the one analyze in the toolchain whose cost is not
 // bounded by the room that was asked about. Past the bound the question is unanswerable, and an
-// unanswerable question is not evidence: `null` reads as "not shown to be inert".
-const answerFor = (room, maxStates) => {
-  let a;
-  try { a = analyze(toState({ id: 'inert', ...room }), { maxStates }); }
-  catch (e) { return e instanceof TooManyStates ? null : 'illegal'; }
-  return `${a.minMoves}|${a.shortestCount}|${a.traps.length}`;
+// unanswerable question is not evidence, so it reads as "not shown to be inert" — which is what
+// `null` means here, and equally what a board too broken to build means.
+const answerWithout = (room, maxStates) => {
+  try { return answerKey(analyze(toState({ id: 'inert', ...room }), { maxStates })); }
+  catch (e) { if (e instanceof TooManyStates) return null; throw e; }
 };
 
 const erase = (room, piece) => {
@@ -383,12 +385,13 @@ const erase = (room, piece) => {
  * Neither is reachability, and reachability is not a third way. A piece the player can walk up
  * to, look at, and ignore has failed both.
  */
-export function inertPieces(room, a, { maxStates = 200_000 } = {}) {
+export function inertPieces(room, a, { maxStates = MAX_STATES, onDag } = {}) {
   if (a.minMoves === null) return [];
-  const hit = handledCells(a);
-  const base = `${a.minMoves}|${a.shortestCount}|${a.traps.length}`;
-  return roomPieces(room).filter(p =>
-    !p.cells.some(([x, y]) => hit.has(`${x},${y}`)) && answerFor(erase(room, p), maxStates) === base);
+  const hit = handledCells(a, onDag);
+  const base = answerKey(a);
+  return roomPieces(toState({ id: 'inert', ...room })).filter(p =>
+    !p.cells.some(([x, y]) => hit.has(`${x},${y}`))
+    && answerWithout(erase(room, p), maxStates) === base);
 }
 
 // ---------------------------------------------------------------- room structure

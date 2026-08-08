@@ -54,11 +54,13 @@ const inert = room => inertPieces(room, analyze(toState({ id: 'i', ...room }))).
 
 test('pieces are read the way the file writes them', () => {
   // A same-letter blob is one couch; two letters flush together are two; a cart is its mask.
-  const p = roomPieces({
-    grid: ['FFG-$', '@--x-', 'E---c'],
-    cart: ['-----', '---PP', '-----'],
-  });
-  assert.deepEqual(p.map(x => `${x.what}${x.cells.length}`).sort(), ['$1', 'F2', 'G1', 'P2', 'c1', 'x1']);
+  const p = roomPieces(toState({
+    id: 'p',
+    grid: ['FFGG-', '@--x-', 'E--$c'],
+    cart: ['-----', '----P', '----P'],
+  }));
+  // The can rides in the cart, so that one cell is two pieces: the cart, and its cargo.
+  assert.deepEqual(p.map(x => `${x.what}${x.cells.length}`).sort(), ['$1', 'F2', 'G2', 'P2', 'c1', 'x1']);
 });
 
 test('a piece nothing touches and nothing needs is inert', () => {

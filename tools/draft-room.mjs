@@ -14,7 +14,7 @@
 import { toState, toGrid, toWater, toCart } from '../src/format.js';
 import { analyze } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
-import { deadTravel, isOneRoom, inertPieces } from './metrics.mjs';
+import { deadTravel, isOneRoom, inertPieces, shortestDag } from './metrics.mjs';
 
 /**
  * Everything verify.mjs would say about a candidate room, without putting it in the pack.
@@ -47,7 +47,8 @@ export function draft(room) {
   if (bags > 0 && a.exitRefusals === 0) no('the exit forbids no action — it is only a destination');
   // Checked after `tighten` walls, not only before: a wall can take away the lane a piece was
   // shutting, and leave the piece standing in the open shutting nothing.
-  const inert = inertPieces(room, a);
+  const onDag = shortestDag(a);
+  const inert = inertPieces(room, a, { onDag });
   if (inert.length) no(`does nothing: ${inert.map(p => p.what).join(' ')}`);
 
   // `lead` and `tail` are reported, not judged. Verify holds them to a bound because a shipped
@@ -55,7 +56,7 @@ export function draft(room) {
   // it here would throw away the candidate instead of moving its exit.
   Object.assign(out, { par: a.minMoves, solve: a.shortestLurd, solves: a.shortestCount,
                        traps: a.traps.length, bags, exitRefusals: a.exitRefusals,
-                       ...deadTravel(a) });
+                       ...deadTravel(a, onDag) });
   return out;
 }
 

@@ -28,20 +28,16 @@
 // somebody's rules produced, which is a better fuzzing corpus than anything invented, and the
 // generator supplies the piece combinations the shipped acts happen not to contain.
 
-import { readFileSync, readdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
-import { parseLevelPack, toState } from '../src/format.js';
+import { toState } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { DIR_ORDER } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 import { outline, placeOn } from './harvest.mjs';
+import { MAX_STATES } from './metrics.mjs';
+import { actLevels, root } from './packs.mjs';
 import { respond, shapeOf, answerOf } from './conform-ref.mjs';
-
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const MAX_STATES = 50_000;
 
 // ---------------------------------------------------------------- talking to an engine
 
@@ -50,7 +46,7 @@ const MAX_STATES = 50_000;
  * so requests may be in flight together — how many at once is the caller's to choose, and
  * `WINDOW` below is the choice this one makes.
  */
-export function connect(command) {
+function connect(command) {
   const child = spawn(command, { shell: true, stdio: ['pipe', 'pipe', 'inherit'], cwd: root });
   const pending = new Map();
   let nextId = 1;
@@ -101,13 +97,6 @@ export function disagreement(mine, theirs) {
 
 // ---------------------------------------------------------------- the corpus
 
-/** Every shipped room, as boards. */
-export function shippedRooms() {
-  return readdirSync(resolve(root, 'levels')).filter(f => /^act\d+\.tt$/.test(f)).sort()
-    .flatMap(f => parseLevelPack(readFileSync(resolve(root, 'levels', f), 'utf8')).levels
-      .map(l => ({ name: `${f}:${l.id}`, level: l })));
-}
-
 /**
  * Rooms the shipped acts do not contain. Seeded, so a failure is reproducible from the seed
  * printed in the report rather than from a corpus file nobody kept.
@@ -153,7 +142,7 @@ const WINDOW = 256;
 export async function conform(command, { rooms = null, steps = 120, random = 40, seed = 7,
                                          log = console.log } = {}) {
   const engine = connect(command);
-  const corpus = rooms ?? [...shippedRooms(), ...generatedRooms(random, seed)];
+  const corpus = rooms ?? [...actLevels(), ...generatedRooms(random, seed)];
   const tally = { rooms: 0, answers: 0, steps: 0, skipped: 0 };
   const failures = [];
 
@@ -171,7 +160,7 @@ export async function conform(command, { rooms = null, steps = 120, random = 40,
     // Then fine: a sample of the room's boards, or EVERY one of them once the room is known to
     // be wrong, because that is what turns "this room" into "this rule". Compared in the order
     // they were asked, so the one reported is still the shallowest.
-    const sample = boardsOf(a, roomBad ? Infinity : steps);
+    const sample = boardsOf(a, roomBad ? a.states.size : steps);
     const asks = sample.flatMap(b => DIR_ORDER.map(dir => ({ b, dir })));
     let first = null;
     for (let i = 0; i < asks.length && !first; i += WINDOW) {

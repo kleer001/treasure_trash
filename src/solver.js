@@ -83,19 +83,6 @@ export function analyze(start, opts = {}) {
   const dead = new Set();
   for (const k of states.keys()) if (!live.has(k)) dead.add(k);
 
-  // --- shortest win: depth, a canonical path, and how many distinct ones exist
-  let minMoves = null;
-  for (const k of wins) {
-    const d = states.get(k).depth;
-    if (minMoves === null || d < minMoves) minMoves = d;
-  }
-  let shortestLurd = null, shortestCount = 0;
-  if (minMoves !== null) {
-    const best = wins.filter(k => states.get(k).depth === minMoves);
-    shortestLurd = formatLurd(pathTo(states, best[0]));
-    shortestCount = countShortestPaths(states, rootKey, new Set(best), minMoves);
-  }
-
   // --- traps: a legal action that takes a live state to a dead one
   const traps = [];
   for (const [key, node] of states) {
@@ -109,9 +96,34 @@ export function analyze(start, opts = {}) {
     }
   }
   return {
-    states, minMoves, shortestLurd, shortestCount, dead, traps, exitRefusals,
+    states, wins, dead, traps, exitRefusals,
+    ...shortestFrom(states, rootKey, wins, wins),
     silentTraps: traps.filter(t => t.kind === MOVE),
     reachable: states.size,
+  };
+}
+
+/**
+ * The shortest win, read off an already-labelled graph: how far, one canonical line, and how
+ * many distinct ones there are.
+ *
+ * `order` is what breaks the tie — the canonical line is the first shortest win the search
+ * REACHED. A caller that has relabelled the graph from a new root has to pass its own discovery
+ * order; handed the old one it would report a different one of the tied solves for a room
+ * nothing had changed about, and `:solve` lines would churn on a re-run.
+ */
+function shortestFrom(states, rootKey, wins, order) {
+  let minMoves = null;
+  for (const k of wins) {
+    const d = states.get(k).depth;
+    if (minMoves === null || d < minMoves) minMoves = d;
+  }
+  if (minMoves === null) return { minMoves: null, shortestLurd: null, shortestCount: 0 };
+  const best = new Set(wins.filter(k => states.get(k).depth === minMoves));
+  return {
+    minMoves,
+    shortestLurd: formatLurd(pathTo(states, order.find(k => best.has(k)))),
+    shortestCount: countShortestPaths(states, rootKey, best, minMoves),
   };
 }
 
@@ -120,16 +132,13 @@ export function analyze(start, opts = {}) {
  *
  * Where he starts picks the ROOT of the search. It does not touch the board, and the board is
  * what decides every edge — so the graph `analyze` built is already the graph for every other
- * start, and all that changes is the distances measured through it. Returns a fresh analysis
- * over the same `states`, or NULL when it cannot promise that: if the new start reaches fewer
- * states than the graph holds, then `dead`, `traps` and `exitRefusals` were counted over states
- * this room no longer has, and the caller has to pay for a real `analyze`.
+ * start, and all that changes is the distances measured through it.
  *
- * `states` is re-labelled in place — depths and back-pointers belong to whoever last rooted it.
- *
- * This is what makes searching for a place to stand affordable: `tools/resite.mjs` tries every
- * free cell in the room, and without this each one is a whole enumeration for an answer that
- * differs only in where the counting started.
+ * Returns a fresh analysis over the same `states`, or NULL when it cannot promise that: if the
+ * new start reaches fewer states than the graph holds, then `dead`, `traps` and `exitRefusals`
+ * were counted over states this room no longer has, and the caller has to pay for a real
+ * `analyze`. `states` is re-labelled in place — depths and back-pointers belong to whoever
+ * rooted it last.
  */
 export function reroot(a, start) {
   const rootKey = stateKey(start);
@@ -157,19 +166,10 @@ export function reroot(a, start) {
   }
   if (order.length !== a.states.size) return null;
 
-  // BFS discovers in non-decreasing depth, so the first win reached is a shortest one.
-  const best = order.find(k => isWon(a.states.get(k).state)) ?? null;
-  if (best === null) return { ...a, minMoves: null, shortestLurd: null, shortestCount: 0 };
-  const minMoves = a.states.get(best).depth;
-
-  const wins = new Set();
-  for (const [key, node] of a.states) if (node.depth === minMoves && isWon(node.state)) wins.add(key);
-  return {
-    ...a,
-    minMoves,
-    shortestLurd: formatLurd(pathTo(a.states, best)),
-    shortestCount: countShortestPaths(a.states, rootKey, wins, minMoves),
-  };
+  // Which boards are won is a property of the boards, and re-rooting does not touch one, so the
+  // set `analyze` found still stands. Asking `isWon` again would cost two sweeps of every cell
+  // of every state — more than the relabelling this function exists to do instead.
+  return { ...a, ...shortestFrom(a.states, rootKey, a.wins, order) };
 }
 
 /**

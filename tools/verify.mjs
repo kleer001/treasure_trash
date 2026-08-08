@@ -7,15 +7,15 @@
 // Exits non-zero on the first failing check, so it drops straight into CI.
 
 import { readFileSync, readdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import {
   parseLevelPack, formatLevelPack, parseSolutionPack, formatSolutionPack,
   parseLurd, formatLurd, toState, toGrid, toWater, toCart,
 } from '../src/format.js';
 import { analyze, replay } from '../src/solver.js';
 import { isWon, bagsLeft } from '../src/rules.js';
-import { deadTravel, isOneRoom, inertPieces, WALK_MAX } from './metrics.mjs';
+import { deadTravel, isOneRoom, inertPieces, shortestDag, WALK_MAX } from './metrics.mjs';
+import { actPacks, root } from './packs.mjs';
 
 // Neither end of a solve is free. The walk IN is the room withholding its first decision; the
 // walk OUT is worse, because it comes after the last one — the puzzle is over and the player is
@@ -26,14 +26,11 @@ import { deadTravel, isOneRoom, inertPieces, WALK_MAX } from './metrics.mjs';
 // A room whose distance is the point declares it with `:lead`/`:tail`, and the declaration is
 // checked exactly — a claim about the room rather than a way out of the bound.
 
-// Levels, and the doc this cross-checks, live at the repo root — one level up.
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-// Every act, unless a pair is named. Discovered rather than listed: an act the verifier does
-// not know about is an act nobody is checking, and the pack that adds one would build clean.
+// Every act, unless a pair is named on the command line.
 const PACKS = process.argv[2]
-  ? [[resolve(root, process.argv[2]), resolve(root, process.argv[3] ?? process.argv[2].replace(/\.tt$/, '.sol'))]]
-  : readdirSync(resolve(root, 'levels')).filter(f => /^act\d+\.tt$/.test(f)).sort()
-      .map(f => [resolve(root, 'levels', f), resolve(root, 'levels', f.replace(/\.tt$/, '.sol'))]);
+  ? [{ levelPath: resolve(root, process.argv[2]),
+       solPath: resolve(root, process.argv[3] ?? process.argv[2].replace(/\.tt$/, '.sol')) }]
+  : actPacks();
 
 let failures = 0;
 const check = (label, ok, detail = '') => {
@@ -42,7 +39,7 @@ const check = (label, ok, detail = '') => {
 };
 const section = t => console.log(`\n${t}`);
 
-for (const [levelPath, solPath] of PACKS) {
+for (const { levelPath, solPath } of PACKS) {
   console.log(`\n=== ${levelPath.slice(root.length + 1)} ===`);
   // ---------------------------------------------------------------- format layer
   section('format');
@@ -141,12 +138,13 @@ for (const [levelPath, solPath] of PACKS) {
     // prompted this rule were caught by the region check above, but being unreachable was the
     // least of what was wrong with them — a piece standing in the open, on a route, doing
     // nothing is the same fault without the tell.
-    const inert = inertPieces(level, a);
+    const onDag = shortestDag(a);
+    const inert = inertPieces(level, a, { onDag });
     check('every piece is handled or binding', inert.length === 0,
       inert.map(p => `${p.what} at (${p.cells.map(([x, y]) => `${x + 1},${y + 1}`).join(') (')})`).join(', '));
 
     // Dead travel, at both ends of the best line the player could take.
-    const { lead, tail } = deadTravel(a);
+    const { lead, tail } = deadTravel(a, onDag);
     const walk = (what, got, declared, max) => check(
       declared === undefined ? `the ${what} is at most ${max}` : `the declared ${what} is exact`,
       declared === undefined ? got <= max : got === declared,

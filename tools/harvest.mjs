@@ -25,6 +25,7 @@ import { mulberry32 } from '../src/rng.js';
 import { staticallyDead } from './survey.mjs';
 import {
   solveShape, largestOpenBlock, floorIsConnected, hasNiche, pathBite, deadTravel, inertPieces,
+  shortestDag,
 } from './metrics.mjs';
 import { parseLurd } from '../src/format.js';
 
@@ -126,6 +127,8 @@ export function placeOn(group, plan, w, h, rnd) {
 /** Everything a scorer could want about one keeper, so weights can change without a re-run. */
 export function measure(group, room, s, a, w, h) {
   const acts = parseLurd(a.shortestLurd);
+  // Three of the measures below read the shortest-solve DAG. It is the same DAG.
+  const onDag = shortestDag(a);
   const shape = solveShape(s, acts);
   const trapDepths = a.traps.map(t => parseLurd(t.lurd).length - 1);
   // How far you can keep playing after the room is already lost. A trap noticed at once
@@ -158,13 +161,13 @@ export function measure(group, room, s, a, w, h) {
     biteSteps: new Set(trapDepths).size,
     // Where the ways to lose sit relative to optimal play. Nearly free here — the graph is
     // already built — and it is the number a raw trap count cannot stand in for.
-    ...(({ onPath, bitten, firstOnPath }) => ({ onPath: +onPath.toFixed(3), bitten, firstOnPath }))(pathBite(a)),
+    ...(({ onPath, bitten, firstOnPath }) => ({ onPath: +onPath.toFixed(3), bitten, firstOnPath }))(pathBite(a, onDag)),
     // The walk in and the walk out. Placement hands the exit a random cell, so a room can be
     // sound on every other number and still march the player across it after the last decision.
-    ...deadTravel(a),
+    ...deadTravel(a, onDag),
     // Placement drops the other pieces just as blindly, and a piece that lands where it hinders
     // nothing is decoration. Stored per room because re-siting and walling both change it.
-    inert: inertPieces(room, a).length,
+    inert: inertPieces(room, a, { onDag }).length,
     blind,
     lines: shape.lines, changes: shape.changes, pushes: shape.pushes, pieces: shape.pieces,
     walks: acts.length - shape.pushes,
