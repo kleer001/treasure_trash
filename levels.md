@@ -55,25 +55,30 @@ repo; the bank of candidates it produced is, in `levels/bank.jsonl`.
 
 ## Act 2 — the H act
 
-Thirty rooms in ten sets of three, each set drawn on one **H** — two chambers joined by a neck,
-the one outline family whose state spaces stay deep rather than bushy. What ships is the part of
-that H the rooms use: the exit and the raccoon are sited where they leave the player the least
-walking, and then every cell no solution touches is walled and the frame cropped away, so a set
-whose second chamber was only ever the walk to the door comes out smaller than the H it was
-drawn on. Each set gets harder in a stated way — by filling a container that was already
-standing there, by adding a piece, or by rearranging the same cast. Sets are ordered by how much
-of the solution optimal play can still throw away.
+Sets of three rooms, each set drawn on one **H** — two chambers joined by a neck, the one
+outline family whose state spaces stay deep rather than bushy. What ships is the part of that H
+the rooms use: the exit and the raccoon are sited where they leave the player the least walking,
+and then every cell no solution touches is walled and the frame cropped away, so a set whose
+second chamber was only ever the walk to the door comes out smaller than the H it was drawn on.
+Each set gets harder in a stated way — by filling a container that was already standing there,
+by adding a piece, or by rearranging the same cast. Sets are ordered by how much of the solution
+optimal play can still throw away.
+
+The act is as long as the candidates allow. `tools/act2.mjs` prints how many sets it wanted and
+how many it found, and a short act is what a hard constraint looks like from the outside: the
+recycle bin is the most fertile piece in the roster and the cap on how much of one act any piece
+may take is what runs out first.
 
 The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 
 | Room | Name | Par | Solve |
 |---|---|---|---|
-| L31 | TODO name L31 | 8 | `LrrDDlU!d` |
-| L32 | TODO name L32 | 10 | `rDulLddrU!d` |
-| L33 | TODO name L33 | 22 | `LddrrdLuluurrDullddrU!d` |
-| L34 | TODO name L34 | 12 | `LLLLLdllluU!d` |
-| L35 | TODO name L35 | 28 | `LLLLLdllluluurrdDRRdLullU!dDu` |
-| L36 | TODO name L36 | 30 | `ulDllLldllluluurrdDrrdLullU!dDu` |
+| L31 | TODO name L31 | 12 | `LLLLLdllluU!d` |
+| L32 | TODO name L32 | 28 | `LLLLLdllluluurrdDRRdLullU!dDu` |
+| L33 | TODO name L33 | 30 | `ulDllLldllluluurrdDrrdLullU!dDu` |
+| L34 | TODO name L34 | 14 | `uulDldRD!uullLd` |
+| L35 | TODO name L35 | 17 | `UuLLdR!lllllluRdrr` |
+| L36 | TODO name L36 | 21 | `rUruRrrdLrrrrULLddrU!d` |
 | L37 | TODO name L37 | 16 | `RrrrrrdrrUulD!uUl` |
 | L38 | TODO name L38 | 18 | `RurrRdrrdrrUulD!uUl` |
 | L39 | TODO name L39 | 30 | `RrruLullDurrdL!rrRdrrdrrUulD!uUl` |
@@ -86,17 +91,14 @@ The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 | L46 | TODO name L46 | 10 | `UrDrrRulll` |
 | L47 | TODO name L47 | 14 | `UrrdrRulllldRu` |
 | L48 | TODO name L48 | 26 | `UrrdrRurrruurDldllllllldRu` |
-| L49 | TODO name L49 | 8 | `DDrdrdLu` |
-| L50 | TODO name L50 | 28 | `DDlllllldldlUrurrrrrrrrdrdLu` |
-| L51 | TODO name L51 | 30 | `DrdLLLLLLLdldlUrrurrrrrrrdrdLu` |
+| L49 | TODO name L49 | 14 | `DlllllllDlluR!l` |
+| L50 | TODO name L50 | 18 | `DDlllllluRllDlluR!l` |
+| L51 | TODO name L51 | 20 | `DDlU!dllllluRllDlluR!l` |
 | L52 | TODO name L52 | 19 | `dDrdddLluRdrUuuluRl` |
 | L53 | TODO name L53 | 21 | `dDrdddLluRdrRlUuuluRl` |
 | L54 | TODO name L54 | 23 | `dDrdddLluRdrRlURluuluRl` |
 | L55 | TODO name L55 | 8 | `luUluRul` |
 | L56 | TODO name L56 | 12 | `luURruLulDul` |
 | L57 | TODO name L57 | 22 | `luURrurrrrDullllLulDul` |
-| L58 | TODO name L58 | 8 | `drUlUddr` |
-| L59 | TODO name L59 | 14 | `drUlUdllLrrrdr` |
-| L60 | TODO name L60 | 20 | `drUlUdllLrrrdrddlUru` |
 
 `tools/metrics.mjs` scores a room. Open questions about the pack live in `TODO.md`.

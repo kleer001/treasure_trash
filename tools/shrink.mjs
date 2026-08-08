@@ -26,7 +26,7 @@ import { toState } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { measure } from './harvest.mjs';
-import { pathBite, isOneRoom, deadTravel } from './metrics.mjs';
+import { pathBite, isOneRoom, deadTravel, inertPieces } from './metrics.mjs';
 
 const MAX_STATES = 50_000;
 
@@ -48,8 +48,10 @@ function read(grid, cart) {
   if (a.silentTraps.length) return null;
   if (bagsLeft(s) > 0 && a.exitRefusals === 0) return null;
   const bite = pathBite(a);
+  const room = { grid, ...(cart && { cart }) };
   return { s, a, par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,
-           onPath: bite.onPath, ...deadTravel(a) };
+           onPath: bite.onPath, ...deadTravel(a),
+           inert: inertPieces(room, s, a, { maxStates: MAX_STATES }).length };
 }
 
 /**
@@ -92,6 +94,10 @@ export function shrinkSet(set) {
     // least and leave a longer walk at the same length. `resite` chose that pair; this may
     // not undo it.
     if (now.lead > base[i].lead || now.tail > base[i].tail) return false;
+    // A piece is binding because of the lane it shuts. Wall the lane and the piece is still
+    // standing there, shutting nothing — this pass is the largest single source of pieces that
+    // do nothing, and it makes them out of pieces that were working a moment earlier.
+    if (now.inert > base[i].inert) return false;
     // Bite on the optimal line is the thing worth protecting. Off-line traps are expendable;
     // this is not.
     return now.onPath >= base[i].onPath - 1e-9;

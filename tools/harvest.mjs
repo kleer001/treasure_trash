@@ -24,7 +24,7 @@ import { bagsLeft } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 import { staticallyDead } from './survey.mjs';
 import {
-  solveShape, largestOpenBlock, floorIsConnected, hasNiche, pathBite, deadTravel,
+  solveShape, largestOpenBlock, floorIsConnected, hasNiche, pathBite, deadTravel, inertPieces,
 } from './metrics.mjs';
 import { parseLurd } from '../src/format.js';
 
@@ -162,6 +162,9 @@ export function measure(group, room, s, a, w, h) {
     // The walk in and the walk out. Placement hands the exit a random cell, so a room can be
     // sound on every other number and still march the player across it after the last decision.
     ...deadTravel(a),
+    // Placement drops the other pieces just as blindly, and a piece that lands where it hinders
+    // nothing is decoration. Stored per room because re-siting and walling both change it.
+    inert: inertPieces(room, s, a).length,
     blind,
     lines: shape.lines, changes: shape.changes, pushes: shape.pushes, pieces: shape.pieces,
     walks: acts.length - shape.pushes,
@@ -175,7 +178,7 @@ export function measure(group, room, s, a, w, h) {
 function harvestGroup(group, samples, seed) {
   const rnd = mulberry32(seed);
   const keep = [];
-  const stat = { group, samples: 0, noOutline: 0, undrawable: 0, prefiltered: 0, tooBig: 0, solvable: 0 };
+  const stat = { group, samples: 0, noOutline: 0, undrawable: 0, prefiltered: 0, tooBig: 0, inert: 0, solvable: 0 };
   const t0 = Date.now();
   for (let i = 0; i < samples; i++) {
     stat.samples++;
@@ -193,8 +196,13 @@ function harvestGroup(group, samples, seed) {
     if (a.minMoves === null) continue;
     if (bagsLeft(s) > 0 && a.exitRefusals === 0) continue;
     if (a.silentTraps.length) continue;
+    const row = measure(group, room, s, a, w, h);
+    // A sampled placement that lands a piece where it hinders nothing is a room short one
+    // piece, not a room with a spare. Rejected here rather than carried and filtered later,
+    // because everything downstream would score it on a roster it does not really have.
+    if (row.inert) { stat.inert++; continue; }
     stat.solvable++;
-    keep.push(measure(group, room, s, a, w, h));
+    keep.push(row);
   }
   stat.ms = Date.now() - t0;
   return { stat, keep };
@@ -242,6 +250,7 @@ if (!isMainThread && workerData?.tool === 'harvest') {
   writeFileSync(outPath, rooms.map(r => JSON.stringify(r)).join('\n') + '\n');
   const S = k => stats.reduce((a, r) => a + r[k], 0);
   console.log(`\n${rooms.length} rooms kept from ${S('samples')} placements in ${((Date.now() - t0) / 1000).toFixed(0)}s`);
-  console.log(`  no outline ${S('noOutline')}  pre-filtered ${S('prefiltered')}  too big ${S('tooBig')}`);
+  console.log(`  no outline ${S('noOutline')}  pre-filtered ${S('prefiltered')}  too big ${S('tooBig')}`
+    + `  inert piece ${S('inert')}`);
   console.log(`  -> ${outPath}`);
 }

@@ -116,6 +116,12 @@ The reader rejects a water mask that marks a wall or the exit, or that starts th
 open water; and a cart cell that is a wall, the exit, the raccoon's start or furniture, or a
 cart blob that is not exactly two cells.
 
+### What a piece is for
+
+Every piece on a board has to hinder: the verifier refuses a pack carrying one that neither any
+shortest solve touches nor changes the room by being removed. There is no directive for an
+exception, because nothing about a room makes decoration worth its cell.
+
 ### Multi-cell pieces
 
 **A 4-connected blob of the same letter is one piece.** Two pieces shoved flush together are

@@ -15,7 +15,7 @@ import {
 } from '../src/format.js';
 import { analyze, replay } from '../src/solver.js';
 import { isWon, bagsLeft } from '../src/rules.js';
-import { deadTravel, isOneRoom, WALK_MAX } from './metrics.mjs';
+import { deadTravel, isOneRoom, inertPieces, WALK_MAX } from './metrics.mjs';
 
 // Neither end of a solve is free. The walk IN is the room withholding its first decision; the
 // walk OUT is worse, because it comes after the last one — the puzzle is over and the player is
@@ -136,6 +136,14 @@ for (const [levelPath, solPath] of PACKS) {
     check('guard: no lethal plain move (vacuous while walking writes nothing)',
       a.silentTraps.length === 0,
       a.silentTraps.length ? `e.g. ${a.silentTraps[0].lurd}` : '');
+
+    // Every piece hinders, or it is not a piece. The sealed cart and the sealed trash pile that
+    // prompted this rule were caught by the region check above, but being unreachable was the
+    // least of what was wrong with them — a piece standing in the open, on a route, doing
+    // nothing is the same fault without the tell.
+    const inert = inertPieces(level, start, a);
+    check('every piece is handled or binding', inert.length === 0,
+      inert.map(p => `${p.what} at (${p.cells.map(([x, y]) => `${x + 1},${y + 1}`).join(') (')})`).join(', '));
 
     // Dead travel, at both ends of the best line the player could take.
     const { lead, tail } = deadTravel(a);

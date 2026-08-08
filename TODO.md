@@ -17,9 +17,20 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   `tools/resite.mjs` picks the exit and the raccoon together, per set, on `deadTravel`, and
   `verify.mjs` now bounds both ends of every shipped room — over the bound, a room declares
   `:lead`/`:tail` and the number is checked exactly.
-- **Act 2 is in: 30 rooms (L31–L60), ten sets of three, every room an H.** Names and notes are
-  still placeholders — that is the open work on it. `src/main.js` has an `ACTS` list,
-  `verify.mjs` discovers `levels/act*.tt`, and `publishing/package.sh` ships all of them.
+- **Every piece hinders, or it is not shipped.** A piece earns its cell by being HANDLED (some
+  shortest solve shoves, tears or spills onto it) or BINDING (take it away and the room answers
+  with a different par, a different number of solves, or a different number of ways to lose).
+  `inertPieces` decides it, `verify.mjs` refuses a pack that carries one, and `sets`, `shrink`,
+  `draft` and `chooseSets` refuse to make, keep or choose one. The wall pass turned out to be
+  the biggest source: it takes the lane a piece was shutting and leaves the piece.
+- **Act 2 came out a set short under those rules**, and the constraint that ran out is the old
+  one — the recycle bin's share of the act, at its 0.8 cap. `--maxpiece` raises it on purpose;
+  a wider `sets.mjs` search is the other way, but only one candidate set in the file is
+  bin-free, so it is unlikely to be the cheap one.
+- **Act 2 is in: sets of three rooms, each set on one H.** Names and notes are still
+  placeholders — that is the open work on it. `src/main.js` has an `ACTS` list, `verify.mjs`
+  discovers `levels/act*.tt`, and `publishing/package.sh` ships all of them. The act is however
+  many sets the candidates support; `act2.mjs` prints what it wanted against what it found.
 - The raccoon's core mechanic is built and playable — every shipped room solvable in a
   provably-minimal par found by exhaustive search rather than asserted.
 - Crow is pinned, parked until the raccoon-alone game proves fun.
@@ -50,7 +61,7 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   pattern is ordered layers via `src/compositor.js`. Worth doing before the art pass. It
   already draws sprites in layer order — that ordering is the thing the compositor should own.
 - **Audio** — procedural WebAudio. The only sound today is the win chime.
-- **Name Act 2.** Thirty rooms ship with `TODO name L31`-style placeholders, and the HUD shows
+- **Name Act 2.** Every room ships with a `TODO name L31`-style placeholder, and the HUD shows
   them to the player. Each room's `:note` already says which set and which ramp it belongs to,
   which is the context to write from.
 - **Art pass.**

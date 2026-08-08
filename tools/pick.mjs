@@ -131,6 +131,9 @@ export function chooseSets(sets, { want = 10, maxPieceShare = 0.5, maxPerRamp = 
     // available is still a march. Those sets are not chosen, rather than chosen and then found
     // by the verifier — a set the pack cannot accept is not a candidate.
     if (s.rooms.some(r => r.lead > WALK_MAX.lead || r.tail > WALK_MAX.tail)) continue;
+    // And re-siting and walling both change what a piece is doing, so a set that left the
+    // search with every piece working can arrive here with one standing idle.
+    if (s.rooms.some(r => r.inert)) continue;
     if (byShape.has(s.shape)) continue;
     if ((byRamp[s.ramp] ?? 0) >= maxPerRamp) continue;
     let over = false;

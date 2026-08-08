@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { toState } from '../src/format.js';
 import { analyze } from '../src/solver.js';
-import { deadTravel, isOneRoom } from '../tools/metrics.mjs';
+import { deadTravel, isOneRoom, inertPieces, roomPieces } from '../tools/metrics.mjs';
 import { draft } from '../tools/draft-room.mjs';
 import { shrinkSet } from '../tools/shrink.mjs';
 import { resiteSet, cost } from '../tools/resite.mjs';
@@ -48,6 +48,38 @@ test('draft reports the walk at both ends', () => {
   assert.equal(d.ok, true, d.notes.join('; '));
   assert.equal(d.lead, 1);
   assert.equal(d.tail, 2);
+});
+
+const inert = room => inertPieces(room, toState({ id: 'i', ...room }),
+  analyze(toState({ id: 'i', ...room }))).map(p => p.what);
+
+test('pieces are read the way the file writes them', () => {
+  // A same-letter blob is one couch; two letters flush together are two; a cart is its mask.
+  const p = roomPieces({
+    grid: ['FFG-$', '@--x-', 'E---c'],
+    cart: ['-----', '---PP', '-----'],
+  });
+  assert.deepEqual(p.map(x => `${x.what}${x.cells.length}`).sort(), ['$1', 'F2', 'G1', 'P2', 'c1', 'x1']);
+});
+
+test('a piece nothing touches and nothing needs is inert', () => {
+  // Two lanes down to the door. Trash in the near one sends the player round the far one and
+  // costs two moves; the same trash in a corner costs nothing and is never so much as looked at.
+  assert.deepEqual(inert({ grid: ['-----', '--$--', '-----', '--@--', '#x#-#', 'E----'] }), []);
+  assert.deepEqual(inert({ grid: ['x----', '--$--', '-----', '--@--', '#-#-#', 'E----'] }), ['x']);
+});
+
+test('binding is not the same as being in the way of the best line', () => {
+  // Trash in the lane the solve does not take. It blocks a route, but not one anybody wanted,
+  // and the room answers exactly as it does without it.
+  assert.deepEqual(inert({ grid: ['-----', '--$--', '-----', '--@--', '#-#x#', 'E----'] }), ['x']);
+});
+
+test('a piece the solve handles is not inert, even where the room could spare it', () => {
+  // The can is shoved into the cart. Neither is load-bearing — par is 5 with or without them —
+  // and both are still doing the thing the room is about.
+  const room = { grid: ['Ec--#', '@$-##', '---##'], cart: ['--PP-', '-----', '-----'] };
+  assert.deepEqual(inert(room), []);
 });
 
 // One outline, three ascending rungs, and the pair the generator would have thrown down: the

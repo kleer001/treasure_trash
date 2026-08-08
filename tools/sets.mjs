@@ -67,7 +67,12 @@ function look(room, group, w, h, parMin = PAR_MIN) {
   try { a = analyze(s, { maxStates: MAX_STATES }); }
   catch (e) { if (e instanceof TooManyStates) return null; throw e; }
   if (!keep(s, a, parMin)) return null;
-  return measure(group, room, s, a, w, h);
+  const row = measure(group, room, s, a, w, h);
+  // A rung is the group it draws, and a piece that hinders nothing is not in the room in any
+  // sense the player can act on. Rejecting the rung rejects the set: three rooms cannot share
+  // a cast when one of them is short a member.
+  if (row.inert) return null;
+  return row;
 }
 
 /** Pars ascend, and the set finishes somewhere an Act 2 room belongs. */

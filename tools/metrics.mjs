@@ -22,7 +22,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parseLevelPack, parseLurd, toState } from '../src/format.js';
-import { analyze } from '../src/solver.js';
+import { analyze, TooManyStates } from '../src/solver.js';
 import {
   DIR_ORDER, DIRS, MOVE, TEAR, BAG, explain, cell, fan, canStand, isOccupiable, bagsLeft,
   isWon,
@@ -241,6 +241,16 @@ export function pathBite(a) {
 }
 
 /**
+ * How much dead travel a room may have before it has to say so.
+ *
+ * `verify.mjs` holds the pack to this and `chooseSets` will not pick a set that would fail it,
+ * so the gate and the generator cannot disagree about what a well-sited room is. A shipped room
+ * over the bound declares `:lead`/`:tail` and has the number checked exactly; nothing computes
+ * a reason to write one, so a generated room is simply held to the bound.
+ */
+export const WALK_MAX = { lead: 4, tail: 4 };
+
+/**
  * The two stretches of the best line on which nothing happens.
  *
  *   lead  actions before the first one that touches a piece — the walk in
@@ -255,16 +265,6 @@ export function pathBite(a) {
  * room can walk the player clear across itself after the last decision and read clean on
  * every other number.
  */
-/**
- * How much of it a room may have before it has to say so.
- *
- * `verify.mjs` holds the pack to this and `chooseSets` will not pick a set that would fail it,
- * so the gate and the generator cannot disagree about what a well-sited room is. A shipped room
- * over the bound declares `:lead`/`:tail` and has the number checked exactly; nothing computes
- * a reason to write one, so a generated room is simply held to the bound.
- */
-export const WALK_MAX = { lead: 4, tail: 4 };
-
 export function deadTravel(a) {
   const par = a.minMoves;
   if (par === null) return { lead: 0, tail: 0 };
@@ -281,6 +281,114 @@ export function deadTravel(a) {
     }
   }
   return worked ? { lead: firstWork, tail: par - lastWork } : { lead: 0, tail: par };
+}
+
+// ---------------------------------------------------------------- inert pieces
+// Everything on the board is there to hinder: to block a lane, to be shoved out of one, to
+// give the player a way to lose. A piece that does none of the three is furniture in the
+// decorative sense — the player learns to read the board, finds it says nothing, and learns
+// instead that the board may be lying. Reachability is not the question, though the two look
+// alike from a sealed pocket: a piece can sit in the open, on a route, and still do nothing.
+
+/** The pool letters, by what they mean in a `.tt`. See FORMATS.md. */
+const FURN_LETTERS = new Set([...'FGHKMN']);
+const CART_LETTERS = new Set([...'PQR']);
+const LOOSE_GLYPHS = new Set([...'$CcxSWwBbj']);
+
+/**
+ * The pieces of a room, as the file writes them: one entry per furniture blob, per cart, and
+ * per single-cell occupant, each carrying the cells it stands on and which block it lives in.
+ */
+export function roomPieces(room) {
+  const rows = room.grid.length, cols = Math.max(...room.grid.map(r => r.length));
+  const at = (block, x, y) => block[y]?.[x] ?? '-';
+  const seen = new Set(), out = [];
+  const blob = (block, tag, x0, y0, ch) => {
+    const cells = [], stack = [[x0, y0]];
+    while (stack.length) {
+      const [x, y] = stack.pop();
+      if (x < 0 || y < 0 || x >= cols || y >= rows) continue;
+      if (at(block, x, y) !== ch || seen.has(`${tag}${x},${y}`)) continue;
+      seen.add(`${tag}${x},${y}`); cells.push([x, y]);
+      stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+    }
+    return cells;
+  };
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    const ch = at(room.grid, x, y);
+    if (LOOSE_GLYPHS.has(ch)) out.push({ what: ch, block: 'grid', cells: [[x, y]] });
+    else if (FURN_LETTERS.has(ch) && !seen.has(`g${x},${y}`))
+      out.push({ what: ch, block: 'grid', cells: blob(room.grid, 'g', x, y, ch) });
+  }
+  if (room.cart) for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    const ch = at(room.cart, x, y);
+    if (CART_LETTERS.has(ch) && !seen.has(`c${x},${y}`))
+      out.push({ what: ch, block: 'cart', cells: blob(room.cart, 'c', x, y, ch) });
+  }
+  return out;
+}
+
+/** Every cell any shortest solve reads or writes — what the pieces in play are standing on. */
+function handledCells(a) {
+  const onDag = shortestDag(a);
+  const hit = new Set();
+  const add = ([x, y]) => hit.add(`${x},${y}`);
+  for (const key of onDag) {
+    const n = a.states.get(key);
+    for (const e of n.edges) {
+      if (e.kind === MOVE) continue;
+      if (!onDag.has(e.to) || a.states.get(e.to).depth !== n.depth + 1) continue;
+      const [dx, dy] = DIRS[e.dir];
+      add([n.state.rac.x + dx, n.state.rac.y + dy]);       // the cell shoved or torn into
+      for (const st of explain(n.state, e.dir, { trace: true }).steps ?? []) {
+        for (const m of st.moved) { add(m.from); add(m.to); }
+        for (const s of st.spawned) { add(s.at); add(s.from); }
+        for (const g of st.gone) add(g.at);
+      }
+    }
+  }
+  return hit;
+}
+
+// Taking a piece off the board gives its cells back, so the room MINUS a piece can enumerate
+// far larger than the room with it — this is the one analyze in the toolchain whose cost is not
+// bounded by the room that was asked about. Past the bound the question is unanswerable, and an
+// unanswerable question is not evidence: `null` reads as "not shown to be inert".
+const answer = (room, maxStates) => {
+  let a;
+  try { a = analyze(toState({ id: 'inert', ...room }), { maxStates }); }
+  catch (e) { return e instanceof TooManyStates ? null : 'illegal'; }
+  return `${a.minMoves}|${a.shortestCount}|${a.traps.length}`;
+};
+
+const erase = (room, piece) => {
+  const wipe = block => block.map((row, y) => [...row]
+    .map((ch, x) => (piece.cells.some(([px, py]) => px === x && py === y) ? '-' : ch)).join(''));
+  return piece.block === 'grid'
+    ? { ...room, grid: wipe(room.grid) }
+    : { ...room, cart: wipe(room.cart) };
+};
+
+/**
+ * The pieces this room would play identically without.
+ *
+ * A piece earns its cell one of two ways, and either is enough:
+ *
+ *   HANDLED    some shortest solve touches it — shoves it, tears it, spills onto it, or shoves
+ *              something else into it. It is part of the work.
+ *   BINDING    take it away and the room answers differently: a different par, a different
+ *              number of ways to solve it, or a different number of ways to lose. It never
+ *              moves and it does not have to; it is the reason the lane it stands in is shut.
+ *
+ * Neither is reachability, and reachability is not a third way. A piece the player can walk up
+ * to, look at, and ignore has failed both.
+ */
+export function inertPieces(room, start, a, { maxStates = 200_000 } = {}) {
+  if (a.minMoves === null) return [];
+  const hit = handledCells(a);
+  const base = `${a.minMoves}|${a.shortestCount}|${a.traps.length}`;
+  return roomPieces(room).filter(p =>
+    !p.cells.some(([x, y]) => hit.has(`${x},${y}`)) && answer(erase(room, p), maxStates) === base);
 }
 
 // ---------------------------------------------------------------- room structure
