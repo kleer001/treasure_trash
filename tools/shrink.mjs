@@ -51,7 +51,7 @@ function read(grid, cart) {
   const room = { grid, ...(cart && { cart }) };
   return { s, a, par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,
            onPath: bite.onPath, ...deadTravel(a),
-           inert: inertPieces(room, s, a, { maxStates: MAX_STATES }).length };
+           inert: inertPieces(room, a, { maxStates: MAX_STATES }).length };
 }
 
 /**

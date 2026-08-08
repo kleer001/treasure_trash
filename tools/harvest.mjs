@@ -164,7 +164,7 @@ export function measure(group, room, s, a, w, h) {
     ...deadTravel(a),
     // Placement drops the other pieces just as blindly, and a piece that lands where it hinders
     // nothing is decoration. Stored per room because re-siting and walling both change it.
-    inert: inertPieces(room, s, a).length,
+    inert: inertPieces(room, a).length,
     blind,
     lines: shape.lines, changes: shape.changes, pushes: shape.pushes, pieces: shape.pieces,
     walks: acts.length - shape.pushes,

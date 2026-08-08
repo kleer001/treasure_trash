@@ -108,10 +108,11 @@ export function cost(reads) {
   ];
 }
 
-const better = (a, b) => {
-  if (b === null) return false;
-  if (a === null) return true;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return b[i] < a[i];
+/** Lexicographic, and a placement the set will not take never beats one it will. */
+const beats = (candidate, best) => {
+  if (candidate === null) return false;
+  if (best === null) return true;
+  for (let i = 0; i < best.length; i++) if (candidate[i] !== best[i]) return candidate[i] < best[i];
   return false;
 };
 
@@ -162,7 +163,7 @@ export function resiteSet(set, floor = FLOOR) {
       sweptExitAt = at2(bestRac);
       for (const s of spots) {
         const c = costAt(s, bestRac, null);
-        if (better(best, c)) { best = c; bestExit = s; }
+        if (beats(c, best)) { best = c; bestExit = s; }
       }
     }
     // Moving the RACCOON does not. One graph per room serves the whole sweep, and each
@@ -172,7 +173,7 @@ export function resiteSet(set, floor = FLOOR) {
       const caches = grids.map(() => ({ graph: null }));
       for (const s of spots) {
         const c = costAt(bestExit, s, caches);
-        if (better(best, c)) { best = c; bestRac = s; }
+        if (beats(c, best)) { best = c; bestRac = s; }
       }
     }
   }

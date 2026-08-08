@@ -141,7 +141,7 @@ for (const [levelPath, solPath] of PACKS) {
     // prompted this rule were caught by the region check above, but being unreachable was the
     // least of what was wrong with them — a piece standing in the open, on a route, doing
     // nothing is the same fault without the tell.
-    const inert = inertPieces(level, start, a);
+    const inert = inertPieces(level, a);
     check('every piece is handled or binding', inert.length === 0,
       inert.map(p => `${p.what} at (${p.cells.map(([x, y]) => `${x + 1},${y + 1}`).join(') (')})`).join(', '));
 
@@ -226,16 +226,17 @@ const walk = (dir, out = []) => {
   }
   return out;
 };
-const homes = new Set(Object.keys(MARKS));
 const strays = [];
 for (const full of walk(root)) {
   const rel = full.slice(root.length + 1);
+  // This file names every marker, which is the one place they are allowed to appear loose.
   if (rel === 'tools/verify.mjs' || GENERATED.has(rel) || rel in SANCTIONED) continue;
   const text = readFileSync(full, 'utf8');
   for (const [home, mark] of Object.entries(MARKS))
-    if (text.includes(mark) && rel !== home) strays.push(`${rel} defines ${home.split('/').pop()}`);
+    if (rel !== home && text.includes(mark)) strays.push(`${rel} defines ${home}`);
 }
-check('the engine is defined once', strays.length === 0, strays.join('; ') || `${homes.size} modules, one home each`);
+check('the engine is defined once', strays.length === 0,
+  strays.join('; ') || `${Object.keys(MARKS).length} modules, one home each`);
 for (const [path, why] of Object.entries(SANCTIONED))
   console.log(`    · sanctioned second engine: ${path} — ${why}`);
 

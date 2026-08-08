@@ -12,38 +12,20 @@
 //   par-off-by  every room's par is one higher; every step of every room agrees
 //   silent      nothing bent. The control: the harness must pass this one.
 
-import { createInterface } from 'node:readline';
-import { toState, toGrid, toCart, toWater } from '../../src/format.js';
-import { explain, TEAR, PUSH } from '../../src/rules.js';
-import { analyze } from '../../src/solver.js';
+import { TEAR, PUSH } from '../../src/rules.js';
+import { reply, serve } from '../../tools/conform-ref.mjs';
 
 const bend = process.argv[2] ?? 'silent';
-const board = req => toState({ id: 'bent', grid: req.grid, ...(req.cart && { cart: req.cart }),
-                               ...(req.water && { water: req.water }) });
-const shape = s => ({ grid: toGrid(s), cart: toCart(s), water: toWater(s) });
 
-const handle = (req) => {
-  if (req.op === 'step') {
-    const r = explain(board(req), req.dir);
-    if (bend === 'refuse-up' && r.ok && req.dir === 'u' && req.grid.some(row => row.includes('$')))
-      return { ok: false, reason: 'wall' };
-    if (!r.ok) return { ok: false, reason: r.reason };
-    const kind = bend === 'miscall' && r.kind === TEAR ? PUSH : r.kind;
-    return { ok: true, kind, ...shape(r.next) };
-  }
-  if (req.op === 'answer') {
-    const a = analyze(board(req), { maxStates: req.maxStates ?? Infinity });
-    const par = bend === 'par-off-by' && a.minMoves !== null ? a.minMoves + 1 : a.minMoves;
-    return { par, solves: a.shortestCount, traps: a.traps.length,
-             reachable: a.reachable, exitRefusals: a.exitRefusals };
-  }
-  return { unsupported: true };
+// The reference's answer, then one thing wrong with it. Bending the reply rather than writing
+// an engine is what makes these fair: everything the harness is not being tested on is right.
+const BENDS = {
+  'refuse-up': (r, req) =>
+    (r.ok && req.dir === 'u' && req.grid.some(row => row.includes('$'))
+      ? { id: r.id, ok: false, reason: 'wall' } : r),
+  miscall: r => (r.kind === TEAR ? { ...r, kind: PUSH } : r),
+  'par-off-by': r => (typeof r.par === 'number' ? { ...r, par: r.par + 1 } : r),
+  silent: r => r,
 };
 
-for await (const line of createInterface({ input: process.stdin })) {
-  if (!line.trim()) continue;
-  const req = JSON.parse(line);
-  let reply;
-  try { reply = handle(req); } catch (e) { reply = { error: `${e.message}` }; }
-  process.stdout.write(JSON.stringify({ id: req.id, ...reply }) + '\n');
-}
+await serve(req => BENDS[bend](reply(req), req));

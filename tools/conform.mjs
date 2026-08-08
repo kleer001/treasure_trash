@@ -33,11 +33,12 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { parseLevelPack, toState, toGrid, toCart, toWater } from '../src/format.js';
+import { parseLevelPack, toState } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
-import { DIR_ORDER, explain } from '../src/rules.js';
+import { DIR_ORDER } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 import { outline, placeOn } from './harvest.mjs';
+import { respond, shapeOf, answerOf } from './conform-ref.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MAX_STATES = 50_000;
@@ -45,29 +46,29 @@ const MAX_STATES = 50_000;
 // ---------------------------------------------------------------- talking to an engine
 
 /**
- * A child process that speaks the protocol. Requests go out as they are made and replies are
- * matched by id, with a ceiling on how many may be in flight: a port that answers slowly would
- * otherwise be handed the whole corpus at once and buffer it.
+ * A child process that speaks the protocol. Replies are matched by id rather than by arrival,
+ * so requests may be in flight together — how many at once is the caller's to choose, and
+ * `WINDOW` below is the choice this one makes.
  */
 export function connect(command) {
   const child = spawn(command, { shell: true, stdio: ['pipe', 'pipe', 'inherit'], cwd: root });
   const pending = new Map();
-  let nextId = 1, drain = null;
+  let nextId = 1;
 
   createInterface({ input: child.stdout }).on('line', line => {
     if (!line.trim()) return;
     const reply = JSON.parse(line);
-    const settle = pending.get(reply.id);
+    pending.get(reply.id)?.(reply);
     pending.delete(reply.id);
-    settle?.(reply);
-    if (drain && pending.size < 512) { const go = drain; drain = null; go(); }
   });
-  const died = new Promise((_, no) =>
-    child.on('exit', code => { if (pending.size) no(new Error(`engine exited (${code}) with ${pending.size} unanswered`)); }));
+  // An engine that dies mid-corpus would otherwise leave the harness waiting on a reply that
+  // is never coming, and a hang reads like a slow port rather than a broken one.
+  const died = new Promise((_, no) => child.on('exit', code => {
+    if (pending.size) no(new Error(`engine exited (${code}) with ${pending.size} unanswered`));
+  }));
 
   return {
-    async ask(req) {
-      if (pending.size >= 1024) await new Promise(go => { drain = go; });
+    ask(req) {
       const id = nextId++;
       const reply = new Promise(ok => pending.set(id, ok));
       child.stdin.write(JSON.stringify({ id, ...req }) + '\n');
@@ -99,8 +100,6 @@ export function disagreement(mine, theirs) {
 }
 
 // ---------------------------------------------------------------- the corpus
-
-const shape = s => ({ grid: toGrid(s), cart: toCart(s), water: toWater(s) });
 
 /** Every shipped room, as boards. */
 export function shippedRooms() {
@@ -140,22 +139,16 @@ function boardsOf(a, want) {
   const stride = Math.max(1, Math.floor(keys.length / want));
   const out = [];
   for (let i = 0; i < keys.length && out.length < want; i += stride) {
-    try { out.push(shape(a.states.get(keys[i]).state)); } catch { /* unserialisable, skip */ }
+    try { out.push(shapeOf(a.states.get(keys[i]).state)); } catch { /* unserialisable, skip */ }
   }
   return out;
 }
 
 // ---------------------------------------------------------------- the run
 
-// Our side of every comparison, in the two shapes the protocol asks for. `src/` is called
-// directly here — there is no second implementation on this side of the harness either.
-const ourStepAt = (b, dir) => {
-  const r = explain(toState({ id: 'ours', grid: b.grid, ...(b.cart && { cart: b.cart }),
-                              ...(b.water && { water: b.water }) }), dir);
-  return r.ok ? { ok: true, kind: r.kind, ...shape(r.next) } : { ok: false, reason: r.reason };
-};
-const ourAnswer = a => ({ par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,
-                          reachable: a.reachable, exitRefusals: a.exitRefusals });
+// How many requests ride together. One at a time makes the process hop the whole run; the
+// window is only bounded so a slow engine is not handed the corpus at once.
+const WINDOW = 256;
 
 export async function conform(command, { rooms = null, steps = 120, random = 40, seed = 7,
                                          log = console.log } = {}) {
@@ -169,43 +162,40 @@ export async function conform(command, { rooms = null, steps = 120, random = 40,
     try { start = toState(level); a = analyze(start, { maxStates: MAX_STATES }); }
     catch (e) { if (e instanceof TooManyStates) continue; throw e; }
     tally.rooms++;
-    const board = shape(start);
 
     // Coarse first: one round trip says whether this room is worth taking apart.
-    const ours = ourAnswer(a);
-    const theirs = await engine.ask({ op: 'answer', ...board, maxStates: MAX_STATES });
-    const roomBad = disagreement(ours, theirs);
-    if (theirs?.unsupported) tally.skipped++; else tally.answers++;
+    const theirs = await engine.ask({ op: 'answer', ...shapeOf(start), maxStates: MAX_STATES });
+    const roomBad = disagreement(answerOf(a), theirs);
+    if (theirs.unsupported) tally.skipped++; else tally.answers++;
 
-    // Fine: always over a sample, and over EVERYTHING when the room came out wrong, because
-    // that is the only way the report says which rule rather than which room.
-    // Pipelined in windows rather than one round trip per step: a step costs a process hop, and
-    // asked one at a time the hop is the whole run. Compared in order afterwards, so "first
-    // disagreement" still means the shallowest one.
+    // Then fine: a sample of the room's boards, or EVERY one of them once the room is known to
+    // be wrong, because that is what turns "this room" into "this rule". Compared in the order
+    // they were asked, so the one reported is still the shallowest.
     const sample = boardsOf(a, roomBad ? Infinity : steps);
     const asks = sample.flatMap(b => DIR_ORDER.map(dir => ({ b, dir })));
     let first = null;
-    for (let i = 0; i < asks.length && !first; i += 256) {
-      const window = asks.slice(i, i + 256);
+    for (let i = 0; i < asks.length && !first; i += WINDOW) {
+      const window = asks.slice(i, i + WINDOW);
       const replies = await Promise.all(window.map(q => engine.ask({ op: 'step', ...q.b, dir: q.dir })));
       for (let j = 0; j < window.length; j++) {
         if (replies[j]?.unsupported) { tally.skipped++; continue; }
         tally.steps++;
-        const ourStep = ourStepAt(window[j].b, window[j].dir);
+        const { b: board, dir } = window[j];
+        const ourStep = respond({ op: 'step', ...board, dir });
         const bad = disagreement(ourStep, replies[j]);
-        if (bad) { first = { ...window[j], board: window[j].b, bad, mine: ourStep, theirs: replies[j] }; break; }
+        if (bad) { first = { board, dir, bad, mine: ourStep, theirs: replies[j] }; break; }
       }
     }
 
     if (first) {
-      failures.push({ name, ...first, room: roomBad });
+      failures.push({ name, ...first });
       log(`  ✗ ${name} — ${first.bad}`);
       log(`      ${first.dir} on`);
       for (const row of first.board.grid) log(`        ${row}`);
       if (roomBad) log(`      the room reads ${roomBad}`);
     } else if (roomBad) {
       // The aggregate is wrong and no single step is: the port's own SEARCH is what differs.
-      failures.push({ name, bad: roomBad, room: roomBad });
+      failures.push({ name, bad: roomBad });
       log(`  ✗ ${name} — ${roomBad}, and every step of it agrees. The search differs, not the rules.`);
     }
   }

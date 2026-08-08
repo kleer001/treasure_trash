@@ -354,7 +354,7 @@ function handledCells(a) {
 // far larger than the room with it — this is the one analyze in the toolchain whose cost is not
 // bounded by the room that was asked about. Past the bound the question is unanswerable, and an
 // unanswerable question is not evidence: `null` reads as "not shown to be inert".
-const answer = (room, maxStates) => {
+const answerFor = (room, maxStates) => {
   let a;
   try { a = analyze(toState({ id: 'inert', ...room }), { maxStates }); }
   catch (e) { return e instanceof TooManyStates ? null : 'illegal'; }
@@ -383,12 +383,12 @@ const erase = (room, piece) => {
  * Neither is reachability, and reachability is not a third way. A piece the player can walk up
  * to, look at, and ignore has failed both.
  */
-export function inertPieces(room, start, a, { maxStates = 200_000 } = {}) {
+export function inertPieces(room, a, { maxStates = 200_000 } = {}) {
   if (a.minMoves === null) return [];
   const hit = handledCells(a);
   const base = `${a.minMoves}|${a.shortestCount}|${a.traps.length}`;
   return roomPieces(room).filter(p =>
-    !p.cells.some(([x, y]) => hit.has(`${x},${y}`)) && answer(erase(room, p), maxStates) === base);
+    !p.cells.some(([x, y]) => hit.has(`${x},${y}`)) && answerFor(erase(room, p), maxStates) === base);
 }
 
 // ---------------------------------------------------------------- room structure

@@ -47,7 +47,7 @@ export function draft(room) {
   if (bags > 0 && a.exitRefusals === 0) no('the exit forbids no action — it is only a destination');
   // Checked after `tighten` walls, not only before: a wall can take away the lane a piece was
   // shutting, and leave the piece standing in the open shutting nothing.
-  const inert = inertPieces(room, s, a);
+  const inert = inertPieces(room, a);
   if (inert.length) no(`does nothing: ${inert.map(p => p.what).join(' ')}`);
 
   // `lead` and `tail` are reported, not judged. Verify holds them to a bound because a shipped

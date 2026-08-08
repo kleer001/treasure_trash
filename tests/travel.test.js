@@ -50,8 +50,7 @@ test('draft reports the walk at both ends', () => {
   assert.equal(d.tail, 2);
 });
 
-const inert = room => inertPieces(room, toState({ id: 'i', ...room }),
-  analyze(toState({ id: 'i', ...room }))).map(p => p.what);
+const inert = room => inertPieces(room, analyze(toState({ id: 'i', ...room }))).map(p => p.what);
 
 test('pieces are read the way the file writes them', () => {
   // A same-letter blob is one couch; two letters flush together are two; a cart is its mask.
