@@ -32,6 +32,9 @@ around it — art, audio, progression, and the solvability indicator.
   batch of generated ones, and step by step over the boards they reach? With no `--engine` it
   runs `tools/conform-ref.mjs`, which is the protocol written out on top of `src/`. See
   **One engine**.
+- `cargo build --release --manifest-path engine/Cargo.toml` — the sanctioned Rust port, checked
+  by `conform.mjs --engine engine/target/release/tt-engine`. It answers `step` and skips
+  `answer`; the skips are reported, not counted as agreement. See **One engine**.
 - `node tools/survey.mjs` — samples every legal group of four pieces and writes which ones
   make rooms at all to `levels/fertility.jsonl`. Long-running and parallel; findings are
   read in `SPEC-SHEET.md`.
@@ -105,6 +108,12 @@ quietly. Without the check it is not sanctioned, it is just a second copy.
 Two things the harness is built to tell apart, because they are different bugs: a step that
 lands the wrong board, which it reports as the board and the direction; and a room whose par
 comes out wrong while every step of it agrees, which is the port's SEARCH and not its rules.
+
+**One is sanctioned: `engine/`, in Rust.** It answers `step` and replies `unsupported` to
+`answer`, which the harness reports as a skip and never as agreement — the rules first, the
+search after, because a wrong par is only diagnosable once every step under it is known good.
+Agents: this being here does not widen the rule above by one inch. It was the owner's call, it
+is in `SANCTIONED`, and a second one is the same conversation again.
 
 The pipeline is where the pressure to port comes from, and it is offline: it runs when the
 level design changes and nobody waits on it. `TODO.md` has what a representation change inside
