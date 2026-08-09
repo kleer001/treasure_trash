@@ -6,20 +6,29 @@ Act 1 is 31 rooms (L0–L30). **Act 2 is 30 rooms (L31–L60), ten sets of three
 Nothing placeholder now reaches the player.
 
 The rules have **two implementations**, on purpose and under proof: `src/rules.js` is the engine
-of record, and `engine/` is a sanctioned Rust port. **It answers both grains and skips nothing.**
-Stages 1 and 2 are done; stage 3 — making the pipeline actually use it — is the open thread and
-the reason to pick this up.
+of record, and `engine/` is a sanctioned Rust port. **It answers every op the protocol has and
+skips nothing.** Stages 1 and 2 are done and the engine side of stage 3 is too; what is left of
+stage 3 is the call site, and #17c says what it costs.
 
 ## Todos
 
 ### Sequential
-- [ ] #17c **Make the pipeline actually use it** — the step everyone skips, and the only one that
-      buys wall-clock. Conformance *proves* a port; it does not speed anything up, because
-      `resite`/`shrink` call `analyze()` in process. Point them at the engine over the protocol
-      instead — `answer` is coarse, one request per candidate, so JSON overhead vanishes against
-      the work. **The one thing the protocol cannot express is `reroot`**, which is most of what
-      `resite` does; extend it: `{op:'open', grid}` → handle, `{op:'root', handle, at}` → answer.
-      Graph engine-side, design policy in JS.
+- [ ] #17c **Rewire `resite` onto the engine.** The engine side is READY — `measure` returns all
+      eight numbers `resite`'s guard reads, and it is checked every build. What is left is the
+      call site, and it is not a small edit. **Two things to know before starting:**
+
+      1. **The async ripple.** `read()` → `readsAt` → `costAt` → the two sweeps → `resiteSet` →
+         `servePass` → `serve` is synchronous end to end. A pipe makes every one of them async,
+         in the pipeline's most correctness-critical tool. One engine child per worker thread.
+         Budget the proof, not the edit: a full run is ~16 min and it must come out byte-identical
+         against `levels/sets.jsonl`.
+      2. **`reroot` is worth ~3× on its own, so do it in the same pass.** The protocol cannot
+         express it. Arithmetic from this session's numbers: `resite` was 3230s before `reroot`
+         and 971s after, so re-rooting removes ~70% of the work. At the engine's 9.6×, a rewire
+         WITHOUT it lands near 336s (~2.9× over today); WITH it, near 101s (~9.6×). Extend the
+         protocol: `{op:'open', grid, cart, water}` → handle, `{op:'root', handle, at}` →
+         a `measure` reply. Graph stays engine-side, design policy stays in JS. Whatever is
+         added, add it to `conform.mjs` in the same commit or it is unproven surface.
 - [ ] #17d (needs: #17c) **`:solve` is not in the protocol and `resite`/`shrink` need it.** It is
       a tie-break on DISCOVERY ORDER — the first shortest win the search reached. The Rust side
       already holds states in a `Vec` in insertion order behind an index table, precisely so this
@@ -55,14 +64,21 @@ the reason to pick this up.
 
 **Stages 1 and 2 are done, and the shape of the proof matters more than the code.** `engine/` is
 Rust, zero dependencies (it must build in CI from a checkout with no network, beside a game that
-has no build step). It answers `step` and `answer` and skips nothing.
+has no build step). It answers `step`, `answer` and `measure`, and skips nothing.
 
-- **Agreement measured:** see *Run it* for the current sweep. Both grains, five seeds.
+- **Agreement measured:** see *Run it* for the current sweep. Every op, five seeds.
+- **`measure` exists because `answer` is not what the pipeline decides on.** `resite`'s guard
+  reads eight numbers; `answer` carries five. The missing four — `silentTraps`, `onPath`, `lead`,
+  `tail` — are linear walks of a graph the enumeration already paid for, so they moved
+  engine-side rather than the graph being shipped over the pipe for JS to finish. None of them is
+  declared in a pack, which is exactly why `conform.mjs` asks `measure` of every room: nothing
+  else in the tree would ever notice them being wrong.
 - **Both bends demonstrated, not assumed.** Break a RULE — delete the raccoon's line in
   `tip_fits`, he is the one occupant `is_occupiable` cannot see — and conform.mjs names
   `act1.tt:L23`, the direction and the board. Break the SEARCH — count boards you can lose from
   instead of ways to lose — and it says *"traps: 16 vs 14, and every step of it agrees. The
-  search differs, not the rules."* Do both again after any change to the harness.
+  search differs, not the rules."* Do both again after any change to the harness. A third,
+  `walk-off-by`, is a permanent test: it lies about `lead` and nothing else, and has to be caught.
 - Registered in `SANCTIONED` in `verify.mjs`, which prints both files on every run. CI builds it
   and runs `--steps 1000000 --random 120` against it.
 
@@ -156,7 +172,7 @@ pass that cannot use it, because `search` draws a whole chunk from one seeded st
 `./run.sh` · `npm test` (246) · `node tools/verify.mjs` (both acts, 1,486 checks) ·
 `node tools/conform.mjs` (the reference) · `cargo build --release --manifest-path
 engine/Cargo.toml && node tools/conform.mjs --engine engine/target/release/tt-engine` ·
-`node tools/build-artifact.mjs`. All green at `64352f9`.
+`node tools/build-artifact.mjs`. All green at `f911421` — 247 tests.
 
 **The port's standing proof**, five seeds (7, 101, 2718, 31337, 424242) at
 `--steps 1000000 --random 250`: 1,548 rooms, 1,548 answers, 7,597,380 board-and-direction
