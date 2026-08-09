@@ -6,37 +6,30 @@ Act 1 is 31 rooms (L0–L30). **Act 2 is 30 rooms (L31–L60), ten sets of three
 Nothing placeholder now reaches the player.
 
 The rules have **two implementations**, on purpose and under proof: `src/rules.js` is the engine
-of record, and `engine/` is a sanctioned Rust port. **It answers every op the protocol has and
-skips nothing.** Stages 1 and 2 are done and the engine side of stage 3 is too; what is left of
-stage 3 is the call site, and #17c says what it costs.
+of record, and `engine/` is a sanctioned Rust port. **It answers every op the protocol has, and
+the discovery pipeline now runs on it.** The survey was 31.5 CPU-hours and is ~3; the whole
+pipeline is about 32 CPU-hours down to about 3.6. Stages 1–3 are done where they paid.
 
 ## Todos
 
 ### Sequential
-- [ ] #17c **Rewire `resite` onto the engine.** The engine side is READY — `measure` returns all
-      eight numbers `resite`'s guard reads, and it is checked every build. What is left is the
-      call site, and it is not a small edit. **Two things to know before starting:**
-
-      1. **The async ripple.** `read()` → `readsAt` → `costAt` → the two sweeps → `resiteSet` →
-         `servePass` → `serve` is synchronous end to end. A pipe makes every one of them async,
-         in the pipeline's most correctness-critical tool. One engine child per worker thread.
-         Budget the proof, not the edit: a full run is ~16 min and it must come out byte-identical
-         against `levels/sets.jsonl`.
-      2. **`reroot` is worth ~3× on its own, so do it in the same pass.** The protocol cannot
-         express it. Arithmetic from this session's numbers: `resite` was 3230s before `reroot`
-         and 971s after, so re-rooting removes ~70% of the work. At the engine's 9.6×, a rewire
-         WITHOUT it lands near 336s (~2.9× over today); WITH it, near 101s (~9.6×). Extend the
-         protocol: `{op:'open', grid, cart, water}` → handle, `{op:'root', handle, at}` →
-         a `measure` reply. Graph stays engine-side, design policy stays in JS. Whatever is
-         added, add it to `conform.mjs` in the same commit or it is unproven surface.
-- [ ] #17d (needs: #17c) **`:solve` is not in the protocol and `resite`/`shrink` need it.** It is
-      a tie-break on DISCOVERY ORDER — the first shortest win the search reached. The Rust side
-      already holds states in a `Vec` in insertion order behind an index table, precisely so this
-      costs nothing to add; what it needs is back-pointers and a `formatLurd`. Do NOT reach for
-      `HashMap` iteration order: Rust seeds its hasher per process, so it would emit a different
-      tied solve every run.
-- [ ] #17e (needs: #17c) **Retire the JS `maxStates` ceiling if the port earns it.** Bound is
-      50,000 states because `analyze` holds every one as a cloned board.
+- [ ] #17c **`resite` and `shrink` are still on JS, and that is now a small number.** 16 min and
+      4 min, against a pipeline that is ~3.6 CPU-hours. Wiring them is the EXPENSIVE one:
+      `read()` → `readsAt` → `costAt` → the sweeps → `resiteSet` → `serve` is synchronous end to
+      end, so a pipe makes all of it async in the most correctness-critical tool there is, and
+      the proof cycle is a ~16-minute byte-identical run. It also wants two more protocol ops
+      ({op:'open'} → handle, {op:'root'} → measure) because `reroot` is most of what `resite`
+      does. Worth ~15 minutes a rebuild. Do it when it annoys you, not before.
+- [ ] #17d (needs: #17c) **`:solve` is not in the protocol**, and only `resite`/`shrink` want it.
+      It is a tie-break on DISCOVERY ORDER — the first shortest win the search reached. The Rust
+      side already holds states in a `Vec` in insertion order behind an index table, precisely so
+      this costs nothing to add; what it needs is back-pointers and a `formatLurd`. Do NOT reach
+      for `HashMap` iteration order: Rust seeds its hasher per process, so it would emit a
+      different tied solve every run.
+- [ ] #17e **Retire the JS `maxStates` ceiling if the port earns it.** Bound is 50,000 states
+      because `analyze` holds every one as a cloned board. Raising it lets the survey keep rooms
+      it currently throws away — one placement in twenty on outlines, one in five on open
+      rectangles — which is now affordable in a way it was not.
 
 ### Parallel
 - [ ] #13 **Render through the compositor.** `main.js` draws straight to the canvas; the house
@@ -78,12 +71,14 @@ has no build step). It answers `step`, `answer` and `measure`, and skips nothing
 - Registered in `SANCTIONED` in `verify.mjs`, which prints both files on every run. CI builds it
   and runs `--steps 1000000 --random 120` against it.
 
-**Speed: 9.6× over `src/solver.js`** on the 61 shipped rooms at answer grain, including JSON and
-a pipe round trip per room. **The earlier 20×+ estimate was wrong** — treat it as retired. Two
-things got it from 6.3× to 9.6×, and the first was the trap written down here and then walked
-into anyway: the port cloned the board on every plain move where the JS shares it. `State.cells`
-is an `Rc` now and `at_mut` is the one door in, so a copy happens only where something writes.
-The second was keying each new board twice, to look up and then to insert.
+**Speed: 14.5× over `src/solver.js`** on the 61 shipped rooms at answer grain, including JSON and
+a pipe round trip per room. **The earlier 20×+ estimate was wrong** — treat it as retired. Three
+things got it from 6.3×, and callgrind picked all three: `explain`, the actual rules, was THREE
+PERCENT of instructions, while `state_key` was 33.6% and the allocator serving it another 22%.
+The port was slow at its own bookkeeping, not at the game. Fixes: share the board on a plain move
+(`State.cells` is an `Rc`, `at_mut` is the one door in); reuse the key buffers instead of
+allocating per call, and drop the `format!` that rendered two coordinates as text; and stop
+describing wall cells in the key, since nothing ever writes one.
 
 **Measured and rejected:** swapping SipHash for FNV-1a. Best-of-five, interleaved: 154 ms vs
 155 ms. Hashing is not the bottleneck, so that code does not ship. What is left is probably the
@@ -158,6 +153,31 @@ Each was a fault found by looking, then turned into something that fails a build
 - **Fertility, solvable per 1000:** `B` 86.6, `P` 62.0, `x` 50.4, `j` 45.7, `$` 42.6, `F` 41.9,
   `w` 40.4, `c` 32.6, `W` 30.8, `C` 14.0, `S` 5.1.
 
+### Where the pipeline's hours went, and where they are now
+
+Measured, not guessed — the survey records its own `ms` per group and the file adds up.
+
+| step | was | now |
+|---|---|---|
+| `survey` — 586 groups × 200 placements | **31.5 CPU-hours** | ~3 CPU-hours (10.4× measured) |
+| `harvest` — 62 groups × 400, on outlines | ~37 CPU-min | ~15 CPU-min (2.4×) |
+| `resite` | 16 min | 16 min, still JS |
+| `shrink` | 4 min | 4 min, still JS |
+
+**Survey was the whole problem and it needed no new engine work** — it judges a room on five
+numbers the protocol already carried. Harvest is different: a full row wants the solve string,
+trap depths, box-line shape and the inert test, none of it on the wire, so the engine SCREENS
+there instead. Nine draws in ten never reach a full row, and the JS enumeration is paid a second
+time only for the survivors.
+
+Both tools draw their whole batch off the seeded stream first and ask afterwards — no draw
+depends on how the last one scored — which is what lets two hundred boards go over in one breath
+instead of two hundred round trips.
+
+**Proved equal both ways.** Harvest is byte-identical. Survey matches on every field including
+the `pars` arrays in order, excluding `ms`, which is a stopwatch reading and cannot match across
+any two runs on any engine.
+
 ### Rebuilding the act
 
 `sets.mjs` → **`resite.mjs`** → `shrink.mjs` → `act2.mjs`, then splice the emitted
@@ -177,7 +197,8 @@ pass that cannot use it, because `search` draws a whole chunk from one seeded st
 `./run.sh` · `npm test` (246) · `node tools/verify.mjs` (both acts, 1,486 checks) ·
 `node tools/conform.mjs` (the reference) · `cargo build --release --manifest-path
 engine/Cargo.toml && node tools/conform.mjs --engine engine/target/release/tt-engine` ·
-`node tools/build-artifact.mjs`. All green at `f911421` — 247 tests.
+`node tools/build-artifact.mjs`. All green — 247 tests.
+`survey` and `harvest` print which engine they used; `--no-engine` forces `src/solver.js`.
 
 **The port's standing proof**, five seeds (7, 101, 2718, 31337, 424242) at
 `--steps 1000000 --random 250`: 1,548 rooms, 1,548 answers, 7,597,380 board-and-direction
@@ -188,9 +209,13 @@ Branch `claude/level-design-exit-placement-gb3f04`, everything pushed, tree clea
 
 ## Next Step
 
-Port stage 2 (#17b): implement `answer` in `engine/`, BFS in insertion order over a `Vec` +
-index table so the canonical `:solve` tie-break survives. Then
-`node tools/conform.mjs --engine engine/target/release/tt-engine` should report 97 answers and
-0 skips.
+The port has paid for itself and the pipeline thread can rest. **Go hunting**: `cargo build
+--release --manifest-path engine/Cargo.toml`, then run `survey` deeper than 200 placements a
+group — that is now hours instead of days, and a thicker fertility map is what feeds everything
+downstream. Act 2 came up a set short because the candidate pool was thin, not because anything
+was broken.
+
+On the game side the next thing with a deadline attached is #13, the compositor, which is
+explicitly worth doing BEFORE the art pass.
 
 /home/user/treasure_trash
