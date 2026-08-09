@@ -398,8 +398,10 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
     let o = target.o;
 
     if o == NONE {
-        // Only the raccoon moves. The JS shares the board here rather than copying it, which is
-        // its largest single saving; there is nothing to share into over a pipe, so this clones.
+        // Only the raccoon moves, and he rides on `rac` — so the board this lands on IS the board
+        // it started from, and the new state shares it. Sound for the same reason it is sound in
+        // the JS: every path below that writes to a board goes through `at_mut`, which copies a
+        // shared one before writing, so a shared board is never the one being written.
         let mut next = s.clone();
         next.rac = (tx, ty);
         return Ok(Outcome::Ok { kind: Kind::Move, next });

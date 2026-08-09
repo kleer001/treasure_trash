@@ -22,6 +22,8 @@ pub const BIN_EMPTY: u8 = 11;
 /// the absent case one comparison rather than a branch on an `Option` in every predicate.
 pub const NO_ID: u16 = u16::MAX;
 
+use std::rc::Rc;
+
 pub const FURN_POOL: &[u8] = b"FGHKMN";
 pub const CART_POOL: &[u8] = b"PQR";
 
@@ -51,11 +53,16 @@ impl Cell {
     }
 }
 
+/// `cells` is shared, not owned. Cloning a State is a refcount bump, and the copy is made only
+/// where something writes — `at_mut` is the one door in. That is what lets a plain move hand
+/// back the board it started from instead of a copy of it: walking is most of what a state graph
+/// is made of, and copying a cell per cell for a step that changes no cell was the JS engine's
+/// largest single cost in allocation and then again in collection.
 #[derive(Clone)]
 pub struct State {
     pub cols: i32,
     pub rows: i32,
-    pub cells: Vec<Cell>,
+    pub cells: Rc<Vec<Cell>>,
     pub rac: (i32, i32),
 }
 
@@ -72,10 +79,11 @@ impl State {
     pub fn at(&self, x: i32, y: i32) -> &Cell {
         &self.cells[self.idx(x, y)]
     }
+    /// The only way to write a cell, and therefore the only place a shared board is copied.
     #[inline]
     pub fn at_mut(&mut self, x: i32, y: i32) -> &mut Cell {
-        let i = self.idx(x, y);
-        &mut self.cells[i]
+        let i = (y * self.cols + x) as usize;
+        &mut Rc::make_mut(&mut self.cells)[i]
     }
     /// Cells of one multi-cell piece, raster order. Boards are tiny, so this scans rather than
     /// keeping an index — the same trade `pieceCells` makes.
@@ -331,7 +339,7 @@ pub fn to_state(
         })?;
     }
 
-    Ok(State { cols, rows, cells, rac })
+    Ok(State { cols, rows, cells: Rc::new(cells), rac })
 }
 
 // ---------------------------------------------------------------- writing
@@ -339,7 +347,7 @@ pub fn to_state(
 /// Letters handed out by first appearance in raster order, so a board's lettering is canonical.
 fn pool_letters(s: &State, of: fn(&Cell) -> u16, pool: &[u8], what: &str) -> Result<Vec<(u16, u8)>, String> {
     let mut out: Vec<(u16, u8)> = Vec::new();
-    for cell in &s.cells {
+    for cell in s.cells.iter() {
         let id = of(cell);
         if id == NO_ID || out.iter().any(|(k, _)| *k == id) {
             continue;

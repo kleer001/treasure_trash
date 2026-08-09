@@ -127,18 +127,20 @@ pub fn analyze(start: &State, max_states: usize) -> Result<Answer, String> {
                     }
                     Outcome::Ok { next, .. } => next,
                 };
-                let to = match index.get(state_key(&ns).as_slice()) {
-                    Some(&i) => i,
-                    None => {
-                        if nodes.len() >= max_states {
-                            return Err(format!("state graph exceeds {max_states} states"));
-                        }
-                        let i = nodes.len() as u32;
-                        index.insert(state_key(&ns), i);
-                        nodes.push(Node { state: ns, depth: depth + 1, edges: Vec::new() });
-                        next.push(i);
-                        i
+                // Keyed once. Hashing a board is a scan of every cell of it, so asking twice
+                // to look up and then insert is a second full read of the same board.
+                let k = state_key(&ns);
+                let to = if let Some(&i) = index.get(&k) {
+                    i
+                } else {
+                    if nodes.len() >= max_states {
+                        return Err(format!("state graph exceeds {max_states} states"));
                     }
+                    let i = nodes.len() as u32;
+                    index.insert(k, i);
+                    nodes.push(Node { state: ns, depth: depth + 1, edges: Vec::new() });
+                    next.push(i);
+                    i
                 };
                 nodes[at as usize].edges.push(to);
             }
