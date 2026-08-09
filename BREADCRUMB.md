@@ -6,25 +6,27 @@ Act 1 is 31 rooms (L0–L30). **Act 2 is 30 rooms (L31–L60), ten sets of three
 Nothing placeholder now reaches the player.
 
 The rules have **two implementations**, on purpose and under proof: `src/rules.js` is the engine
-of record, and `engine/` is a sanctioned Rust port that answers `step`. Stage 1 of the port is
-done and green; stages 2–4 are the open thread and the reason to pick this up.
+of record, and `engine/` is a sanctioned Rust port. **It answers both grains and skips nothing.**
+Stages 1 and 2 are done; stage 3 — making the pipeline actually use it — is the open thread and
+the reason to pick this up.
 
 ## Todos
 
 ### Sequential
-- [ ] #17b **Port stage 2 — `answer`.** The search: par, distinct shortest solves, traps,
-      reachable, exitRefusals, over 97 rooms. `traps` is the subtle one — it means liveness is
-      exactly right. Today `answer` replies `unsupported` and conform.mjs reports the skips.
-      **The canonical `:solve` tie-breaks on DISCOVERY ORDER**, so a `HashMap` iteration will
-      not do it: keep a `Vec` of states plus an index table and BFS in insertion order. Rust's
-      per-process hash seed makes the wrong version fail on run two rather than on CI in March.
-- [ ] #17c (needs: #17b) **Make the pipeline actually use it** — the step everyone skips.
-      Conformance *proves* a port; it does not speed anything up, because `resite`/`shrink` call
-      `analyze()` in process. Point them at the engine over the protocol instead. `answer` is
-      coarse — one request per candidate against ~70ms of JS work — so JSON overhead vanishes.
-      The one thing the protocol cannot express is `reroot`; extend it: `{op:'open', grid}` →
-      handle, `{op:'root', handle, at}` → answer. Graph engine-side, design policy in JS.
-- [ ] #17d (needs: #17c) **Retire the JS `maxStates` ceiling if the port earns it.** Bound is
+- [ ] #17c **Make the pipeline actually use it** — the step everyone skips, and the only one that
+      buys wall-clock. Conformance *proves* a port; it does not speed anything up, because
+      `resite`/`shrink` call `analyze()` in process. Point them at the engine over the protocol
+      instead — `answer` is coarse, one request per candidate, so JSON overhead vanishes against
+      the work. **The one thing the protocol cannot express is `reroot`**, which is most of what
+      `resite` does; extend it: `{op:'open', grid}` → handle, `{op:'root', handle, at}` → answer.
+      Graph engine-side, design policy in JS.
+- [ ] #17d (needs: #17c) **`:solve` is not in the protocol and `resite`/`shrink` need it.** It is
+      a tie-break on DISCOVERY ORDER — the first shortest win the search reached. The Rust side
+      already holds states in a `Vec` in insertion order behind an index table, precisely so this
+      costs nothing to add; what it needs is back-pointers and a `formatLurd`. Do NOT reach for
+      `HashMap` iteration order: Rust seeds its hasher per process, so it would emit a different
+      tied solve every run.
+- [ ] #17e (needs: #17c) **Retire the JS `maxStates` ceiling if the port earns it.** Bound is
       50,000 states because `analyze` holds every one as a cloned board.
 
 ### Parallel
@@ -51,27 +53,34 @@ done and green; stages 2–4 are the open thread and the reason to pick this up.
 
 ### The port — where it stands
 
-**Stage 1 is done, and the shape of the proof matters more than the code.** `engine/` is Rust,
-zero dependencies (it must build in CI from a checkout with no network, beside a game that has
-no build step). It answers `step` and replies `unsupported` to `answer`, which conform.mjs
-reports as a skip and never as agreement.
+**Stages 1 and 2 are done, and the shape of the proof matters more than the code.** `engine/` is
+Rust, zero dependencies (it must build in CI from a checkout with no network, beside a game that
+has no build step). It answers `step` and `answer` and skips nothing.
 
-- **Agreement measured:** 6,106,104 board-and-direction vectors over 1,227 rooms, four seeds
-  (7, 101, 2718, 31337), zero disagreements.
-- **The check can fail, demonstrated:** delete the raccoon's line in `tip_fits` — he is the one
-  occupant `is_occupiable` cannot see — and conform.mjs names `act1.tt:L23`, the direction, and
-  the board. Do this again after any change to the harness; a gate nobody has seen fail is a
-  green light wired to nothing.
-- Registered in `SANCTIONED` in `verify.mjs`, which prints both files on every run.
-- CI builds it and runs `--steps 1000000 --random 120` against it.
+- **Agreement measured:** see *Run it* for the current sweep. Both grains, five seeds.
+- **Both bends demonstrated, not assumed.** Break a RULE — delete the raccoon's line in
+  `tip_fits`, he is the one occupant `is_occupiable` cannot see — and conform.mjs names
+  `act1.tt:L23`, the direction and the board. Break the SEARCH — count boards you can lose from
+  instead of ways to lose — and it says *"traps: 16 vs 14, and every step of it agrees. The
+  search differs, not the rules."* Do both again after any change to the harness.
+- Registered in `SANCTIONED` in `verify.mjs`, which prints both files on every run. CI builds it
+  and runs `--steps 1000000 --random 120` against it.
 
-**Traps for stage 2+**, from having built the JS side: do not clone the board on a plain move
-(sharing it was 1.9× in JS; a naive port throws that away and wonders why it is only 8×); same
-`maxStates` bound, sent in the request, reported as `error` not as an answer; `blame` and the
-traced frames are out of contract, so a conforming port is proven for the pipeline and is *not*
-enough to drive the browser renderer. Expect 20×+ overall (JS does ~57k states/s; a packed-board
-BFS with open addressing should do 1–5M). Pipeline 21 min → 1–2 min, estimated from the profile
-shape, not measured.
+**Speed: 9.6× over `src/solver.js`** on the 61 shipped rooms at answer grain, including JSON and
+a pipe round trip per room. **The earlier 20×+ estimate was wrong** — treat it as retired. Two
+things got it from 6.3× to 9.6×, and the first was the trap written down here and then walked
+into anyway: the port cloned the board on every plain move where the JS shares it. `State.cells`
+is an `Rc` now and `at_mut` is the one door in, so a copy happens only where something writes.
+The second was keying each new board twice, to look up and then to insert.
+
+**Measured and rejected:** swapping SipHash for FNV-1a. Best-of-five, interleaved: 154 ms vs
+155 ms. Hashing is not the bottleneck, so that code does not ship. What is left is probably the
+`Vec<u8>` allocated per key and a full `State` held per node.
+
+**Still true from the JS side:** same `maxStates` bound, sent in the request, reported as `error`
+and not as an answer; `blame` and the traced frames are out of contract, so a conforming port is
+proven for the pipeline and is *not* enough to drive the browser renderer. `Rc` is not `Send` — a
+threaded stage 3 wants `Arc`, which is a one-word change.
 
 **RNG, if the port ever generates rooms:** `src/rng.js` is mulberry32 and it is the only source
 of randomness in the pipeline. It ports exactly — `wrapping_add`/`wrapping_mul` on `u32`,
@@ -147,7 +156,12 @@ pass that cannot use it, because `search` draws a whole chunk from one seeded st
 `./run.sh` · `npm test` (246) · `node tools/verify.mjs` (both acts, 1,486 checks) ·
 `node tools/conform.mjs` (the reference) · `cargo build --release --manifest-path
 engine/Cargo.toml && node tools/conform.mjs --engine engine/target/release/tt-engine` ·
-`node tools/build-artifact.mjs`. All green at `29a487b`.
+`node tools/build-artifact.mjs`. All green at `64352f9`.
+
+**The port's standing proof**, five seeds (7, 101, 2718, 31337, 424242) at
+`--steps 1000000 --random 250`: 1,548 rooms, 1,548 answers, 7,597,380 board-and-direction
+vectors, zero disagreements. Re-run it after any change to `engine/`, and re-run both bends
+after any change to the harness.
 
 Branch `claude/level-design-exit-placement-gb3f04`, everything pushed, tree clean.
 
