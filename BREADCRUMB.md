@@ -32,6 +32,14 @@ pipeline is about 32 CPU-hours down to about 3.6. Stages 1–3 are done where th
       rectangles — which is now affordable in a way it was not.
 
 ### Parallel
+- [ ] #19 **Act 3: search with the piece cap OFF.** `--maxpiece` in `tools/act2.mjs` (default 0.9,
+      passed through to `chooseSets` in `pick.mjs`) is the last unmeasured constraint in the
+      chooser. It was kept as a backstop, not because an unbounded pool was tried and found bad —
+      nothing has ever run without it. Half buys 24 rooms, 0.8 buys 27, 0.9 buys 30; the trend
+      says the cap only ever costs sets. Run Act 3's chooser at `--maxpiece 1` and compare the
+      acts on what a player can feel — ramp mix, outline count, par band, `onPath` spread — not on
+      piece counts, which is the metric that set the cap in the first place. If an unbounded pool
+      wins, drop the flag rather than re-tuning it.
 - [ ] #13 **Render through the compositor.** `main.js` draws straight to the canvas; the house
       pattern is ordered layers via `src/compositor.js`, which the game still does not import.
       Worth doing before the art pass, and it is a real refactor of the draw loop — start it
@@ -128,8 +136,9 @@ sits, all of which Act 2 already spreads: ten outlines, three ramps, pars 8–32
 Also corrected: `act2.mjs` and `levels.md` both claimed "only ONE candidate set is bin-free". It
 is five (two carry no bin of either kind). Both now say what was measured.
 
-The cap stays at 0.9 as a loose backstop — nothing has tested an unbounded pool — and
-`act2.mjs` prints the piece counts every run so the spread stays visible.
+The cap stays at 0.9 for the shipped act rather than being pulled out from under it, and
+`act2.mjs` prints the piece counts every run so the spread stays visible. Taking it off is #19,
+and it is Act 3's job — a chooser change is not worth re-emitting thirty named rooms for.
 
 ### Closed, so it does not get raised a third time
 
@@ -235,11 +244,11 @@ Branch `claude/level-design-exit-placement-gb3f04`, everything pushed, tree clea
 
 ## Next Step
 
-The port has paid for itself and the pipeline thread can rest. **Go hunting**: `cargo build
---release --manifest-path engine/Cargo.toml`, then run `survey` deeper than 200 placements a
-group — that is now hours instead of days, and a thicker fertility map is what feeds everything
-downstream. Act 2 came up a set short because the candidate pool was thin, not because anything
-was broken.
+The port has paid for itself and the pipeline thread can rest. **Go hunting, for Act 3**: `cargo
+build --release --manifest-path engine/Cargo.toml`, then run `survey` deeper than 200 placements
+a group — that is now hours instead of days, and a thicker fertility map is what feeds everything
+downstream. Act 2's pool was thin, not broken; a deeper one and #19's unbounded piece pool are
+the two things that change what the chooser has to work with.
 
 On the game side the next thing with a deadline attached is #13, the compositor, which is
 explicitly worth doing BEFORE the art pass.
