@@ -204,7 +204,12 @@ section('one engine');
 const GENERATED = new Set(['artifact.html']);
 // Owner-sanctioned second implementations, by path, with what makes each one safe. Empty is
 // the expected state and adding to it is not an agent's call.
-const SANCTIONED = {};
+const SANCTIONED = {
+  'engine/src/rules.rs':
+    'cargo build --release --manifest-path engine/Cargo.toml'
+    + ' && node tools/conform.mjs --engine engine/target/release/tt-engine — in CI, every build',
+  'engine/src/board.rs': 'read/write only; proved by the same run, which compares serialised boards',
+};
 // One marker per module: a string that appears where the module is DEFINED and nowhere it is
 // merely used. Home is where it is allowed to appear.
 const MARKS = {

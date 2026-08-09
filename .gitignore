@@ -13,3 +13,6 @@ levels/act*.md
 
 # Browser-tool captures
 .playwright-mcp/
+
+# Build output of the sanctioned Rust port. Cargo.lock is committed — it is a binary.
+engine/target/
