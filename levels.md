@@ -74,35 +74,35 @@ The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 
 | Room | Name | Par | Solve |
 |---|---|---|---|
-| L31 | TODO name L31 | 12 | `LLLLLdllluU!d` |
-| L32 | TODO name L32 | 28 | `LLLLLdllluluurrdDRRdLullU!dDu` |
-| L33 | TODO name L33 | 30 | `ulDllLldllluluurrdDrrdLullU!dDu` |
-| L34 | TODO name L34 | 11 | `UurrruurrDu` |
-| L35 | TODO name L35 | 17 | `UurrrddrUluuurrDu` |
-| L36 | TODO name L36 | 21 | `UllUrrrrrddrUluuurrDu` |
-| L37 | TODO name L37 | 14 | `uulDldRD!uullLd` |
-| L38 | TODO name L38 | 17 | `UuLLdR!lllllluRdrr` |
-| L39 | TODO name L39 | 21 | `rUruRrrdLrrrrULLddrU!d` |
-| L40 | TODO name L40 | 16 | `RrrrrrdrrUulD!uUl` |
-| L41 | TODO name L41 | 18 | `RurrRdrrdrrUulD!uUl` |
-| L42 | TODO name L42 | 30 | `RrruLullDurrdL!rrRdrrdrrUulD!uUl` |
-| L43 | TODO name L43 | 12 | `RurrrdLddrUl` |
-| L44 | TODO name L44 | 14 | `RuLrrrrdLddrUl` |
-| L45 | TODO name L45 | 29 | `RuLdlUrrrrrdLullllDrdrrrddrUl` |
-| L46 | TODO name L46 | 9 | `DrrrrruRu` |
-| L47 | TODO name L47 | 20 | `DrrrrruRDDldRuuuurDl` |
-| L48 | TODO name L48 | 22 | `DrRdrrruuRDDldRuuuurDl` |
-| L49 | TODO name L49 | 10 | `UrDrrRulll` |
-| L50 | TODO name L50 | 14 | `UrrdrRulllldRu` |
-| L51 | TODO name L51 | 26 | `UrrdrRurrruurDldllllllldRu` |
-| L52 | TODO name L52 | 14 | `DlllllllDlluR!l` |
-| L53 | TODO name L53 | 18 | `DDlllllluRllDlluR!l` |
-| L54 | TODO name L54 | 20 | `DDlU!dllllluRllDlluR!l` |
-| L55 | TODO name L55 | 19 | `dDrdddLluRdrUuuluRl` |
-| L56 | TODO name L56 | 21 | `dDrdddLluRdrRlUuuluRl` |
-| L57 | TODO name L57 | 23 | `dDrdddLluRdrRlURluuluRl` |
-| L58 | TODO name L58 | 8 | `luUluRul` |
-| L59 | TODO name L59 | 12 | `luURruLulDul` |
-| L60 | TODO name L60 | 22 | `luURrurrrrDullllLulDul` |
+| L31 | The Long Aisle | 12 | `LLLLLdllluU!d` |
+| L32 | Something at the Back | 28 | `LLLLLdllluluurrdDRRdLullU!dDu` |
+| L33 | Both Bins Out | 30 | `ulDllLldllluluurrdDrrdLullU!dDu` |
+| L34 | The Back Lot | 11 | `UurrruurrDu` |
+| L35 | Filling Up | 17 | `UurrrddrUluuurrDu` |
+| L36 | Full House | 21 | `UllUrrrrrddrUluuurrDu` |
+| L37 | Moving Day | 14 | `uulDldRD!uullLd` |
+| L38 | Second Thoughts | 17 | `UuLLdR!lllllluRdrr` |
+| L39 | Third Time Around | 21 | `rUruRrrdLrrrrULLddrU!d` |
+| L40 | Rolling Stock | 16 | `RrrrrrdrrUulD!uUl` |
+| L41 | Bin in the Road | 18 | `RurrRdrrdrrUulD!uUl` |
+| L42 | Traffic | 30 | `RrruLullDurrdL!rrRdrrdrrUulD!uUl` |
+| L43 | The Small Yard | 12 | `RurrrdLddrUl` |
+| L44 | Getting Crowded | 14 | `RuLrrrrdLddrUl` |
+| L45 | Nowhere to Put It | 29 | `RuLdlUrrrrrdLullllDrdrrrddrUl` |
+| L46 | The Corner Jug | 9 | `DrrrrruRu` |
+| L47 | Company | 20 | `DrrrrruRDDldRuuuurDl` |
+| L48 | A Crowd | 22 | `DrRdrrruuRDDldRuuuurDl` |
+| L49 | Behind the Couch | 10 | `UrDrrRulll` |
+| L50 | Heavier | 14 | `UrrdrRulllldRu` |
+| L51 | Heavier Still | 26 | `UrrdrRurrruurDldllllllldRu` |
+| L52 | Crossing the Floor | 14 | `DlllllllDlluR!l` |
+| L53 | Something in the Path | 18 | `DDlllllluRllDlluR!l` |
+| L54 | And a Bag Besides | 20 | `DDlU!dllllluRllDlluR!l` |
+| L55 | The Door Is Right There | 19 | `dDrdddLluRdrUuuluRl` |
+| L56 | Down and Back | 21 | `dDrdddLluRdrRlUuuluRl` |
+| L57 | Down and Back Twice | 23 | `dDrdddLluRdrRlURluuluRl` |
+| L58 | Short Way Home | 8 | `luUluRul` |
+| L59 | One More First | 12 | `luURruLulDul` |
+| L60 | Last Collection | 22 | `luURrurrrrDullllLulDul` |
 
 `tools/metrics.mjs` scores a room. Open questions about the pack live in `TODO.md`.

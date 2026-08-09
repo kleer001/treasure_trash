@@ -7,12 +7,12 @@
 ;
 
 :level  L31
-:name   TODO name L31
+:name   The Long Aisle
 :par    12
 :traps  1
 :solves 1
 :solve  LLLLLdllluU!d
-:note   TODO note — set 1 of 10, H 10x5 gap@3w4 cut2/1, opens the set
+:note   Set 1 of 10, opener. One long aisle, a cart sitting in the middle of it, and the work waiting at both ends.
 :grid
 ---#######
 -$-#####--
@@ -29,12 +29,12 @@ b--#####-#
 :end
 
 :level  L32
-:name   TODO name L32
+:name   Something at the Back
 :par    28
 :traps  62
 :solves 8
 :solve  LLLLLdllluluurrdDRRdLullU!dDu
-:note   TODO note — set 1 of 10, the same board as the last one, with one more container full
+:note   Set 1, rung 2. Same board; the far bin arrives full. The aisle now has to be walked with something to put down.
 :grid
 ---#######
 -$-#####--
@@ -51,12 +51,12 @@ B--#####-#
 :end
 
 :level  L33
-:name   TODO name L33
+:name   Both Bins Out
 :par    30
 :traps  8
 :solves 8
 :solve  ulDllLldllluluurrdDrrdLullU!dDu
-:note   TODO note — set 1 of 10, the same board as the last one, with one more container full
+:note   Set 1, rung 3. Both bins full, and the order the aisle is cleared in is the whole room.
 :grid
 ---#######
 -$-#####--
@@ -73,12 +73,12 @@ B--#####-#
 :end
 
 :level  L34
-:name   TODO name L34
+:name   The Back Lot
 :par    11
 :traps  9
 :solves 3
 :solve  UurrruurrDu
-:note   TODO note — set 2 of 10, H 8x5 gap@3w2 cut1/2, opens the set
+:note   Set 2 of 10, opener. The exit is up in the corner with a full bin directly under it, so the last move is never the obvious one.
 :grid
 -####--E
 ---##--B
@@ -95,12 +95,12 @@ b-------
 :end
 
 :level  L35
-:name   TODO name L35
+:name   Filling Up
 :par    17
 :traps  6
 :solves 1
 :solve  UurrrddrUluuurrDu
-:note   TODO note — set 2 of 10, the same board as the last one, with one more container full
+:note   Set 2, rung 2. The near bin fills, and the cart's parking spot stops being free.
 :grid
 -####--E
 ---##--B
@@ -117,12 +117,12 @@ b-------
 :end
 
 :level  L36
-:name   TODO name L36
+:name   Full House
 :par    21
 :traps  4
 :solves 1
 :solve  UllUrrrrrddrUluuurrDu
-:note   TODO note — set 2 of 10, the same board as the last one, with one more container full
+:note   Set 2, rung 3. Every bin full. The room is the same size and there is nowhere left to set anything down.
 :grid
 -####--E
 ---##--B
@@ -139,12 +139,12 @@ B-------
 :end
 
 :level  L37
-:name   TODO name L37
+:name   Moving Day
 :par    14
 :traps  329
 :solves 5
 :solve  uulDldRD!uullLd
-:note   TODO note — set 3 of 10, H 9x5 gap@2w4 cut1/2, opens the set
+:note   Set 3 of 10, opener. Couch, cart, can and bin. The cast does not change again in this set — only where it starts.
 :grid
 --####---
 ----B--C-
@@ -161,12 +161,12 @@ PP-------
 :end
 
 :level  L38
-:name   TODO name L38
+:name   Second Thoughts
 :par    17
 :traps  17
 :solves 1
 :solve  UuLLdR!lllllluRdrr
-:note   TODO note — set 3 of 10, the same shape and the same pieces, arranged harder
+:note   Set 3, rung 2. Same cast, moved: the couch turns end-on and the cart begins in the other chamber.
 :grid
 --####C--
 -B-------
@@ -183,12 +183,12 @@ PP-------
 :end
 
 :level  L39
-:name   TODO name L39
+:name   Third Time Around
 :par    21
 :traps  141
 :solves 1
 :solve  rUruRrrdLrrrrULLddrU!d
-:note   TODO note — set 3 of 10, the same shape and the same pieces, arranged harder
+:note   Set 3, rung 3. Same cast once more, with the exit and the raccoon now on opposite sides of it.
 :grid
 --####---
 -F------C
@@ -205,12 +205,12 @@ PP-------
 :end
 
 :level  L40
-:name   TODO name L40
+:name   Rolling Stock
 :par    16
 :traps  13
 :solves 2
 :solve  RrrrrrdrrUulD!uUl
-:note   TODO note — set 4 of 10, H 9x5 gap@3w3 cut2/1, opens the set
+:note   Set 4 of 10, opener. Two wheelie bins and a patch of spilled trash that will never move. Everything else routes around it.
 :grid
 #######-#
 ---###Ew-
@@ -220,12 +220,12 @@ PP-------
 :end
 
 :level  L41
-:name   TODO name L41
+:name   Bin in the Road
 :par    18
 :traps  41
 :solves 3
 :solve  RurrRdrrdrrUulD!uUl
-:note   TODO note — set 4 of 10, the same board as the last one, with one more thing in it
+:note   Set 4, rung 2. A recycle bin lands in the middle of the floor the wheelies were rolling across.
 :grid
 #######-#
 ---###Ew-
@@ -235,12 +235,12 @@ PP-------
 :end
 
 :level  L42
-:name   TODO name L42
+:name   Traffic
 :par    30
 :traps  320
 :solves 4
 :solve  RrruLullDurrdL!rrRdrrdrrUulD!uUl
-:note   TODO note — set 4 of 10, the same board as the last one, with one more thing in it
+:note   Set 4, rung 3. A third roller — three things that stop only when something stops them, in a room with one clear lane.
 :grid
 #######-#
 ---###Ew-
@@ -250,12 +250,12 @@ PP-------
 :end
 
 :level  L43
-:name   TODO name L43
+:name   The Small Yard
 :par    12
 :traps  6
 :solves 1
 :solve  RurrrdLddrUl
-:note   TODO note — set 5 of 10, H 7x5 gap@2w3 cut1/2, opens the set
+:note   Set 5 of 10, opener. The smallest room in the act, with a bin already parked against the exit.
 :grid
 #-#####
 --b----
@@ -272,12 +272,12 @@ PP-------
 :end
 
 :level  L44
-:name   TODO name L44
+:name   Getting Crowded
 :par    14
 :traps  5
 :solves 1
 :solve  RuLrrrrdLddrUl
-:note   TODO note — set 5 of 10, the same board as the last one, with one more container full
+:note   Set 5, rung 2. The top bin fills. In a room this size one full container is most of the floor.
 :grid
 #-#####
 --B----
@@ -294,12 +294,12 @@ PP-------
 :end
 
 :level  L45
-:name   TODO name L45
+:name   Nowhere to Put It
 :par    29
 :traps  7
 :solves 16
 :solve  RuLdlUrrrrrdLullllDrdrrrddrUl
-:note   TODO note — set 5 of 10, the same board as the last one, with one more container full
+:note   Set 5, rung 3. Both fill, and the room stops having a spare square at all.
 :grid
 #-#####
 --B----
@@ -316,12 +316,12 @@ PP-------
 :end
 
 :level  L46
-:name   TODO name L46
+:name   The Corner Jug
 :par    9
 :traps  3
 :solves 1
 :solve  DrrrrruRu
-:note   TODO note — set 6 of 10, H 9x5 gap@2w4 cut2/1, opens the set
+:note   Set 6 of 10, opener. A jug in one corner and a bin across the room. Short, and it still needs the pour placed right.
 :grid
 ######E-
 @####---
@@ -338,12 +338,12 @@ j------B
 :end
 
 :level  L47
-:name   TODO name L47
+:name   Company
 :par    20
 :traps  4
 :solves 1
 :solve  DrrrrruRDDldRuuuurDl
-:note   TODO note — set 6 of 10, the same board as the last one, with one more thing in it
+:note   Set 6, rung 2. A second bin, and where the jug is emptied stops being a free choice.
 :grid
 ######E-
 @####---
@@ -360,12 +360,12 @@ j------B
 :end
 
 :level  L48
-:name   TODO name L48
+:name   A Crowd
 :par    22
 :traps  4
 :solves 1
 :solve  DrRdrrruuRDDldRuuuurDl
-:note   TODO note — set 6 of 10, the same board as the last one, with one more thing in it
+:note   Set 6, rung 3. A third. Where the water goes has to be settled before the first bin moves.
 :grid
 ######E-
 @####---
@@ -382,12 +382,12 @@ j-B----B
 :end
 
 :level  L49
-:name   TODO name L49
+:name   Behind the Couch
 :par    10
 :traps  16
 :solves 21
 :solve  UrDrrRulll
-:note   TODO note — set 7 of 10, H 9x5 gap@3w4 cut2/1, opens the set
+:note   Set 7 of 10, opener. The couch sits beside the exit, so the door is approached along one edge or not at all.
 :grid
 -######--
 F######-b
@@ -397,12 +397,12 @@ FE-------
 :end
 
 :level  L50
-:name   TODO name L50
+:name   Heavier
 :par    14
 :traps  9
 :solves 6
 :solve  UrrdrRulllldRu
-:note   TODO note — set 7 of 10, the same board as the last one, with one more container full
+:note   Set 7, rung 2. The bin at the raccoon's feet fills, and the first move starts costing something.
 :grid
 -######--
 F######-b
@@ -412,12 +412,12 @@ FE-------
 :end
 
 :level  L51
-:name   TODO name L51
+:name   Heavier Still
 :par    26
 :traps  6
 :solves 2
 :solve  UrrdrRurrruurDldllllllldRu
-:note   TODO note — set 7 of 10, the same board as the last one, with one more container full
+:note   Set 7, rung 3. The far bin fills too, and the room gets walked end to end twice.
 :grid
 -######--
 F######-B
@@ -427,12 +427,12 @@ FE-------
 :end
 
 :level  L52
-:name   TODO name L52
+:name   Crossing the Floor
 :par    14
 :traps  3
 :solves 3
 :solve  DlllllllDlluR!l
-:note   TODO note — set 8 of 10, H 11x5 gap@3w4 cut1/2, opens the set
+:note   Set 8 of 10, opener. The widest room in the act: exit hard left, raccoon hard right, a couch pinning the far corner.
 :grid
 #--####--@#
 E$-------FF
@@ -447,12 +447,12 @@ E$-------FF
 :end
 
 :level  L53
-:name   TODO name L53
+:name   Something in the Path
 :par    18
 :traps  15
 :solves 12
 :solve  DDlllllluRllDlluR!l
-:note   TODO note — set 8 of 10, the same board as the last one, with one more thing in it
+:note   Set 8, rung 2. A bin set down in the middle of the crossing.
 :grid
 #--####--@#
 E$--B----FF
@@ -467,12 +467,12 @@ E$--B----FF
 :end
 
 :level  L54
-:name   TODO name L54
+:name   And a Bag Besides
 :par    20
 :traps  45
 :solves 1
 :solve  DDlU!dllllluRllDlluR!l
-:note   TODO note — set 8 of 10, the same board as the last one, with one more thing in it
+:note   Set 8, rung 3. And a loose bag beside the couch, which has to be torn where the mess will not block the way back.
 :grid
 #--####--@#
 E$--B---$FF
@@ -487,12 +487,12 @@ E$--B---$FF
 :end
 
 :level  L55
-:name   TODO name L55
+:name   The Door Is Right There
 :par    19
 :traps  4
 :solves 3
 :solve  dDrdddLluRdrUuuluRl
-:note   TODO note — set 9 of 10, H-rot 8x6 gap@2h2 cut3/3, opens the set
+:note   Set 9 of 10, opener. The only rotated H in the act — the neck runs top to bottom. The exit is one step from the start and unusable until the far end is clear.
 :grid
 ###@----
 ###E---B
@@ -511,12 +511,12 @@ E$--B---$FF
 :end
 
 :level  L56
-:name   TODO name L56
+:name   Down and Back
 :par    21
 :traps  9
 :solves 6
 :solve  dDrdddLluRdrRlUuuluRl
-:note   TODO note — set 9 of 10, the same board as the last one, with one more thing in it
+:note   Set 9, rung 2. A bin at the bottom of the lower chamber, so the trip down is no longer optional.
 :grid
 ###@----
 ###E---B
@@ -535,12 +535,12 @@ E$--B---$FF
 :end
 
 :level  L57
-:name   TODO name L57
+:name   Down and Back Twice
 :par    23
 :traps  16
 :solves 12
 :solve  dDrdddLluRdrRlURluuluRl
-:note   TODO note — set 9 of 10, the same board as the last one, with one more thing in it
+:note   Set 9, rung 3. Two down there now, and they are in each other's way.
 :grid
 ###@----
 ###E---B
@@ -559,12 +559,12 @@ E$--B---$FF
 :end
 
 :level  L58
-:name   TODO name L58
+:name   Short Way Home
 :par    8
 :traps  22
 :solves 2
 :solve  luUluRul
-:note   TODO note — set 10 of 10, H 8x5 gap@3w3 cut1/2, opens the set
+:note   Set 10 of 10, opener. The shortest par in the act: a bin and an empty wheelie sharing one narrow shelf.
 :grid
 E--#####
 --------
@@ -581,12 +581,12 @@ E--#####
 :end
 
 :level  L59
-:name   TODO name L59
+:name   One More First
 :par    12
 :traps  21
 :solves 3
 :solve  luURruLulDul
-:note   TODO note — set 10 of 10, the same board as the last one, with one more thing in it
+:note   Set 10, rung 2. A bin behind him at the mouth of the corridor, so the way out is also the way back.
 :grid
 E--#####
 --------
@@ -603,12 +603,12 @@ B-@####-
 :end
 
 :level  L60
-:name   TODO name L60
+:name   Last Collection
 :par    22
 :traps  28
 :solves 9
 :solve  luURrurrrrDullllLulDul
-:note   TODO note — set 10 of 10, the same board as the last one, with one more thing in it
+:note   Set 10, rung 3. A third at the far end, and the act closes by asking for the whole floor.
 :grid
 E--#####
 --------
