@@ -328,11 +328,15 @@ export function explain(s, dir, opts = {}) {
     ? { ok: true, kind, next, frames: [cloneState(s), next], steps: [step] }
     : { ok: true, kind, next };
 
-  const stepOnto = () => {
-    const next = cloneState(s);
-    next.rac = { x: tx, y: ty };
-    return done(next, MOVE, mkStep());          // only the raccoon, and he rides on `rac`
-  };
+  // Only the raccoon moves, and he rides on `rac` — so the board the step lands on is the board
+  // it started from, and the new state SHARES it rather than copying it. Sound because every
+  // path in here that writes to a board calls `cloneState` first and writes to that; a shared
+  // board is never the one being written. Worth doing because walking is most of what a state
+  // graph is made of: the solver generates one of these per free direction per state, and
+  // copying a cell object per cell for a step that changes no cell was the tool chain's
+  // largest single cost, in allocation and then again in collection.
+  const stepOnto = () =>
+    done({ cols: s.cols, rows: s.rows, cells: s.cells, rac: { x: tx, y: ty } }, MOVE, mkStep());
 
   if (target.water && !isRoller(target)) return { ok: false, reason: 'water', blame: [[tx, ty]] };
 
@@ -502,6 +506,13 @@ export const isWon = s => bagsLeft(s) === 0 && trashHeld(s) === 0 && atExit(s);
  *
  * Packed one character per cell and offset off 'A' rather than joined as decimals, which turn
  * ambiguous at two digits — `1,0,10` and `10,1,0` both render as "1010".
+ *
+ * The board half of this key is recomputed for every walk, and a walk shares the board it came
+ * from, so it could be cached against the cells array and reused. It is not, deliberately: the
+ * cache would be correct only while nothing writes to a board after it has been keyed, that is
+ * true today by accident of where the writes happen, and a future write in the wrong place
+ * would not throw or fail a test — it would hand the solver a stale key and a wrong answer for
+ * a board it thinks it has already seen. Measured, it was worth about four percent.
  */
 // One pass with lazy label maps: this runs once per state generated, and most boards have
 // neither furniture nor a cart.

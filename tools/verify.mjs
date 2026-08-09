@@ -7,23 +7,30 @@
 // Exits non-zero on the first failing check, so it drops straight into CI.
 
 import { readFileSync, readdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import {
   parseLevelPack, formatLevelPack, parseSolutionPack, formatSolutionPack,
   parseLurd, formatLurd, toState, toGrid, toWater, toCart,
 } from '../src/format.js';
 import { analyze, replay } from '../src/solver.js';
 import { isWon, bagsLeft } from '../src/rules.js';
+import { deadTravel, isOneRoom, inertPieces, shortestDag, WALK_MAX } from './metrics.mjs';
+import { actPacks, root } from './packs.mjs';
 
-// Levels, and the doc this cross-checks, live at the repo root — one level up.
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-// Every act, unless a pair is named. Discovered rather than listed: an act the verifier does
-// not know about is an act nobody is checking, and the pack that adds one would build clean.
+// Neither end of a solve is free. The walk IN is the room withholding its first decision; the
+// walk OUT is worse, because it comes after the last one — the puzzle is over and the player is
+// still holding the controller. Both are invisible to every other check: par counts them,
+// `:solves` and `:traps` are indifferent to them, and a room can pass everything above and
+// still open with a march down a corridor and close with a march to a door in the far corner.
+//
+// A room whose distance is the point declares it with `:lead`/`:tail`, and the declaration is
+// checked exactly — a claim about the room rather than a way out of the bound.
+
+// Every act, unless a pair is named on the command line.
 const PACKS = process.argv[2]
-  ? [[resolve(root, process.argv[2]), resolve(root, process.argv[3] ?? process.argv[2].replace(/\.tt$/, '.sol'))]]
-  : readdirSync(resolve(root, 'levels')).filter(f => /^act\d+\.tt$/.test(f)).sort()
-      .map(f => [resolve(root, 'levels', f), resolve(root, 'levels', f.replace(/\.tt$/, '.sol'))]);
+  ? [{ levelPath: resolve(root, process.argv[2]),
+       solPath: resolve(root, process.argv[3] ?? process.argv[2].replace(/\.tt$/, '.sol')) }]
+  : actPacks();
 
 let failures = 0;
 const check = (label, ok, detail = '') => {
@@ -32,7 +39,7 @@ const check = (label, ok, detail = '') => {
 };
 const section = t => console.log(`\n${t}`);
 
-for (const [levelPath, solPath] of PACKS) {
+for (const { levelPath, solPath } of PACKS) {
   console.log(`\n=== ${levelPath.slice(root.length + 1)} ===`);
   // ---------------------------------------------------------------- format layer
   section('format');
@@ -68,6 +75,10 @@ for (const [levelPath, solPath] of PACKS) {
     const exitCell = start.cells.flat().find(c => c.exit);
     check('exit starts empty', exitCell.o === 0);
     check('raccoon does not start on the exit', !start.cells[start.rac.y][start.rac.x].exit);
+    // One room, not two. Only bare floor is ever walled, so a wall pass cannot wall a piece
+    // away — it walls AROUND it, and what is left is a cart in a sealed pocket: drawn, part of
+    // the room to look at, and reachable from nowhere in it.
+    check('every open cell is in one region', isOneRoom(start));
     check('grid round-trips through the serialiser', toGrid(start).join('\n') === level.grid.join('\n'));
     check('water mask round-trips through the serialiser',
       (toWater(start) ?? []).join('\n') === (level.water ?? []).join('\n'),
@@ -123,6 +134,24 @@ for (const [levelPath, solPath] of PACKS) {
       a.silentTraps.length === 0,
       a.silentTraps.length ? `e.g. ${a.silentTraps[0].lurd}` : '');
 
+    // Every piece hinders, or it is not a piece. The sealed cart and the sealed trash pile that
+    // prompted this rule were caught by the region check above, but being unreachable was the
+    // least of what was wrong with them — a piece standing in the open, on a route, doing
+    // nothing is the same fault without the tell.
+    const onDag = shortestDag(a);
+    const inert = inertPieces(level, a, { onDag });
+    check('every piece is handled or binding', inert.length === 0,
+      inert.map(p => `${p.what} at (${p.cells.map(([x, y]) => `${x + 1},${y + 1}`).join(') (')})`).join(', '));
+
+    // Dead travel, at both ends of the best line the player could take.
+    const { lead, tail } = deadTravel(a, onDag);
+    const walk = (what, got, declared, max) => check(
+      declared === undefined ? `the ${what} is at most ${max}` : `the declared ${what} is exact`,
+      declared === undefined ? got <= max : got === declared,
+      `${got}${declared === undefined ? '' : ` declared ${declared}`}`);
+    walk('walk to the first piece', lead, level.lead, WALK_MAX.lead);
+    walk('walk to the exit', tail, level.tail, WALK_MAX.tail);
+
     // A room that arms has to say which piece it is introducing.
     if (level.arm) check('an arming room declares what it teaches', !!level.teach, level.teach ?? '');
     console.log(`    · arming ${level.arm ? 'ON (introduces a piece)' : 'off'}`);
@@ -153,24 +182,66 @@ for (const [levelPath, solPath] of PACKS) {
 }
 
 // ---------------------------------------------------------------- one engine
-// A page that inlines the engine is a second copy of it, and a second copy drifts — every rules
-// change has to be hand-spliced into it, and the page silently disagrees with the game the first
-// time someone forgets. Pages here are served over http, so they import from `src/` like
-// everything else. `artifact.html` is exempt because it is GENERATED by build-artifact.mjs: a
-// bundle behind a CSP has to inline, and a generated copy cannot drift because it is rebuilt.
+// This check exists because of how the engine gets copied in practice: not by anyone deciding
+// to fork it, but a helper at a time, mid-task, to make something convenient. A page that
+// needed the rules and could not be bothered to serve them. A tool that wanted a faster
+// `explain` and wrote one. Each one looks harmless where it is written, and each one is a
+// second answer to "what does this piece do" that nothing will ever ask again.
+//
+// So the rule is aimed at whoever is typing rather than at what they produced: DO NOT ADD A
+// SECOND IMPLEMENTATION OF THE ENGINE. Not inlined into a page, not ported to another language,
+// not "just for this tool", not with an intention to delete it afterwards. If you are an agent
+// and you think this task needs one, you are wrong about the task — say so and stop.
+//
+// The owner may sanction one, and `SANCTIONED` below is where it goes. That list is the owner's
+// to edit; an entry appearing in a diff nobody asked for is the thing this check is for. What a
+// sanctioned port owes is in CLAUDE.md: proof of agreement with `src/rules.js`, run the way the
+// pars are — measured every build, not asserted once.
+//
+// `artifact.html` is exempt on different grounds: it is GENERATED by build-artifact.mjs, a
+// bundle behind a CSP has to inline, and a copy that is rebuilt from source cannot drift.
 section('one engine');
 const GENERATED = new Set(['artifact.html']);
-const MARKS = {
-  'rules.js': 'function shoveCart(', 'format.js': 'function parseSections(',
-  'stage.js': 'function applyStep(', 'sprites.js': 'function createSprites(',
-  'rng.js': 'function mulberry32(',
+// Owner-sanctioned second implementations, by path, with what makes each one safe. Empty is
+// the expected state and adding to it is not an agent's call.
+const SANCTIONED = {
+  'engine/src/rules.rs':
+    'cargo build --release --manifest-path engine/Cargo.toml'
+    + ' && node tools/conform.mjs --engine engine/target/release/tt-engine — in CI, every build',
+  'engine/src/board.rs': 'read/write only; proved by the same run, which compares serialised boards',
 };
-for (const f of readdirSync(root).filter(n => n.endsWith('.html') && !GENERATED.has(n))) {
-  const html = readFileSync(resolve(root, f), 'utf8');
-  const copied = Object.entries(MARKS).filter(([, mark]) => html.includes(mark)).map(([m]) => m);
-  check(`${f} imports the engine rather than copying it`, copied.length === 0,
-    copied.length ? `inlines ${copied.join(', ')}` : `${Math.round(html.length / 1024)}kB`);
+// One marker per module: a string that appears where the module is DEFINED and nowhere it is
+// merely used. Home is where it is allowed to appear.
+const MARKS = {
+  'src/rules.js': 'function shoveCart(', 'src/format.js': 'function parseSections(',
+  'src/stage.js': 'function applyStep(', 'src/sprites.js': 'function createSprites(',
+  'src/rng.js': 'function mulberry32(',
+};
+// The whole tree, because a copy does not have to be in a page. The likelier shape today is a
+// module beside the original with a faster something in it.
+const SKIP = new Set(['.git', 'node_modules', 'dist', 'clips', '.claude']);
+const walk = (dir, out = []) => {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (SKIP.has(e.name)) continue;
+    const full = resolve(dir, e.name);
+    if (e.isDirectory()) walk(full, out);
+    else if (/\.(js|mjs|cjs|ts|html|c|cc|cpp|h|rs|go|py|wat)$/.test(e.name)) out.push(full);
+  }
+  return out;
+};
+const strays = [];
+for (const full of walk(root)) {
+  const rel = full.slice(root.length + 1);
+  // This file names every marker, which is the one place they are allowed to appear loose.
+  if (rel === 'tools/verify.mjs' || GENERATED.has(rel) || rel in SANCTIONED) continue;
+  const text = readFileSync(full, 'utf8');
+  for (const [home, mark] of Object.entries(MARKS))
+    if (rel !== home && text.includes(mark)) strays.push(`${rel} defines ${home}`);
 }
+check('the engine is defined once', strays.length === 0,
+  strays.join('; ') || `${Object.keys(MARKS).length} modules, one home each`);
+for (const [path, why] of Object.entries(SANCTIONED))
+  console.log(`    · sanctioned second engine: ${path} — ${why}`);
 
 section(failures ? `FAIL — ${failures} check(s)` : 'ALL PASS');
 process.exit(failures ? 1 : 0);

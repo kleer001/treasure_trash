@@ -9,12 +9,30 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   stars for matching par, two within a quarter over, one for finishing. The picker greys what
   is done, tallies each act, and folds an act away once it is complete.
 - **Act 2 is shrink-wrapped.** `tools/shrink.mjs` walls off floor no solution touches, per SET
-  so the three rooms keep one outline. Unused floor across the act went 40% to 22% — tighter
-  than Act 1's 27%. Par is untouched by construction, so the *length* of the journey is
-  unchanged; what went is the dead space it crossed.
-- **Act 2 is in: 30 rooms (L31–L60), ten sets of three, every room an H.** Names and notes are
-  still placeholders — that is the open work on it. `src/main.js` has an `ACTS` list,
-  `verify.mjs` discovers `levels/act*.tt`, and `publishing/package.sh` ships all of them.
+  so the three rooms keep one outline. Par is untouched by construction, so the *length* of the
+  journey is unchanged; what went is the dead space it crossed.
+- **Act 2 is re-sited.** Walls could not reach the real complaint: the door was wherever
+  `placeOn` dropped it, so rooms opened with a march to the first piece and closed with a
+  longer one to the exit, and nothing in the pipeline could see it.
+  `tools/resite.mjs` picks the exit and the raccoon together, per set, on `deadTravel`, and
+  `verify.mjs` now bounds both ends of every shipped room — over the bound, a room declares
+  `:lead`/`:tail` and the number is checked exactly.
+- **Every piece hinders, or it is not shipped.** A piece earns its cell by being HANDLED (some
+  shortest solve shoves, tears or spills onto it) or BINDING (take it away and the room answers
+  with a different par, a different number of solves, or a different number of ways to lose).
+  `inertPieces` decides it, `verify.mjs` refuses a pack that carries one, and `sets`, `shrink`,
+  `draft` and `chooseSets` refuse to make, keep or choose one. The wall pass turned out to be
+  the biggest source: it takes the lane a piece was shutting and leaves the piece.
+- **Act 2 is in and named at 30 rooms** (L31–L60): ten sets of three, each set on one H. Nothing
+  placeholder reaches the player. `src/main.js` has an `ACTS` list, `verify.mjs` discovers
+  `levels/act*.tt`, and `publishing/package.sh` ships all of them. The act is however many sets
+  the candidates support; `act2.mjs` prints what it wanted against what it found.
+- **The recycle bin is in 27 of those 30 rooms, and that is a finding rather than a compromise.**
+  It tops the fertility map because one shove does the most: slides the bin a cell, sheds
+  permanent trash a cell beyond it, and leaves an empty bin behind. Holding it down was tried —
+  a bin-free search ten times deeper returned eight sets and not one of them an upgrade, because
+  the upgrade ramp works by filling a container. Piece share is `:traps` all over again, a count
+  standing in for an experience; score the act on ramp, outline, par band and `onPath`.
 - The raccoon's core mechanic is built and playable — every shipped room solvable in a
   provably-minimal par found by exhaustive search rather than asserted.
 - Crow is pinned, parked until the raccoon-alone game proves fun.
@@ -22,8 +40,8 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   `.tt`/`.sol` parser, `solver.js` the exhaustive search, `stage.js` the objects and their
   positions, `sprites.js` the drawings, `main.js` presentation and input. `tools/` is
   offline only — `verify.mjs`, `metrics.mjs`, `build-artifact.mjs`, and the room pipeline
-  (`survey` → `harvest` → `score` → `shapes` → `sets` → `pick`/`act2`) — and `src/` never
-  imports it.
+  (`survey` → `harvest` → `score` → `shapes` → `sets` → `resite` → `shrink` → `pick`/`act2`) —
+  and `src/` never imports it.
 - Levels are data: `levels/*.tt` + `*.sol`, one rules module shared by the player, the
   solver and the tests, and a verifier that proves par minimal rather than trusting it.
 - Objects built and unit-tested: bag, metal can, spilled trash, recycle bin, wheelie bin,
@@ -36,8 +54,27 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   tested to agree with `analyze` on every shipped room.
 - **One engine, one motion system.** `bench-cart.html` is presentation only and imports `src/`,
   and the game animates from the motion `explain(…, {trace:true})` reports rather than from a
-  board diff. Motion is paced per CELL. Nothing may carry its own copy of a module —
-  `verify.mjs` fails the build if a page does.
+  board diff. Motion is paced per CELL. `verify.mjs` fails on a second copy of an engine module
+  anywhere in the tree — see **One engine** in `CLAUDE.md` for who that rule is aimed at, and
+  what a deliberate second implementation owes before it counts as one.
+- **The conformance gate is built and running.** `tools/conform.mjs` asks another
+  implementation what `src/rules.js` would answer — whole rooms, and single boards a direction
+  at a time — over every shipped room and a seeded batch of generated ones, and it is in CI.
+  With nothing registered it runs `tools/conform-ref.mjs`, so the gate is exercised rather than
+  waiting to be trusted the first time it matters. `tests/fixtures/bent-engine.mjs` bends one
+  rule at a time and the tests require each bend to be caught: a harness that cannot fail is a
+  green light wired to nothing. **A port is a `--engine` argument, not a project.**
+- **One port is sanctioned and running: `engine/`, in Rust.** It answers both grains, and it is
+  sanctioned for exactly as long as the CI conformance step is green. Both bends have been
+  demonstrated rather than assumed: break a rule and the harness names the board and the
+  direction; break the SEARCH while every step still agrees and it says so in those words. See
+  **One engine** in `CLAUDE.md`, and `SANCTIONED` in `verify.mjs`, which prints it every run.
+- **The discovery pipeline runs on that port, and the game does not.** `survey`, `harvest` and
+  `sets` use it when it is built and say which engine they used; `--no-engine` forces
+  `src/solver.js`. Nothing in `src/`, in `index.html` or in the shipped bundle names `engine/` —
+  it is a stdio child process of offline tools, and that boundary is the rule, not an accident
+  of how far the port got. Proved equal both ways before it was kept: harvest and sets are
+  byte-identical, survey matches every field but its own stopwatch reading.
 
 ## NEXT MOVE — everything around the mechanic
 `./run.sh`, then pick a room. `npm test` and `node tools/verify.mjs` are green.
@@ -45,13 +82,7 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   pattern is ordered layers via `src/compositor.js`. Worth doing before the art pass. It
   already draws sprites in layer order — that ordering is the thing the compositor should own.
 - **Audio** — procedural WebAudio. The only sound today is the win chime.
-- **Name Act 2.** Thirty rooms ship with `TODO name L31`-style placeholders, and the HUD shows
-  them to the player. Each room's `:note` already says which set and which ramp it belongs to,
-  which is the context to write from.
 - **Art pass.**
-- **`tools/build-artifact.mjs` does not build.** Pre-existing, and not the indicator's doing:
-  the win-chime `fetch` in `main.js` survives bundling and trips the tool's own CSP guard.
-  The served game is unaffected; only the single-file publish path is.
 - `src/logo.js` and `src/compositor.js` are still scaffolding the game does not import;
   `main.js` uses its own inline LCG for confetti rather than `mulberry32`. Wire them in or
   drop them. (`src/rng.js` is now in use — `stage.js` seeds sprites with it.)
@@ -66,7 +97,27 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   geometry, chosen for legibility. It argues against a game about grime; worth revisiting
   with a full board of trash on screen.
 
+## Backlog (tools & speed)
+- **`draft-room.mjs`'s `rooms()` is the redundancy `reroot` was written for.** It yields the
+  product of every exit cell and every raccoon cell, and whoever consumes it enumerates each one
+  from scratch — but for a fixed board and exit, every raccoon start shares one graph, which is
+  what `reroot` walks. Nothing hot goes through `rooms()` today, which is the only reason it has
+  not been done.
+- **Spend representation before you spend a language.** After the shared-board and re-root
+  work the profile is about half `analyze` itself and a sixth garbage collection: string state
+  keys hashed into a `Map`, one object per node, one per edge, one per back-pointer. Integer
+  keys over a flat edge array would plausibly take another 2-4x, inside `src/`, with one engine
+  still — and it is still the cheaper spend, because it costs nothing to keep in agreement.
+  The Rust port is sanctioned and measured: it is what `engine/` is for, and what it owes is
+  above.
+
 ## Backlog (rooms & content)
+- **Act 3 gets searched with the piece cap off.** `--maxpiece` is the last constraint in the
+  chooser nobody has measured — it was set to keep one piece from owning an act, and then the
+  bin turned out to deserve the rooms it takes. Half buys 24 rooms, 0.8 buys 27, 0.9 buys 30,
+  so on the evidence so far the cap only ever costs sets. Run Act 3 at `--maxpiece 1` and judge
+  the two acts on ramp mix, outline count, par band and `onPath` spread. If the unbounded pool
+  wins, delete the flag rather than picking a new number for it.
 - **L7–L13 need regenerating, not re-sorting.** `tools/metrics.mjs` scores them: par
   climbs 13 → 25 while board-changing decisions stay flat at 3–5, so the ladder is built
   out of walking; L11 and L13 have zero coupling between their bags; L11 stays playable
@@ -79,7 +130,9 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   bags (L3), both previews light and the player can't tell them apart. Options: preview only
   the last-moved direction, or tint the two differently.
 - **Playtest the exit.** Mechanically verified but not felt — is the walk to `E` tension
-  or filler? Cheapest test: play L1–L3 and see if the last move is ever a decision.
+  or filler? Cheapest test: play L1–L3 and see if the last move is ever a decision. The bound
+  in `verify.mjs` says how long the walk may be, and nothing says how long it *should* be;
+  that number is a guess until somebody plays it.
 - **The cart tutorial is part-built** — L18 is in, 019–031 are not. The arc, the tool that
   drafts rooms against the verifier, and what the verifier actually requires are all in
   [`BREADCRUMB.md`](./BREADCRUMB.md). Play the bench before designing more; the bench, not this

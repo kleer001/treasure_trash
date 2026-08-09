@@ -112,7 +112,7 @@ function glyphFor(c, isRac, letters) {
 // A directive line starts with ':'. A comment line starts with ';'. Everything
 // between ':grid' and ':end' is taken verbatim, so no glyph can collide with a key.
 
-const INT_KEYS = new Set(['par', 'traps', 'solves']);
+const INT_KEYS = new Set(['par', 'traps', 'solves', 'lead', 'tail']);
 // `:arm on` is input-layer only: it never reaches the rules engine or the solver.
 const BOOL_KEYS = new Set(['arm']);
 const BOOLS = { on: true, off: false, true: true, false: false };
@@ -198,7 +198,7 @@ export function formatLevelPack(pack) {
   out.push(';', `; legend  ${LEGEND.join('  ')}`, ';', '');
   for (const l of pack.levels) {
     out.push(`:level  ${l.id}`);
-    for (const k of ['name', 'teach', 'arm', 'par', 'traps', 'solves', 'solve', 'note']) {
+    for (const k of ['name', 'teach', 'arm', 'par', 'traps', 'solves', 'lead', 'tail', 'solve', 'note']) {
       if (l[k] === undefined) continue;
       if (BOOL_KEYS.has(k) && !l[k]) continue;                 // off is the default: don't write it
       const v = BOOL_KEYS.has(k) ? 'on' : l[k];

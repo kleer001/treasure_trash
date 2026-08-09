@@ -19,16 +19,14 @@
 // LINE — a wall that removes the last way for good play to go wrong has removed the room.
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
+import { defaultWorkers, run, servePass } from './pool.mjs';
+import { isMainThread, workerData } from 'node:worker_threads';
 import { toState } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { measure } from './harvest.mjs';
-import { pathBite } from './metrics.mjs';
-
-const MAX_STATES = 50_000;
+import { pathBite, isOneRoom, deadTravel, inertPieces, shortestDag, MAX_STATES } from './metrics.mjs';
 
 const wallAt = (grid, x, y) =>
   grid.map((row, j) => (j === y ? row.slice(0, x) + '#' + row.slice(x + 1) : row));
@@ -37,15 +35,45 @@ const wallAt = (grid, x, y) =>
 function read(grid, cart) {
   let s;
   try { s = toState({ id: 's', grid, ...(cart && { cart }) }); } catch { return null; }
+  // Only bare floor is ever walled, so a piece is never walled away — it is walled AROUND.
+  // Seal the last route to a cart nobody visits and the cart is still drawn, still looks like
+  // part of the room, and cannot be reached from anywhere in it.
+  if (!isOneRoom(s)) return null;
   let a;
   try { a = analyze(s, { maxStates: MAX_STATES }); }
   catch (e) { if (e instanceof TooManyStates) return null; throw e; }
   if (a.minMoves === null) return null;
   if (a.silentTraps.length) return null;
   if (bagsLeft(s) > 0 && a.exitRefusals === 0) return null;
-  const bite = pathBite(a);
-  return { s, a, par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,
-           onPath: bite.onPath };
+  // One DAG for the three measures that read it, and `inert` computed on demand: it costs about
+  // as much as the `analyze` above, and `holds` rejects most candidates before it looks.
+  const onDag = shortestDag(a);
+  return { room: { grid, ...(cart && { cart }) }, a, onDag,
+           par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,
+           onPath: pathBite(a, onDag).onPath, ...deadTravel(a, onDag) };
+}
+
+/** The count `holds` guards on, asked separately because asking is as dear as the `analyze`. */
+const inertCount = r => inertPieces(r.room, r.a, { onDag: r.onDag }).length;
+
+/**
+ * Crop to the box that still holds something. A wall pass can retire a whole side of the
+ * outline, and what is left is frame: the room is drawn from the grid, so those columns are
+ * blank screen the player is asked to look at.
+ *
+ * One box for the set, because three rooms cropped to their own contents are three rooms of
+ * different sizes, and the shared outline is the set.
+ */
+function crop(grids, carts) {
+  const h = grids[0].length, w = grids[0][0].length;
+  let top = h, left = w, bottom = -1, right = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (grids.every(g => g[y][x] === '#')) continue;
+    top = Math.min(top, y); bottom = Math.max(bottom, y);
+    left = Math.min(left, x); right = Math.max(right, x);
+  }
+  const cut = rows => rows.slice(top, bottom + 1).map(r => r.slice(left, right + 1));
+  return [grids.map(cut), carts.map(c => c && cut(c))];
 }
 
 /**
@@ -58,12 +86,21 @@ export function shrinkSet(set) {
   const base = grids.map((g, i) => read(g, carts[i]));
   if (base.some(b => b === null)) return null;
 
+  const baseInert = base.map(inertCount);
   const holds = cand => cand.every((g, i) => {
     const now = read(g, carts[i]);
     if (!now) return false;
     if (now.par !== base[i].par) return false;              // the room must ask the same thing
     if (now.solves > base[i].solves) return false;          // and not get looser
     if (now.traps < 1) return false;
+    // A wall keeps par and may drop optimal lines, so it can take away the line that walked
+    // least and leave a longer walk at the same length. `resite` chose that pair; this may
+    // not undo it.
+    if (now.lead > base[i].lead || now.tail > base[i].tail) return false;
+    // A piece is binding because of the lane it shuts. Wall the lane and the piece is still
+    // standing there, shutting nothing — this pass is the largest single source of pieces that
+    // do nothing, and it makes them out of pieces that were working a moment earlier.
+    if (inertCount(now) > baseInert[i]) return false;
     // Bite on the optimal line is the thing worth protecting. Off-line traps are expendable;
     // this is not.
     return now.onPath >= base[i].onPath - 1e-9;
@@ -81,8 +118,9 @@ export function shrinkSet(set) {
     }
   }
 
-  const rooms = grids.map((grid, i) => {
-    const room = { grid, ...(carts[i] && { cart: carts[i] }) };
+  const [cropped, croppedCarts] = crop(grids, carts);
+  const rooms = cropped.map((grid, i) => {
+    const room = { grid, ...(croppedCarts[i] && { cart: croppedCarts[i] }) };
     const s = toState({ id: 'r', ...room });
     const a = analyze(s, { maxStates: MAX_STATES });
     return measure(set.rooms[i].group, room, s, a, grid[0].length, grid.length);
@@ -92,39 +130,19 @@ export function shrinkSet(set) {
 
 const floorOf = g => g.join('').split('-').length - 1;
 
-if (!isMainThread && workerData?.tool === 'shrink') {
-  // Each result carries the index it came in on: workers finish out of order, and a file whose
-  // order depends on which core was quickest is a file that reorders itself every run.
-  parentPort.postMessage(workerData.chunk.map(({ at, set }) => {
-    try { return { at, set: shrinkSet(set) ?? set }; } catch { return { at, set }; }
-  }));
-} else if (import.meta.url === `file://${process.argv[1]}`) {
+if (!isMainThread && workerData?.tool === 'shrink') servePass(shrinkSet);
+else if (import.meta.url === `file://${process.argv[1]}`) {
   const str = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d : process.argv[i + 1]; };
   const num = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d : Number(process.argv[i + 1]); };
   const inPath = str('--in', 'levels/sets.jsonl');
   const outPath = str('--out', 'levels/sets.jsonl');
-  const workers = num('--workers', Math.max(1, availableParallelism() - 2));
+  const workers = num('--workers', defaultWorkers());
 
   const sets = readFileSync(inPath, 'utf8').trim().split('\n').map(JSON.parse);
   const wasFloor = sets.flatMap(s => s.rooms.map(r => floorOf(r.grid)));
   console.log(`${sets.length} sets, ${wasFloor.length} rooms, ${workers} workers\n`);
 
-  const chunks = Array.from({ length: workers }, () => []);
-  sets.forEach((set, at) => chunks[at % workers].push({ at, set }));
-  const self = fileURLToPath(import.meta.url);
-  const t0 = Date.now();
-  const out = new Array(sets.length);
-  let done = 0;
-  await Promise.all(chunks.filter(c => c.length).map(chunk => new Promise((res, rej) => {
-    const w = new Worker(self, { workerData: { tool: 'shrink', chunk } });
-    w.on('message', got => {
-      for (const { at, set } of got) out[at] = set;
-      done += got.length;
-      console.log(`  ${done}/${sets.length} sets  (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
-      res();
-    });
-    w.on('error', rej);
-  })));
+  const out = await run({ self: fileURLToPath(import.meta.url), tool: 'shrink', items: sets, workers });
 
   const nowFloor = out.flatMap(s => s.rooms.map(r => floorOf(r.grid)));
   const sum = a => a.reduce((x, y) => x + y, 0);

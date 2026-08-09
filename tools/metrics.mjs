@@ -21,14 +21,21 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { parseLevelPack, parseLurd, toState } from '../src/format.js';
-import { analyze } from '../src/solver.js';
+import { parseLevelPack, parseLurd, toState, toGrid, toCart } from '../src/format.js';
+import { analyze, TooManyStates } from '../src/solver.js';
 import {
-  DIR_ORDER, DIRS, MOVE, TEAR, BAG, explain, cell, fan, canStand, isOccupiable, bagsLeft,
+  DIR_ORDER, DIRS, MOVE, TEAR, BAG, NONE, explain, cell, fan, canStand, isOccupiable, bagsLeft,
   isWon,
 } from '../src/rules.js';
 
 const FAN_CELLS = fan(0, 0, 1, 0).length;
+
+/**
+ * The enumeration budget the offline pipeline works to. One number, because a predicate answered
+ * under one budget in one tool and a larger one in the next is a pipeline that rejects what it
+ * just produced, for a reason visible in neither file.
+ */
+export const MAX_STATES = 50_000;
 
 /** Dry ground: the floor budget a room starts with, before anything stands on it. */
 const floorCells = s => s.cells.flat().filter(c => !c.wall && !c.water).length;
@@ -211,10 +218,23 @@ export function solveShape(start, actions) {
  *   onPath      fraction of the solve's depths at which optimal play can still lose the room
  *   firstOnPath the earliest such depth, or null if optimal play can never go wrong
  */
-export function pathBite(a) {
-  const par = a.minMoves;
-  if (par === null) return { onPath: 0, bitten: 0, firstOnPath: null };
+/**
+ * Every edge of the shortest-solve DAG that does work — a piece moves, tears or spills. What
+ * both the dead-travel measure and the inert-piece test are actually asking about, so it is
+ * defined once: two copies of this predicate would let `lead`/`tail` say a room does work at a
+ * depth where `inertPieces` says nothing was touched.
+ */
+function* dagWork(a, onDag = shortestDag(a)) {
+  for (const key of onDag) {
+    const n = a.states.get(key);
+    for (const e of n.edges)
+      if (e.kind !== MOVE && onDag.has(e.to) && a.states.get(e.to).depth === n.depth + 1)
+        yield [n, e];
+  }
+}
 
+export function shortestDag(a) {
+  const par = a.minMoves;
   const onDag = new Set();
   for (const [k, n] of a.states) if (n.depth === par && isWon(n.state)) onDag.add(k);
   const byDepth = [];
@@ -223,6 +243,12 @@ export function pathBite(a) {
     for (const k of byDepth[d - 1] ?? [])
       if (a.states.get(k).edges.some(e => onDag.has(e.to) && a.states.get(e.to).depth === d))
         onDag.add(k);
+  return onDag;
+}
+
+export function pathBite(a, onDag = shortestDag(a)) {
+  const par = a.minMoves;
+  if (par === null) return { onPath: 0, bitten: 0, firstOnPath: null };
 
   const bittenAt = new Array(par).fill(false);
   for (const k of onDag) {
@@ -233,6 +259,139 @@ export function pathBite(a) {
   const bitten = bittenAt.filter(Boolean).length;
   const first = bittenAt.indexOf(true);
   return { onPath: bitten / par, bitten, firstOnPath: first === -1 ? null : first };
+}
+
+/**
+ * How much dead travel a room may have before it has to say so.
+ *
+ * `verify.mjs` holds the pack to this and `chooseSets` will not pick a set that would fail it,
+ * so the gate and the generator cannot disagree about what a well-sited room is. A shipped room
+ * over the bound declares `:lead`/`:tail` and has the number checked exactly; nothing computes
+ * a reason to write one, so a generated room is simply held to the bound.
+ */
+export const WALK_MAX = { lead: 4, tail: 4 };
+
+/**
+ * The two stretches of the best line on which nothing happens.
+ *
+ *   lead  actions before the first one that touches a piece — the walk in
+ *   tail  actions after the last one — the walk to the exit
+ *
+ * Both are the best the player can do, taken over the whole shortest-solve DAG rather than one
+ * canonical line, because a player solving optimally may take any of them. A room with nothing
+ * to touch is all walk: `lead` 0 and `tail` the whole par.
+ *
+ * Dead travel is not difficulty and it is not measured by anything else here. Par counts it,
+ * `walks` counts it wherever it falls, and `onPath` is a fraction of a par it inflates — so a
+ * room can walk the player clear across itself after the last decision and read clean on
+ * every other number.
+ */
+export function deadTravel(a, onDag) {
+  const par = a.minMoves;
+  if (par === null) return { lead: 0, tail: 0 };
+  let firstWork = par, lastWork = 0, worked = false;
+  for (const [n] of dagWork(a, onDag ?? shortestDag(a))) {
+    worked = true;
+    if (n.depth < firstWork) firstWork = n.depth;
+    if (n.depth + 1 > lastWork) lastWork = n.depth + 1;
+  }
+  return { lead: worked ? firstWork : 0, tail: par - lastWork };
+}
+
+// ---------------------------------------------------------------- inert pieces
+// Everything on the board is there to hinder: to block a lane, to be shoved out of one, to
+// give the player a way to lose. A piece that does none of the three is furniture in the
+// decorative sense — the player learns to read the board, finds it says nothing, and learns
+// instead that the board may be lying. Reachability is not the question, though the two look
+// alike from a sealed pocket: a piece can sit in the open, on a route, and still do nothing.
+
+/**
+ * The pieces of a built board: one entry per furniture blob, per cart, and per other occupant,
+ * each carrying the cells it stands on and which block of the file writes it.
+ *
+ * Read off the STATE rather than off the grid text, because `toState` has already decided all
+ * of this — `pid` and `cart` are the 4-connected blobs `labelBlobs` labelled, and `o` is the
+ * occupant. A second reading here would be a second glyph table, and the day `rules.js` grows
+ * an occupant code (which CLAUDE.md invites) the table left behind would not know it: the new
+ * piece would simply stop being a piece, silently exempt from the gate below.
+ */
+export function roomPieces(s) {
+  const grid = toGrid(s), cart = toCart(s);
+  const out = [], furn = new Map(), carts = new Map();
+  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) {
+    const c = s.cells[y][x];
+    if (c.pid !== undefined) group(furn, c.pid, 'grid', grid[y][x], x, y);
+    else if (c.o !== NONE) out.push({ what: grid[y][x], block: 'grid', cells: [[x, y]] });
+    // A cart is its mask, and its cargo is an occupant standing in it — two pieces, one cell.
+    if (c.cart !== undefined) group(carts, c.cart, 'cart', cart[y][x], x, y);
+  }
+  return [...out, ...furn.values(), ...carts.values()];
+}
+
+const group = (into, id, block, what, x, y) => {
+  const piece = into.get(id) ?? { what, block, cells: [] };
+  piece.cells.push([x, y]);
+  into.set(id, piece);
+};
+
+/** Every cell any shortest solve reads or writes — what the pieces in play are standing on. */
+function handledCells(a, onDag) {
+  const hit = new Set();
+  const add = ([x, y]) => hit.add(`${x},${y}`);
+  for (const [n, e] of dagWork(a, onDag ?? shortestDag(a))) {
+    const [dx, dy] = DIRS[e.dir];
+    add([n.state.rac.x + dx, n.state.rac.y + dy]);         // the cell shoved or torn into
+    for (const st of explain(n.state, e.dir, { trace: true }).steps ?? []) {
+      for (const m of st.moved) { add(m.from); add(m.to); }
+      for (const s of st.spawned) { add(s.at); add(s.from); }
+      for (const g of st.gone) add(g.at);
+    }
+  }
+  return hit;
+}
+
+/** What a room answers, in the three numbers a piece could change by being there. */
+const answerKey = a => `${a.minMoves}|${a.shortestCount}|${a.traps.length}`;
+
+// Taking a piece off the board gives its cells back, so the room MINUS a piece can enumerate
+// far larger than the room with it — this is the one analyze in the toolchain whose cost is not
+// bounded by the room that was asked about. Past the bound the question is unanswerable, and an
+// unanswerable question is not evidence, so it reads as "not shown to be inert" — which is what
+// `null` means here, and equally what a board too broken to build means.
+const answerWithout = (room, maxStates) => {
+  try { return answerKey(analyze(toState({ id: 'inert', ...room }), { maxStates })); }
+  catch (e) { if (e instanceof TooManyStates) return null; throw e; }
+};
+
+const erase = (room, piece) => {
+  const wipe = block => block.map((row, y) => [...row]
+    .map((ch, x) => (piece.cells.some(([px, py]) => px === x && py === y) ? '-' : ch)).join(''));
+  return piece.block === 'grid'
+    ? { ...room, grid: wipe(room.grid) }
+    : { ...room, cart: wipe(room.cart) };
+};
+
+/**
+ * The pieces this room would play identically without.
+ *
+ * A piece earns its cell one of two ways, and either is enough:
+ *
+ *   HANDLED    some shortest solve touches it — shoves it, tears it, spills onto it, or shoves
+ *              something else into it. It is part of the work.
+ *   BINDING    take it away and the room answers differently: a different par, a different
+ *              number of ways to solve it, or a different number of ways to lose. It never
+ *              moves and it does not have to; it is the reason the lane it stands in is shut.
+ *
+ * Neither is reachability, and reachability is not a third way. A piece the player can walk up
+ * to, look at, and ignore has failed both.
+ */
+export function inertPieces(room, a, { maxStates = MAX_STATES, onDag } = {}) {
+  if (a.minMoves === null) return [];
+  const hit = handledCells(a, onDag);
+  const base = answerKey(a);
+  return roomPieces(toState({ id: 'inert', ...room })).filter(p =>
+    !p.cells.some(([x, y]) => hit.has(`${x},${y}`))
+    && answerWithout(erase(room, p), maxStates) === base);
 }
 
 // ---------------------------------------------------------------- room structure
@@ -280,6 +439,17 @@ export function floorIsConnected(isFloor, cols, rows) {
   return seen.size === all.length;
 }
 
+/**
+ * `floorIsConnected` over a built board, counting every cell that is not a wall — including
+ * the ones a piece is standing on.
+ *
+ * Bare floor is not the question a finished room asks. A wall pass may only take bare floor,
+ * so a piece it cannot take survives while everything around it goes, and what is left is a
+ * cart in a sealed pocket: on screen, reachable-looking, and not.
+ */
+export const isOneRoom = s =>
+  floorIsConnected((x, y) => !s.cells[y][x].wall, s.cols, s.rows);
+
 /** A floor cell walled on three sides is a niche: dead space, or a trivial parking spot. */
 export function hasNiche(isFloor, cols, rows) {
   for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
@@ -300,9 +470,6 @@ export function metrics(level) {
   const tears = actions.filter(x => x.kind === TEAR).length;
   const walks = actions.length - decisions;
 
-  let opening = 0;
-  while (opening < actions.length && actions[opening].kind === MOVE) opening++;
-
   // Replay to the win to read the surviving floor and count the water the solution filled.
   // `coupling` only sees bag-on-bag interference, so a bag whose fan bridges a canal reads
   // as uncoupled — read `bridges` alongside it.
@@ -321,13 +488,12 @@ export function metrics(level) {
     id: level.id, name: level.name ?? '',
     par: a.minMoves, solves: a.shortestCount, states: a.reachable,
     traps: a.traps.length, exitRefusals: a.exitRefusals,
-    bags, decisions, tears, walks,
+    bags, decisions, tears, walks, ...deadTravel(a),
     // The floor a room is obliged to spend, over the floor it has.
     tightness: +(FAN_CELLS * bags / floor).toFixed(2),
     // What is left to stand on once the room is won. Low = the walk out was threaded.
     slack: freeCells(final),
     walkRatio: decisions ? +(walks / decisions).toFixed(2) : null,
-    opening,
     coupling: (v => v === null ? null : +v.toFixed(2))(coupling(start)),
     bridges,
     order: (o => `${o.safe}/${o.first}`)(orderChoices(a, start)),
@@ -344,7 +510,7 @@ export function metrics(level) {
 // Only when run as a script — `metrics` is imported by tools that scan candidate banks,
 // and a module that prints on import is a module you cannot compose.
 const COLS = [
-  ['id', 4], ['par', 4], ['bags', 5], ['decisions', 10], ['walkRatio', 10], ['opening', 8],
+  ['id', 4], ['par', 4], ['bags', 5], ['decisions', 10], ['walkRatio', 10], ['lead', 5], ['tail', 5],
   ['tightness', 10], ['slack', 6], ['coupling', 9], ['bridges', 8], ['order', 7], ['solves', 7],
   ['traps', 6], ['firstTrap', 10], ['pm', 4], ['firstRefusal', 13], ['firstExitRefusal', 17],
 ];

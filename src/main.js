@@ -556,9 +556,6 @@ document.getElementById('controls').addEventListener('click',e=>{
 });
 
 // Levels are data on disk, in the same pack the verifier checks. Fail loudly.
-// Resolved against this module, not the document: on a project Pages site the page sits a
-// directory down, so a document-relative '../' climbs out of the deployment entirely.
-const asset = p => new URL(p, import.meta.url);
 // Acts are separate files, played end to end. The list is the running order; a room's id is
 // unique across the whole game, so nothing downstream has to know which act it came from.
 const ACTS = ['act1.tt', 'act2.tt'];
@@ -569,17 +566,27 @@ const ACTS = ['act1.tt', 'act2.tt'];
 const actLabel = (name, file) =>
   (name ?? '').split('—').pop().replace(/\s*\(.*\)\s*$/, '').trim()
   || file.replace(/\.tt$/, '');
+// THE ONE PLACE THE GAME READS A FILE, and it is a seam: `tools/build-artifact.mjs` replaces
+// this whole function so a single-file artifact serves the same bytes from inside itself,
+// with no request for the CSP to block. Keep every load going through here — the bundler
+// checks that the function is still findable, but it cannot see a fetch that grew somewhere
+// else, and the CSP will.
+async function loadAsset(path, as){
+  // Resolved against this module, not the document: on a project Pages site the page sits a
+  // directory down, so a document-relative '../' climbs out of the deployment entirely. It
+  // lives in here because `import.meta` is module-only syntax and the bundle is one script —
+  // replacing this function has to take the last mention of it with it.
+  const res = await fetch(new URL(`../${path}`, import.meta.url));
+  if(!res.ok) throw new Error(`cannot load ${path} (${res.status}) — serve with ./run.sh`);
+  return as === 'bytes' ? res.arrayBuffer() : res.text();
+}
 for(const act of ACTS){
-  const res = await fetch(asset(`../levels/${act}`));
-  if(!res.ok) throw new Error(`cannot load levels/${act} (${res.status}) — serve with ./run.sh`);
-  const pack = parseLevelPack(await res.text());
+  const pack = parseLevelPack(await loadAsset(`levels/${act}`));
   const from = LEVELS.length;
   LEVELS.push(...pack.levels);
   ACT_OF.push({ label: actLabel(pack.meta.pack, act), from, to: LEVELS.length - 1 });
 }
-const sfx = await fetch(asset('../sfx/win-chime.mp3'));
-if(!sfx.ok) throw new Error(`cannot load sfx/win-chime.mp3 (${sfx.status}) — serve with ./run.sh`);
-winBytes = await sfx.arrayBuffer();
+winBytes = await loadAsset('sfx/win-chime.mp3', 'bytes');
 // One fold per act, one square per room. Built once; only the current-room marker and which
 // fold is open change as you play. `<details>` rather than a hand-rolled accordion, so the
 // keyboard and the screen reader get the behaviour for free.

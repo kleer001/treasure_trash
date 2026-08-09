@@ -1,0 +1,18 @@
+[package]
+name = "tt-engine"
+version = "0.1.0"
+edition = "2021"
+
+# No dependencies, on purpose. This has to build in CI from a checkout with no network and no
+# vendored registry, next to a game that has no build step at all. The protocol is six fields
+# of JSON; a hand-written reader is smaller than the lockfile a crate would bring.
+
+[[bin]]
+name = "tt-engine"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

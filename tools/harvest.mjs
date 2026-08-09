@@ -15,16 +15,18 @@
 // nothing at all for the cost.
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
+import { isMainThread, workerData } from 'node:worker_threads';
+import { defaultWorkers, run, serve } from './pool.mjs';
+import { engineFor, connect, measureMany, measureHere, TOO_BIG } from './engine.mjs';
 import { toState } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 import { staticallyDead } from './survey.mjs';
 import {
-  solveShape, largestOpenBlock, floorIsConnected, hasNiche, pathBite,
+  solveShape, largestOpenBlock, floorIsConnected, hasNiche, pathBite, deadTravel, inertPieces,
+  shortestDag,
 } from './metrics.mjs';
 import { parseLurd } from '../src/format.js';
 
@@ -126,6 +128,8 @@ export function placeOn(group, plan, w, h, rnd) {
 /** Everything a scorer could want about one keeper, so weights can change without a re-run. */
 export function measure(group, room, s, a, w, h) {
   const acts = parseLurd(a.shortestLurd);
+  // Three of the measures below read the shortest-solve DAG. It is the same DAG.
+  const onDag = shortestDag(a);
   const shape = solveShape(s, acts);
   const trapDepths = a.traps.map(t => parseLurd(t.lurd).length - 1);
   // How far you can keep playing after the room is already lost. A trap noticed at once
@@ -158,7 +162,13 @@ export function measure(group, room, s, a, w, h) {
     biteSteps: new Set(trapDepths).size,
     // Where the ways to lose sit relative to optimal play. Nearly free here — the graph is
     // already built — and it is the number a raw trap count cannot stand in for.
-    ...(({ onPath, bitten, firstOnPath }) => ({ onPath: +onPath.toFixed(3), bitten, firstOnPath }))(pathBite(a)),
+    ...(({ onPath, bitten, firstOnPath }) => ({ onPath: +onPath.toFixed(3), bitten, firstOnPath }))(pathBite(a, onDag)),
+    // The walk in and the walk out. Placement hands the exit a random cell, so a room can be
+    // sound on every other number and still march the player across it after the last decision.
+    ...deadTravel(a, onDag),
+    // Placement drops the other pieces just as blindly, and a piece that lands where it hinders
+    // nothing is decoration. Stored per room because re-siting and walling both change it.
+    inert: inertPieces(room, a, { onDag }).length,
     blind,
     lines: shape.lines, changes: shape.changes, pushes: shape.pushes, pieces: shape.pieces,
     walks: acts.length - shape.pushes,
@@ -169,11 +179,24 @@ export function measure(group, room, s, a, w, h) {
   };
 }
 
-function harvestGroup(group, samples, seed) {
+/**
+ * The engine SCREENS, it does not measure.
+ *
+ * A full row wants the solve string, the trap depths, the box-line shape and the inert test —
+ * the graph itself, none of which is on the wire. But nine placements in ten never get that far:
+ * they are too big, unsolvable, or fail one of the two design rules, and deciding that needs
+ * only the numbers the protocol already carries. So the engine answers every draw, and the JS
+ * enumeration is paid a second time only for the few that survive.
+ */
+async function harvestGroup(group, samples, seed, engine = null) {
   const rnd = mulberry32(seed);
   const keep = [];
-  const stat = { group, samples: 0, noOutline: 0, undrawable: 0, prefiltered: 0, tooBig: 0, solvable: 0 };
+  const stat = { group, samples: 0, noOutline: 0, undrawable: 0, prefiltered: 0, tooBig: 0, inert: 0, solvable: 0 };
   const t0 = Date.now();
+
+  // Drawn first, screened after — the draws come off the seeded stream and none of them depends
+  // on how the last one scored, so the batch can go to the engine in one breath.
+  const drawn = [];
   for (let i = 0; i < samples; i++) {
     stat.samples++;
     const [w, h] = SHAPES[Math.floor(rnd() * SHAPES.length)];
@@ -184,61 +207,67 @@ function harvestGroup(group, samples, seed) {
     let s;
     try { s = toState(room); } catch { stat.undrawable++; continue; }
     if (staticallyDead(s)) { stat.prefiltered++; continue; }
-    let a;
-    try { a = analyze(s, { maxStates: MAX_STATES }); }
-    catch (e) { if (e instanceof TooManyStates) { stat.tooBig++; continue; } throw e; }
-    if (a.minMoves === null) continue;
-    if (bagsLeft(s) > 0 && a.exitRefusals === 0) continue;
-    if (a.silentTraps.length) continue;
+    drawn.push({ room, s, w, h });
+  }
+
+  const screens = engine ? await measureMany(engine, drawn.map(d => d.s), MAX_STATES)
+                         : drawn.map(d => measureHere(d.s, MAX_STATES));
+  for (const [i, r] of screens.entries()) {
+    if (r === TOO_BIG) { stat.tooBig++; continue; }
+    if (r.par === null) continue;
+    const { room, s, w, h } = drawn[i];
+    if (bagsLeft(s) > 0 && r.exitRefusals === 0) continue;
+    if (r.silentTraps) continue;
+    const row = measure(group, room, s, analyze(s, { maxStates: MAX_STATES }), w, h);
+    // A sampled placement that lands a piece where it hinders nothing is a room short one
+    // piece, not a room with a spare. Rejected here rather than carried and filtered later,
+    // because everything downstream would score it on a roster it does not really have.
+    if (row.inert) { stat.inert++; continue; }
     stat.solvable++;
-    keep.push(measure(group, room, s, a, w, h));
+    keep.push(row);
   }
   stat.ms = Date.now() - t0;
   return { stat, keep };
 }
 
 if (!isMainThread && workerData?.tool === 'harvest') {
-  const { chunk, samples, seed } = workerData;
-  chunk.forEach((g, i) => parentPort.postMessage(harvestGroup(g, samples, seed + i)));
-  parentPort.postMessage(null);
+  const { samples, seed, engineBin } = workerData;
+  const engine = engineBin ? connect(engineBin) : null;
+  await serve((g, i) => harvestGroup(g, samples, seed + i, engine));
+  engine?.close();
 } else if (import.meta.url === `file://${process.argv[1]}`) {
   const num = (flag, d) => { const i = process.argv.indexOf(flag); return i === -1 ? d : Number(process.argv[i + 1]); };
   const str = (flag, d) => { const i = process.argv.indexOf(flag); return i === -1 ? d : process.argv[i + 1]; };
   const samples = num('--samples', 400);
-  const workers = num('--workers', Math.max(1, availableParallelism() - 2));
+  const workers = num('--workers', defaultWorkers());
   const minInteresting = num('--min', 6);
   const inPath = str('--in', 'levels/fertility.jsonl');
   const outPath = str('--out', 'levels/harvest.jsonl');
 
+  const engineBin = engineFor(process.argv);
   const map = readFileSync(inPath, 'utf8').trim().split('\n').map(JSON.parse);
   const list = map.filter(r => r.interesting >= minInteresting).map(r => r.group);
   console.log(`${list.length} groups from ${inPath} with >= ${minInteresting} interesting per 200`);
   console.log(`${samples} outlined placements each, ${workers} workers\n`);
 
-  const chunks = Array.from({ length: workers }, () => []);
-  list.forEach((g, i) => chunks[i % workers].push(g));
-
-  const self = fileURLToPath(import.meta.url);
   const t0 = Date.now();
-  const rooms = [], stats = [];
-  let done = 0;
-  await Promise.all(chunks.filter(c => c.length).map((chunk, w) => new Promise((res, rej) => {
-    const worker = new Worker(self, { workerData: { tool: 'harvest', chunk, samples, seed: 7 + w * 10007 } });
-    worker.on('message', msg => {
-      if (msg === null) return res();
-      rooms.push(...msg.keep); stats.push(msg.stat); done++;
-      const el = (Date.now() - t0) / 1000;
-      console.log(`  ${String(done).padStart(3)}/${list.length}  ${msg.stat.group.padEnd(5)}`
-        + ` kept ${String(msg.stat.solvable).padStart(4)}/${msg.stat.samples}`
-        + `  tooBig ${String(msg.stat.tooBig).padStart(3)}  noOutline ${String(msg.stat.noOutline).padStart(3)}`
-        + `  ${(msg.stat.ms / 1000).toFixed(0)}s   [${el.toFixed(0)}s, ~${(done ? (el / done) * (list.length - done) / 60 : 0).toFixed(0)}m left]`);
-    });
-    worker.on('error', rej);
-  })));
+  const got = await run({
+    self: fileURLToPath(import.meta.url), tool: 'harvest', items: list, workers,
+    extra: w => ({ samples, seed: 7 + w * 10007, engineBin }),
+    onItem: ({ got: { stat }, done, total, ms }) => {
+      const el = ms / 1000;
+      console.log(`  ${String(done).padStart(3)}/${total}  ${stat.group.padEnd(5)}`
+        + ` kept ${String(stat.solvable).padStart(4)}/${stat.samples}`
+        + `  tooBig ${String(stat.tooBig).padStart(3)}  noOutline ${String(stat.noOutline).padStart(3)}`
+        + `  ${(stat.ms / 1000).toFixed(0)}s   [${el.toFixed(0)}s, ~${((el / done) * (total - done) / 60).toFixed(0)}m left]`);
+    },
+  });
+  const rooms = got.flatMap(m => m.keep), stats = got.map(m => m.stat);
 
   writeFileSync(outPath, rooms.map(r => JSON.stringify(r)).join('\n') + '\n');
   const S = k => stats.reduce((a, r) => a + r[k], 0);
   console.log(`\n${rooms.length} rooms kept from ${S('samples')} placements in ${((Date.now() - t0) / 1000).toFixed(0)}s`);
-  console.log(`  no outline ${S('noOutline')}  pre-filtered ${S('prefiltered')}  too big ${S('tooBig')}`);
+  console.log(`  no outline ${S('noOutline')}  pre-filtered ${S('prefiltered')}  too big ${S('tooBig')}`
+    + `  inert piece ${S('inert')}`);
   console.log(`  -> ${outPath}`);
 }

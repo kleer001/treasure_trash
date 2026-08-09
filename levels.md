@@ -55,45 +55,58 @@ repo; the bank of candidates it produced is, in `levels/bank.jsonl`.
 
 ## Act 2 — the H act
 
-Thirty rooms in ten sets of three. Every room is an **H**: two chambers joined by a neck, the
-one outline family whose state spaces stay deep rather than bushy. Each set holds one H variant
-and gets harder in a stated way — by filling a container that was already standing there, by
-adding a piece, or by rearranging the same cast. Sets are ordered by how much of the solution
+Sets of three rooms, each set drawn on one **H** — two chambers joined by a neck, the one
+outline family whose state spaces stay deep rather than bushy. What ships is the part of that H
+the rooms use: the exit and the raccoon are sited where they leave the player the least walking,
+and then every cell no solution touches is walled and the frame cropped away, so a set whose
+second chamber was only ever the walk to the door comes out smaller than the H it was drawn on.
+Each set gets harder in a stated way — by filling a container that was already standing there,
+by adding a piece, or by rearranging the same cast. Sets are ordered by how much of the solution
 optimal play can still throw away.
+
+Ten sets, and the recycle bin is in 27 of the 30 rooms. That is deliberate. One shove slides the
+bin a cell, sheds permanent trash a cell beyond it, and leaves an empty bin behind — a body moves,
+an obstacle lands where you chose to put it, and the piece changes state. It is the piece with the
+most in it, which is why it tops the fertility map, and an act built on H outlines leans on it.
+
+Holding the bin down was tried and measured: a bin-free search returned eight sets and not one of
+them an upgrade, because the upgrade ramp works by filling a container and the bin is the
+container that reliably makes a room. `tools/act2.mjs` prints the piece counts every run, so the
+spread stays visible.
 
 The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 
 | Room | Name | Par | Solve |
 |---|---|---|---|
-| L31 | TODO name L31 | 23 | `drrUrrrDDlU!dllulllldlll` |
-| L32 | TODO name L32 | 27 | `drrUrrrDullddrU!dllulllldlll` |
-| L33 | TODO name L33 | 29 | `drrdrrrUddLuluUrD!ulldlllldlll` |
-| L34 | TODO name L34 | 21 | `uurU!drrrdLulDL!rrrrrrr` |
-| L35 | TODO name L35 | 27 | `rddlUluRU!dlllllllluR!lddrrru` |
-| L36 | TODO name L36 | 32 | `uluuurrDrdLdllURRdL!ruRRdL!ruRRRRu` |
-| L37 | TODO name L37 | 18 | `urrrrddrUlulllldll` |
-| L38 | TODO name L38 | 22 | `urrdLurrrddrUlLulllldl` |
-| L39 | TODO name L39 | 24 | `urrrrddrUlulldRullldRlll` |
-| L40 | TODO name L40 | 11 | `dlldddLLuR!l` |
-| L41 | TODO name L41 | 15 | `uluurrdDlU!ddRdr` |
-| L42 | TODO name L42 | 21 | `urrdLulluuLullDurD!urr` |
-| L43 | TODO name L43 | 21 | `lllDrdddLluRdrUuuluRl` |
-| L44 | TODO name L44 | 23 | `lllDrdddLluRdrRlUuuluRl` |
-| L45 | TODO name L45 | 25 | `lllDrdddLluRdrRlURluuluRl` |
-| L46 | TODO name L46 | 8 | `urRuuull` |
-| L47 | TODO name L47 | 26 | `rrUluuurRDdLddRluurD!uuulll` |
-| L48 | TODO name L48 | 38 | `rrruLdlUUruLurRrdLDlddRluurD!uuullDR!lul` |
-| L49 | TODO name L49 | 10 | `luURUrrrrd` |
-| L50 | TODO name L50 | 16 | `luURruLulDrrrrrd` |
-| L51 | TODO name L51 | 18 | `luURruLulDrrrrrrDl` |
-| L52 | TODO name L52 | 22 | `dddlLruUruuLrddlU!drruu` |
-| L53 | TODO name L53 | 27 | `dddlLruruulDdrddLruulD!uuurr` |
-| L54 | TODO name L54 | 34 | `rddlUdlLrurruuLlDdrddLruulD!uuurD!ur` |
-| L55 | TODO name L55 | 15 | `ullulldllluRdDr` |
-| L56 | TODO name L56 | 17 | `ullulldRlllluRdDr` |
-| L57 | TODO name L57 | 21 | `ullulldRlllluRdrddlUr` |
-| L58 | TODO name L58 | 18 | `ruuurrrrrdrUlUdddr` |
-| L59 | TODO name L59 | 22 | `ruuururrdLrrrdrUlUdddr` |
-| L60 | TODO name L60 | 26 | `ruuururrdLrrrdrUlUddrddlUr` |
+| L31 | The Long Aisle | 12 | `LLLLLdllluU!d` |
+| L32 | Something at the Back | 28 | `LLLLLdllluluurrdDRRdLullU!dDu` |
+| L33 | Both Bins Out | 30 | `ulDllLldllluluurrdDrrdLullU!dDu` |
+| L34 | The Back Lot | 11 | `UurrruurrDu` |
+| L35 | Filling Up | 17 | `UurrrddrUluuurrDu` |
+| L36 | Full House | 21 | `UllUrrrrrddrUluuurrDu` |
+| L37 | Moving Day | 14 | `uulDldRD!uullLd` |
+| L38 | Second Thoughts | 17 | `UuLLdR!lllllluRdrr` |
+| L39 | Third Time Around | 21 | `rUruRrrdLrrrrULLddrU!d` |
+| L40 | Rolling Stock | 16 | `RrrrrrdrrUulD!uUl` |
+| L41 | Bin in the Road | 18 | `RurrRdrrdrrUulD!uUl` |
+| L42 | Traffic | 30 | `RrruLullDurrdL!rrRdrrdrrUulD!uUl` |
+| L43 | The Small Yard | 12 | `RurrrdLddrUl` |
+| L44 | Getting Crowded | 14 | `RuLrrrrdLddrUl` |
+| L45 | Nowhere to Put It | 29 | `RuLdlUrrrrrdLullllDrdrrrddrUl` |
+| L46 | The Corner Jug | 9 | `DrrrrruRu` |
+| L47 | Company | 20 | `DrrrrruRDDldRuuuurDl` |
+| L48 | A Crowd | 22 | `DrRdrrruuRDDldRuuuurDl` |
+| L49 | Behind the Couch | 10 | `UrDrrRulll` |
+| L50 | Heavier | 14 | `UrrdrRulllldRu` |
+| L51 | Heavier Still | 26 | `UrrdrRurrruurDldllllllldRu` |
+| L52 | Crossing the Floor | 14 | `DlllllllDlluR!l` |
+| L53 | Something in the Path | 18 | `DDlllllluRllDlluR!l` |
+| L54 | And a Bag Besides | 20 | `DDlU!dllllluRllDlluR!l` |
+| L55 | The Door Is Right There | 19 | `dDrdddLluRdrUuuluRl` |
+| L56 | Down and Back | 21 | `dDrdddLluRdrRlUuuluRl` |
+| L57 | Down and Back Twice | 23 | `dDrdddLluRdrRlURluuluRl` |
+| L58 | Short Way Home | 8 | `luUluRul` |
+| L59 | One More First | 12 | `luURruLulDul` |
+| L60 | Last Collection | 22 | `luURrurrrrDullllLulDul` |
 
 `tools/metrics.mjs` scores a room. Open questions about the pack live in `TODO.md`.
