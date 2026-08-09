@@ -16,12 +16,13 @@ const num = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d :
 const inPath = str('--in', 'levels/sets.jsonl');
 const outDir = str('--out', 'levels');
 const want = num('--sets', 10);
-// 0.8 rather than a half. The fertility map is blunt about the recycle bin being the most
-// fertile piece in the roster, and on H outlines it is close to load-bearing: of 56 candidate
-// sets only ONE contains no bin at all, and a deliberate bin-free search over 47 bin-free
-// fertile mixtures turned up that single set. Holding the cap at half buys a 24-room act; this
-// buys thirty and says plainly what it cost.
-const maxPieceShare = num('--maxpiece', 0.8);
+// 0.9, and what it costs is the recycle bin in 27 of the 30 rooms. The fertility map is blunt
+// about the bin being the most fertile piece in the roster, and on H outlines it is close to
+// load-bearing: of 56 candidate sets only ONE contains no bin at all, and a deliberate bin-free
+// search over 47 bin-free fertile mixtures turned up that single set. Half buys a 24-room act,
+// 0.8 buys 27, and this is the cap that reaches ten sets. Raised deliberately, by the owner,
+// after `resite` and `shrink` grew the walk and inert gates and those took the pool down.
+const maxPieceShare = num('--maxpiece', 0.9);
 const first = num('--first', 31);
 const dry = process.argv.includes('--dry');
 

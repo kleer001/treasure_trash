@@ -12,7 +12,7 @@
 :traps  1
 :solves 1
 :solve  LLLLLdllluU!d
-:note   TODO note — set 1 of 9, H 10x5 gap@3w4 cut2/1, opens the set
+:note   TODO note — set 1 of 10, H 10x5 gap@3w4 cut2/1, opens the set
 :grid
 ---#######
 -$-#####--
@@ -34,7 +34,7 @@ b--#####-#
 :traps  62
 :solves 8
 :solve  LLLLLdllluluurrdDRRdLullU!dDu
-:note   TODO note — set 1 of 9, the same board as the last one, with one more container full
+:note   TODO note — set 1 of 10, the same board as the last one, with one more container full
 :grid
 ---#######
 -$-#####--
@@ -56,7 +56,7 @@ B--#####-#
 :traps  8
 :solves 8
 :solve  ulDllLldllluluurrdDrrdLullU!dDu
-:note   TODO note — set 1 of 9, the same board as the last one, with one more container full
+:note   TODO note — set 1 of 10, the same board as the last one, with one more container full
 :grid
 ---#######
 -$-#####--
@@ -74,11 +74,77 @@ B--#####-#
 
 :level  L34
 :name   TODO name L34
+:par    11
+:traps  9
+:solves 3
+:solve  UurrruurrDu
+:note   TODO note — set 2 of 10, H 8x5 gap@3w2 cut1/2, opens the set
+:grid
+-####--E
+---##--B
+b-------
+---##-b-
+##@##--#
+:end
+:cart
+--------
+--------
+--------
+-PP-----
+--------
+:end
+
+:level  L35
+:name   TODO name L35
+:par    17
+:traps  6
+:solves 1
+:solve  UurrrddrUluuurrDu
+:note   TODO note — set 2 of 10, the same board as the last one, with one more container full
+:grid
+-####--E
+---##--B
+b-------
+---##-B-
+##@##--#
+:end
+:cart
+--------
+--------
+--------
+-PP-----
+--------
+:end
+
+:level  L36
+:name   TODO name L36
+:par    21
+:traps  4
+:solves 1
+:solve  UllUrrrrrddrUluuurrDu
+:note   TODO note — set 2 of 10, the same board as the last one, with one more container full
+:grid
+-####--E
+---##--B
+B-------
+---##-B-
+##@##--#
+:end
+:cart
+--------
+--------
+--------
+-PP-----
+--------
+:end
+
+:level  L37
+:name   TODO name L37
 :par    14
 :traps  329
 :solves 5
 :solve  uulDldRD!uullLd
-:note   TODO note — set 2 of 9, H 9x5 gap@2w4 cut1/2, opens the set
+:note   TODO note — set 3 of 10, H 9x5 gap@2w4 cut1/2, opens the set
 :grid
 --####---
 ----B--C-
@@ -94,13 +160,13 @@ PP-------
 ---------
 :end
 
-:level  L35
-:name   TODO name L35
+:level  L38
+:name   TODO name L38
 :par    17
 :traps  17
 :solves 1
 :solve  UuLLdR!lllllluRdrr
-:note   TODO note — set 2 of 9, the same shape and the same pieces, arranged harder
+:note   TODO note — set 3 of 10, the same shape and the same pieces, arranged harder
 :grid
 --####C--
 -B-------
@@ -116,13 +182,13 @@ PP-------
 ---------
 :end
 
-:level  L36
-:name   TODO name L36
+:level  L39
+:name   TODO name L39
 :par    21
 :traps  141
 :solves 1
 :solve  rUruRrrdLrrrrULLddrU!d
-:note   TODO note — set 2 of 9, the same shape and the same pieces, arranged harder
+:note   TODO note — set 3 of 10, the same shape and the same pieces, arranged harder
 :grid
 --####---
 -F------C
@@ -138,13 +204,13 @@ PP-------
 ---------
 :end
 
-:level  L37
-:name   TODO name L37
+:level  L40
+:name   TODO name L40
 :par    16
 :traps  13
 :solves 2
 :solve  RrrrrrdrrUulD!uUl
-:note   TODO note — set 3 of 9, H 9x5 gap@3w3 cut2/1, opens the set
+:note   TODO note — set 4 of 10, H 9x5 gap@3w3 cut2/1, opens the set
 :grid
 #######-#
 ---###Ew-
@@ -153,13 +219,13 @@ PP-------
 -x####---
 :end
 
-:level  L38
-:name   TODO name L38
+:level  L41
+:name   TODO name L41
 :par    18
 :traps  41
 :solves 3
 :solve  RurrRdrrdrrUulD!uUl
-:note   TODO note — set 3 of 9, the same board as the last one, with one more thing in it
+:note   TODO note — set 4 of 10, the same board as the last one, with one more thing in it
 :grid
 #######-#
 ---###Ew-
@@ -168,13 +234,13 @@ PP-------
 -x####---
 :end
 
-:level  L39
-:name   TODO name L39
+:level  L42
+:name   TODO name L42
 :par    30
 :traps  320
 :solves 4
 :solve  RrruLullDurrdL!rrRdrrdrrUulD!uUl
-:note   TODO note — set 3 of 9, the same board as the last one, with one more thing in it
+:note   TODO note — set 4 of 10, the same board as the last one, with one more thing in it
 :grid
 #######-#
 ---###Ew-
@@ -183,13 +249,13 @@ PP-------
 -x####---
 :end
 
-:level  L40
-:name   TODO name L40
+:level  L43
+:name   TODO name L43
 :par    12
 :traps  6
 :solves 1
 :solve  RurrrdLddrUl
-:note   TODO note — set 4 of 9, H 7x5 gap@2w3 cut1/2, opens the set
+:note   TODO note — set 5 of 10, H 7x5 gap@2w3 cut1/2, opens the set
 :grid
 #-#####
 --b----
@@ -205,13 +271,13 @@ PP-------
 -------
 :end
 
-:level  L41
-:name   TODO name L41
+:level  L44
+:name   TODO name L44
 :par    14
 :traps  5
 :solves 1
 :solve  RuLrrrrdLddrUl
-:note   TODO note — set 4 of 9, the same board as the last one, with one more container full
+:note   TODO note — set 5 of 10, the same board as the last one, with one more container full
 :grid
 #-#####
 --B----
@@ -227,13 +293,13 @@ PP-------
 -------
 :end
 
-:level  L42
-:name   TODO name L42
+:level  L45
+:name   TODO name L45
 :par    29
 :traps  7
 :solves 16
 :solve  RuLdlUrrrrrdLullllDrdrrrddrUl
-:note   TODO note — set 4 of 9, the same board as the last one, with one more container full
+:note   TODO note — set 5 of 10, the same board as the last one, with one more container full
 :grid
 #-#####
 --B----
@@ -249,13 +315,13 @@ PP-------
 -------
 :end
 
-:level  L43
-:name   TODO name L43
+:level  L46
+:name   TODO name L46
 :par    9
 :traps  3
 :solves 1
 :solve  DrrrrruRu
-:note   TODO note — set 5 of 9, H 9x5 gap@2w4 cut2/1, opens the set
+:note   TODO note — set 6 of 10, H 9x5 gap@2w4 cut2/1, opens the set
 :grid
 ######E-
 @####---
@@ -271,13 +337,13 @@ j------B
 --------
 :end
 
-:level  L44
-:name   TODO name L44
+:level  L47
+:name   TODO name L47
 :par    20
 :traps  4
 :solves 1
 :solve  DrrrrruRDDldRuuuurDl
-:note   TODO note — set 5 of 9, the same board as the last one, with one more thing in it
+:note   TODO note — set 6 of 10, the same board as the last one, with one more thing in it
 :grid
 ######E-
 @####---
@@ -293,13 +359,13 @@ j------B
 --------
 :end
 
-:level  L45
-:name   TODO name L45
+:level  L48
+:name   TODO name L48
 :par    22
 :traps  4
 :solves 1
 :solve  DrRdrrruuRDDldRuuuurDl
-:note   TODO note — set 5 of 9, the same board as the last one, with one more thing in it
+:note   TODO note — set 6 of 10, the same board as the last one, with one more thing in it
 :grid
 ######E-
 @####---
@@ -315,13 +381,13 @@ j-B----B
 --------
 :end
 
-:level  L46
-:name   TODO name L46
+:level  L49
+:name   TODO name L49
 :par    10
 :traps  16
 :solves 21
 :solve  UrDrrRulll
-:note   TODO note — set 6 of 9, H 9x5 gap@3w4 cut2/1, opens the set
+:note   TODO note — set 7 of 10, H 9x5 gap@3w4 cut2/1, opens the set
 :grid
 -######--
 F######-b
@@ -330,13 +396,13 @@ FE-------
 #--######
 :end
 
-:level  L47
-:name   TODO name L47
+:level  L50
+:name   TODO name L50
 :par    14
 :traps  9
 :solves 6
 :solve  UrrdrRulllldRu
-:note   TODO note — set 6 of 9, the same board as the last one, with one more container full
+:note   TODO note — set 7 of 10, the same board as the last one, with one more container full
 :grid
 -######--
 F######-b
@@ -345,13 +411,13 @@ FE-------
 #--######
 :end
 
-:level  L48
-:name   TODO name L48
+:level  L51
+:name   TODO name L51
 :par    26
 :traps  6
 :solves 2
 :solve  UrrdrRurrruurDldllllllldRu
-:note   TODO note — set 6 of 9, the same board as the last one, with one more container full
+:note   TODO note — set 7 of 10, the same board as the last one, with one more container full
 :grid
 -######--
 F######-B
@@ -360,13 +426,13 @@ FE-------
 #--######
 :end
 
-:level  L49
-:name   TODO name L49
+:level  L52
+:name   TODO name L52
 :par    14
 :traps  3
 :solves 3
 :solve  DlllllllDlluR!l
-:note   TODO note — set 7 of 9, H 11x5 gap@3w4 cut1/2, opens the set
+:note   TODO note — set 8 of 10, H 11x5 gap@3w4 cut1/2, opens the set
 :grid
 #--####--@#
 E$-------FF
@@ -380,13 +446,13 @@ E$-------FF
 -----------
 :end
 
-:level  L50
-:name   TODO name L50
+:level  L53
+:name   TODO name L53
 :par    18
 :traps  15
 :solves 12
 :solve  DDlllllluRllDlluR!l
-:note   TODO note — set 7 of 9, the same board as the last one, with one more thing in it
+:note   TODO note — set 8 of 10, the same board as the last one, with one more thing in it
 :grid
 #--####--@#
 E$--B----FF
@@ -400,13 +466,13 @@ E$--B----FF
 -----------
 :end
 
-:level  L51
-:name   TODO name L51
+:level  L54
+:name   TODO name L54
 :par    20
 :traps  45
 :solves 1
 :solve  DDlU!dllllluRllDlluR!l
-:note   TODO note — set 7 of 9, the same board as the last one, with one more thing in it
+:note   TODO note — set 8 of 10, the same board as the last one, with one more thing in it
 :grid
 #--####--@#
 E$--B---$FF
@@ -420,13 +486,13 @@ E$--B---$FF
 -----------
 :end
 
-:level  L52
-:name   TODO name L52
+:level  L55
+:name   TODO name L55
 :par    19
 :traps  4
 :solves 3
 :solve  dDrdddLluRdrUuuluRl
-:note   TODO note — set 8 of 9, H-rot 8x6 gap@2h2 cut3/3, opens the set
+:note   TODO note — set 9 of 10, H-rot 8x6 gap@2h2 cut3/3, opens the set
 :grid
 ###@----
 ###E---B
@@ -444,13 +510,13 @@ E$--B---$FF
 --QQ----
 :end
 
-:level  L53
-:name   TODO name L53
+:level  L56
+:name   TODO name L56
 :par    21
 :traps  9
 :solves 6
 :solve  dDrdddLluRdrRlUuuluRl
-:note   TODO note — set 8 of 9, the same board as the last one, with one more thing in it
+:note   TODO note — set 9 of 10, the same board as the last one, with one more thing in it
 :grid
 ###@----
 ###E---B
@@ -468,13 +534,13 @@ E$--B---$FF
 --QQ----
 :end
 
-:level  L54
-:name   TODO name L54
+:level  L57
+:name   TODO name L57
 :par    23
 :traps  16
 :solves 12
 :solve  dDrdddLluRdrRlURluuluRl
-:note   TODO note — set 8 of 9, the same board as the last one, with one more thing in it
+:note   TODO note — set 9 of 10, the same board as the last one, with one more thing in it
 :grid
 ###@----
 ###E---B
@@ -492,13 +558,13 @@ E$--B---$FF
 --QQ----
 :end
 
-:level  L55
-:name   TODO name L55
+:level  L58
+:name   TODO name L58
 :par    8
 :traps  22
 :solves 2
 :solve  luUluRul
-:note   TODO note — set 9 of 9, H 8x5 gap@3w3 cut1/2, opens the set
+:note   TODO note — set 10 of 10, H 8x5 gap@3w3 cut1/2, opens the set
 :grid
 E--#####
 --------
@@ -514,13 +580,13 @@ E--#####
 --------
 :end
 
-:level  L56
-:name   TODO name L56
+:level  L59
+:name   TODO name L59
 :par    12
 :traps  21
 :solves 3
 :solve  luURruLulDul
-:note   TODO note — set 9 of 9, the same board as the last one, with one more thing in it
+:note   TODO note — set 10 of 10, the same board as the last one, with one more thing in it
 :grid
 E--#####
 --------
@@ -536,13 +602,13 @@ B-@####-
 --------
 :end
 
-:level  L57
-:name   TODO name L57
+:level  L60
+:name   TODO name L60
 :par    22
 :traps  28
 :solves 9
 :solve  luURrurrrrDullllLulDul
-:note   TODO note — set 9 of 9, the same board as the last one, with one more thing in it
+:note   TODO note — set 10 of 10, the same board as the last one, with one more thing in it
 :grid
 E--#####
 --------

@@ -64,10 +64,11 @@ Each set gets harder in a stated way — by filling a container that was already
 by adding a piece, or by rearranging the same cast. Sets are ordered by how much of the solution
 optimal play can still throw away.
 
-The act is as long as the candidates allow. `tools/act2.mjs` prints how many sets it wanted and
-how many it found, and a short act is what a hard constraint looks like from the outside: the
-recycle bin is the most fertile piece in the roster and the cap on how much of one act any piece
-may take is what runs out first.
+Ten sets, and the price is on the label: the recycle bin is in 27 of the 30 rooms. It is the most
+fertile piece in the roster by a distance, and on H outlines it is close to load-bearing — of 56
+candidate sets exactly one contains no bin at all. The cap on how much of one act a single piece
+may take is what runs out first, and reaching ten meant raising it. `tools/act2.mjs` prints the
+piece counts every run, so the cost stays visible rather than becoming the house style.
 
 The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 
@@ -76,29 +77,32 @@ The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 | L31 | TODO name L31 | 12 | `LLLLLdllluU!d` |
 | L32 | TODO name L32 | 28 | `LLLLLdllluluurrdDRRdLullU!dDu` |
 | L33 | TODO name L33 | 30 | `ulDllLldllluluurrdDrrdLullU!dDu` |
-| L34 | TODO name L34 | 14 | `uulDldRD!uullLd` |
-| L35 | TODO name L35 | 17 | `UuLLdR!lllllluRdrr` |
-| L36 | TODO name L36 | 21 | `rUruRrrdLrrrrULLddrU!d` |
-| L37 | TODO name L37 | 16 | `RrrrrrdrrUulD!uUl` |
-| L38 | TODO name L38 | 18 | `RurrRdrrdrrUulD!uUl` |
-| L39 | TODO name L39 | 30 | `RrruLullDurrdL!rrRdrrdrrUulD!uUl` |
-| L40 | TODO name L40 | 12 | `RurrrdLddrUl` |
-| L41 | TODO name L41 | 14 | `RuLrrrrdLddrUl` |
-| L42 | TODO name L42 | 29 | `RuLdlUrrrrrdLullllDrdrrrddrUl` |
-| L43 | TODO name L43 | 9 | `DrrrrruRu` |
-| L44 | TODO name L44 | 20 | `DrrrrruRDDldRuuuurDl` |
-| L45 | TODO name L45 | 22 | `DrRdrrruuRDDldRuuuurDl` |
-| L46 | TODO name L46 | 10 | `UrDrrRulll` |
-| L47 | TODO name L47 | 14 | `UrrdrRulllldRu` |
-| L48 | TODO name L48 | 26 | `UrrdrRurrruurDldllllllldRu` |
-| L49 | TODO name L49 | 14 | `DlllllllDlluR!l` |
-| L50 | TODO name L50 | 18 | `DDlllllluRllDlluR!l` |
-| L51 | TODO name L51 | 20 | `DDlU!dllllluRllDlluR!l` |
-| L52 | TODO name L52 | 19 | `dDrdddLluRdrUuuluRl` |
-| L53 | TODO name L53 | 21 | `dDrdddLluRdrRlUuuluRl` |
-| L54 | TODO name L54 | 23 | `dDrdddLluRdrRlURluuluRl` |
-| L55 | TODO name L55 | 8 | `luUluRul` |
-| L56 | TODO name L56 | 12 | `luURruLulDul` |
-| L57 | TODO name L57 | 22 | `luURrurrrrDullllLulDul` |
+| L34 | TODO name L34 | 11 | `UurrruurrDu` |
+| L35 | TODO name L35 | 17 | `UurrrddrUluuurrDu` |
+| L36 | TODO name L36 | 21 | `UllUrrrrrddrUluuurrDu` |
+| L37 | TODO name L37 | 14 | `uulDldRD!uullLd` |
+| L38 | TODO name L38 | 17 | `UuLLdR!lllllluRdrr` |
+| L39 | TODO name L39 | 21 | `rUruRrrdLrrrrULLddrU!d` |
+| L40 | TODO name L40 | 16 | `RrrrrrdrrUulD!uUl` |
+| L41 | TODO name L41 | 18 | `RurrRdrrdrrUulD!uUl` |
+| L42 | TODO name L42 | 30 | `RrruLullDurrdL!rrRdrrdrrUulD!uUl` |
+| L43 | TODO name L43 | 12 | `RurrrdLddrUl` |
+| L44 | TODO name L44 | 14 | `RuLrrrrdLddrUl` |
+| L45 | TODO name L45 | 29 | `RuLdlUrrrrrdLullllDrdrrrddrUl` |
+| L46 | TODO name L46 | 9 | `DrrrrruRu` |
+| L47 | TODO name L47 | 20 | `DrrrrruRDDldRuuuurDl` |
+| L48 | TODO name L48 | 22 | `DrRdrrruuRDDldRuuuurDl` |
+| L49 | TODO name L49 | 10 | `UrDrrRulll` |
+| L50 | TODO name L50 | 14 | `UrrdrRulllldRu` |
+| L51 | TODO name L51 | 26 | `UrrdrRurrruurDldllllllldRu` |
+| L52 | TODO name L52 | 14 | `DlllllllDlluR!l` |
+| L53 | TODO name L53 | 18 | `DDlllllluRllDlluR!l` |
+| L54 | TODO name L54 | 20 | `DDlU!dllllluRllDlluR!l` |
+| L55 | TODO name L55 | 19 | `dDrdddLluRdrUuuluRl` |
+| L56 | TODO name L56 | 21 | `dDrdddLluRdrRlUuuluRl` |
+| L57 | TODO name L57 | 23 | `dDrdddLluRdrRlURluuluRl` |
+| L58 | TODO name L58 | 8 | `luUluRul` |
+| L59 | TODO name L59 | 12 | `luURruLulDul` |
+| L60 | TODO name L60 | 22 | `luURrurrrrDullllLulDul` |
 
 `tools/metrics.mjs` scores a room. Open questions about the pack live in `TODO.md`.
