@@ -36,8 +36,11 @@
     position:sticky;top:0;background:var(--bg);z-index:1}
   .act-group summary::-webkit-details-marker{display:none}
   /* Drawn rather than borrowed, so open and shut look the same in every browser. */
-  .act-group summary::before{content:"▸";display:inline-block;margin-right:.1rem;color:var(--muted)}
-  .act-group[open] summary::before{content:"▾"}
+  /* CSS escapes, not the characters: the artifact ships as pure ASCII so it does not depend
+     on the host's charset, and build-artifact.mjs fails on a stray byte rather than shipping
+     mojibake. Renders identically here. */
+  .act-group summary::before{content:"\25B8";display:inline-block;margin-right:.1rem;color:var(--muted)}
+  .act-group[open] summary::before{content:"\25BE"}
   .act-group summary:hover{background:var(--panel)}
   .act-group summary .range{font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;
     margin-left:auto;font-size:.85rem}

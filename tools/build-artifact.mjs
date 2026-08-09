@@ -69,17 +69,38 @@ const body = /<body>\s*([\s\S]*?)\s*<script type="module"/.exec(page)[1];
 const modules = moduleOrder(ENTRY);
 const script = read(`src/${ENTRY}`);
 
-// Levels are data on disk; inline them verbatim so the pack stays the single source.
-const pack = read('levels/act1.tt');
-// The win chime is the one binary asset. It stays an .mp3 in the repo and only becomes
-// base64 here, because the artifact is one document behind a CSP that blocks every request.
-const chime = readFileSync(resolve(root, 'sfx/win-chime.mp3')).toString('base64');
+// WHICH packs there are is read from the game's own list rather than globbed or hardcoded: a
+// bundle that ships one act while the game asks for two throws on the first load, and a throw
+// at load is a blank page. A list that has moved fails here instead.
+const ACTS = (() => {
+  const m = /^const ACTS = \[([^\]]*)\];$/m.exec(script);
+  if (!m) throw new Error('cannot find the ACTS list in src/main.js — the bundler seam moved');
+  return m[1].split(',').map(s => s.trim().replace(/^'|'$/g, '')).filter(Boolean);
+})();
+// Levels are data on disk; inline them verbatim so the packs stay the single source. The win
+// chime is the one binary asset — it stays an .mp3 in the repo and only becomes base64 here,
+// because the artifact is one document behind a CSP that blocks every request.
+const assets = Object.fromEntries([
+  ...ACTS.map(a => [`levels/${a}`, read(`levels/${a}`)]),
+  ['sfx/win-chime.mp3', readFileSync(resolve(root, 'sfx/win-chime.mp3')).toString('base64')],
+]);
 
-const inlined = demodule(script)
-  .replace(/const res = await fetch\([^)]*\);[\s\S]*?LEVELS = parseLevelPack\(await res\.text\(\)\)\.levels;/,
-    'LEVELS = parseLevelPack(LEVEL_PACK).levels;')
-  .replace(/const sfx = await fetch\([^)]*\);[\s\S]*?winBytes = await sfx\.arrayBuffer\(\);/,
-    'winBytes = Uint8Array.from(atob(WIN_CHIME_B64), c => c.charCodeAt(0)).buffer;');
+// One seam, replaced whole, rather than a pattern per call site. The call sites used to be
+// matched by their statement text, so a second act — an edit to the loop around the fetch,
+// not to the fetch — silently stopped matching and the guard below was what caught it.
+const LOADER = /^async function loadAsset\(path, as\)\{\n[\s\S]*?\n\}$/m;
+const inlined = (() => {
+  const src = demodule(script);
+  if (!LOADER.test(src))
+    throw new Error('cannot find loadAsset() in src/main.js — the bundler seam moved');
+  return src.replace(LOADER, [
+    'async function loadAsset(path, as){',
+    '  const got = ASSETS[path];',
+    '  if(got === undefined) throw new Error(`the bundle has no ${path}`);',
+    '  return as === "bytes" ? Uint8Array.from(atob(got), c => c.charCodeAt(0)).buffer : got;',
+    '}',
+  ].join('\n'));
+})();
 
 // Dependencies in order, then the entry with its fetches already replaced.
 const bundled = modules
@@ -110,8 +131,7 @@ canvas:focus{outline:3px solid #2d7dd2;outline-offset:3px}
 ${asciiMarkup(body.replace('<canvas id="cv"', '<p class="focusnote" id="focusnote">Click the board once, then use the arrow keys — or tap the buttons below.</p>\n<canvas tabindex="0" id="cv"'))}
 
 <script type="module">
-const LEVEL_PACK = ${asciiScript(JSON.stringify(pack))};
-const WIN_CHIME_B64 = ${JSON.stringify(chime)};
+const ASSETS = ${asciiScript(JSON.stringify(assets))};
 
 ${asciiScript(bundled)}
 
