@@ -255,20 +255,26 @@ if (!isMainThread && workerData?.tool === 'sets') {
 
   const chunks = Array.from({ length: workers }, () => []);
   plans.forEach((p, i) => chunks[i % workers].push(p));
+  const live = chunks.filter(c => c.length);
   const self = fileURLToPath(import.meta.url);
   const t0 = Date.now();
-  const sets = [];
-  let done = 0;
-  await Promise.all(chunks.filter(c => c.length).map((chunk, w) => new Promise((res, rej) => {
+  // Not `pool.mjs`: this is the one pass whose worker is not one function per item. `search`
+  // draws every plan in its chunk from ONE seeded stream, so splitting the chunk up would move
+  // the draws and find different sets — a different file, not a differently ordered one. What
+  // it takes from the pool is the point of it: results land at the index they were dealt.
+  const byWorker = new Array(live.length);
+  let done = 0, found = 0;
+  await Promise.all(live.map((chunk, w) => new Promise((ok, no) => {
     const worker = new Worker(self, { workerData: { tool: 'sets', plans: chunk, groups, tries, seed: 11 + w * 7919 } });
     worker.on('message', got => {
-      sets.push(...got); done++;
-      console.log(`  worker ${done}/${chunks.filter(c => c.length).length} — ${sets.length} sets so far`
+      byWorker[w] = got; done++; found += got.length;
+      console.log(`  worker ${done}/${live.length} — ${found} sets so far`
         + ` (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
-      res();
+      ok();
     });
-    worker.on('error', rej);
+    worker.on('error', no);
   })));
+  const sets = byWorker.flat();
 
   writeFileSync(outPath, sets.map(s => JSON.stringify(s)).join('\n') + '\n');
   const byRamp = {};

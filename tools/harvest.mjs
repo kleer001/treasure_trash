@@ -15,9 +15,9 @@
 // nothing at all for the cost.
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
+import { isMainThread, workerData } from 'node:worker_threads';
+import { defaultWorkers, run, serve } from './pool.mjs';
 import { toState } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
@@ -212,14 +212,13 @@ function harvestGroup(group, samples, seed) {
 }
 
 if (!isMainThread && workerData?.tool === 'harvest') {
-  const { chunk, samples, seed } = workerData;
-  chunk.forEach((g, i) => parentPort.postMessage(harvestGroup(g, samples, seed + i)));
-  parentPort.postMessage(null);
+  const { samples, seed } = workerData;
+  serve((g, i) => harvestGroup(g, samples, seed + i));
 } else if (import.meta.url === `file://${process.argv[1]}`) {
   const num = (flag, d) => { const i = process.argv.indexOf(flag); return i === -1 ? d : Number(process.argv[i + 1]); };
   const str = (flag, d) => { const i = process.argv.indexOf(flag); return i === -1 ? d : process.argv[i + 1]; };
   const samples = num('--samples', 400);
-  const workers = num('--workers', Math.max(1, availableParallelism() - 2));
+  const workers = num('--workers', defaultWorkers());
   const minInteresting = num('--min', 6);
   const inPath = str('--in', 'levels/fertility.jsonl');
   const outPath = str('--out', 'levels/harvest.jsonl');
@@ -229,26 +228,19 @@ if (!isMainThread && workerData?.tool === 'harvest') {
   console.log(`${list.length} groups from ${inPath} with >= ${minInteresting} interesting per 200`);
   console.log(`${samples} outlined placements each, ${workers} workers\n`);
 
-  const chunks = Array.from({ length: workers }, () => []);
-  list.forEach((g, i) => chunks[i % workers].push(g));
-
-  const self = fileURLToPath(import.meta.url);
   const t0 = Date.now();
-  const rooms = [], stats = [];
-  let done = 0;
-  await Promise.all(chunks.filter(c => c.length).map((chunk, w) => new Promise((res, rej) => {
-    const worker = new Worker(self, { workerData: { tool: 'harvest', chunk, samples, seed: 7 + w * 10007 } });
-    worker.on('message', msg => {
-      if (msg === null) return res();
-      rooms.push(...msg.keep); stats.push(msg.stat); done++;
-      const el = (Date.now() - t0) / 1000;
-      console.log(`  ${String(done).padStart(3)}/${list.length}  ${msg.stat.group.padEnd(5)}`
-        + ` kept ${String(msg.stat.solvable).padStart(4)}/${msg.stat.samples}`
-        + `  tooBig ${String(msg.stat.tooBig).padStart(3)}  noOutline ${String(msg.stat.noOutline).padStart(3)}`
-        + `  ${(msg.stat.ms / 1000).toFixed(0)}s   [${el.toFixed(0)}s, ~${(done ? (el / done) * (list.length - done) / 60 : 0).toFixed(0)}m left]`);
-    });
-    worker.on('error', rej);
-  })));
+  const got = await run({
+    self: fileURLToPath(import.meta.url), tool: 'harvest', items: list, workers,
+    extra: w => ({ samples, seed: 7 + w * 10007 }),
+    onItem: ({ got: { stat }, done, total, ms }) => {
+      const el = ms / 1000;
+      console.log(`  ${String(done).padStart(3)}/${total}  ${stat.group.padEnd(5)}`
+        + ` kept ${String(stat.solvable).padStart(4)}/${stat.samples}`
+        + `  tooBig ${String(stat.tooBig).padStart(3)}  noOutline ${String(stat.noOutline).padStart(3)}`
+        + `  ${(stat.ms / 1000).toFixed(0)}s   [${el.toFixed(0)}s, ~${((el / done) * (total - done) / 60).toFixed(0)}m left]`);
+    },
+  });
+  const rooms = got.flatMap(m => m.keep), stats = got.map(m => m.stat);
 
   writeFileSync(outPath, rooms.map(r => JSON.stringify(r)).join('\n') + '\n');
   const S = k => stats.reduce((a, r) => a + r[k], 0);

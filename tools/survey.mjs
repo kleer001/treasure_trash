@@ -13,9 +13,9 @@
 // fertile groups is a separate, deeper pass.
 
 import { writeFileSync } from 'node:fs';
-import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
+import { isMainThread, workerData } from 'node:worker_threads';
+import { defaultWorkers, run, serve } from './pool.mjs';
 import { toState } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
@@ -211,11 +211,8 @@ function surveyGroup(group, samples, seed) {
 // The tag matters: this module is imported by other tools, and their workers would
 // otherwise run this branch against workerData meant for them.
 if (!isMainThread && workerData?.tool === 'survey') {
-  const { chunk, samples, seed } = workerData;
-  // One message per group, not one per chunk: a chunk takes long enough that a run reporting
-  // only on completion gives no way to tell slow from stuck.
-  chunk.forEach((g, i) => parentPort.postMessage(surveyGroup(g, samples, seed + i)));
-  parentPort.postMessage(null);                    // this worker has no more groups
+  const { samples, seed } = workerData;
+  serve((g, i) => surveyGroup(g, samples, seed + i));
 } else if (import.meta.url === `file://${process.argv[1]}`) {
   const arg = (flag, dflt) => {
     const i = process.argv.indexOf(flag);
@@ -226,7 +223,7 @@ if (!isMainThread && workerData?.tool === 'survey') {
     return i === -1 ? 'levels/fertility.jsonl' : process.argv[i + 1];
   })();
   const samples = arg('--samples', 200);
-  const workers = arg('--workers', Math.max(1, availableParallelism() - 2));
+  const workers = arg('--workers', defaultWorkers());
   const limit = arg('--groups', Infinity);
 
   const all = groups();
@@ -234,29 +231,22 @@ if (!isMainThread && workerData?.tool === 'survey') {
   console.log(`${all.length} legal groups of ${SIZE} from ${ALPHABET.length} piece types`);
   console.log(`surveying ${list.length} of them, ${samples} placements each on ${W}x${H}, ${workers} workers\n`);
 
-  const chunks = Array.from({ length: workers }, () => []);
-  list.forEach((g, i) => chunks[i % workers].push(g));
-
-  const self = fileURLToPath(import.meta.url);
   const t0 = Date.now();
-  let done = 0;
-  const rows = [];
-  await Promise.all(chunks.filter(c => c.length).map((chunk, w) => new Promise((res, rej) => {
-    const worker = new Worker(self, { workerData: { tool: 'survey', chunk, samples, seed: 1 + w * 10007 } });
-    worker.on('message', row => {
-      if (row === null) return res();
-      rows.push(row);
-      done++;
-      const el = (Date.now() - t0) / 1000;
-      const eta = done ? ((el / done) * (list.length - done)) / 60 : 0;
-      console.log(`  ${String(done).padStart(3)}/${list.length}  ${row.group.padEnd(5)}`
+  const rows = await run({
+    self: fileURLToPath(import.meta.url), tool: 'survey', items: list, workers,
+    extra: w => ({ samples, seed: 1 + w * 10007 }),
+    onItem: ({ got: row, done, total, ms }) => {
+      const el = ms / 1000;
+      const eta = ((el / done) * (total - done)) / 60;
+      console.log(`  ${String(done).padStart(3)}/${total}  ${row.group.padEnd(5)}`
         + ` solvable ${String(row.solvable).padStart(3)}  interesting ${String(row.interesting).padStart(3)}`
         + `  tooBig ${String(row.tooBig).padStart(3)}  ${(row.ms / 1000).toFixed(0)}s`
         + `   [${el.toFixed(0)}s elapsed, ~${eta.toFixed(0)}m left]`);
-    });
-    worker.on('error', rej);
-  })));
+    },
+  });
 
+  // Stable, and the pool hands the rows back in input order, so groups that tie on both keys
+  // keep the order `groups()` enumerates them in.
   rows.sort((a, b) => b.interesting - a.interesting || b.solvable - a.solvable);
   writeFileSync(outPath, rows.map(r => JSON.stringify(r)).join('\n') + '\n');
 

@@ -20,7 +20,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { defaultWorkers, runPass, servePass } from './set-pass.mjs';
+import { defaultWorkers, run, servePass } from './pool.mjs';
 import { isMainThread, workerData } from 'node:worker_threads';
 import { toState } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
@@ -142,7 +142,7 @@ else if (import.meta.url === `file://${process.argv[1]}`) {
   const wasFloor = sets.flatMap(s => s.rooms.map(r => floorOf(r.grid)));
   console.log(`${sets.length} sets, ${wasFloor.length} rooms, ${workers} workers\n`);
 
-  const out = await runPass({ self: fileURLToPath(import.meta.url), tool: 'shrink', sets, workers });
+  const out = await run({ self: fileURLToPath(import.meta.url), tool: 'shrink', items: sets, workers });
 
   const nowFloor = out.flatMap(s => s.rooms.map(r => floorOf(r.grid)));
   const sum = a => a.reduce((x, y) => x + y, 0);

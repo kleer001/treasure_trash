@@ -21,7 +21,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { defaultWorkers, runPass, servePass } from './set-pass.mjs';
+import { defaultWorkers, run, servePass } from './pool.mjs';
 import { isMainThread, workerData } from 'node:worker_threads';
 import { toState } from '../src/format.js';
 import { analyze, reroot, TooManyStates } from '../src/solver.js';
@@ -211,7 +211,7 @@ else if (import.meta.url === `file://${process.argv[1]}`) {
   const sets = readFileSync(inPath, 'utf8').trim().split('\n').map(JSON.parse);
   console.log(`${sets.length} sets, ${sets.length * 3} rooms, ${workers} workers\n`);
 
-  const out = await runPass({ self: fileURLToPath(import.meta.url), tool: 'resite', sets, workers });
+  const out = await run({ self: fileURLToPath(import.meta.url), tool: 'resite', items: sets, workers });
 
   const wasWalk = out.reduce((a, s) => a + (s.walkWas ?? 0), 0);
   const nowWalk = out.reduce((a, s) =>
