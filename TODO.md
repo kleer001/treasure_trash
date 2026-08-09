@@ -23,14 +23,16 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   `inertPieces` decides it, `verify.mjs` refuses a pack that carries one, and `sets`, `shrink`,
   `draft` and `chooseSets` refuse to make, keep or choose one. The wall pass turned out to be
   the biggest source: it takes the lane a piece was shutting and leaves the piece.
-- **Act 2 came out a set short under those rules**, and the constraint that ran out is the old
-  one — the recycle bin's share of the act, at its 0.8 cap. `--maxpiece` raises it on purpose;
-  a wider `sets.mjs` search is the other way, but only one candidate set in the file is
-  bin-free, so it is unlikely to be the cheap one.
-- **Act 2 is in: sets of three rooms, each set on one H.** Names and notes are still
-  placeholders — that is the open work on it. `src/main.js` has an `ACTS` list, `verify.mjs`
-  discovers `levels/act*.tt`, and `publishing/package.sh` ships all of them. The act is however
-  many sets the candidates support; `act2.mjs` prints what it wanted against what it found.
+- **Act 2 is in and named at 30 rooms** (L31–L60): ten sets of three, each set on one H. Nothing
+  placeholder reaches the player. `src/main.js` has an `ACTS` list, `verify.mjs` discovers
+  `levels/act*.tt`, and `publishing/package.sh` ships all of them. The act is however many sets
+  the candidates support; `act2.mjs` prints what it wanted against what it found.
+- **The recycle bin is in 27 of those 30 rooms, and that is a finding rather than a compromise.**
+  It tops the fertility map because one shove does the most: slides the bin a cell, sheds
+  permanent trash a cell beyond it, and leaves an empty bin behind. Holding it down was tried —
+  a bin-free search ten times deeper returned eight sets and not one of them an upgrade, because
+  the upgrade ramp works by filling a container. Piece share is `:traps` all over again, a count
+  standing in for an experience; score the act on ramp, outline, par band and `onPath`.
 - The raccoon's core mechanic is built and playable — every shipped room solvable in a
   provably-minimal par found by exhaustive search rather than asserted.
 - Crow is pinned, parked until the raccoon-alone game proves fun.
@@ -67,6 +69,12 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   demonstrated rather than assumed: break a rule and the harness names the board and the
   direction; break the SEARCH while every step still agrees and it says so in those words. See
   **One engine** in `CLAUDE.md`, and `SANCTIONED` in `verify.mjs`, which prints it every run.
+- **The discovery pipeline runs on that port, and the game does not.** `survey`, `harvest` and
+  `sets` use it when it is built and say which engine they used; `--no-engine` forces
+  `src/solver.js`. Nothing in `src/`, in `index.html` or in the shipped bundle names `engine/` —
+  it is a stdio child process of offline tools, and that boundary is the rule, not an accident
+  of how far the port got. Proved equal both ways before it was kept: harvest and sets are
+  byte-identical, survey matches every field but its own stopwatch reading.
 
 ## NEXT MOVE — everything around the mechanic
 `./run.sh`, then pick a room. `npm test` and `node tools/verify.mjs` are green.
@@ -104,6 +112,12 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   above.
 
 ## Backlog (rooms & content)
+- **Act 3 gets searched with the piece cap off.** `--maxpiece` is the last constraint in the
+  chooser nobody has measured — it was set to keep one piece from owning an act, and then the
+  bin turned out to deserve the rooms it takes. Half buys 24 rooms, 0.8 buys 27, 0.9 buys 30,
+  so on the evidence so far the cap only ever costs sets. Run Act 3 at `--maxpiece 1` and judge
+  the two acts on ramp mix, outline count, par band and `onPath` spread. If the unbounded pool
+  wins, delete the flag rather than picking a new number for it.
 - **L7–L13 need regenerating, not re-sorting.** `tools/metrics.mjs` scores them: par
   climbs 13 → 25 while board-changing decisions stay flat at 3–5, so the ladder is built
   out of walking; L11 and L13 have zero coupling between their bags; L11 stays playable
