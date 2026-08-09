@@ -16,9 +16,8 @@ import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { isMainThread, workerData } from 'node:worker_threads';
 import { defaultWorkers, run, serve } from './pool.mjs';
-import { engineFor, connect, measureMany, TOO_BIG } from './engine.mjs';
+import { engineFor, connect, measureMany, measureHere, TOO_BIG } from './engine.mjs';
 import { toState } from '../src/format.js';
-import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 
@@ -173,18 +172,6 @@ const MAX_STATES = 50_000;
 // each other, and a group that only ever yields par-6 rooms is a finding, not a failure.
 const isInteresting = d => d.par >= 12 && d.solves <= 2 && d.traps >= 1;
 
-/** The five numbers this pass judges a room on, from `src/` rather than from the engine. */
-function readHere(s) {
-  try {
-    const a = analyze(s, { maxStates: MAX_STATES });
-    return { par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,
-             silentTraps: a.silentTraps.length, exitRefusals: a.exitRefusals };
-  } catch (e) {
-    if (e instanceof TooManyStates) return TOO_BIG;
-    throw e;
-  }
-}
-
 /**
  * `engine` is the sanctioned port, or null to enumerate here. This is where the pipeline's
  * hours are — thirty-one CPU-hours across the roster, by the `ms` this file records — so it is
@@ -214,7 +201,8 @@ async function surveyGroup(group, samples, seed, engine = null) {
     boards.push(s);
   }
 
-  const reads = engine ? await measureMany(engine, boards, MAX_STATES) : boards.map(readHere);
+  const reads = engine ? await measureMany(engine, boards, MAX_STATES)
+                       : boards.map(s => measureHere(s, MAX_STATES));
   for (const [i, r] of reads.entries()) {
     if (r === TOO_BIG) { out.tooBig++; continue; }
     if (r.par === null) continue;

@@ -18,6 +18,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { isMainThread, workerData } from 'node:worker_threads';
 import { defaultWorkers, run, serve } from './pool.mjs';
+import { engineFor, connect, measureMany, measureHere, TOO_BIG } from './engine.mjs';
 import { toState } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
@@ -178,11 +179,24 @@ export function measure(group, room, s, a, w, h) {
   };
 }
 
-function harvestGroup(group, samples, seed) {
+/**
+ * The engine SCREENS, it does not measure.
+ *
+ * A full row wants the solve string, the trap depths, the box-line shape and the inert test —
+ * the graph itself, none of which is on the wire. But nine placements in ten never get that far:
+ * they are too big, unsolvable, or fail one of the two design rules, and deciding that needs
+ * only the numbers the protocol already carries. So the engine answers every draw, and the JS
+ * enumeration is paid a second time only for the few that survive.
+ */
+async function harvestGroup(group, samples, seed, engine = null) {
   const rnd = mulberry32(seed);
   const keep = [];
   const stat = { group, samples: 0, noOutline: 0, undrawable: 0, prefiltered: 0, tooBig: 0, inert: 0, solvable: 0 };
   const t0 = Date.now();
+
+  // Drawn first, screened after — the draws come off the seeded stream and none of them depends
+  // on how the last one scored, so the batch can go to the engine in one breath.
+  const drawn = [];
   for (let i = 0; i < samples; i++) {
     stat.samples++;
     const [w, h] = SHAPES[Math.floor(rnd() * SHAPES.length)];
@@ -193,13 +207,18 @@ function harvestGroup(group, samples, seed) {
     let s;
     try { s = toState(room); } catch { stat.undrawable++; continue; }
     if (staticallyDead(s)) { stat.prefiltered++; continue; }
-    let a;
-    try { a = analyze(s, { maxStates: MAX_STATES }); }
-    catch (e) { if (e instanceof TooManyStates) { stat.tooBig++; continue; } throw e; }
-    if (a.minMoves === null) continue;
-    if (bagsLeft(s) > 0 && a.exitRefusals === 0) continue;
-    if (a.silentTraps.length) continue;
-    const row = measure(group, room, s, a, w, h);
+    drawn.push({ room, s, w, h });
+  }
+
+  const screens = engine ? await measureMany(engine, drawn.map(d => d.s), MAX_STATES)
+                         : drawn.map(d => measureHere(d.s, MAX_STATES));
+  for (const [i, r] of screens.entries()) {
+    if (r === TOO_BIG) { stat.tooBig++; continue; }
+    if (r.par === null) continue;
+    const { room, s, w, h } = drawn[i];
+    if (bagsLeft(s) > 0 && r.exitRefusals === 0) continue;
+    if (r.silentTraps) continue;
+    const row = measure(group, room, s, analyze(s, { maxStates: MAX_STATES }), w, h);
     // A sampled placement that lands a piece where it hinders nothing is a room short one
     // piece, not a room with a spare. Rejected here rather than carried and filtered later,
     // because everything downstream would score it on a roster it does not really have.
@@ -212,8 +231,10 @@ function harvestGroup(group, samples, seed) {
 }
 
 if (!isMainThread && workerData?.tool === 'harvest') {
-  const { samples, seed } = workerData;
-  serve((g, i) => harvestGroup(g, samples, seed + i));
+  const { samples, seed, engineBin } = workerData;
+  const engine = engineBin ? connect(engineBin) : null;
+  await serve((g, i) => harvestGroup(g, samples, seed + i, engine));
+  engine?.close();
 } else if (import.meta.url === `file://${process.argv[1]}`) {
   const num = (flag, d) => { const i = process.argv.indexOf(flag); return i === -1 ? d : Number(process.argv[i + 1]); };
   const str = (flag, d) => { const i = process.argv.indexOf(flag); return i === -1 ? d : process.argv[i + 1]; };
@@ -223,6 +244,7 @@ if (!isMainThread && workerData?.tool === 'harvest') {
   const inPath = str('--in', 'levels/fertility.jsonl');
   const outPath = str('--out', 'levels/harvest.jsonl');
 
+  const engineBin = engineFor(process.argv);
   const map = readFileSync(inPath, 'utf8').trim().split('\n').map(JSON.parse);
   const list = map.filter(r => r.interesting >= minInteresting).map(r => r.group);
   console.log(`${list.length} groups from ${inPath} with >= ${minInteresting} interesting per 200`);
@@ -231,7 +253,7 @@ if (!isMainThread && workerData?.tool === 'harvest') {
   const t0 = Date.now();
   const got = await run({
     self: fileURLToPath(import.meta.url), tool: 'harvest', items: list, workers,
-    extra: w => ({ samples, seed: 7 + w * 10007 }),
+    extra: w => ({ samples, seed: 7 + w * 10007, engineBin }),
     onItem: ({ got: { stat }, done, total, ms }) => {
       const el = ms / 1000;
       console.log(`  ${String(done).padStart(3)}/${total}  ${stat.group.padEnd(5)}`

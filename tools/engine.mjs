@@ -15,7 +15,8 @@ import { createInterface } from 'node:readline';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { root } from './packs.mjs';
-import { shapeOf } from './conform-ref.mjs';
+import { analyze, TooManyStates } from '../src/solver.js';
+import { shapeOf, measureOf } from './conform-ref.mjs';
 
 export const ENGINE_BIN = 'engine/target/release/tt-engine';
 export const BUILD_IT = 'cargo build --release --manifest-path engine/Cargo.toml';
@@ -76,6 +77,22 @@ export async function measureMany(engine, states, maxStates) {
     if (r.error.startsWith('state graph exceeds')) return TOO_BIG;
     throw new Error(`engine: ${r.error}`);
   });
+}
+
+/**
+ * The same reply `measureMany` gets from the port, computed in process instead.
+ *
+ * Built from `measureOf` — the very function `conform.mjs` compares the port against — so the
+ * two paths cannot drift into returning different field sets. This is what `--no-engine` runs,
+ * and what a checkout with no Rust toolchain gets.
+ */
+export function measureHere(s, maxStates) {
+  try {
+    return measureOf(analyze(s, { maxStates }));
+  } catch (e) {
+    if (e instanceof TooManyStates) return TOO_BIG;
+    throw e;
+  }
 }
 
 /**

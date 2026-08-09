@@ -33,13 +33,15 @@ around it — art, audio, progression, and the solvability indicator.
   runs `tools/conform-ref.mjs`, which is the protocol written out on top of `src/`. See
   **One engine**.
 - `cargo build --release --manifest-path engine/Cargo.toml` — the sanctioned Rust port, checked
-  by `conform.mjs --engine engine/target/release/tt-engine`. It answers `step` and skips
-  `answer`; the skips are reported, not counted as agreement. See **One engine**.
+  by `conform.mjs --engine engine/target/release/tt-engine`. Build it before a long discovery
+  run: `survey` and `harvest` pick it up automatically. See **One engine**.
 - `node tools/survey.mjs` — samples every legal group of four pieces and writes which ones
-  make rooms at all to `levels/fertility.jsonl`. Long-running and parallel; findings are
-  read in `SPEC-SHEET.md`.
+  make rooms at all to `levels/fertility.jsonl`. Findings are read in `SPEC-SHEET.md`.
 - `node tools/harvest.mjs` — samples the fertile groups deeply, on outlines rather than open
   rectangles, and stores every metric per room in `levels/harvest.jsonl`.
+- Both are parallel, and both **use the sanctioned port when it is built**, which is where the
+  pipeline's hours were: the survey alone recorded 31.5 CPU-hours. Each run prints which engine
+  it used; `--no-engine` forces `src/solver.js`. See **One engine**.
 - `node tools/score.mjs` — ranks that file. Scoring is a query over stored metrics, so new
   weights cost a second rather than another harvest.
 - `node tools/pick.mjs` — tightens a shortlist, re-measures it, and chooses an act under par-band
