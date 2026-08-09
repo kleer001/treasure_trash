@@ -37,7 +37,7 @@ import { mulberry32 } from '../src/rng.js';
 import { outline, placeOn } from './harvest.mjs';
 import { MAX_STATES } from './metrics.mjs';
 import { actLevels, root } from './packs.mjs';
-import { respond, shapeOf, answerOf } from './conform-ref.mjs';
+import { respond, shapeOf, answerOf, measureOf } from './conform-ref.mjs';
 
 // ---------------------------------------------------------------- talking to an engine
 
@@ -84,7 +84,8 @@ export function disagreement(mine, theirs) {
   if (!theirs) return 'no reply';
   if (theirs.unsupported) return null;                       // counted as a skip, not a pass
   if (theirs.error) return `error: ${theirs.error}`;
-  for (const k of ['ok', 'reason', 'kind', 'par', 'solves', 'traps', 'reachable', 'exitRefusals']) {
+  for (const k of ['ok', 'reason', 'kind', 'par', 'solves', 'traps', 'reachable', 'exitRefusals',
+                   'silentTraps', 'onPath', 'bitten', 'firstOnPath', 'lead', 'tail']) {
     if (!(k in mine)) continue;
     if (norm(mine[k]) !== norm(theirs[k])) return `${k}: ${norm(mine[k])} vs ${norm(theirs[k])}`;
   }
@@ -143,7 +144,7 @@ export async function conform(command, { rooms = null, steps = 120, random = 40,
                                          log = console.log } = {}) {
   const engine = connect(command);
   const corpus = rooms ?? [...actLevels(), ...generatedRooms(random, seed)];
-  const tally = { rooms: 0, answers: 0, steps: 0, skipped: 0 };
+  const tally = { rooms: 0, answers: 0, measures: 0, steps: 0, skipped: 0 };
   const failures = [];
 
   for (const { name, level } of corpus) {
@@ -152,10 +153,20 @@ export async function conform(command, { rooms = null, steps = 120, random = 40,
     catch (e) { if (e instanceof TooManyStates) continue; throw e; }
     tally.rooms++;
 
-    // Coarse first: one round trip says whether this room is worth taking apart.
-    const theirs = await engine.ask({ op: 'answer', ...shapeOf(start), maxStates: MAX_STATES });
-    const roomBad = disagreement(answerOf(a), theirs);
+    // Coarse first: one round trip says whether this room is worth taking apart. `measure` is
+    // asked in the same breath because it is the same enumeration — an engine the pipeline can
+    // use has to get the numbers the pipeline DECIDES on right, not only the ones a pack
+    // declares, and an unchecked metric is exactly the sort of thing that would be discovered
+    // by a re-sited act coming out different.
+    const board = shapeOf(start);
+    const [theirs, theirMeasure] = await Promise.all([
+      engine.ask({ op: 'answer', ...board, maxStates: MAX_STATES }),
+      engine.ask({ op: 'measure', ...board, maxStates: MAX_STATES }),
+    ]);
+    const roomBad = disagreement(answerOf(a), theirs)
+      ?? disagreement(measureOf(a), theirMeasure);
     if (theirs.unsupported) tally.skipped++; else tally.answers++;
+    if (theirMeasure.unsupported) tally.skipped++; else tally.measures++;
 
     // Then fine: a sample of the room's boards, or EVERY one of them once the room is known to
     // be wrong, because that is what turns "this room" into "this rule". Compared in the order
@@ -190,7 +201,8 @@ export async function conform(command, { rooms = null, steps = 120, random = 40,
   }
 
   engine.close();
-  log(`\n${tally.rooms} rooms, ${tally.answers} answers, ${tally.steps} steps`
+  log(`\n${tally.rooms} rooms, ${tally.answers} answers, ${tally.measures} measures,`
+    + ` ${tally.steps} steps`
     + (tally.skipped ? `, ${tally.skipped} SKIPPED as unsupported` : ''));
   return { failures, tally, seed };
 }

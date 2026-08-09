@@ -10,6 +10,8 @@
 //   refuse-up   the first legal `u` on a board with a bag on it comes back refused
 //   miscall     a tear is reported as a push, and lands the board it really lands
 //   par-off-by  every room's par is one higher; every step of every room agrees
+//   walk-off-by every room's `lead` is one higher — par, traps and every step agree, and only
+//               the number the level pipeline SITES a room on is wrong
 //   silent      nothing bent. The control: the harness must pass this one.
 
 import { TEAR, PUSH } from '../../src/rules.js';
@@ -25,6 +27,7 @@ const BENDS = {
       ? { id: r.id, ok: false, reason: 'wall' } : r),
   miscall: r => (r.kind === TEAR ? { ...r, kind: PUSH } : r),
   'par-off-by': r => (typeof r.par === 'number' ? { ...r, par: r.par + 1 } : r),
+  'walk-off-by': r => (typeof r.lead === 'number' ? { ...r, lead: r.lead + 1 } : r),
   silent: r => r,
 };
 

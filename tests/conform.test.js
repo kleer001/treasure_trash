@@ -39,6 +39,16 @@ test('a search that disagrees while every step agrees is caught, and told apart'
   assert.equal(failures[0].board, undefined, 'no single board is to blame, and none should be named');
 });
 
+// `measure` carries the numbers the level pipeline SITES and WALLS rooms on. They are not
+// declared in a pack, so nothing else in the tree would notice an engine getting them wrong —
+// it would surface as a re-sited act quietly coming out different.
+test('a metric the pack does not declare is still checked', async () => {
+  const { failures } = await conform(bent('walk-off-by'), { rooms: SOME, steps: 12, log: quiet });
+  assert.ok(failures.length, 'a wrong `lead` went unnoticed');
+  assert.match(failures[0].bad, /^lead: /);
+  assert.equal(failures[0].board, undefined, 'no single board is to blame, and none should be named');
+});
+
 test('an unsupported op is a skip, never a pass', () => {
   assert.equal(disagreement({ ok: true, kind: 'push' }, { unsupported: true }), null);
   assert.equal(disagreement({ ok: true, kind: 'push' }, undefined), 'no reply');

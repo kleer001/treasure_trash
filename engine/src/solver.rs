@@ -12,23 +12,38 @@
 //! make adding it cost nothing later.
 
 use crate::board::*;
-use crate::rules::{explain, Outcome};
+use crate::rules::{explain, Kind, Outcome};
 use std::collections::HashMap;
 
 const DIR_ORDER: [u8; 4] = [b'u', b'd', b'l', b'r'];
 
-pub struct Answer {
+/// Everything one enumeration knows. `answer` prints the five the protocol's coarse grain
+/// carries; `measure` prints all of them. One walk of the graph either way — the extra fields
+/// are linear passes over a graph the BFS has already paid for, which is the whole reason they
+/// belong on this side of the pipe rather than being recomputed from a graph shipped over it.
+pub struct Report {
     pub par: Option<i32>,
     pub solves: u64,
     pub traps: usize,
+    pub silent_traps: usize,
     pub reachable: usize,
     pub exit_refusals: usize,
+    pub on_path: f64,
+    pub bitten: usize,
+    pub first_on_path: Option<i32>,
+    pub lead: i32,
+    pub tail: i32,
+}
+
+struct Edge {
+    kind: Kind,
+    to: u32,
 }
 
 struct Node {
     state: State,
     depth: i32,
-    edges: Vec<u32>,
+    edges: Vec<Edge>,
 }
 
 /// Canonical state key, byte for byte the string `stateKey` builds — every lane of it is here
@@ -97,7 +112,7 @@ fn is_won(s: &State) -> bool {
     bags_left(s) == 0 && trash_held(s) == 0 && s.at(s.rac.0, s.rac.1).exit
 }
 
-pub fn analyze(start: &State, max_states: usize) -> Result<Answer, String> {
+pub fn analyze(start: &State, max_states: usize) -> Result<Report, String> {
     let mut index: HashMap<Vec<u8>, u32> = HashMap::new();
     let mut nodes: Vec<Node> = Vec::new();
     index.insert(state_key(start), 0);
@@ -118,14 +133,14 @@ pub fn analyze(start: &State, max_states: usize) -> Result<Answer, String> {
                 got.push(explain(&nodes[at as usize].state, dir)?);
             }
             for r in got {
-                let ns = match r {
+                let (kind, ns) = match r {
                     Outcome::No { reason } => {
                         if reason == "exit" {
                             exit_refusals += 1;
                         }
                         continue;
                     }
-                    Outcome::Ok { next, .. } => next,
+                    Outcome::Ok { kind, next } => (kind, next),
                 };
                 // Keyed once. Hashing a board is a scan of every cell of it, so asking twice
                 // to look up and then insert is a second full read of the same board.
@@ -142,7 +157,7 @@ pub fn analyze(start: &State, max_states: usize) -> Result<Answer, String> {
                     next.push(i);
                     i
                 };
-                nodes[at as usize].edges.push(to);
+                nodes[at as usize].edges.push(Edge { kind, to });
             }
         }
         frontier = next;
@@ -155,8 +170,8 @@ pub fn analyze(start: &State, max_states: usize) -> Result<Answer, String> {
     // Liveness: reverse-reachability from every winning state.
     let mut reverse: Vec<Vec<u32>> = vec![Vec::new(); nodes.len()];
     for (i, n) in nodes.iter().enumerate() {
-        for &to in &n.edges {
-            reverse[to as usize].push(i as u32);
+        for e in &n.edges {
+            reverse[e.to as usize].push(i as u32);
         }
     }
     let mut live = vec![false; nodes.len()];
@@ -174,22 +189,115 @@ pub fn analyze(start: &State, max_states: usize) -> Result<Answer, String> {
     }
 
     // A trap is a legal action that takes a live state to a dead one. Counted per EDGE, so two
-    // directions from one board into the same dead board are two ways to lose, not one.
-    let mut traps = 0usize;
+    // directions from one board into the same dead board are two ways to lose, not one. A SILENT
+    // trap is one whose action is a plain move: the room is lost and nothing on screen moved.
+    let (mut traps, mut silent_traps) = (0usize, 0usize);
     for (i, n) in nodes.iter().enumerate() {
         if !live[i] {
             continue;
         }
-        traps += n.edges.iter().filter(|&&to| !live[to as usize]).count();
+        for e in n.edges.iter().filter(|e| !live[e.to as usize]) {
+            traps += 1;
+            if e.kind == Kind::Move {
+                silent_traps += 1;
+            }
+        }
     }
 
     let par = wins.iter().map(|&w| nodes[w as usize].depth).min();
-    let solves = match par {
-        None => 0,
-        Some(m) => count_shortest(&nodes, &wins, m),
+    let mut r = Report {
+        par,
+        solves: 0,
+        traps,
+        silent_traps,
+        reachable: nodes.len(),
+        exit_refusals,
+        on_path: 0.0,
+        bitten: 0,
+        first_on_path: None,
+        lead: 0,
+        tail: 0,
     };
+    let Some(par) = par else { return Ok(r) };
+    r.solves = count_shortest(&nodes, &wins, par);
 
-    Ok(Answer { par, solves, traps, reachable: nodes.len(), exit_refusals })
+    let on_dag = shortest_dag(&nodes, &wins, par);
+    let (bitten_at, worked) = walk_dag(&nodes, &on_dag, &live, par);
+    r.bitten = bitten_at.iter().filter(|&&b| b).count();
+    r.on_path = r.bitten as f64 / par as f64;
+    r.first_on_path = bitten_at.iter().position(|&b| b).map(|i| i as i32);
+    let (first_work, last_work, any) = worked;
+    r.lead = if any { first_work } else { 0 };
+    r.tail = par - last_work;
+    Ok(r)
+}
+
+/// Every state on some shortest solve. Grown backwards from the winning states at par, so a
+/// board is on it when it has an edge into one that already is, one depth further on.
+fn shortest_dag(nodes: &[Node], wins: &[u32], par: i32) -> Vec<bool> {
+    let mut on_dag = vec![false; nodes.len()];
+    for &w in wins {
+        if nodes[w as usize].depth == par {
+            on_dag[w as usize] = true;
+        }
+    }
+    let mut by_depth: Vec<Vec<u32>> = Vec::new();
+    for (i, n) in nodes.iter().enumerate() {
+        let d = n.depth as usize;
+        if by_depth.len() <= d {
+            by_depth.resize(d + 1, Vec::new());
+        }
+        by_depth[d].push(i as u32);
+    }
+    for d in (1..=par).rev() {
+        let Some(layer) = by_depth.get(d as usize - 1) else { continue };
+        for &k in layer {
+            if nodes[k as usize]
+                .edges
+                .iter()
+                .any(|e| on_dag[e.to as usize] && nodes[e.to as usize].depth == d)
+            {
+                on_dag[k as usize] = true;
+            }
+        }
+    }
+    on_dag
+}
+
+/// One pass over the shortest-solve DAG for the two things read off it.
+///
+///   BITE   which depths of the best line have a way to lose hanging off them. Where a trap
+///          sits matters more than how many there are — a room can ship seventeen of them all
+///          off branches optimal play never walks.
+///   WORK   the first and last depth at which the best line does something to a piece. What is
+///          outside them is dead travel: the walk in, and the walk to the door.
+fn walk_dag(
+    nodes: &[Node],
+    on_dag: &[bool],
+    live: &[bool],
+    par: i32,
+) -> (Vec<bool>, (i32, i32, bool)) {
+    let mut bitten_at = vec![false; par as usize];
+    let (mut first_work, mut last_work, mut any) = (par, 0, false);
+    for (i, n) in nodes.iter().enumerate() {
+        if !on_dag[i] {
+            continue;
+        }
+        if n.depth < par && n.edges.iter().any(|e| !live[e.to as usize]) {
+            bitten_at[n.depth as usize] = true;
+        }
+        for e in &n.edges {
+            if e.kind != Kind::Move
+                && on_dag[e.to as usize]
+                && nodes[e.to as usize].depth == n.depth + 1
+            {
+                any = true;
+                first_work = first_work.min(n.depth);
+                last_work = last_work.max(n.depth + 1);
+            }
+        }
+    }
+    (bitten_at, (first_work, last_work, any))
 }
 
 /// How many distinct shortest action-sequences win. Counted over the shortest-path DAG rather
@@ -213,9 +321,9 @@ fn count_shortest(nodes: &[Node], wins: &[u32], par: i32) -> u64 {
             if w == 0 {
                 continue;
             }
-            for &to in &nodes[k as usize].edges {
-                if nodes[to as usize].depth == d as i32 + 1 {
-                    ways[to as usize] += w;
+            for e in &nodes[k as usize].edges {
+                if nodes[e.to as usize].depth == d as i32 + 1 {
+                    ways[e.to as usize] += w;
                 }
             }
         }

@@ -24,6 +24,18 @@
 //   <- {"id":2, "par":8, "solves":1, "traps":2, "reachable":154, "exitRefusals":9}
 //   <- {"id":2, "error":"state graph exceeds 50000 states"}
 //
+//   -> {"id":3, "op":"measure", "grid":[...], "cart":..., "water":..., "maxStates":50000}
+//   <- {"id":3, ...everything `answer` carries, plus:
+//               "silentTraps":0, "onPath":0.125, "bitten":1, "firstOnPath":3,
+//               "lead":2, "tail":1}
+//
+// `measure` is `answer` plus what the level pipeline actually decides on, and it exists because
+// those are the numbers `resite` and `shrink` guard every candidate with. They are linear walks
+// of a graph the enumeration already paid for, so an engine that returns only `answer` would
+// have to ship the graph itself for the caller to finish the job — tens of thousands of nodes
+// per candidate, which costs more than it saves. A room that cannot be won reports par null and
+// zeroes; there is no line to measure.
+//
 // `par` is null for a board that cannot be won. Grids are the CANONICAL serialisation — the one
 // `toGrid` writes, raccoon included, `+` where he stands on the exit — because two spellings of
 // one board would fail a comparison that is about the rules.
@@ -35,6 +47,7 @@ import { createInterface } from 'node:readline';
 import { toState, toGrid, toCart, toWater } from '../src/format.js';
 import { explain } from '../src/rules.js';
 import { analyze } from '../src/solver.js';
+import { shortestDag, pathBite, deadTravel } from './metrics.mjs';
 
 /** A request's board, read back in. */
 const boardOf = req => toState({ id: 'conform', grid: req.grid,
@@ -47,6 +60,18 @@ export const shapeOf = s => ({ grid: toGrid(s), cart: toCart(s), water: toWater(
 export const answerOf = a => ({ par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,
                                 reachable: a.reachable, exitRefusals: a.exitRefusals });
 
+/** The `measure` reply. One DAG, three readers — the same sharing `metrics.mjs` asks of its
+ *  own callers, because building it three times is most of what measuring a room costs. */
+export function measureOf(a) {
+  const flat = { silentTraps: a.silentTraps.length, onPath: 0, bitten: 0, firstOnPath: null,
+                 lead: 0, tail: 0 };
+  if (a.minMoves === null) return { ...answerOf(a), ...flat };
+  const onDag = shortestDag(a);
+  const { onPath, bitten, firstOnPath } = pathBite(a, onDag);
+  return { ...answerOf(a), silentTraps: flat.silentTraps, onPath, bitten, firstOnPath,
+           ...deadTravel(a, onDag) };
+}
+
 /**
  * One request, answered from `src/`. Exported because it is the only place the protocol meets
  * the engine: the harness compares against this, a bent engine bends what this returns, and the
@@ -58,8 +83,10 @@ export function respond(req) {
     const r = explain(boardOf(req), req.dir);
     return r.ok ? { ok: true, kind: r.kind, ...shapeOf(r.next) } : { ok: false, reason: r.reason };
   }
-  if (req.op === 'answer')
-    return answerOf(analyze(boardOf(req), { maxStates: req.maxStates ?? Infinity }));
+  if (req.op === 'answer' || req.op === 'measure') {
+    const a = analyze(boardOf(req), { maxStates: req.maxStates ?? Infinity });
+    return req.op === 'answer' ? answerOf(a) : measureOf(a);
+  }
   return { unsupported: true };
 }
 

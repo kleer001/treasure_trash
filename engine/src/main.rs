@@ -107,7 +107,7 @@ fn respond(req: &json::Json) -> Result<String, String> {
                 }
             }
         }
-        Some("answer") => {
+        Some(op @ ("answer" | "measure")) => {
             let s = read_board(req)?;
             // Unbounded when unasked, same as the JS: a caller that has not thought about the
             // bound gets the exact answer or an out-of-memory crash, never a quiet lie.
@@ -115,14 +115,24 @@ fn respond(req: &json::Json) -> Result<String, String> {
                 .opt("maxStates")
                 .and_then(json::Json::as_f64)
                 .map_or(usize::MAX, |n| n as usize);
-            let a = solver::analyze(&s, max)?;
+            let r = solver::analyze(&s, max)?;
+            let par = r.par.map_or("null".to_string(), |p| p.to_string());
+            let coarse = format!(
+                "\"par\":{par},\"solves\":{},\"traps\":{},\"reachable\":{},\"exitRefusals\":{}",
+                r.solves, r.traps, r.reachable, r.exit_refusals
+            );
+            if op == "answer" {
+                return Ok(coarse);
+            }
             Ok(format!(
-                "\"par\":{},\"solves\":{},\"traps\":{},\"reachable\":{},\"exitRefusals\":{}",
-                a.par.map_or("null".to_string(), |p| p.to_string()),
-                a.solves,
-                a.traps,
-                a.reachable,
-                a.exit_refusals
+                "{coarse},\"silentTraps\":{},\"onPath\":{},\"bitten\":{},\
+                 \"firstOnPath\":{},\"lead\":{},\"tail\":{}",
+                r.silent_traps,
+                r.on_path,
+                r.bitten,
+                r.first_on_path.map_or("null".to_string(), |f| f.to_string()),
+                r.lead,
+                r.tail
             ))
         }
         _ => Ok("\"unsupported\":true".into()),
