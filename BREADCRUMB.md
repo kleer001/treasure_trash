@@ -43,10 +43,6 @@ stage 3 is the call site, and #17c says what it costs.
       pattern is ordered layers via `src/compositor.js`, which the game still does not import.
       Worth doing before the art pass, and it is a real refactor of the draw loop — start it
       with a full context rather than at the end of one.
-- [ ] #5 **A cart rolls into open water and comes to rest there.** Nothing stops it, the water is
-      unchanged, and the raccoon can neither follow it nor stand on it — a cart can be lost
-      permanently, by accident, with no warning. Undesigned rather than broken; costs nothing
-      until a room holds both a canal and a cart. **Owner's call.**
 - [ ] #10 **The stack's fate — left open, deliberately, this session.** `S` is last in the roster
       by an order of magnitude: 5.1 solvable rooms per 1000 placements against 62.5 for every
       group without it. It appears in no shipped room. Cut it or keep it as an expert-act piece;
@@ -113,6 +109,15 @@ direction). An ANSWER failure re-runs at STEP grain over every state, so the rep
 shallowest board where the two part — and a room that answers wrong while every step agrees is
 reported as the port's *search*, not its rules. `tests/fixtures/bent-engine.mjs` bends one rule
 at a time and the tests require each bend to be caught.
+
+### Closed, so it does not get raised a third time
+
+**A cart shoved into open water is NOT a problem, and #5 is struck.** It was filed as "a cart can
+be lost permanently, by accident, with no warning," and every clause of that is false. Undo is
+free and unbounded — `main.js` pushes a cloned state on every move, `u` and a button pop it. And
+the room does warn: the solvability indicator prints `✕ unwinnable — undo or restart` the moment
+the board goes dead. A move you can take back after being told it was fatal is a puzzle, not a
+trap. Do not re-open this as a rules change.
 
 ### Decided this session
 

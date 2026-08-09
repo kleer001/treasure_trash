@@ -109,9 +109,13 @@ Two things the harness is built to tell apart, because they are different bugs: 
 lands the wrong board, which it reports as the board and the direction; and a room whose par
 comes out wrong while every step of it agrees, which is the port's SEARCH and not its rules.
 
-**One is sanctioned: `engine/`, in Rust.** It answers `step` and replies `unsupported` to
-`answer`, which the harness reports as a skip and never as agreement — the rules first, the
-search after, because a wrong par is only diagnosable once every step under it is known good.
+**One is sanctioned: `engine/`, in Rust.** It exists for the offline pipeline — level discovery,
+which is where the hours go — and **the game never touches it.** Nothing in `src/`, in
+`index.html` or in the artifact bundle names it; it is a stdio child process that
+`tools/conform.mjs` spawns, and that is the whole of its reach. Keep it that way. `blame` and
+the traced frames are out of the protocol on purpose, so it could not drive the renderer even if
+somebody tried, and the served game must stay a no-build-step page that runs from `src/` alone.
+
 Agents: this being here does not widen the rule above by one inch. It was the owner's call, it
 is in `SANCTIONED`, and a second one is the same conversation again.
 
