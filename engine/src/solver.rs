@@ -46,51 +46,90 @@ struct Node {
     edges: Vec<Edge>,
 }
 
-/// Canonical state key, byte for byte the string `stateKey` builds — every lane of it is here
-/// because dropping one is a SILENT bug, and the reasons are written out in `src/rules.js`.
+/// Scratch for `state_key_into`, one per enumeration and reused for every board it keys.
 ///
-/// The labelling of the multi-cell pieces is the lane most easily got wrong: the ids do not
-/// determine the partition, so they are relabelled BY FIRST APPEARANCE in raster order. Keep the
-/// raw ids instead and two boards that differ only in which couch is called which count as two
-/// states, which shows up as a `reachable` that is too high and a par that is right by luck.
-fn state_key(s: &State) -> Vec<u8> {
-    let mut kinds = Vec::with_capacity((s.rows * (s.cols + 1)) as usize);
-    let (mut pids, mut carts) = (Vec::new(), Vec::new());
-    let (mut pid_seen, mut cart_seen): (Vec<u16>, Vec<u16>) = (Vec::new(), Vec::new());
-    let label = |seen: &mut Vec<u16>, id: u16| -> u8 {
-        match seen.iter().position(|&k| k == id) {
-            Some(i) => i as u8,
-            None => {
-                seen.push(id);
-                (seen.len() - 1) as u8
-            }
-        }
-    };
-    for y in 0..s.rows {
-        if y > 0 {
-            kinds.push(b'/');
-        }
-        for x in 0..s.cols {
-            let c = s.at(x, y);
-            let terrain: u16 = if c.water { 1 } else if c.bridge { 2 } else { 0 };
-            let cart = if c.is_cart() { 1 } else { 0 };
-            kinds.push((65 + (c.o as u16 * 3 + terrain) * 2 + cart) as u8);
-            if c.pid != NO_ID {
-                pids.push(65 + label(&mut pid_seen, c.pid));
-            }
-            if c.cart != NO_ID {
-                carts.push(65 + label(&mut cart_seen, c.cart));
-            }
+/// Keying is by far the hottest thing this file does — a third of the whole binary's
+/// instructions, with the allocator taking another fifth serving it — and a board is keyed once
+/// per EDGE, not once per state. Allocating fresh buffers per call made malloc the second
+/// biggest cost in a program whose actual rules evaluation is three percent.
+#[derive(Default)]
+struct KeyBuf {
+    /// The cells a key has to describe: every one that is not a wall.
+    ///
+    /// Nothing ever writes a wall. Every write goes through `at_mut` at a cell that passed
+    /// `is_occupiable`, `can_pour` or cart membership, and all three exclude walls — so a wall
+    /// reads the same in every state of one enumeration and saying so in each key says nothing.
+    /// Boards here run to two fifths wall, and the bytes come off the building, the hashing and
+    /// the comparing alike.
+    live: Vec<u32>,
+    key: Vec<u8>,
+    pids: Vec<u8>,
+    carts: Vec<u8>,
+    pid_seen: Vec<u16>,
+    cart_seen: Vec<u16>,
+}
+
+impl KeyBuf {
+    fn new(s: &State) -> Self {
+        KeyBuf {
+            live: (0..s.cells.len() as u32).filter(|&i| !s.cells[i as usize].wall).collect(),
+            ..Default::default()
         }
     }
-    let mut key = kinds;
-    key.push(b'|');
-    key.extend(pids);
-    key.push(b'|');
-    key.extend(carts);
-    key.push(b'|');
-    key.extend(format!("{},{}", s.rac.0, s.rac.1).into_bytes());
-    key
+}
+
+/// Position of `id`'s first appearance, adding it if this is that appearance.
+fn label(seen: &mut Vec<u16>, id: u16) -> u8 {
+    match seen.iter().position(|&k| k == id) {
+        Some(i) => i as u8,
+        None => {
+            seen.push(id);
+            (seen.len() - 1) as u8
+        }
+    }
+}
+
+/// Canonical state key. Every lane `stateKey` carries is here, because dropping one is a SILENT
+/// bug and the reasons are written out in `src/rules.js`.
+///
+/// The lane most easily got wrong is the multi-cell one: the ids do not determine the partition,
+/// so they are relabelled BY FIRST APPEARANCE in raster order. Keep the raw ids instead and two
+/// boards differing only in which couch is called which count as two states, which surfaces as a
+/// `reachable` that is too high and a par that is right by luck.
+///
+/// What it does NOT carry is `stateKey`'s separators, and the difference is deliberate. This key
+/// is the engine's own index and never crosses the wire, so what it owes the JS is injectivity
+/// over the same boards, not the same spelling. Within one enumeration the grid's size is fixed
+/// and pieces are neither created nor destroyed, so every key has identical length and identical
+/// section offsets — position alone says which section a byte belongs to, and a delimiter would
+/// only be telling us what we already know.
+fn state_key_into(s: &State, b: &mut KeyBuf) {
+    let KeyBuf { live, key, pids, carts, pid_seen, cart_seen } = b;
+    key.clear();
+    pids.clear();
+    carts.clear();
+    pid_seen.clear();
+    cart_seen.clear();
+    for &i in live.iter() {
+        let c = &s.cells[i as usize];
+        let terrain: u16 = if c.water { 1 } else if c.bridge { 2 } else { 0 };
+        let cart = u16::from(c.is_cart());
+        key.push((65 + (c.o as u16 * 3 + terrain) * 2 + cart) as u8);
+        if c.pid != NO_ID {
+            let n = label(pid_seen, c.pid);
+            pids.push(65 + n);
+        }
+        if c.cart != NO_ID {
+            let n = label(cart_seen, c.cart);
+            carts.push(65 + n);
+        }
+    }
+    key.extend_from_slice(pids);
+    key.extend_from_slice(carts);
+    // Raw bytes rather than decimal text: `format!` drags the whole formatting machinery in for
+    // two small integers, and it measured at five percent of the binary doing so.
+    key.extend_from_slice(&s.rac.0.to_le_bytes());
+    key.extend_from_slice(&s.rac.1.to_le_bytes());
 }
 
 fn bags_left(s: &State) -> u32 {
@@ -115,7 +154,9 @@ fn is_won(s: &State) -> bool {
 pub fn analyze(start: &State, max_states: usize) -> Result<Report, String> {
     let mut index: HashMap<Vec<u8>, u32> = HashMap::new();
     let mut nodes: Vec<Node> = Vec::new();
-    index.insert(state_key(start), 0);
+    let mut kb = KeyBuf::new(start);
+    state_key_into(start, &mut kb);
+    index.insert(kb.key.clone(), 0);
     nodes.push(Node { state: start.clone(), depth: 0, edges: Vec::new() });
 
     // How often the exit itself refuses an action is counted here rather than in a second
@@ -142,17 +183,18 @@ pub fn analyze(start: &State, max_states: usize) -> Result<Report, String> {
                     }
                     Outcome::Ok { kind, next } => (kind, next),
                 };
-                // Keyed once. Hashing a board is a scan of every cell of it, so asking twice
-                // to look up and then insert is a second full read of the same board.
-                let k = state_key(&ns);
-                let to = if let Some(&i) = index.get(&k) {
+                // Keyed once, into a buffer that outlives the call, and COPIED only when the
+                // board turns out to be new. Most edges lead somewhere already seen, so most
+                // keyings now allocate nothing at all.
+                state_key_into(&ns, &mut kb);
+                let to = if let Some(&i) = index.get(kb.key.as_slice()) {
                     i
                 } else {
                     if nodes.len() >= max_states {
                         return Err(format!("state graph exceeds {max_states} states"));
                     }
                     let i = nodes.len() as u32;
-                    index.insert(k, i);
+                    index.insert(kb.key.clone(), i);
                     nodes.push(Node { state: ns, depth: depth + 1, edges: Vec::new() });
                     next.push(i);
                     i
