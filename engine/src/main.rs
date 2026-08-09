@@ -22,6 +22,7 @@
 mod board;
 mod json;
 mod rules;
+mod solver;
 
 use rules::Outcome;
 use std::io::{BufRead, Write};
@@ -106,8 +107,24 @@ fn respond(req: &json::Json) -> Result<String, String> {
                 }
             }
         }
-        // Stage 2. Until the search is written, a skip the harness counts and prints beats an
-        // answer nobody checked.
+        Some("answer") => {
+            let s = read_board(req)?;
+            // Unbounded when unasked, same as the JS: a caller that has not thought about the
+            // bound gets the exact answer or an out-of-memory crash, never a quiet lie.
+            let max = req
+                .opt("maxStates")
+                .and_then(json::Json::as_f64)
+                .map_or(usize::MAX, |n| n as usize);
+            let a = solver::analyze(&s, max)?;
+            Ok(format!(
+                "\"par\":{},\"solves\":{},\"traps\":{},\"reachable\":{},\"exitRefusals\":{}",
+                a.par.map_or("null".to_string(), |p| p.to_string()),
+                a.solves,
+                a.traps,
+                a.reachable,
+                a.exit_refusals
+            ))
+        }
         _ => Ok("\"unsupported\":true".into()),
     }
 }

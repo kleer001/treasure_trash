@@ -61,7 +61,12 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   With nothing registered it runs `tools/conform-ref.mjs`, so the gate is exercised rather than
   waiting to be trusted the first time it matters. `tests/fixtures/bent-engine.mjs` bends one
   rule at a time and the tests require each bend to be caught: a harness that cannot fail is a
-  green light wired to nothing. **A port is now a `--engine` argument, not a project.**
+  green light wired to nothing. **A port is a `--engine` argument, not a project.**
+- **One port is sanctioned and running: `engine/`, in Rust.** It answers both grains, and it is
+  sanctioned for exactly as long as the CI conformance step is green. Both bends have been
+  demonstrated rather than assumed: break a rule and the harness names the board and the
+  direction; break the SEARCH while every step still agrees and it says so in those words. See
+  **One engine** in `CLAUDE.md`, and `SANCTIONED` in `verify.mjs`, which prints it every run.
 
 ## NEXT MOVE — everything around the mechanic
 `./run.sh`, then pick a room. `npm test` and `node tools/verify.mjs` are green.
@@ -69,13 +74,7 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   pattern is ordered layers via `src/compositor.js`. Worth doing before the art pass. It
   already draws sprites in layer order — that ordering is the thing the compositor should own.
 - **Audio** — procedural WebAudio. The only sound today is the win chime.
-- **Name Act 2.** Every room ships with a `TODO name L31`-style placeholder, and the HUD shows
-  them to the player. Each room's `:note` already says which set and which ramp it belongs to,
-  which is the context to write from.
 - **Art pass.**
-- **`tools/build-artifact.mjs` does not build.** Pre-existing, and not the indicator's doing:
-  the win-chime `fetch` in `main.js` survives bundling and trips the tool's own CSP guard.
-  The served game is unaffected; only the single-file publish path is.
 - `src/logo.js` and `src/compositor.js` are still scaffolding the game does not import;
   `main.js` uses its own inline LCG for confetti rather than `mulberry32`. Wire them in or
   drop them. (`src/rng.js` is now in use — `stage.js` seeds sprites with it.)
@@ -100,9 +99,9 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   work the profile is about half `analyze` itself and a sixth garbage collection: string state
   keys hashed into a `Map`, one object per node, one per edge, one per back-pointer. Integer
   keys over a flat edge array would plausibly take another 2-4x, inside `src/`, with one engine
-  still. A native or WASM port would take more than that and is the owner's to sanction, not an
-  agent's to start; what it owes first is a differential check against `src/rules.js` that runs
-  every build. **One engine** in `CLAUDE.md` is the rule and the reasoning.
+  still — and it is still the cheaper spend, because it costs nothing to keep in agreement.
+  The Rust port is sanctioned and measured: it is what `engine/` is for, and what it owes is
+  above.
 
 ## Backlog (rooms & content)
 - **L7–L13 need regenerating, not re-sorting.** `tools/metrics.mjs` scores them: par
