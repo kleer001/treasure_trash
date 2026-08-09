@@ -27,9 +27,10 @@ import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { toState } from '../src/format.js';
-import { analyze, TooManyStates } from '../src/solver.js';
+import { analyze } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
+import { engineFor, connect, measureMany, measureHere, TOO_BIG } from './engine.mjs';
 import { staticallyDead } from './survey.mjs';
 import { placeOn, measure } from './harvest.mjs';
 import { hFamily } from './shapes.mjs';
@@ -49,25 +50,31 @@ export const PAR_MIN = 8;
 export const PAR_MAX = 40;
 export const SET_TOP_MIN = 18;
 
-/** A room is worth keeping if it is winnable, has something to clear, teeth, and a real exit. */
-function keep(s, a, parMin) {
-  if (a.minMoves === null) return false;
-  if (a.minMoves < parMin || a.minMoves > PAR_MAX) return false;
+/** A room is worth keeping if it is winnable, has something to clear, teeth, and a real exit.
+ *  Every field here is on the wire, which is what lets the engine answer it. */
+function keep(s, r, parMin) {
+  if (r.par === null) return false;
+  if (r.par < parMin || r.par > PAR_MAX) return false;
   if (bagsLeft(s) < 1) return false;             // nothing to clear is not a puzzle
-  if (a.silentTraps.length) return false;
-  if (a.exitRefusals === 0) return false;        // an exit that refuses nothing is a destination
-  return a.traps.length >= 1;
+  if (r.silentTraps) return false;
+  if (r.exitRefusals === 0) return false;        // an exit that refuses nothing is a destination
+  return r.traps >= 1;
 }
 
-function look(room, group, w, h, parMin = PAR_MIN) {
+/**
+ * The engine SCREENS; the full row is still built here. Most draws never become a rung — they
+ * are too big, out of the par band, toothless or a door that refuses nothing — and deciding
+ * that needs only what the protocol carries. The graph is enumerated a second time in process
+ * for the few that get past it, because a row wants the solve string and the inert test.
+ */
+async function look(engine, room, group, w, h, parMin = PAR_MIN) {
   let s;
   try { s = toState({ id: 'set', ...room }); } catch { return null; }
   if (staticallyDead(s)) return null;
-  let a;
-  try { a = analyze(s, { maxStates: MAX_STATES }); }
-  catch (e) { if (e instanceof TooManyStates) return null; throw e; }
-  if (!keep(s, a, parMin)) return null;
-  const row = measure(group, room, s, a, w, h);
+  const r = engine ? (await measureMany(engine, [s], MAX_STATES))[0] : measureHere(s, MAX_STATES);
+  if (r === TOO_BIG) return null;
+  if (!keep(s, r, parMin)) return null;
+  const row = measure(group, room, s, analyze(s, { maxStates: MAX_STATES }), w, h);
   // A rung is the group it draws, and a piece that hinders nothing is not in the room in any
   // sense the player can act on. Rejecting the rung rejects the set: three rooms cannot share
   // a cast when one of them is short a member.
@@ -96,7 +103,7 @@ const cellsOf = (grid, pred) => {
  * The joint constraint is what makes this the hardest ramp to find: ONE placement has to hold
  * up at all three weights.
  */
-export function upgradeSet(plan, group, rnd) {
+export async function upgradeSet(engine, plan, group, rnd) {
   const room = placeOn(group, plan, plan.w, plan.h, rnd);
   if (!room) return null;
   const empties = cellsOf(room.grid, ch => UPGRADE[ch] !== undefined);
@@ -112,7 +119,7 @@ export function upgradeSet(plan, group, rnd) {
       grid = swapAt(grid, [x, y], UPGRADE[grid[y][x]]);
     }
     const g = [...group].map(c => c).join('');   // the group label stays the base mixture
-    const m = look({ grid, ...(room.cart && { cart: room.cart }) }, g, plan.w, plan.h);
+    const m = await look(engine, { grid, ...(room.cart && { cart: room.cart }) }, g, plan.w, plan.h);
     if (!m) return null;
     rungs.push(m);
   }
@@ -122,7 +129,7 @@ export function upgradeSet(plan, group, rnd) {
 }
 
 /** Three rooms, one board, a piece added each rung and the earlier ones left where they are. */
-export function additionSet(plan, group, extras, rnd) {
+export async function additionSet(engine, plan, group, extras, rnd) {
   const room = placeOn(group, plan, plan.w, plan.h, rnd);
   if (!room) return null;
   const rungs = [];
@@ -138,7 +145,7 @@ export function additionSet(plan, group, extras, rnd) {
       taken.add(`${x},${y}`);
       grid = swapAt(grid, [x, y], extras[i - 1]);
     }
-    const m = look({ grid, ...(room.cart && { cart: room.cart }) },
+    const m = await look(engine, { grid, ...(room.cart && { cart: room.cart }) },
       group + extras.slice(0, i).join(''), plan.w, plan.h);
     if (!m) return null;
     rungs.push(m);
@@ -152,13 +159,13 @@ export function additionSet(plan, group, extras, rnd) {
  * Fixing the mixture is what makes this a set rather than three rooms that happen to share a
  * silhouette: the player meets the same cast three times, arranged three ways.
  */
-export function parSet(plan, groups, rnd, tries = 40, gap = 3) {
+export async function parSet(engine, plan, groups, rnd, tries = 40, gap = 3) {
   const g = groups[Math.floor(rnd() * groups.length)];
   const found = [];
   for (let i = 0; i < tries && found.length < 24; i++) {
     const room = placeOn(g, plan, plan.w, plan.h, rnd);
     if (!room) continue;
-    const m = look(room, g, plan.w, plan.h);
+    const m = await look(engine, room, g, plan.w, plan.h);
     if (m) found.push(m);
   }
   found.sort((a, b) => a.par - b.par);
@@ -207,29 +214,31 @@ export function rampGroups(fertile) {
 }
 
 // ---------------------------------------------------------------- search
-function search(plans, groups, tries, seed) {
+async function search(engine, plans, groups, tries, seed) {
   const rnd = mulberry32(seed);
   const out = [];
   for (const plan of plans) {
     for (let t = 0; t < tries; t++) {
       const g = groups.upgrade[Math.floor(rnd() * groups.upgrade.length)];
-      const s = upgradeSet(plan, g, rnd);
+      const s = await upgradeSet(engine, plan, g, rnd);
       if (s) { out.push(s); break; }
     }
     for (let t = 0; t < tries; t++) {
       const a = groups.addition[Math.floor(rnd() * groups.addition.length)];
-      const s = additionSet(plan, a.base, a.extras, rnd);
+      const s = await additionSet(engine, plan, a.base, a.extras, rnd);
       if (s) { out.push(s); break; }
     }
-    const p = parSet(plan, groups.par, rnd);
+    const p = await parSet(engine, plan, groups.par, rnd);
     if (p) out.push(p);
   }
   return out;
 }
 
 if (!isMainThread && workerData?.tool === 'sets') {
-  const { plans, groups, tries, seed } = workerData;
-  parentPort.postMessage(search(plans, groups, tries, seed));
+  const { plans, groups, tries, seed, engineBin } = workerData;
+  const engine = engineBin ? connect(engineBin) : null;
+  parentPort.postMessage(await search(engine, plans, groups, tries, seed));
+  engine?.close();
 } else if (import.meta.url === `file://${process.argv[1]}`) {
   const str = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d : process.argv[i + 1]; };
   const num = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d : Number(process.argv[i + 1]); };
@@ -242,6 +251,7 @@ if (!isMainThread && workerData?.tool === 'sets') {
   // `--without` drops mixtures containing a piece. The map is honest that the recycle bin is
   // the most fertile piece in the roster, which means an unfiltered pool puts it in almost
   // every set — good rooms, one-note act. Excluding it deliberately is how the rest get found.
+  const engineBin = engineFor(process.argv);
   const without = str('--without', '');
   const fertile = readFileSync(inPath, 'utf8').trim().split('\n').map(JSON.parse)
     .filter(r => r.interesting >= minInteresting).map(r => r.group)
@@ -265,7 +275,7 @@ if (!isMainThread && workerData?.tool === 'sets') {
   const byWorker = new Array(live.length);
   let done = 0, found = 0;
   await Promise.all(live.map((chunk, w) => new Promise((ok, no) => {
-    const worker = new Worker(self, { workerData: { tool: 'sets', plans: chunk, groups, tries, seed: 11 + w * 7919 } });
+    const worker = new Worker(self, { workerData: { tool: 'sets', plans: chunk, groups, tries, seed: 11 + w * 7919, engineBin } });
     worker.on('message', got => {
       byWorker[w] = got; done++; found += got.length;
       console.log(`  worker ${done}/${live.length} — ${found} sets so far`
