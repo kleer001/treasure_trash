@@ -28,51 +28,15 @@
 // somebody's rules produced, which is a better fuzzing corpus than anything invented, and the
 // generator supplies the piece combinations the shipped acts happen not to contain.
 
-import { spawn } from 'node:child_process';
-import { createInterface } from 'node:readline';
 import { toState } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { DIR_ORDER } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 import { outline, placeOn } from './harvest.mjs';
 import { MAX_STATES } from './metrics.mjs';
-import { actLevels, root } from './packs.mjs';
+import { actLevels } from './packs.mjs';
+import { connect } from './engine.mjs';
 import { respond, shapeOf, answerOf, measureOf } from './conform-ref.mjs';
-
-// ---------------------------------------------------------------- talking to an engine
-
-/**
- * A child process that speaks the protocol. Replies are matched by id rather than by arrival,
- * so requests may be in flight together — how many at once is the caller's to choose, and
- * `WINDOW` below is the choice this one makes.
- */
-function connect(command) {
-  const child = spawn(command, { shell: true, stdio: ['pipe', 'pipe', 'inherit'], cwd: root });
-  const pending = new Map();
-  let nextId = 1;
-
-  createInterface({ input: child.stdout }).on('line', line => {
-    if (!line.trim()) return;
-    const reply = JSON.parse(line);
-    pending.get(reply.id)?.(reply);
-    pending.delete(reply.id);
-  });
-  // An engine that dies mid-corpus would otherwise leave the harness waiting on a reply that
-  // is never coming, and a hang reads like a slow port rather than a broken one.
-  const died = new Promise((_, no) => child.on('exit', code => {
-    if (pending.size) no(new Error(`engine exited (${code}) with ${pending.size} unanswered`));
-  }));
-
-  return {
-    ask(req) {
-      const id = nextId++;
-      const reply = new Promise(ok => pending.set(id, ok));
-      child.stdin.write(JSON.stringify({ id, ...req }) + '\n');
-      return Promise.race([reply, died]);
-    },
-    close() { child.stdin.end(); },
-  };
-}
 
 // ---------------------------------------------------------------- what agreement means
 

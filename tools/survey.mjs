@@ -16,6 +16,7 @@ import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { isMainThread, workerData } from 'node:worker_threads';
 import { defaultWorkers, run, serve } from './pool.mjs';
+import { engineFor, connect, measureMany, TOO_BIG } from './engine.mjs';
 import { toState } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
@@ -172,13 +173,37 @@ const MAX_STATES = 50_000;
 // each other, and a group that only ever yields par-6 rooms is a finding, not a failure.
 const isInteresting = d => d.par >= 12 && d.solves <= 2 && d.traps >= 1;
 
-function surveyGroup(group, samples, seed) {
+/** The five numbers this pass judges a room on, from `src/` rather than from the engine. */
+function readHere(s) {
+  try {
+    const a = analyze(s, { maxStates: MAX_STATES });
+    return { par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,
+             silentTraps: a.silentTraps.length, exitRefusals: a.exitRefusals };
+  } catch (e) {
+    if (e instanceof TooManyStates) return TOO_BIG;
+    throw e;
+  }
+}
+
+/**
+ * `engine` is the sanctioned port, or null to enumerate here. This is where the pipeline's
+ * hours are — thirty-one CPU-hours across the roster, by the `ms` this file records — so it is
+ * the first thing the port was pointed at.
+ */
+async function surveyGroup(group, samples, seed, engine = null) {
   const rnd = mulberry32(seed);
   const out = {
     group, samples: 0, undrawable: 0, prefiltered: 0, illegal: 0,
     solvable: 0, interesting: 0, tooBig: 0, pars: [], ms: 0,
   };
   const t0 = Date.now();
+
+  // DRAWN FIRST, JUDGED AFTER. Every placement comes off the seeded stream and nothing about a
+  // draw depends on how the last one scored, so the whole batch can be drawn and then asked at
+  // once — which is what lets the engine be handed two hundred boards instead of two hundred
+  // round trips. The counters are totals and `pars` is filled in draw order either way, so the
+  // row this writes is the row the one-at-a-time loop wrote.
+  const boards = [];
   for (let i = 0; i < samples; i++) {
     out.samples++;
     const room = place(group, rnd);
@@ -186,20 +211,19 @@ function surveyGroup(group, samples, seed) {
     let s;
     try { s = toState(room); } catch { out.illegal++; continue; }
     if (staticallyDead(s)) { out.prefiltered++; continue; }
-    let a;
-    try { a = analyze(s, { maxStates: MAX_STATES }); }
-    catch (e) {
-      if (e instanceof TooManyStates) { out.tooBig++; continue; }
-      throw e;
-    }
-    if (a.minMoves === null) continue;
+    boards.push(s);
+  }
+
+  const reads = engine ? await measureMany(engine, boards, MAX_STATES) : boards.map(readHere);
+  for (const [i, r] of reads.entries()) {
+    if (r === TOO_BIG) { out.tooBig++; continue; }
+    if (r.par === null) continue;
     // The one design rule a room can fail: an exit that refuses nothing is only a destination.
-    if (bagsLeft(s) > 0 && a.exitRefusals === 0) continue;
-    if (a.silentTraps.length) continue;
+    if (bagsLeft(boards[i]) > 0 && r.exitRefusals === 0) continue;
+    if (r.silentTraps) continue;
     out.solvable++;
-    out.pars.push(a.minMoves);
-    const d = { par: a.minMoves, solves: a.shortestCount, traps: a.traps.length };
-    if (isInteresting(d)) out.interesting++;
+    out.pars.push(r.par);
+    if (isInteresting(r)) out.interesting++;
   }
   out.ms = Date.now() - t0;
   return out;
@@ -211,8 +235,12 @@ function surveyGroup(group, samples, seed) {
 // The tag matters: this module is imported by other tools, and their workers would
 // otherwise run this branch against workerData meant for them.
 if (!isMainThread && workerData?.tool === 'survey') {
-  const { samples, seed } = workerData;
-  serve((g, i) => surveyGroup(g, samples, seed + i));
+  const { samples, seed, engineBin } = workerData;
+  // One engine per worker. They are separate processes with separate graphs, so nothing is
+  // shared and nothing needs locking.
+  const engine = engineBin ? connect(engineBin) : null;
+  await serve((g, i) => surveyGroup(g, samples, seed + i, engine));
+  engine?.close();
 } else if (import.meta.url === `file://${process.argv[1]}`) {
   const arg = (flag, dflt) => {
     const i = process.argv.indexOf(flag);
@@ -226,6 +254,8 @@ if (!isMainThread && workerData?.tool === 'survey') {
   const workers = arg('--workers', defaultWorkers());
   const limit = arg('--groups', Infinity);
 
+  const engineBin = engineFor(process.argv);
+
   const all = groups();
   const list = Number.isFinite(limit) ? all.slice(0, limit) : all;
   console.log(`${all.length} legal groups of ${SIZE} from ${ALPHABET.length} piece types`);
@@ -234,7 +264,7 @@ if (!isMainThread && workerData?.tool === 'survey') {
   const t0 = Date.now();
   const rows = await run({
     self: fileURLToPath(import.meta.url), tool: 'survey', items: list, workers,
-    extra: w => ({ samples, seed: 1 + w * 10007 }),
+    extra: w => ({ samples, seed: 1 + w * 10007, engineBin }),
     onItem: ({ got: row, done, total, ms }) => {
       const el = ms / 1000;
       const eta = ((el / done) * (total - done)) / 60;

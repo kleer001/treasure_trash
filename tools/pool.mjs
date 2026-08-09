@@ -24,8 +24,11 @@ export const defaultWorkers = () => Math.max(1, availableParallelism() - 2);
  * `each(item, i)` gets the item's position WITHIN THIS CHUNK, which is what the seeded tools
  * offset their per-worker seed by.
  */
-export function serve(each) {
-  workerData.chunk.forEach(({ at, item }, i) => parentPort.postMessage({ at, got: each(item, i) }));
+export async function serve(each) {
+  // Sequential and awaited: `each` may be talking to a child process now, and the main side
+  // reassembles by index anyway, so there is nothing to gain by racing within a chunk.
+  for (const [i, { at, item }] of workerData.chunk.entries())
+    parentPort.postMessage({ at, got: await each(item, i) });
   parentPort.postMessage(null);
 }
 
