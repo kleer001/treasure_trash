@@ -105,6 +105,32 @@ shallowest board where the two part — and a room that answers wrong while ever
 reported as the port's *search*, not its rules. `tests/fixtures/bent-engine.mjs` bends one rule
 at a time and the tests require each bend to be caught.
 
+### The bin is not a problem, and the hunt for bin-free sets is called off
+
+**Act 2 has the recycle bin in 27 of its 30 rooms and that is right.** The 0.9 cap was read as a
+compromise; it is not. One shove slides the bin a cell, sheds PERMANENT trash a cell beyond it,
+and leaves an empty bin behind — a body moves, an obstacle lands where the player chose to put it,
+and the piece changes state. Nothing else in the roster does that much at once, which is why it
+tops the fertility map at 86.6 solvable per 1000 against 62.0 for the next piece.
+
+**Measured, not argued.** A bin-free search ten times deeper than the one that built this act
+returned eight sets, all with viable pars — and NOT ONE of them an upgrade. The upgrade ramp fills
+a container each rung (`c`→`C`, `w`→`W`, `b`→`B`), and the bin is the container that reliably
+makes a room. Among eligible candidates the split is 6 upgrade-with-bin to 1 without. Squeezing
+the bin does not flatten the act; it deletes its best device, the Minicosmos one the code itself
+calls the hardest ramp to find.
+
+**The mistake worth remembering: piece share is `:traps` all over again** — a count standing in
+for an experience. This repo already knows to score on `onPath` rather than trap count, and the
+same reasoning applies here. Variety the player can feel is ramp, outline and where the trap
+sits, all of which Act 2 already spreads: ten outlines, three ramps, pars 8–32, onPath 0–17%.
+
+Also corrected: `act2.mjs` and `levels.md` both claimed "only ONE candidate set is bin-free". It
+is five (two carry no bin of either kind). Both now say what was measured.
+
+The cap stays at 0.9 as a loose backstop — nothing has tested an unbounded pool — and
+`act2.mjs` prints the piece counts every run so the spread stays visible.
+
 ### Closed, so it does not get raised a third time
 
 **A cart shoved into open water is NOT a problem, and #5 is struck.** It was filed as "a cart can

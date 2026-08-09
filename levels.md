@@ -64,11 +64,15 @@ Each set gets harder in a stated way — by filling a container that was already
 by adding a piece, or by rearranging the same cast. Sets are ordered by how much of the solution
 optimal play can still throw away.
 
-Ten sets, and the price is on the label: the recycle bin is in 27 of the 30 rooms. It is the most
-fertile piece in the roster by a distance, and on H outlines it is close to load-bearing — of 56
-candidate sets exactly one contains no bin at all. The cap on how much of one act a single piece
-may take is what runs out first, and reaching ten meant raising it. `tools/act2.mjs` prints the
-piece counts every run, so the cost stays visible rather than becoming the house style.
+Ten sets, and the recycle bin is in 27 of the 30 rooms. That is deliberate. One shove slides the
+bin a cell, sheds permanent trash a cell beyond it, and leaves an empty bin behind — a body moves,
+an obstacle lands where you chose to put it, and the piece changes state. It is the piece with the
+most in it, which is why it tops the fertility map, and an act built on H outlines leans on it.
+
+Holding the bin down was tried and measured: a bin-free search returned eight sets and not one of
+them an upgrade, because the upgrade ramp works by filling a container and the bin is the
+container that reliably makes a room. `tools/act2.mjs` prints the piece counts every run, so the
+spread stays visible.
 
 The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 
