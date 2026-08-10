@@ -2,8 +2,8 @@
 // Treasure Trash — outline families. A shape family is a room's silhouette, enumerated rather
 // than drawn at random, so an act can be built on one.
 //
-//   node tools/shapes.mjs [h] [--all]              # draw the family
-//   node tools/shapes.mjs [h] --water [--seed N]   # draw it wet: canals and puddle fields
+//   node tools/shapes.mjs [h|ring] [--all]              # draw the family
+//   node tools/shapes.mjs [h|ring] --water [--seed N]   # draw it wet: canals and puddle fields
 //
 // WHY A FAMILY AND NOT RANDOM WALLS. Sokoban sets are often organised around a formal device:
 // Skinner's Sasquatch III is built on design symmetry, and his reason is mechanical rather
@@ -22,6 +22,17 @@
 // crossbar or neck, because a wider one would be a clear rectangle again. Two rows is enough
 // to walk and shove through but it constrains bursting, since a sideways tear needs a row
 // above AND below the bag.
+//
+// WHY THE RING IS DEFINED BY MARGINS. One block in a rectangle is the obvious second family and
+// the obvious version of it does not work: a fixed 2x2 block leaves a slab beside it that widens
+// with the room, and past about 7x6 that slab IS the open hall. Sizing the block to leave a one
+// or two cell margin instead keeps the lane narrow at every size, which is why the family is
+// large where a centred square is a handful of lucky arithmetic.
+//
+// Most of the ring family is ASYMMETRIC, and that is the point: a one-cell squeeze down one side
+// against a two-cell lane down the other is a different room from a symmetric ring. A one-cell
+// margin is also a lane a shoved piece can never be got around — a commitment rather than a
+// fault, and whether it is a fertile one is a question for the survey and not for this comment.
 
 import { largestOpenBlock, floorIsConnected, floorComponents, hasNiche } from './metrics.mjs';
 import { WET } from '../src/format.js';
@@ -107,7 +118,40 @@ export function hFamily() {
   return out;
 }
 
-export const FAMILIES = { h: hFamily };
+// Margins the lane may be, on each of the four sides. Two is enough to walk round a shoved
+// piece; one is not, and both are members.
+const MARGINS = [1, 2];
+const RING_BLOCK_MIN = 2;             // a one-cell block is a pillar, and pillars make niches
+
+/**
+ * The ring family: one solid block in a rectangle, and the room is the lane around it.
+ *
+ * Enumerated over the four margins rather than over block positions, which is the same set of
+ * rooms said the way that makes the bound obvious — see the header for why a fixed-size block
+ * does not survive the open-block rule past about 7x6.
+ */
+export function ringFamily() {
+  const out = [];
+  for (let h = 5; h <= 8; h++) for (let w = 6; w <= 11; w++) {
+    for (const l of MARGINS) for (const r of MARGINS)
+      for (const t of MARGINS) for (const b of MARGINS) {
+        const bw = w - l - r, bh = h - t - b;
+        if (bw < RING_BLOCK_MIN || bh < RING_BLOCK_MIN) continue;
+        const wall = blank(w, h);
+        for (let y = t; y < t + bh; y++) for (let x = l; x < l + bw; x++) wall[y][x] = true;
+        const j = judge(wall, w, h);
+        if (!j.ok) continue;
+        out.push({
+          kind: 'ring', w, h, wall, floor: j.floor, block: j.block,
+          sym: l === r && t === b,
+          label: `ring ${w}x${h} block${bw}x${bh}@${l},${t}`,
+        });
+      }
+  }
+  return out;
+}
+
+export const FAMILIES = { h: hFamily, ring: ringFamily };
 
 // ---------------------------------------------------------------- water
 // Terrain is laid ON an outline rather than being part of one, and that split decides which

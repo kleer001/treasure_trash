@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hFamily, judge, draw, canals, puddles, isBarrier, bridgeSeats, bankOf } from '../tools/shapes.mjs';
+import {
+  hFamily, ringFamily, FAMILIES, judge, draw, canals, puddles, isBarrier, bridgeSeats, bankOf,
+} from '../tools/shapes.mjs';
 import { largestOpenBlock, floorIsConnected, floorComponents, hasNiche } from '../tools/metrics.mjs';
 import { placeOn } from '../tools/harvest.mjs';
 import { toState } from '../src/format.js';
@@ -81,6 +83,52 @@ test('judge refuses a board that is one open hall — the L and U case', () => {
   const w = 6, h = 5;
   const wall = Array.from({ length: h }, () => Array.from({ length: w }, () => false));
   assert.equal(judge(wall, w, h).ok, false, 'a bare rectangle must not pass');
+});
+
+// --- the ring family --------------------------------------------------------
+const RING = ringFamily();
+
+test('the ring family is large, and mostly asymmetric', () => {
+  assert.ok(RING.length > 200, `only ${RING.length} ring variants`);
+  // The reason the family exists at this size: a centred square is a handful of lucky
+  // arithmetic, and everything else in it is off-centre.
+  assert.ok(RING.filter(v => !v.sym).length > RING.filter(v => v.sym).length,
+    'the family should be mostly asymmetric');
+  assert.ok(RING.some(v => v.sym), 'symmetric rings are members too');
+});
+
+test('every ring passes the same structural rules the H family does', () => {
+  for (const v of RING) {
+    const isFloor = (x, y) => x >= 0 && y >= 0 && x < v.w && y < v.h && !v.wall[y][x];
+    const b = largestOpenBlock(isFloor, v.w, v.h);
+    assert.ok(!(Math.min(b.w, b.h) >= 3 && b.area >= 12), `${v.label} has a ${b.w}x${b.h} block`);
+    assert.ok(floorIsConnected(isFloor, v.w, v.h), `${v.label} is two rooms`);
+    assert.ok(!hasNiche(isFloor, v.w, v.h), `${v.label} has a niche`);
+    assert.ok(v.floor.length >= 16, `${v.label} has ${v.floor.length} floor`);
+  }
+});
+
+// One block, not two, and a lane all the way round it — that is what makes it a ring rather
+// than a rectangle with a bite out of it.
+test('every ring is one solid block with a lane on all four sides', () => {
+  for (const v of RING) {
+    const wallCells = [];
+    for (let y = 0; y < v.h; y++) for (let x = 0; x < v.w; x++) if (v.wall[y][x]) wallCells.push([x, y]);
+    const xs = wallCells.map(c => c[0]), ys = wallCells.map(c => c[1]);
+    const [x0, x1] = [Math.min(...xs), Math.max(...xs)];
+    const [y0, y1] = [Math.min(...ys), Math.max(...ys)];
+    assert.equal(wallCells.length, (x1 - x0 + 1) * (y1 - y0 + 1), `${v.label} is not one rectangle`);
+    assert.ok(x0 >= 1 && y0 >= 1 && x1 <= v.w - 2 && y1 <= v.h - 2,
+      `${v.label} touches the frame — that is a bite, not a ring`);
+    for (const m of [x0, y0, v.w - 1 - x1, v.h - 1 - y1])
+      assert.ok(m === 1 || m === 2, `${v.label} has a ${m}-cell margin`);
+  }
+});
+
+test('both families are registered and answer to the CLI name', () => {
+  assert.deepEqual(Object.keys(FAMILIES).sort(), ['h', 'ring']);
+  assert.equal(FAMILIES.ring().length, RING.length);
+  assert.equal(FAMILIES.h().length, FAM.length);
 });
 
 // --- water ------------------------------------------------------------------
