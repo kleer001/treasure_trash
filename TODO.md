@@ -78,14 +78,12 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
 
 ## NEXT MOVE — everything around the mechanic
 `./run.sh`, then pick a room. `npm test` and `node tools/verify.mjs` are green.
-- **Render through the compositor.** `main.js` draws straight to the canvas; the house
-  pattern is ordered layers via `src/compositor.js`. Worth doing before the art pass. It
-  already draws sprites in layer order — that ordering is the thing the compositor should own.
 - **Audio** — procedural WebAudio. The only sound today is the win chime.
-- **Art pass.**
-- `src/logo.js` and `src/compositor.js` are still scaffolding the game does not import;
-  `main.js` uses its own inline LCG for confetti rather than `mulberry32`. Wire them in or
-  drop them. (`src/rng.js` is now in use — `stage.js` seeds sprites with it.)
+- **Art pass.** The frame is composited in named layers, so a new pass is a layer rather than
+  an edit to the draw loop.
+- `src/logo.js` is still scaffolding the game does not import; `main.js` uses its own inline
+  LCG for confetti rather than `mulberry32`. Wire them in or drop them. (`src/rng.js` is now
+  in use — `stage.js` seeds sprites with it.)
 
 ## Open decisions
 - **The crow.** Un-pin and design its powers. What can the crow do that the raccoon can't

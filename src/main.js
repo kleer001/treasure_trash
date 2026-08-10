@@ -10,6 +10,7 @@ import { parseLevelPack, toState } from './format.js';
 import { deadScan } from './solver.js';
 import { createProgress } from './progress.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
+import { createCompositor } from './compositor.js';
 // stage owns the objects, their motion and its envelopes
 import {
   CART, COUCH, RACCOON, SPLASH, advance, applyStep, easeOut, rollEase, settle, stageFrom,
@@ -191,7 +192,7 @@ function startParty(){
   };
   if(!raf) raf = requestAnimationFrame(tick);
 }
-function drawParty(){
+function drawParty(ctx, party){
   const t = (performance.now() - party.t0) / 1000;
   ctx.save();
   ctx.globalAlpha = Math.min(1, Math.max(0, (WIN_MS / 1000 - t) / .45));   // fade on the way out
@@ -362,73 +363,89 @@ function rest(){ anim = null; board = state; stage = stageFrom(state, cur + 1); 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 const SP = createSprites({ ctx, cell: CS, pad: PAD });
 // Couches under carts, carts under loose things, cargo over the cart it rides, him on top.
-const LAYER = sp => sp.kind === COUCH ? 0 : sp.kind === CART ? 1
+const BANDS = ['couch','cart','loose','carried','raccoon'];
+const bandOf = sp => sp.kind === COUCH ? 0 : sp.kind === CART ? 1
   : sp.kind === RACCOON ? 4 : (sp.parent === null ? 2 : 3);
 
-function render(){
-  const s=state, b=board ?? state;
-  const ph = fx ? fxPhase() : null;
-  const fxCells = new Set((ph && fx.showBurst ? fx.cells : []).map(([x,y])=>`${x},${y}`));
-  cv.width=s.cols*CS; cv.height=s.rows*CS;
-  ctx.clearRect(0,0,cv.width,cv.height);
+// Everything but the ground is a sprite with a position of its own, so a couch comes out as one
+// slab with no seam, cargo is carried rather than redrawn, and a bin's bag leaves the bin.
+function drawSprite(sp, f){
+  const { state:s, ph, fx } = f;
+  if(sp.kind === RACCOON){
+    // A refusal is a lunge from where he stands, not travel — the stage knows nothing of it.
+    if(ph){ const k = ph.lunge*0.42; SP.raccoon(s.rac.x+fx.dx*k, s.rac.y+fx.dy*k); }
+    else SP.raccoon(sp.x, sp.y);
+  }
+  else if(sp.kind === COUCH) SP.furniture(sp.cells, sp.x, sp.y);
+  else if(sp.kind === CART)  SP.cart(sp.cells, sp.x, sp.y);
+  else if(sp.kind === SPLASH) SP.splash(sp.x, sp.y);
+  else drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
+    seed: sp.seed,
+    // a bag mid-refusal deflates where it stands; a torn one deflates as its fan grows
+    k: sp.dying ? (sp.deflate ?? 1)
+      : ph && fx.bx===Math.round(sp.x) && fx.by===Math.round(sp.y) ? 1-ph.burst : 1,
+  });
+}
+
+const comp = createCompositor([
+  { name:'clear', draw:(ctx,f)=>ctx.clearRect(0,0,f.w,f.h) },
+
   // Terrain only — the ground is the one thing that is still a property of the square. Read
   // from the board the animation is currently on, so a canal fills as the trash lands in it.
-  for(let y=0;y<b.rows;y++) for(let x=0;x<b.cols;x++){
-    const c=cell(b,x,y); if(c.wall) continue;
-    // A filled cell keeps the canal's dark rim, so you can still see where the water was and
-    // what it cost to cross.
-    if(c.water)       SP.water(x,y,false);
-    else if(c.bridge) SP.water(x,y,true,hash(x,y));
-    else              SP.floor(x,y);
-    if(c.exit) SP.exit(x,y, bagsLeft(s)===0 && trashHeld(s)===0, exitArrowDir(s.cols,s.rows,x,y));
-  }
+  { name:'terrain', draw:(ctx,f)=>{
+    const s=f.state, b=f.board;
+    for(let y=0;y<b.rows;y++) for(let x=0;x<b.cols;x++){
+      const c=cell(b,x,y); if(c.wall) continue;
+      // A filled cell keeps the canal's dark rim, so you can still see where the water was and
+      // what it cost to cross.
+      if(c.water)       SP.water(x,y,false);
+      else if(c.bridge) SP.water(x,y,true,hash(x,y));
+      else              SP.floor(x,y);
+      if(c.exit) SP.exit(x,y, bagsLeft(s)===0 && trashHeld(s)===0, exitArrowDir(s.cols,s.rows,x,y));
+    }
+  }},
+
   // the debris of a burst that is being refused: it flies out, reaches the cell that
   // won't take it, and retracts. None of it is board state.
-  if(ph) for(const [fxx,fxy] of (fx.showBurst ? fx.cells : []))
-    if(inGrid(s,fxx,fxy) && !cell(s,fxx,fxy).wall)
-      SP.trash(fxx,fxy,{ seed:hash(fxx,fxy), k:ph.burst, src:[fx.bx,fx.by] });
+  { name:'debris', draw:(ctx,f)=>{
+    if(!f.ph) return;
+    const s=f.state;
+    for(const [x,y] of (f.fx.showBurst ? f.fx.cells : []))
+      if(inGrid(s,x,y) && !cell(s,x,y).wall)
+        SP.trash(x,y,{ seed:hash(x,y), k:f.ph.burst, src:[f.fx.bx,f.fx.by] });
+  }},
 
-  // Everything else is a sprite with a position of its own, so a couch comes out as one slab
-  // with no seam, cargo is carried rather than redrawn, and a bin's bag leaves the bin.
-  for(const sp of [...stage.sprites].sort((a,b)=>LAYER(a)-LAYER(b))){
-    if(sp.kind === RACCOON){
-      // A refusal is a lunge from where he stands, not travel — the stage knows nothing of it.
-      if(ph){ const k = ph.lunge*0.42; SP.raccoon(s.rac.x+fx.dx*k, s.rac.y+fx.dy*k); }
-      else SP.raccoon(sp.x, sp.y);
-    }
-    else if(sp.kind === COUCH) SP.furniture(sp.cells, sp.x, sp.y);
-    else if(sp.kind === CART)  SP.cart(sp.cells, sp.x, sp.y);
-    else if(sp.kind === SPLASH) SP.splash(sp.x, sp.y);
-    else drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
-      seed: sp.seed,
-      // a bag mid-refusal deflates where it stands; a torn one deflates as its fan grows
-      k: sp.dying ? (sp.deflate ?? 1)
-        : ph && fx.bx===Math.round(sp.x) && fx.by===Math.round(sp.y) ? 1-ph.burst : 1,
-    });
-  }
+  ...BANDS.map((name,band)=>({ name, draw:(ctx,f)=>{
+    for(const sp of f.sprites) if(bandOf(sp)===band) drawSprite(sp,f);
+  }})),
 
   // Fan preview, over everything including the exit sign. Always pale yellow: it answers
   // "where would this land", which has the same answer whether or not the strike is legal.
   // Red belongs to the blocking cell alone, and only once you have tried. Arming narrows
   // the preview to the aimed direction so two adjacent bags do not light ten cells at once.
-  const red = new Set((blocked?.cells ?? []).map(([x,y])=>`${x},${y}`));
-  for(const dir of (ph || anim ? [] : armed ? [armed] : ['u','d','l','r'])){
-    const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
-    const bx=s.rac.x+dx, by=s.rac.y+dy;
-    if(!inGrid(s,bx,by) || cell(s,bx,by).o!==BAG) continue;   // fan preview: bags only
-    for(const [fx,fy] of fan(bx,by,dx,dy)){
-      if(!inGrid(s,fx,fy) || red.has(`${fx},${fy}`)) continue;   // never tint under the red
-      ctx.fillStyle="rgba(255,207,0,.45)";
-      ctx.fillRect(fx*CS+1,fy*CS+1,CS-2,CS-2);
-      ctx.strokeStyle="rgba(224,170,0,.85)"; ctx.lineWidth=2;
-      ctx.strokeRect(fx*CS+2,fy*CS+2,CS-4,CS-4);
+  { name:'fan', draw:(ctx,f)=>{
+    const s=f.state, cs=f.cs;
+    const red = new Set((f.blocked?.cells ?? []).map(([x,y])=>`${x},${y}`));
+    for(const dir of (f.ph || f.moving ? [] : f.armed ? [f.armed] : ['u','d','l','r'])){
+      const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
+      const bx=s.rac.x+dx, by=s.rac.y+dy;
+      if(!inGrid(s,bx,by) || cell(s,bx,by).o!==BAG) continue;   // fan preview: bags only
+      for(const [fx,fy] of fan(bx,by,dx,dy)){
+        if(!inGrid(s,fx,fy) || red.has(`${fx},${fy}`)) continue;   // never tint under the red
+        ctx.fillStyle="rgba(255,207,0,.45)";
+        ctx.fillRect(fx*cs+1,fy*cs+1,cs-2,cs-2);
+        ctx.strokeStyle="rgba(224,170,0,.85)"; ctx.lineWidth=2;
+        ctx.strokeRect(fx*cs+2,fy*cs+2,cs-4,cs-4);
+      }
     }
-  }
+  }},
 
   // The armed bag gets a ring + a direction arrow, so "what am I about to do" is on the
   // board and not only in the HUD.
-  if(armed){
-    const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[armed];
+  { name:'armed', draw:(ctx,f)=>{
+    if(!f.armed) return;
+    const s=f.state;
+    const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[f.armed];
     const ax=s.rac.x+dx, ay=s.rac.y+dy, o=cell(s,ax,ay).o;
     // A push is as permanent as a tear, so it gets the same look-before-you-commit.
     if(o===CANE||o===CANF){
@@ -436,16 +453,33 @@ function render(){
       if(o===CANF) drawLanding(ax+2*dx, ay+2*dy);
     }
     drawAim(ax, ay, dx, dy);
-  }
+  }},
 
-  // Blocked: mark the exact cells to blame, in red, and say why.
-  if(blocked && (!ph || ph.flash)){
-    for(const [bx,by] of blocked.cells) drawBlocked(bx,by);
-    if(!blocked.cells.length) drawEdgeBar(s.rac.x, s.rac.y, blocked.dir);
-  }
+  // Blocked: mark the exact cells to blame, in red.
+  { name:'blocked', draw:(ctx,f)=>{
+    const b=f.blocked;
+    if(!b || (f.ph && !f.ph.flash)) return;
+    for(const [bx,by] of b.cells) drawBlocked(bx,by);
+    if(!b.cells.length) drawEdgeBar(f.state.rac.x, f.state.rac.y, b.dir);
+  }},
 
-  if(party) drawParty();   // over everything
+  { name:'party', draw:(ctx,f)=>{ if(f.party) drawParty(ctx, f.party); } },
+]);
 
+function render(){
+  const s=state;
+  cv.width=s.cols*CS; cv.height=s.rows*CS;
+  comp.render(ctx, {
+    state:s, board:board ?? state, sprites:stage.sprites,
+    fx, ph: fx ? fxPhase() : null, moving: !!anim,
+    armed, blocked, party,
+    w:cv.width, h:cv.height, cs:CS,
+  });
+  paintHud();
+}
+
+// The HUD is DOM, not canvas, so it is not a layer.
+function paintHud(){
   document.getElementById('moves').textContent=moves;
   document.getElementById('par').textContent=LEVELS[cur].par;
   document.getElementById('lvlname').textContent=LEVELS[cur].name;
