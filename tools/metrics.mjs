@@ -421,22 +421,32 @@ export function largestOpenBlock(isFloor, cols, rows) {
 }
 
 /** One contiguous run of floor, or the room is really two rooms. */
-export function floorIsConnected(isFloor, cols, rows) {
-  const all = [];
-  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) if (isFloor(x, y)) all.push([x, y]);
-  if (!all.length) return false;
-  const seen = new Set([`${all[0][0]},${all[0][1]}`]);
-  const stack = [all[0]];
-  while (stack.length) {
-    const [x, y] = stack.pop();
-    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
-      if (nx < 0 || ny < 0 || nx >= cols || ny >= rows || !isFloor(nx, ny)) continue;
-      const k = `${nx},${ny}`;
-      if (seen.has(k)) continue;
-      seen.add(k); stack.push([nx, ny]);
+/** The size of each connected region of floor, largest first. Empty when there is no floor. */
+export function floorComponents(isFloor, cols, rows) {
+  const seen = new Set();
+  const sizes = [];
+  for (let y0 = 0; y0 < rows; y0++) for (let x0 = 0; x0 < cols; x0++) {
+    if (!isFloor(x0, y0) || seen.has(`${x0},${y0}`)) continue;
+    seen.add(`${x0},${y0}`);
+    const stack = [[x0, y0]];
+    let n = 0;
+    while (stack.length) {
+      const [x, y] = stack.pop();
+      n++;
+      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+        if (nx < 0 || ny < 0 || nx >= cols || ny >= rows || !isFloor(nx, ny)) continue;
+        const k = `${nx},${ny}`;
+        if (seen.has(k)) continue;
+        seen.add(k); stack.push([nx, ny]);
+      }
     }
+    sizes.push(n);
   }
-  return seen.size === all.length;
+  return sizes.sort((a, b) => b - a);
+}
+
+export function floorIsConnected(isFloor, cols, rows) {
+  return floorComponents(isFloor, cols, rows).length === 1;
 }
 
 /**

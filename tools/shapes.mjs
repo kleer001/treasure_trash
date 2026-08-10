@@ -2,7 +2,8 @@
 // Treasure Trash — outline families. A shape family is a room's silhouette, enumerated rather
 // than drawn at random, so an act can be built on one.
 //
-//   node tools/shapes.mjs [h] [--all]     # draw the family
+//   node tools/shapes.mjs [h] [--all]              # draw the family
+//   node tools/shapes.mjs [h] --water [--seed N]   # draw it wet: canals and puddle fields
 //
 // WHY A FAMILY AND NOT RANDOM WALLS. Sokoban sets are often organised around a formal device:
 // Skinner's Sasquatch III is built on design symmetry, and his reason is mechanical rather
@@ -22,7 +23,9 @@
 // to walk and shove through but it constrains bursting, since a sideways tear needs a row
 // above AND below the bag.
 
-import { largestOpenBlock, floorIsConnected, hasNiche } from './metrics.mjs';
+import { largestOpenBlock, floorIsConnected, floorComponents, hasNiche } from './metrics.mjs';
+import { WET } from '../src/format.js';
+import { mulberry32 } from '../src/rng.js';
 
 // A clear rectangle at least this side and this area is what the family must not contain.
 const OPEN_BLOCK_MIN_SIDE = 3;
@@ -105,19 +108,142 @@ export function hFamily() {
 
 export const FAMILIES = { h: hFamily };
 
+// ---------------------------------------------------------------- water
+// Terrain is laid ON an outline rather than being part of one, and that split decides which
+// rules get re-asked. The structural tests above run over floor AND water, because a water
+// cell is floor the moment something bridges it — so a plan that passed them still passes
+// them, and none of it is recomputed here. What water changes is where the raccoon may STAND,
+// which is a different question and gets the two rules below instead.
+//
+// A CANAL is one connected run of water; a PUDDLE FIELD is water cells no two of which touch.
+// The distinction is not decorative. Only a canal can cut the dry floor in two, and that is the
+// one thing terrain can do that walls cannot: a wall that severs a room is a broken room, while
+// a canal that severs one is a room with a crossing to build.
+
+const CANAL_MIN = 3;        // shorter than this is a puddle field wearing a canal's name
+const MIN_DRY_FLOOR = 14;   // pieces, a raccoon and an exit all want somewhere dry to start
+const MIN_BANK = 6;         // a bank smaller than this is a pocket, and crossing to it is a chore
+
+/**
+ * `plan` with `cells` under water. Null when the result is not worth drawing on.
+ *
+ * `floor` narrows to the DRY cells, which is what makes this safe downstream: `placeOn` draws
+ * the exit, the raccoon and every piece from `floor` alone, so nothing starts in the canal
+ * without that rule being written anywhere but here.
+ */
+function flood(plan, cells, label) {
+  const { w, h, wall } = plan;
+  const water = blank(w, h);
+  for (const [x, y] of cells) {
+    if (wall[y][x]) return null;
+    water[y][x] = true;
+  }
+  const isDry = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !wall[y][x] && !water[y][x];
+  const dry = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (isDry(x, y)) dry.push([x, y]);
+  if (dry.length < MIN_DRY_FLOOR) return null;
+  // `sides` is what tells a barrier from a nick in a corner. Severing is cheap — a canal laid
+  // along a wall cuts two cells off and reads as severing — so the number a consumer wants is
+  // how big the SMALLER bank is, not whether there are two of them.
+  const sides = floorComponents(isDry, w, h);
+  return {
+    ...plan, water, floor: dry, wet: cells.length, sides,
+    severs: sides.length > 1,
+    label: `${plan.label} ${label}`,
+  };
+}
+
+/** A canal worth building a crossing over: it severs, and the far bank is a room rather than a
+ *  pocket. `min` is the smallest that bank may be. */
+export const isBarrier = (plan, min = MIN_BANK) =>
+  plan.severs && plan.sides.length === 2 && plan.sides[1] >= min;
+
+/**
+ * Every straight canal on a plan: each contiguous run of `CANAL_MIN` cells or more along a
+ * wall-free row or column. Enumerated rather than sampled, for the reason the families are —
+ * a canal is part of the silhouette an act is built on, and a run is three numbers.
+ *
+ * A line carrying a wall is not offered at all: the wall would break the run into two canals,
+ * and two runs is a puddle field by the definition above.
+ */
+export function canals(plan) {
+  const { w, h, wall } = plan;
+  const lines = [];
+  for (let y = 0; y < h; y++) lines.push({ axis: 'h', cells: Array.from({ length: w }, (_, x) => [x, y]) });
+  for (let x = 0; x < w; x++) lines.push({ axis: 'v', cells: Array.from({ length: h }, (_, y) => [x, y]) });
+  const out = [];
+  for (const { axis, cells } of lines) {
+    if (cells.some(([x, y]) => wall[y][x])) continue;
+    for (let i = 0; i + CANAL_MIN <= cells.length; i++)
+      for (let len = CANAL_MIN; i + len <= cells.length; len++) {
+        const [x0, y0] = cells[i];
+        const p = flood(plan, cells.slice(i, i + len), `canal ${axis}${x0},${y0}+${len}`);
+        if (p) out.push(p);
+      }
+  }
+  return out;
+}
+
+/**
+ * A field of `n` puddles: single water cells, no two of them touching. Sampled rather than
+ * enumerated — the choose-n space dwarfs the canal's, and unlike a run, nothing about where one
+ * puddle sits is structural. `place()` in survey.mjs samples for the same reason.
+ *
+ * Null when `tries` draws all failed.
+ */
+export function puddles(plan, n, rnd, tries = 40) {
+  for (let t = 0; t < tries; t++) {
+    const cells = [];
+    for (let k = 0; k < n; k++) {
+      // Manhattan 1 is exactly the neighbourhood `floorIsConnected` walks, so two puddles left
+      // touching would read as one short canal. Diagonals are free.
+      const open = plan.floor.filter(([x, y]) =>
+        cells.every(([cx, cy]) => Math.abs(cx - x) + Math.abs(cy - y) > 1));
+      if (!open.length) break;
+      cells.push(open[Math.floor(rnd() * open.length)]);
+    }
+    if (cells.length < n) continue;
+    const p = flood(plan, cells, `puddles ${n}`);
+    // A puddle field that cuts the walk in two is a canal drawn wrong, whatever it looks like.
+    if (p && !p.severs) return p;
+  }
+  return null;
+}
+
 /** The outline as the `.tt` grid would draw it, for eyeballing and for tests. */
-export const draw = plan => plan.wall.map(r => r.map(c => (c ? '#' : '-')).join(''));
+export const draw = plan => plan.wall.map((row, y) =>
+  row.map((c, x) => (c ? '#' : plan.water?.[y][x] ? WET : '-')).join(''));
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const name = process.argv.find(a => FAMILIES[a]) ?? 'h';
   const all = FAMILIES[name]();
-  console.log(`${all.length} ${name.toUpperCase()} variants pass every structural rule`
-    + ` (${all.filter(v => v.sym).length} symmetric)\n`);
-  const show = process.argv.includes('--all') ? all
-    : [...all.filter(v => v.sym), ...all.filter(v => !v.sym)].slice(0, 12);
-  for (const v of show) {
-    console.log(`${v.label}   floor ${v.floor.length}  largest open block ${v.block.w}x${v.block.h}`
-      + (v.sym ? '  [symmetric]' : ''));
-    console.log(draw(v).map(r => '    ' + r).join('\n'), '\n');
+  const line = v => `${v.label}   floor ${v.floor.length}`
+    + `  largest open block ${v.block.w}x${v.block.h}`
+    + (v.sym ? '  [symmetric]' : '') + (v.sides ? `  banks ${v.sides.join('/')}` : '');
+  const show = v => console.log(line(v), '\n' + draw(v).map(r => '    ' + r).join('\n'), '\n');
+
+  if (process.argv.includes('--water')) {
+    const i = process.argv.indexOf('--seed');
+    const rnd = mulberry32(i === -1 ? 7 : Number(process.argv[i + 1]));
+    const wet = all.flatMap(canals);
+    const cut = wet.filter(v => isBarrier(v));
+    console.log(`${all.length} dry ${name.toUpperCase()} variants carry ${wet.length} canals.`
+      + ` ${wet.filter(v => v.severs).length} sever the dry floor;`
+      + ` ${cut.length} sever it into two banks of ${MIN_BANK}+\n`);
+    console.log('— barriers: two banks, and a crossing to build —\n');
+    for (const v of cut.slice(0, 4)) show(v);
+    console.log('— canals that only narrow the walk —\n');
+    for (const v of wet.filter(v => !v.severs).slice(0, 2)) show(v);
+    console.log('— puddle fields —\n');
+    for (const v of all.slice(0, 3)) {
+      const p = puddles(v, 3, rnd);
+      if (p) show(p);
+    }
+  } else {
+    console.log(`${all.length} ${name.toUpperCase()} variants pass every structural rule`
+      + ` (${all.filter(v => v.sym).length} symmetric)\n`);
+    const pick = process.argv.includes('--all') ? all
+      : [...all.filter(v => v.sym), ...all.filter(v => !v.sym)].slice(0, 12);
+    for (const v of pick) show(v);
   }
 }

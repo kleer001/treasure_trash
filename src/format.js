@@ -35,7 +35,7 @@ const READ = {
 
 // The `:water` mask alphabet. Three terrains, one character each, and the floor aliases read
 // as dry so a mask can be written with `-` or `.` like any other block.
-const WET = '~';        // open canal
+export const WET = '~';   // open canal
 const FILLED = '=';     // a canal cell somebody filled in: floor, and drawn as the plank it is
 // The pool of letters furniture pieces are written with. The writer hands them out in raster
 // order of each piece's first cell, so a board's lettering is canonical and the grid

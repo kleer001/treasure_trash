@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { isMainThread, workerData } from 'node:worker_threads';
 import { defaultWorkers, run, serve } from './pool.mjs';
 import { engineFor, connect, measureMany, measureHere, TOO_BIG } from './engine.mjs';
-import { toState } from '../src/format.js';
+import { toState, WET } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
@@ -122,6 +122,9 @@ export function placeOn(group, plan, w, h, rnd) {
   }
   const room = { id: 'harvest', grid: grid.map(r => r.join('')) };
   if (group.includes('P')) room.cart = cart.map(r => r.join(''));
+  // A watered plan narrows `plan.floor` to the dry cells, so every draw above already avoided
+  // the canal; this only writes down where it was.
+  if (plan.water) room.water = plan.water.map(r => r.map(c => (c ? WET : '-')).join(''));
   return room;
 }
 
