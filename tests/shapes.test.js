@@ -279,6 +279,29 @@ test('across refuses a group with no loose bag to bridge with', () => {
     /loose bag/);
 });
 
+// A stored row is only worth storing if it rebuilds into the room it measured. Terrain is a
+// separate mask from the grid, so a row that keeps only the grid has silently lost the canal.
+test('a measured row carries every mask the room was built from', async () => {
+  const { measure } = await import('../tools/harvest.mjs');
+  const rnd = mulberry32(9);
+  let room, s, a;
+  for (const p of BARRIERS.slice(0, 400)) {
+    const r = placeOn([...'$$Fc'], p, p.w, p.h, rnd, { across: true });
+    if (!r) continue;
+    const st = toState(r);
+    let an;
+    try { an = analyze(st, { maxStates: 20_000 }); } catch { continue; }
+    if (an.minMoves === null) continue;
+    room = r; s = st; a = an;
+    break;
+  }
+  assert.ok(room?.water, 'no solvable watered room was drawn');
+  const row = measure('$$Fc', room, s, a, s.cols, s.rows);
+  assert.deepEqual(row.water, room.water, 'the row lost the water mask');
+  assert.deepEqual(toState({ id: 'rebuilt', grid: row.grid, water: row.water }).cells
+    .flat().map(c => !!c.water), s.cells.flat().map(c => !!c.water));
+});
+
 // The dry pipeline reads connectivity through this, so the two have to answer together.
 test('floorIsConnected is floorComponents with one region', () => {
   for (const v of FAM) {

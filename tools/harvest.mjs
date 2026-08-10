@@ -222,7 +222,9 @@ export function measure(group, room, s, a, w, h) {
     bags: bagsLeft(s), exitRefusals: a.exitRefusals,
     floor: s.cells.flat().filter(c => !c.wall).length,
     solve: a.shortestLurd,
-    grid: room.grid, ...(room.cart && { cart: room.cart }),
+    // Every mask the room was built from, or the row does not rebuild into the room it measured
+    // — and rebuilding is the whole reason the metrics are stored rather than recomputed.
+    grid: room.grid, ...(room.cart && { cart: room.cart }), ...(room.water && { water: room.water }),
   };
 }
 
