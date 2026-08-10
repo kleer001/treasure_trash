@@ -4,6 +4,7 @@
 // fresh multi-hour run every time the weights change.
 //
 //   node tools/harvest.mjs [--samples N] [--workers N] [--groups N] [--in F] [--out F]
+//                          [--family h|ring]
 //
 // Two things separate this from `survey.mjs`, and both come from Taylor & Parberry
 // (GAMEON-NA 2011): rooms are built with an OUTLINE rather than as open rectangles, and each
@@ -24,7 +25,7 @@ import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 import { staticallyDead } from './survey.mjs';
-import { bridgeSeats, bankOf, isBarrier } from './shapes.mjs';
+import { bridgeSeats, bankOf, isBarrier, FAMILIES } from './shapes.mjs';
 import {
   solveShape, largestOpenBlock, floorIsConnected, hasNiche, pathBite, deadTravel, inertPieces,
   shortestDag,
@@ -234,7 +235,7 @@ export function measure(group, room, s, a, w, h) {
  * only the numbers the protocol already carries. So the engine answers every draw, and the JS
  * enumeration is paid a second time only for the few that survive.
  */
-async function harvestGroup(group, samples, seed, engine = null) {
+async function harvestGroup(group, samples, seed, engine = null, plans = null) {
   const rnd = mulberry32(seed);
   const keep = [];
   const stat = { group, samples: 0, noOutline: 0, undrawable: 0, prefiltered: 0, tooBig: 0, inert: 0, solvable: 0 };
@@ -245,15 +246,23 @@ async function harvestGroup(group, samples, seed, engine = null) {
   const drawn = [];
   for (let i = 0; i < samples; i++) {
     stat.samples++;
-    const [w, h] = SHAPES[Math.floor(rnd() * SHAPES.length)];
-    const plan = outline(w, h, rnd);
-    if (!plan) { stat.noOutline++; continue; }
+    // A family is enumerated, so a draw from it is a pick rather than a construction that can
+    // fail; random outlines are redrawn until one passes, and sometimes none does.
+    let plan, w, h;
+    if (plans) {
+      plan = plans[Math.floor(rnd() * plans.length)];
+      ({ w, h } = plan);
+    } else {
+      [w, h] = SHAPES[Math.floor(rnd() * SHAPES.length)];
+      plan = outline(w, h, rnd);
+      if (!plan) { stat.noOutline++; continue; }
+    }
     const room = placeOn(group, plan, w, h, rnd);
     if (!room) { stat.undrawable++; continue; }
     let s;
     try { s = toState(room); } catch { stat.undrawable++; continue; }
     if (staticallyDead(s)) { stat.prefiltered++; continue; }
-    drawn.push({ room, s, w, h });
+    drawn.push({ room, s, w, h, shape: plan.label });
   }
 
   const screens = engine ? await measureMany(engine, drawn.map(d => d.s), MAX_STATES)
@@ -261,10 +270,12 @@ async function harvestGroup(group, samples, seed, engine = null) {
   for (const [i, r] of screens.entries()) {
     if (r === TOO_BIG) { stat.tooBig++; continue; }
     if (r.par === null) continue;
-    const { room, s, w, h } = drawn[i];
+    const { room, s, w, h, shape } = drawn[i];
     if (bagsLeft(s) > 0 && r.exitRefusals === 0) continue;
     if (r.silentTraps) continue;
     const row = measure(group, room, s, analyze(s, { maxStates: MAX_STATES }), w, h);
+    // Only a family names its outlines. A random one has nothing to be aggregated by.
+    if (shape) row.shape = shape;
     // A sampled placement that lands a piece where it hinders nothing is a room short one
     // piece, not a room with a spare. Rejected here rather than carried and filtered later,
     // because everything downstream would score it on a roster it does not really have.
@@ -277,9 +288,10 @@ async function harvestGroup(group, samples, seed, engine = null) {
 }
 
 if (!isMainThread && workerData?.tool === 'harvest') {
-  const { samples, seed, engineBin } = workerData;
+  const { samples, seed, engineBin, family } = workerData;
   const engine = engineBin ? connect(engineBin) : null;
-  await serve((g, i) => harvestGroup(g, samples, seed + i, engine));
+  const plans = family ? FAMILIES[family]() : null;
+  await serve((g, i) => harvestGroup(g, samples, seed + i, engine, plans));
   engine?.close();
 } else if (import.meta.url === `file://${process.argv[1]}`) {
   const num = (flag, d) => { const i = process.argv.indexOf(flag); return i === -1 ? d : Number(process.argv[i + 1]); };
@@ -289,17 +301,22 @@ if (!isMainThread && workerData?.tool === 'harvest') {
   const minInteresting = num('--min', 6);
   const inPath = str('--in', 'levels/fertility.jsonl');
   const outPath = str('--out', 'levels/harvest.jsonl');
+  // With no family the outlines are drawn at random, which is what the shipped harvest does.
+  const family = str('--family', '');
+  if (family && !FAMILIES[family])
+    throw new Error(`unknown family ${family} — have ${Object.keys(FAMILIES).join(', ')}`);
 
   const engineBin = engineFor(process.argv);
   const map = readFileSync(inPath, 'utf8').trim().split('\n').map(JSON.parse);
   const list = map.filter(r => r.interesting >= minInteresting).map(r => r.group);
   console.log(`${list.length} groups from ${inPath} with >= ${minInteresting} interesting per 200`);
-  console.log(`${samples} outlined placements each, ${workers} workers\n`);
+  console.log(`${samples} placements each on ${family ? `the ${family} family` : 'random outlines'},`
+    + ` ${workers} workers\n`);
 
   const t0 = Date.now();
   const got = await run({
     self: fileURLToPath(import.meta.url), tool: 'harvest', items: list, workers,
-    extra: w => ({ samples, seed: 7 + w * 10007, engineBin }),
+    extra: w => ({ samples, seed: 7 + w * 10007, engineBin, family }),
     onItem: ({ got: { stat }, done, total, ms }) => {
       const el = ms / 1000;
       console.log(`  ${String(done).padStart(3)}/${total}  ${stat.group.padEnd(5)}`
