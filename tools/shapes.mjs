@@ -2,8 +2,8 @@
 // Treasure Trash — outline families. A shape family is a room's silhouette, enumerated rather
 // than drawn at random, so an act can be built on one.
 //
-//   node tools/shapes.mjs [h|ring] [--all]              # draw the family
-//   node tools/shapes.mjs [h|ring] --water [--seed N]   # draw it wet: canals and puddle fields
+//   node tools/shapes.mjs [h|ring|lake] [--all]              # draw the family
+//   node tools/shapes.mjs [h|ring|lake] --water [--seed N]   # draw it wet: canals and puddle fields
 //
 // WHY A FAMILY AND NOT RANDOM WALLS. Sokoban sets are often organised around a formal device:
 // Skinner's Sasquatch III is built on design symmetry, and his reason is mechanical rather
@@ -62,9 +62,16 @@ function rotated(w, h, gapY0, gapH, leftCut, rightCut) {
   return wall;
 }
 
-/** Every structural rule, applied to the empty room before anything stands in it. */
-export function judge(wall, w, h) {
-  const isFloor = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !wall[y][x];
+/**
+ * Every structural rule, applied to the empty room before anything stands in it.
+ *
+ * `water`, when given, is judged as NOT floor: the rules here are about where the raccoon may
+ * walk and stand, and open water is neither. It is what lets terrain carry a room's structure
+ * instead of walls.
+ */
+export function judge(wall, w, h, water = null) {
+  const isFloor = (x, y) => x >= 0 && y >= 0 && x < w && y < h
+    && !wall[y][x] && !(water && water[y][x]);
   const block = largestOpenBlock(isFloor, w, h);
   const floorCells = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (isFloor(x, y)) floorCells.push([x, y]);
@@ -151,7 +158,45 @@ export function ringFamily() {
   return out;
 }
 
-export const FAMILIES = { h: hFamily, ring: ringFamily };
+/**
+ * The lake family: the ring's silhouette with the block made of WATER instead of wall.
+ *
+ * The two are the same shape and opposite mechanics, and the difference is one line of the rules
+ * — `isOccupiable`, which `fanBlockers` tests, refuses a wall and accepts water. So a tear aimed
+ * at a wall block is refused, and the very same tear aimed at a lake lands in it and turns three
+ * cells to bridge. A ring's lane cannot host the game's core verb; a lake's lane is built for it.
+ *
+ * That makes the water a SHORTCUT rather than a barrier: the lane always goes round, and a bag
+ * spent on the pool buys a way through the middle. The same tear on dry floor lays five cells of
+ * permanent trash instead, so where to spend one is the room's question rather than whether to.
+ *
+ * No walls at all. The pool does the structural work the ring's block was doing, which is the
+ * whole claim being made, and `judge` checks it on the dry floor the same way.
+ */
+export function lakeFamily() {
+  const out = [];
+  for (let h = 5; h <= 8; h++) for (let w = 6; w <= 11; w++) {
+    for (const l of MARGINS) for (const r of MARGINS)
+      for (const t of MARGINS) for (const b of MARGINS) {
+        const pw = w - l - r, ph = h - t - b;
+        if (pw < RING_BLOCK_MIN || ph < RING_BLOCK_MIN) continue;
+        const wall = blank(w, h);
+        const water = blank(w, h);
+        for (let y = t; y < t + ph; y++) for (let x = l; x < l + pw; x++) water[y][x] = true;
+        const j = judge(wall, w, h, water);
+        if (!j.ok) continue;
+        out.push({
+          kind: 'lake', w, h, wall, water, floor: j.floor, block: j.block,
+          wet: pw * ph, sides: [j.floor.length], severs: false,
+          sym: l === r && t === b,
+          label: `lake ${w}x${h} pool${pw}x${ph}@${l},${t}`,
+        });
+      }
+  }
+  return out;
+}
+
+export const FAMILIES = { h: hFamily, ring: ringFamily, lake: lakeFamily };
 
 // ---------------------------------------------------------------- water
 // Terrain is laid ON an outline rather than being part of one, and that split decides which

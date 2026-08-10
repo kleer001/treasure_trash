@@ -47,9 +47,9 @@ around it — art, audio, progression, and the solvability indicator.
 - `node tools/pick.mjs` — tightens a shortlist, re-measures it, and chooses an act under par-band
   and piece-spread constraints, writing the `.tt`, `.sol` and table rows together. Names, teach
   lines and notes come out as placeholders: they are the part nothing can compute.
-- `node tools/shapes.mjs` — the outline families, enumerated and filtered. Draw one to see it.
-  `--water` lays terrain on a family: canals (one connected run, which may cut the dry floor in
-  two) and puddle fields (single cells, no two touching, never a barrier).
+- `node tools/shapes.mjs [h|ring|lake]` — the outline families, enumerated and filtered. Draw one
+  to see it. `--water` lays terrain on a family: canals (one connected run, which may cut the dry
+  floor in two) and puddle fields (single cells, no two touching, never a barrier).
 - `node tools/sets.mjs` — finds SETS of three rooms sharing an outline, each set getting harder
   in one stated way. Writes `levels/sets.jsonl`.
 - `node tools/resite.mjs` — moves a set's exit and raccoon to the pair that walks the player

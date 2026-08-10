@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  hFamily, ringFamily, FAMILIES, judge, draw, canals, puddles, isBarrier, bridgeSeats, bankOf,
+  hFamily, ringFamily, lakeFamily, FAMILIES, judge, draw, canals, puddles, isBarrier, bridgeSeats,
+  bankOf,
 } from '../tools/shapes.mjs';
 import { largestOpenBlock, floorIsConnected, floorComponents, hasNiche } from '../tools/metrics.mjs';
 import { placeOn } from '../tools/harvest.mjs';
@@ -125,10 +126,63 @@ test('every ring is one solid block with a lane on all four sides', () => {
   }
 });
 
-test('both families are registered and answer to the CLI name', () => {
-  assert.deepEqual(Object.keys(FAMILIES).sort(), ['h', 'ring']);
+test('every family is registered and answers to its CLI name', () => {
+  assert.deepEqual(Object.keys(FAMILIES).sort(), ['h', 'lake', 'ring']);
   assert.equal(FAMILIES.ring().length, RING.length);
   assert.equal(FAMILIES.h().length, FAM.length);
+  assert.equal(FAMILIES.lake().length, lakeFamily().length);
+});
+
+// --- the lake family --------------------------------------------------------
+const LAKE = lakeFamily();
+
+test('the lake family matches the ring silhouette for silhouette', () => {
+  assert.equal(LAKE.length, RING.length);
+  for (const v of LAKE) {
+    assert.ok(v.floor.length >= 16, `${v.label} has ${v.floor.length} floor`);
+    for (const [x, y] of v.floor) assert.ok(!v.water[y][x], `${v.label} offers a wet cell as floor`);
+    assert.ok(!v.wall.flat().some(Boolean), `${v.label} has walls — the pool should be the structure`);
+    // The lane always goes round, so a lake is never a barrier. It is a shortcut you may build.
+    assert.equal(v.severs, false, `${v.label} severs`);
+  }
+});
+
+test('a lake passes the open-block rule on its DRY floor', () => {
+  for (const v of LAKE) {
+    const isDry = (x, y) => x >= 0 && y >= 0 && x < v.w && y < v.h && !v.water[y][x];
+    const b = largestOpenBlock(isDry, v.w, v.h);
+    assert.ok(!(Math.min(b.w, b.h) >= 3 && b.area >= 12), `${v.label} has a ${b.w}x${b.h} dry block`);
+    assert.ok(floorIsConnected(isDry, v.w, v.h), `${v.label} is two rooms`);
+  }
+});
+
+// The whole reason the family exists. `isOccupiable` — which `fanBlockers` tests — refuses a
+// wall and accepts water, so the tear a ring's block would refuse lands in a lake and bridges it.
+// A ring and a lake of the same silhouette must therefore answer this differently.
+test('a bag beside a pool tears into it, and the same bag beside a block cannot', async () => {
+  const { explain, BAG } = await import('../src/rules.js');
+  const lake = LAKE.find(v => v.label === 'lake 7x6 pool3x2@2,2');
+  const ring = RING.find(v => v.label === 'ring 7x6 block3x2@2,2');
+  assert.ok(lake && ring, 'the paired silhouette is missing');
+
+  const board = (v, wet) => {
+    const grid = Array.from({ length: v.h }, (_, y) =>
+      Array.from({ length: v.w }, (_, x) => (v.wall[y][x] ? '#' : '-')));
+    grid[4][2] = '$'; grid[5][2] = '@'; grid[5][v.w - 1] = 'E';
+    const room = { id: v.kind, grid: grid.map(r => r.join('')) };
+    if (wet) room.water = v.water.map(r => r.map(c => (c ? '~' : '-')).join(''));
+    return toState(room);
+  };
+
+  const wet = explain(board(lake, true), 'u');
+  assert.equal(wet.ok, true, `the lake refused the tear: ${wet.reason}`);
+  assert.equal(wet.kind, 'tear');
+  assert.ok(wet.next.cells.flat().some(c => c.bridge), 'the tear laid no bridge');
+  assert.ok(wet.next.cells.flat().filter(c => c.water).length
+    < board(lake, true).cells.flat().filter(c => c.water).length, 'the pool did not shrink');
+
+  const dryRing = explain(board(ring, false), 'u');
+  assert.equal(dryRing.ok, false, 'the block should refuse a fan aimed into it');
 });
 
 // --- water ------------------------------------------------------------------
