@@ -130,6 +130,34 @@ export function hFamily() {
 const MARGINS = [1, 2];
 const RING_BLOCK_MIN = 2;             // a one-cell block is a pillar, and pillars make niches
 
+// Room sizes the block families are enumerated over. Par tracks floor count and nothing else
+// here — measured on a lake harvest, a room of 51+ floor cells runs a median par of 27 against
+// 19 at 25-32 — while the state cap is nowhere near binding at any of these sizes. So the range
+// is set by how long a solve an act wants, not by what the solver can afford.
+const BLOCK_SIZES = [];
+for (let h = 5; h <= 11; h++) for (let w = 6; w <= 14; w++) BLOCK_SIZES.push([w, h]);
+
+/**
+ * Every room-and-block pairing the two block families share. They are the SAME silhouettes, one
+ * made of wall and one of water, and enumerating them in one place is what keeps that true
+ * rather than coincidental.
+ */
+function* blockPlacements() {
+  for (const [w, h] of BLOCK_SIZES)
+    for (const l of MARGINS) for (const r of MARGINS)
+      for (const t of MARGINS) for (const b of MARGINS) {
+        const bw = w - l - r, bh = h - t - b;
+        if (bw < RING_BLOCK_MIN || bh < RING_BLOCK_MIN) continue;
+        yield { w, h, l, t, bw, bh, sym: l === r && t === b };
+      }
+}
+
+const fill = (w, h, l, t, bw, bh) => {
+  const m = blank(w, h);
+  for (let y = t; y < t + bh; y++) for (let x = l; x < l + bw; x++) m[y][x] = true;
+  return m;
+};
+
 /**
  * The ring family: one solid block in a rectangle, and the room is the lane around it.
  *
@@ -139,21 +167,14 @@ const RING_BLOCK_MIN = 2;             // a one-cell block is a pillar, and pilla
  */
 export function ringFamily() {
   const out = [];
-  for (let h = 5; h <= 8; h++) for (let w = 6; w <= 11; w++) {
-    for (const l of MARGINS) for (const r of MARGINS)
-      for (const t of MARGINS) for (const b of MARGINS) {
-        const bw = w - l - r, bh = h - t - b;
-        if (bw < RING_BLOCK_MIN || bh < RING_BLOCK_MIN) continue;
-        const wall = blank(w, h);
-        for (let y = t; y < t + bh; y++) for (let x = l; x < l + bw; x++) wall[y][x] = true;
-        const j = judge(wall, w, h);
-        if (!j.ok) continue;
-        out.push({
-          kind: 'ring', w, h, wall, floor: j.floor, block: j.block,
-          sym: l === r && t === b,
-          label: `ring ${w}x${h} block${bw}x${bh}@${l},${t}`,
-        });
-      }
+  for (const { w, h, l, t, bw, bh, sym } of blockPlacements()) {
+    const wall = fill(w, h, l, t, bw, bh);
+    const j = judge(wall, w, h);
+    if (!j.ok) continue;
+    out.push({
+      kind: 'ring', w, h, wall, floor: j.floor, block: j.block, sym,
+      label: `ring ${w}x${h} block${bw}x${bh}@${l},${t}`,
+    });
   }
   return out;
 }
@@ -175,23 +196,16 @@ export function ringFamily() {
  */
 export function lakeFamily() {
   const out = [];
-  for (let h = 5; h <= 8; h++) for (let w = 6; w <= 11; w++) {
-    for (const l of MARGINS) for (const r of MARGINS)
-      for (const t of MARGINS) for (const b of MARGINS) {
-        const pw = w - l - r, ph = h - t - b;
-        if (pw < RING_BLOCK_MIN || ph < RING_BLOCK_MIN) continue;
-        const wall = blank(w, h);
-        const water = blank(w, h);
-        for (let y = t; y < t + ph; y++) for (let x = l; x < l + pw; x++) water[y][x] = true;
-        const j = judge(wall, w, h, water);
-        if (!j.ok) continue;
-        out.push({
-          kind: 'lake', w, h, wall, water, floor: j.floor, block: j.block,
-          wet: pw * ph, sides: [j.floor.length], severs: false,
-          sym: l === r && t === b,
-          label: `lake ${w}x${h} pool${pw}x${ph}@${l},${t}`,
-        });
-      }
+  for (const { w, h, l, t, bw, bh, sym } of blockPlacements()) {
+    const wall = blank(w, h);
+    const water = fill(w, h, l, t, bw, bh);
+    const j = judge(wall, w, h, water);
+    if (!j.ok) continue;
+    out.push({
+      kind: 'lake', w, h, wall, water, floor: j.floor, block: j.block,
+      wet: bw * bh, sides: [j.floor.length], severs: false, sym,
+      label: `lake ${w}x${h} pool${bw}x${bh}@${l},${t}`,
+    });
   }
   return out;
 }
