@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hFamily, judge, draw, canals, puddles, isBarrier } from '../tools/shapes.mjs';
+import { hFamily, judge, draw, canals, puddles, isBarrier, bridgeSeats, bankOf } from '../tools/shapes.mjs';
 import { largestOpenBlock, floorIsConnected, floorComponents, hasNiche } from '../tools/metrics.mjs';
 import { placeOn } from '../tools/harvest.mjs';
 import { toState } from '../src/format.js';
+import { analyze } from '../src/solver.js';
 import { mulberry32 } from '../src/rng.js';
 
 const FAM = hFamily();
@@ -168,6 +169,66 @@ test('a watered plan places and reads back as a board with a canal in it', () =>
   assert.deepEqual(wet, wetCells(plan), 'the board disagrees with the plan about where the water is');
   assert.equal(s.cells[s.rac.y][s.rac.x].water, false, 'the raccoon started in the drink');
   for (const [x, y] of wet) assert.equal(s.cells[y][x].exit, false, 'the exit is under water');
+});
+
+// --- bridging ---------------------------------------------------------------
+const BARRIERS = WET_PLANS.filter(p => isBarrier(p));
+
+test('a barrier canal offers seats, and every seat really does join the banks', () => {
+  const seated = BARRIERS.filter(p => bridgeSeats(p).length);
+  assert.ok(seated.length > 20, `only ${seated.length} barriers have a seat`);
+  for (const p of seated.slice(0, 60)) {
+    for (const seat of bridgeSeats(p)) {
+      const filled = new Set(seat.fan.filter(([x, y]) => p.water[y][x]).map(([x, y]) => `${x},${y}`));
+      assert.ok(filled.size, `${p.label} seat lays no trash in the canal`);
+      const joined = (x, y) => x >= 0 && y >= 0 && x < p.w && y < p.h
+        && !p.wall[y][x] && (!p.water[y][x] || filled.has(`${x},${y}`));
+      assert.ok(floorIsConnected(joined, p.w, p.h),
+        `${p.label} seat at ${seat.at} does not join the banks`);
+      assert.ok(!p.water[seat.at[1]][seat.at[0]], 'the bag seat is under water');
+    }
+  }
+});
+
+test('a dry plan has no bridge seats', () => {
+  for (const v of FAM.slice(0, 10)) assert.deepEqual(bridgeSeats({ ...v, severs: false }), []);
+});
+
+test('an across draw strands the exit and reserves the fan', () => {
+  const rnd = mulberry32(5);
+  let made = 0;
+  for (const p of BARRIERS.slice(0, 400)) {
+    const room = placeOn([...'$FCc'], p, p.w, p.h, rnd, { across: true });
+    if (!room) continue;
+    made++;
+    const s = toState(room);
+    const bank = bankOf(p);
+    let ex = null;
+    for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) if (s.cells[y][x].exit) ex = [x, y];
+    assert.notEqual(bank.get(`${ex[0]},${ex[1]}`), bank.get(`${s.rac.x},${s.rac.y}`),
+      `${p.label} put the exit on the raccoon's own bank`);
+  }
+  assert.ok(made > 100, `only ${made} across draws succeeded`);
+});
+
+// The point of the whole pass: the room cannot be finished without tearing a bag into the water.
+test('an across draw yields rooms that solve by bridging', () => {
+  const rnd = mulberry32(2);
+  let solved = 0;
+  for (const p of BARRIERS.slice(0, 250)) {
+    const room = placeOn([...'$$Fc'], p, p.w, p.h, rnd, { across: true });
+    if (!room) continue;
+    let a;
+    try { a = analyze(toState(room), { maxStates: 20_000 }); } catch { continue; }
+    if (a.minMoves !== null) solved++;
+  }
+  assert.ok(solved > 0, 'no across draw produced a solvable room');
+});
+
+test('across refuses a group with no loose bag to bridge with', () => {
+  const p = BARRIERS[0];
+  assert.throws(() => placeOn([...'CcwF'], p, p.w, p.h, mulberry32(1), { across: true }),
+    /loose bag/);
 });
 
 // The dry pipeline reads connectivity through this, so the two have to answer together.

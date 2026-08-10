@@ -25,6 +25,7 @@
 
 import { largestOpenBlock, floorIsConnected, floorComponents, hasNiche } from './metrics.mjs';
 import { WET } from '../src/format.js';
+import { fan } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 
 // A clear rectangle at least this side and this area is what the family must not contain.
@@ -157,6 +158,71 @@ function flood(plan, cells, label) {
  *  pocket. `min` is the smallest that bank may be. */
 export const isBarrier = (plan, min = MIN_BANK) =>
   plan.severs && plan.sides.length === 2 && plan.sides[1] >= min;
+
+/** Which bank each dry cell sits on, as `"x,y" -> id`. Ids follow raster order of first sight. */
+export function bankOf(plan) {
+  const { w, h, wall, water } = plan;
+  const id = new Map();
+  let n = 0;
+  for (let y0 = 0; y0 < h; y0++) for (let x0 = 0; x0 < w; x0++) {
+    const k0 = `${x0},${y0}`;
+    if (wall[y0][x0] || water[y0][x0] || id.has(k0)) continue;
+    id.set(k0, n);
+    const stack = [[x0, y0]];
+    while (stack.length) {
+      const [x, y] = stack.pop();
+      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        if (wall[ny][nx] || water[ny][nx]) continue;
+        const k = `${nx},${ny}`;
+        if (id.has(k)) continue;
+        id.set(k, n); stack.push([nx, ny]);
+      }
+    }
+    n++;
+  }
+  return id;
+}
+
+/**
+ * Every seat a bridging tear could be made from: a dry cell to stand a bag on and the direction
+ * to shove it, such that the fan lands in the canal and JOINS THE TWO BANKS. `fan` comes back
+ * so placement can keep the exit and every other piece off those five cells.
+ *
+ * Random placement finds these at about one draw in two thousand, which is the whole reason
+ * this exists: the bag has to sit in the row beside the water with its fan pointing across, and
+ * uniform sampling almost never does that.
+ *
+ * Clear-at-the-start is SUFFICIENT for the tear to be legal, not necessary. A room where the
+ * player must first shove something out of the fan is one this pass declines to find, and that
+ * is the trade for finding any at all.
+ */
+export function bridgeSeats(plan) {
+  if (!plan.severs) return [];
+  const { w, h, wall, water } = plan;
+  const inGrid = (x, y) => x >= 0 && y >= 0 && x < w && y < h;
+  const bank = bankOf(plan);
+  const out = [];
+  for (const [bx, by] of plan.floor) {
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      // The raccoon has to have somewhere to shove FROM, and it has to be his own bank.
+      const [hx, hy] = [bx - dx, by - dy];
+      if (!inGrid(hx, hy) || wall[hy][hx] || water[hy][hx]) continue;
+      const cells = fan(bx, by, dx, dy);
+      if (!cells.every(([x, y]) => inGrid(x, y) && !wall[y][x])) continue;
+      const wet = cells.filter(([x, y]) => water[y][x]);
+      if (!wet.length) continue;
+      // Laying trash on exactly these cells is what the tear does. If that does not join the
+      // banks it is a splash, not a crossing.
+      const filled = new Set(wet.map(([x, y]) => `${x},${y}`));
+      const joined = (x, y) =>
+        inGrid(x, y) && !wall[y][x] && (!water[y][x] || filled.has(`${x},${y}`));
+      if (!floorIsConnected(joined, w, h)) continue;
+      out.push({ at: [bx, by], dir: [dx, dy], fan: cells, near: bank.get(`${bx},${by}`) });
+    }
+  }
+  return out;
+}
 
 /**
  * Every straight canal on a plan: each contiguous run of `CANAL_MIN` cells or more along a

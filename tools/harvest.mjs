@@ -24,6 +24,7 @@ import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 import { staticallyDead } from './survey.mjs';
+import { bridgeSeats, bankOf, isBarrier } from './shapes.mjs';
 import {
   solveShape, largestOpenBlock, floorIsConnected, hasNiche, pathBite, deadTravel, inertPieces,
   shortestDag,
@@ -72,8 +73,15 @@ export function outline(w, h, rnd, tries = 60) {
   return null;
 }
 
-/** Drop a group's pieces, a raccoon and an exit onto an outline. Null if the draw failed. */
-export function placeOn(group, plan, w, h, rnd) {
+/**
+ * Drop a group's pieces, a raccoon and an exit onto an outline. Null if the draw failed.
+ *
+ * `opts.across` aims the draw at a barrier canal instead of scattering it: one bag lands on a
+ * seat whose tear bridges the water, the exit lands on the far bank and the raccoon on the near
+ * one, so the room cannot be finished without building the crossing. Everything the tear needs
+ * clear is reserved before the rest of the group is dealt.
+ */
+export function placeOn(group, plan, w, h, rnd, opts = {}) {
   const pick = n => Math.floor(rnd() * n);
   const grid = Array.from({ length: h }, (_, y) =>
     Array.from({ length: w }, (_, x) => (plan.wall[y][x] ? '#' : '-')));
@@ -101,13 +109,48 @@ export function placeOn(group, plan, w, h, rnd) {
     return p;
   };
 
-  const ex = takeOne(), rac = takeOne();
+  // A cell drawn from one bank only. The exit and the raccoon go on opposite banks, which is
+  // what makes the crossing the room rather than a detour around it.
+  const takeOnBank = (bank, side) => {
+    const o = open().filter(c => bank.get(key(c)) === side);
+    if (!o.length) return null;
+    const c = o[pick(o.length)];
+    taken.add(key(c));
+    return c;
+  };
+
+  let rest = group;
+  let ex, rac;
+  if (opts.across) {
+    // Asked before anything about the plan: a group with nothing to bridge with is the caller's
+    // mistake, and a null here would read as "this outline did not work out".
+    const bagAt = group.indexOf('$');
+    if (bagAt === -1) throw new Error('placeOn across needs a loose bag in the group');
+    // Two banks exactly, so "the other one" names a place. A canal that sheds three pockets is
+    // not the room this draw is for.
+    if (!isBarrier(plan)) return null;
+    const seats = bridgeSeats(plan);
+    if (!seats.length) return null;
+    const seat = seats[pick(seats.length)];
+    grid[seat.at[1]][seat.at[0]] = '$';
+    taken.add(key(seat.at));
+    // Anything standing in the fan refuses the tear, and so does the exit. Reserving the five
+    // cells is why this draw succeeds where a scattered one does not.
+    for (const c of seat.fan) taken.add(key(c));
+    const bank = bankOf(plan);
+    ex = takeOnBank(bank, [...bank.values()].find(b => b !== seat.near));
+    rac = takeOnBank(bank, seat.near);
+    rest = [...group.slice(0, bagAt), ...group.slice(bagAt + 1)];
+  } else {
+    ex = takeOne();
+    rac = takeOne();
+  }
   if (!ex || !rac) return null;
   grid[ex[1]][ex[0]] = 'E';
   grid[rac[1]][rac[0]] = '@';
 
   const next = { F: [...POOLS.F], P: [...POOLS.P] };
-  for (const g of group) {
+  for (const g of rest) {
     if (DOMINOES.has(g)) {
       const pair = takePair();
       if (!pair) return null;
