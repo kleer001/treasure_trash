@@ -203,8 +203,16 @@ function flood(plan, cells, label) {
 export const isBarrier = (plan, min = MIN_BANK) =>
   plan.severs && plan.sides.length === 2 && plan.sides[1] >= min;
 
+// Both of the answers below are properties of a PLAN and nothing else, and a discovery run asks
+// the same plan for them thousands of times — each a flood fill, `bridgeSeats` one per floor cell
+// per direction. Keyed on the plan object, so a plan that goes out of scope takes its entry with it.
+const BANKS = new WeakMap();
+const SEATS = new WeakMap();
+
 /** Which bank each dry cell sits on, as `"x,y" -> id`. Ids follow raster order of first sight. */
 export function bankOf(plan) {
+  const hit = BANKS.get(plan);
+  if (hit) return hit;
   const { w, h, wall, water } = plan;
   const id = new Map();
   let n = 0;
@@ -225,6 +233,7 @@ export function bankOf(plan) {
     }
     n++;
   }
+  BANKS.set(plan, id);
   return id;
 }
 
@@ -242,6 +251,8 @@ export function bankOf(plan) {
  * is the trade for finding any at all.
  */
 export function bridgeSeats(plan) {
+  const hit = SEATS.get(plan);
+  if (hit) return hit;
   if (!plan.severs) return [];
   const { w, h, wall, water } = plan;
   const inGrid = (x, y) => x >= 0 && y >= 0 && x < w && y < h;
@@ -265,6 +276,7 @@ export function bridgeSeats(plan) {
       out.push({ at: [bx, by], dir: [dx, dy], fan: cells, near: bank.get(`${bx},${by}`) });
     }
   }
+  SEATS.set(plan, out);
   return out;
 }
 

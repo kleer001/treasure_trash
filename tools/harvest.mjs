@@ -4,7 +4,7 @@
 // fresh multi-hour run every time the weights change.
 //
 //   node tools/harvest.mjs [--samples N] [--workers N] [--groups N] [--in F] [--out F]
-//                          [--family h|ring]
+//                          [--family h|ring] [--water]
 //
 // Two things separate this from `survey.mjs`, and both come from Taylor & Parberry
 // (GAMEON-NA 2011): rooms are built with an OUTLINE rather than as open rectangles, and each
@@ -25,7 +25,7 @@ import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 import { staticallyDead } from './survey.mjs';
-import { bridgeSeats, bankOf, isBarrier, FAMILIES } from './shapes.mjs';
+import { bridgeSeats, bankOf, isBarrier, canals, FAMILIES } from './shapes.mjs';
 import {
   solveShape, largestOpenBlock, floorIsConnected, hasNiche, pathBite, deadTravel, inertPieces,
   shortestDag,
@@ -257,7 +257,12 @@ async function harvestGroup(group, samples, seed, engine = null, plans = null) {
       plan = outline(w, h, rnd);
       if (!plan) { stat.noOutline++; continue; }
     }
-    const room = placeOn(group, plan, w, h, rnd);
+    // A canal that severs wants the aimed draw — scattered, a crossing turns up about once in
+    // two thousand. It needs a loose bag to bridge with, so a group carrying none cannot draw
+    // this plan at all; a canal that only narrows the walk is an ordinary room and draws normally.
+    const barrier = plan.water !== undefined && isBarrier(plan);
+    if (barrier && !group.includes('$')) { stat.undrawable++; continue; }
+    const room = placeOn(group, plan, w, h, rnd, barrier ? { across: true } : {});
     if (!room) { stat.undrawable++; continue; }
     let s;
     try { s = toState(room); } catch { stat.undrawable++; continue; }
@@ -288,9 +293,10 @@ async function harvestGroup(group, samples, seed, engine = null, plans = null) {
 }
 
 if (!isMainThread && workerData?.tool === 'harvest') {
-  const { samples, seed, engineBin, family } = workerData;
+  const { samples, seed, engineBin, family, water } = workerData;
   const engine = engineBin ? connect(engineBin) : null;
-  const plans = family ? FAMILIES[family]() : null;
+  const base = family ? FAMILIES[family]() : null;
+  const plans = base && water ? base.flatMap(canals) : base;
   await serve((g, i) => harvestGroup(g, samples, seed + i, engine, plans));
   engine?.close();
 } else if (import.meta.url === `file://${process.argv[1]}`) {
@@ -305,18 +311,23 @@ if (!isMainThread && workerData?.tool === 'harvest') {
   const family = str('--family', '');
   if (family && !FAMILIES[family])
     throw new Error(`unknown family ${family} — have ${Object.keys(FAMILIES).join(', ')}`);
+  // Terrain is laid on a family, so it has nothing to sit on without one.
+  const water = process.argv.includes('--water');
+  if (water && !family) throw new Error('--water needs --family');
 
   const engineBin = engineFor(process.argv);
   const map = readFileSync(inPath, 'utf8').trim().split('\n').map(JSON.parse);
   const list = map.filter(r => r.interesting >= minInteresting).map(r => r.group);
   console.log(`${list.length} groups from ${inPath} with >= ${minInteresting} interesting per 200`);
-  console.log(`${samples} placements each on ${family ? `the ${family} family` : 'random outlines'},`
+  const plansFor = family ? (water ? FAMILIES[family]().flatMap(canals) : FAMILIES[family]()) : null;
+  console.log(`${samples} placements each on `
+    + `${family ? `${plansFor.length} ${water ? 'watered ' : ''}${family} plans` : 'random outlines'},`
     + ` ${workers} workers\n`);
 
   const t0 = Date.now();
   const got = await run({
     self: fileURLToPath(import.meta.url), tool: 'harvest', items: list, workers,
-    extra: w => ({ samples, seed: 7 + w * 10007, engineBin, family }),
+    extra: w => ({ samples, seed: 7 + w * 10007, engineBin, family, water }),
     onItem: ({ got: { stat }, done, total, ms }) => {
       const el = ms / 1000;
       console.log(`  ${String(done).padStart(3)}/${total}  ${stat.group.padEnd(5)}`
