@@ -180,12 +180,56 @@ only bags are consumed; no piece treats another piece's KIND as different.
 - **Tire with momentum** — rolls, and shoves whatever it hits one cell. Action at a distance.
 - **Ladder** — rigid 1x3 laid across water. The placeable-bridge idea that does not collide with
   the sponge, unlike a mattress (whose interesting properties are volumetric).
+- **Office chair on castors** — MOVES WHEN HIT BY TRASH, one cell, fleeing directly away from the
+  bag that burst. This is the one that changes what tearing IS: the fan stops being purely a cost
+  and becomes an aimed action. The direction is already unambiguous in the data model — the tear
+  branch pushes `spawned` entries carrying `from: [tx, ty]` under the comment "one origin for the
+  whole fan" — so a five-cell spray still yields one ray. Telegraph it by extending the existing
+  pale-yellow fan preview to show the knock-on; no new HUD vocabulary. One hop per hit, and NO
+  chaining — a knocked piece knocking another destroys the predictability the preview promises.
+  Deliberately not an animal: `TODO.md` parks agency until the raccoon-alone game proves fun, and
+  a cat would quietly answer the crow question. A castored chair telegraphs "this rolls" in its
+  sprite and opens no doors. Not a way across water.
+- **Fence / railing** — nothing may REST on it, raccoon may cross. Separates "where I can walk"
+  from "where anything can sit", which is currently one predicate (`isOccupiable`) doing two
+  jobs; splitting it for one flag gives cells that forbid particular tear DIRECTIONS while
+  leaving the route untouched. **Open question: "cross but do not stay on" has no representation
+  while every move lands on a cell.** Either he may stand on it, or it is a wall to him too, or
+  movement gains a step-through rule. Decide before building.
+- **Tar / wet paint** — a pushed object that enters stops forever; grease's opposite, same
+  machinery, and the pair is legible because they are opposites. **Open question: the raccoon
+  should be able to walk on it, which is exactly what tar and wet paint argue against.** Either
+  the theme changes or the rule does.
+- **Filing cabinet** — closed it is one cell; shoved, the drawer slides out one cell in a FIXED
+  direction and it becomes two cells blocking a lane it was not blocking. Directional footprint
+  mutation, and self-telegraphing in a way the umbrella is not, because the drawer's facing is
+  visible. Overlaps the umbrella enough that one of the two is probably redundant.
+- **Bicycle wheel (one cell) and bicycle (two cells)** — the wheel rolls; the bicycle is
+  anisotropic, rolling along its length and dragging one cell sideways. The two-cell version gets
+  its axis free from `pid`, like the rug.
+- **Pane of glass** — one cell. Shove it and it SHATTERS into the next cell: a bag's tear with a
+  single-cell footprint instead of a five-cell fan, triggered by a push rather than a tear. The
+  precise instrument — one cell of trash exactly where aimed, which over water is exactly one
+  bridge cell.
+- **Wheelbarrow** — one cell, with a FIXED push direction. The turnstile's directionality carried
+  on an object instead of a terrain lane, so it needs no new cell field, and the shape says it.
 - **Pull, as a verb** — a second grammar for all eight mechanics at once, and the largest rules
   change on the list. The usual objection (pull makes deadlocks reversible) does not bite here:
   our permanence is trash and water, not piece position.
 
-Rejected: rope (wants to be looser than a grid), broken glass (bags never travel — `BAG` is not
-pushable at all), mattress (a sponge in bigger clothes; its real properties need 3D).
+Rejected: rope (wants to be looser than a grid), broken glass as a floor hazard (bags never
+travel — `BAG` is not pushable at all; the pane of glass above is the idea that survives),
+mattress (a sponge in bigger clothes; its real properties need 3D), a cat or any creature (see
+the office chair), **sorting destinations** (blue-bin items to the blue bin — it would make the
+game read as sorting rather than clearing, and it is a goal-structure change touching `isWon`,
+`bagsLeft`, the solver's win detection and every level file; declined).
+
+**Where to mine for more.** The trash encyclopedias are the wrong shape — *Encyclopedia of
+Consumption and Waste* (Zimring & Rathje, SAGE 2012) and *Trash Talk* (Collin) are
+garbology-as-sociology, about attitudes and policy, not object catalogues. Municipal sorting
+wizards are better (Vancouver's lists 1,486 items), and **bulky-item / large-item pickup lists
+are better still** — those are precisely the objects too big for a bin, which is to say the ones
+you push.
 
 ### One engine
 
