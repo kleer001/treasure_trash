@@ -496,28 +496,68 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
     }
 
     if is_roller(&target) {
-        let (mut rx, mut ry) = (tx, ty);
-        while is_occupiable(s, rx + dx, ry + dy) {
-            rx += dx;
-            ry += dy;
+        // Rollers already touching are one thing to shove, so the unit that moves is the whole
+        // contiguous run — which also makes the run maximal, and that is what gives IMPACT a
+        // meaning: the cell ahead of a maximal train never holds a roller until travel closes
+        // a gap.
+        let mut train: Vec<(i32, i32)> = Vec::new();
+        let (mut px, mut py) = (tx, ty);
+        while s.in_grid(px, py) && is_roller(&s.at(px, py)) {
+            train.push((px, py));
+            px += dx;
+            py += dy;
         }
-        if (rx, ry) == (tx, ty) {
-            let stop = [(tx + dx, ty + dy)];
+        let lead = *train.last().unwrap();
+
+        let mut k = 0i32;
+        while is_occupiable(s, lead.0 + (k + 1) * dx, lead.1 + (k + 1) * dy) {
+            k += 1;
+        }
+        if k == 0 {
+            let stop = [(lead.0 + dx, lead.1 + dy)];
             return Ok(Outcome::No { reason: reason_for(s, &stop, "canRoom") });
         }
+
+        // The rearmost is the only one with a free cell behind it — every other has its
+        // neighbour there — so it is the only one that can shed.
+        let rear = train[0];
+        let rear_is_wheelie = s.at(rear.0, rear.1).o == WHEELIE;
+        let back = rear_is_wheelie.then(|| (rear.0 + (k - 1) * dx, rear.1 + (k - 1) * dy));
+
         let mut next = s.clone();
-        next.at_mut(tx, ty).o = NONE;
-        next.at_mut(rx, ry).o = o;
-        // Tested against the rolled board, not the original: on a one-cell roll this cell is the
-        // bin's own start.
-        let back = (o == WHEELIE).then(|| (rx - dx, ry - dy));
+        for &(x, y) in &train {
+            next.at_mut(x, y).o = NONE;
+        }
+        for &(x, y) in &train {
+            next.at_mut(x + k * dx, y + k * dy).o = s.at(x, y).o;
+        }
         if let Some(b) = back {
             if !is_occupiable(&next, b.0, b.1) {
                 return Ok(Outcome::No { reason: reason_for(s, &[b], "canRoom") });
             }
-            next.at_mut(rx, ry).o = WHEELIE_EMPTY;
+            next.at_mut(rear.0 + k * dx, rear.1 + k * dy).o = WHEELIE_EMPTY;
             drop_o(next.at_mut(b.0, b.1), BAG);
         }
+
+        // IMPACT. The train stopped; if what stopped it rolls, the motion carries on into it and
+        // the train stays put. Every hand-off goes strictly forward, so a cascade is a straight
+        // run and cannot fail to end.
+        let (mut qx, mut qy) = (lead.0 + (k + 1) * dx, lead.1 + (k + 1) * dy);
+        while next.in_grid(qx, qy) && is_roller(&next.at(qx, qy)) {
+            let mut j = 0i32;
+            while is_occupiable(&next, qx + (j + 1) * dx, qy + (j + 1) * dy) {
+                j += 1;
+            }
+            if j == 0 {
+                break;
+            }
+            let o2 = next.at(qx, qy).o;
+            next.at_mut(qx, qy).o = NONE;
+            next.at_mut(qx + j * dx, qy + j * dy).o = o2;
+            qx += (j + 1) * dx;
+            qy += (j + 1) * dy;
+        }
+
         next.rac = if is_clear_floor(&next, tx, ty) {
             (tx, ty)
         } else {

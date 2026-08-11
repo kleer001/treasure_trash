@@ -528,51 +528,94 @@ export function explain(s, dir, opts = {}) {
   }
 
   if (isRoller(target)) {
-    let rx = tx, ry = ty;
-    // Tar and a grate END a roll rather than blocking it: the cell is entered, and then either
-    // held for good or fallen through. Everything else is the ordinary "until blocked".
-    while (travelsInto(s, rx + dx, ry + dy, dx, dy)) {
-      rx += dx; ry += dy;
-      if (isTar(cell(s, rx, ry)) || isGrate(cell(s, rx, ry))) break;
+    // Rollers already touching are one thing to shove, so the unit that moves is the whole
+    // contiguous run — which also makes the run maximal, and that is what gives IMPACT a
+    // meaning: the cell ahead of a maximal train never holds a roller until travel closes a gap.
+    const train = [];
+    for (let p = [tx, ty]; inGrid(s, ...p) && isRoller(cell(s, ...p)); p = [p[0] + dx, p[1] + dy])
+      train.push(p);
+    const lead = train[train.length - 1];
+
+    let k = 0;
+    while (travelsInto(s, lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy, dx, dy)) {
+      k++;
+      const c = cell(s, lead[0] + k * dx, lead[1] + k * dy);
+      if (isTar(c) || isGrate(c)) break;                 // entered, and then held or fallen through
     }
-    if (rx === tx && ry === ty) {
-      const stop = [[tx + dx, ty + dy]];
+    if (k === 0) {
+      const stop = [[lead[0] + dx, lead[1] + dy]];
       return { ok: false, reason: reasonFor(s, stop, 'canRoom'), blame: stop };
     }
-    // Two beats, not one: reported together, the bag is drawn leaving a bin that is still
-    // halfway down the alley.
+
+    // The rearmost is the only one with a free cell behind it — every other has its neighbour
+    // there — so it is the only one that can shed. Same shape as a line of containers.
+    const rear = train[0];
+    const backOf = ([x, y]) => [x + (k - 1) * dx, y + (k - 1) * dy];
+    const rearIsWheelie = cell(s, ...rear).o === WHEELIE;
+    const back = rearIsWheelie ? backOf(rear) : null;
+
     const rolled = cloneState(s);
-    cell(rolled, tx, ty).o = NONE;
-    const swallowed = isGrate(cell(rolled, rx, ry));
-    if (!swallowed) cell(rolled, rx, ry).o = o;
-    // Tested against `rolled`, not `s`: on a one-cell roll this cell is the bin's own start.
-    // A bin that went down a grate went down holding its bag, so it sheds nothing.
-    const back = !swallowed && o === WHEELIE ? [rx - dx, ry - dy] : null;
-    if (back && !isOccupiable(rolled, back[0], back[1]))
+    for (const [x, y] of train) cell(rolled, x, y).o = NONE;
+    const swallowed = [];
+    for (const [x, y] of train) {
+      const to = [x + k * dx, y + k * dy];
+      if (isGrate(cell(rolled, ...to))) { swallowed.push([[x, y], cell(s, x, y).o]); continue; }
+      cell(rolled, ...to).o = cell(s, x, y).o;
+    }
+    // Tested against `rolled`: on a one-cell roll this cell is the bin's own start.
+    if (back && !swallowed.length && !isOccupiable(rolled, back[0], back[1]))
       return { ok: false, reason: reasonFor(s, [back], 'canRoom'), blame: [back] };
 
-    // Untraced, the mid-roll board is not wanted, so it is finished in place rather than cloned.
     const next = opts.trace ? cloneState(rolled) : rolled;
-    if (back) {
-      cell(next, rx, ry).o = WHEELIE_EMPTY;
-      drop(cell(next, back[0], back[1]), BAG);
+    const shedAt = back && !swallowed.length ? back : null;
+    if (shedAt) {
+      cell(next, rear[0] + k * dx, rear[1] + k * dy).o = WHEELIE_EMPTY;
+      drop(cell(next, ...shedAt), BAG);
     }
+
+    // IMPACT. The train stopped; if what stopped it rolls, the motion carries on into it and
+    // the train stays put. One rule, applied until nothing is left rolling — every hand-off
+    // goes strictly forward, so a cascade is a straight run and cannot fail to end.
+    const passedTo = [];
+    for (let p = [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy];
+         inGrid(next, ...p) && isRoller(cell(next, ...p));) {
+      let j = 0;
+      while (travelsInto(next, p[0] + (j + 1) * dx, p[1] + (j + 1) * dy, dx, dy)) {
+        j++;
+        const c = cell(next, p[0] + j * dx, p[1] + j * dy);
+        if (isTar(c) || isGrate(c)) break;
+      }
+      if (j === 0) break;
+      const o2 = cell(next, ...p).o;
+      const to = [p[0] + j * dx, p[1] + j * dy];
+      cell(next, ...p).o = NONE;
+      if (!isGrate(cell(next, ...to))) cell(next, ...to).o = o2;
+      passedTo.push({ o: o2, from: [...p], to });
+      p = [to[0] + dx, to[1] + dy];
+    }
+
     next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
     if (!opts.trace) return { ok: true, kind: PUSH, next };
 
     const frames = [cloneState(s), rolled];
     const steps = [mkStep({
-      moved: [{ o, from: [tx, ty], to: [rx, ry] }],
+      moved: train.filter(c => !swallowed.some(([sc]) => sc[0] === c[0] && sc[1] === c[1]))
+        .map(([x, y]) => ({ o: cell(s, x, y).o, from: [x, y], to: [x + k * dx, y + k * dy] })),
+      gone: swallowed.map(([at, o2]) => ({ o: o2, at: [at[0] + k * dx, at[1] + k * dy] })),
       impact: true,
     })];
-    if (back) {
+    if (shedAt || passedTo.length) {
       frames.push(next);
       steps.push(mkStep({
-        moved: [{ o: WHEELIE, from: [rx, ry], to: [rx, ry], becomes: WHEELIE_EMPTY }],
-        spawned: [{ o: BAG, at: back, from: [rx, ry] }],
+        moved: [
+          ...(shedAt ? [{ o: WHEELIE, from: [rear[0] + k * dx, rear[1] + k * dy],
+                          to: [rear[0] + k * dx, rear[1] + k * dy], becomes: WHEELIE_EMPTY }] : []),
+          ...passedTo,
+        ],
+        spawned: shedAt ? [{ o: BAG, at: shedAt, from: [rear[0] + k * dx, rear[1] + k * dy] }] : [],
       }));
     }
-    for (let k = 1; k < frames.length; k++) frames[k].rac = { ...next.rac };
+    for (let i = 1; i < frames.length; i++) frames[i].rac = { ...next.rac };
     return { ok: true, kind: PUSH, next, frames, steps };
   }
 
