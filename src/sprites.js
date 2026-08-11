@@ -14,6 +14,12 @@ export const PALETTE = {
   ink: '#1a1a1a', grn: '#2e9e5b',
   floor: '#fff', floorLine: '#e6e6e2', outline: '#fff',
   canal: '#2e6f8e', bridge: '#7fb7c4', ripple: 'rgba(255,255,255,.45)',
+  grease: '#6b6a4e', greaseSheen: 'rgba(190,215,120,.55)',
+  tar: '#23232a', tarSheen: 'rgba(120,120,140,.35)',
+  glass: '#b9d7de', glassEdge: '#5d8a95',
+  covered: '#b08355', coveredEdge: '#7d5c39',
+  grate: '#3a3d42', grateBar: '#8a9099',
+  oneway: 'rgba(70,90,120,.55)',
   bagBody: '#161616', bagEdge: '#161616',    // edge == body: invisible on a light floor
   metal: '#b9c0c7', metalEdge: '#7d858c', metalRidge: '#9aa2a9',
   metalRim: '#cfd5da', metalMouth: '#3a4046',
@@ -87,6 +93,77 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
         ctx.moveTo(x0 + 6, yy);
         ctx.quadraticCurveTo(x0 + CS / 3, yy - 4, x0 + CS / 2, yy);
         ctx.quadraticCurveTo(x0 + (2 * CS) / 3, yy + 4, x0 + CS - 6, yy);
+        ctx.stroke();
+      }
+    },
+
+    // The lanes past water. Each is drawn on the same square the floor would have taken, so the
+    // ground stays one pass and an occupant lands on top of whatever the cell turned out to be.
+    grease(x, y) {
+      const x0 = px(x), y0 = px(y);
+      ctx.fillStyle = P.grease; ctx.fillRect(x0 + 1, y0 + 1, CS - 2, CS - 2);
+      ctx.fillStyle = P.greaseSheen;
+      for (const [ox, oy, r] of [[0.34, 0.38, 0.20], [0.64, 0.60, 0.14], [0.48, 0.74, 0.10]]) {
+        ctx.beginPath(); ctx.ellipse(x0 + CS * ox, y0 + CS * oy, CS * r, CS * r * 0.62, 0.4, 0, 7); ctx.fill();
+      }
+    },
+
+    tar(x, y) {
+      const x0 = px(x), y0 = px(y);
+      ctx.fillStyle = P.tar; ctx.fillRect(x0 + 1, y0 + 1, CS - 2, CS - 2);
+      ctx.strokeStyle = P.tarSheen; ctx.lineWidth = 2;
+      for (const [ox, oy, r] of [[0.36, 0.42, 0.11], [0.66, 0.64, 0.08]]) {
+        ctx.beginPath(); ctx.arc(x0 + CS * ox, y0 + CS * oy, CS * r, 0, 7); ctx.stroke();
+      }
+    },
+
+    // Shards, angular and pale, so it reads as a surface you would not put a foot on.
+    glass(x, y) {
+      const x0 = px(x), y0 = px(y);
+      api.floor(x, y);
+      ctx.fillStyle = P.glass; ctx.strokeStyle = P.glassEdge; ctx.lineWidth = 1.5;
+      const shard = pts => {
+        ctx.beginPath();
+        pts.forEach(([a, b], i) => (i ? ctx.lineTo(x0 + CS * a, y0 + CS * b) : ctx.moveTo(x0 + CS * a, y0 + CS * b)));
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      };
+      shard([[0.18, 0.30], [0.44, 0.20], [0.36, 0.50]]);
+      shard([[0.56, 0.34], [0.82, 0.44], [0.60, 0.58]]);
+      shard([[0.28, 0.64], [0.52, 0.60], [0.44, 0.84]]);
+    },
+
+    // Something laid over a hazard: a flap of cardboard, seam down the middle.
+    covered(x, y) {
+      const x0 = px(x), y0 = px(y);
+      ctx.fillStyle = P.covered; ctx.fillRect(x0 + 1, y0 + 1, CS - 2, CS - 2);
+      ctx.strokeStyle = P.coveredEdge; ctx.lineWidth = 2;
+      ctx.strokeRect(x0 + 2.5, y0 + 2.5, CS - 5, CS - 5);
+      ctx.beginPath(); ctx.moveTo(x0 + CS / 2, y0 + 3); ctx.lineTo(x0 + CS / 2, y0 + CS - 3); ctx.stroke();
+    },
+
+    // A hole with bars across it: he walks over, and anything that fits goes down.
+    grate(x, y) {
+      const x0 = px(x), y0 = px(y);
+      ctx.fillStyle = P.grate; ctx.fillRect(x0 + 1, y0 + 1, CS - 2, CS - 2);
+      ctx.strokeStyle = P.grateBar; ctx.lineWidth = 2; ctx.lineCap = 'butt';
+      for (let i = 1; i <= 3; i++) {
+        const yy = y0 + (CS * i) / 4;
+        ctx.beginPath(); ctx.moveTo(x0 + 4, yy); ctx.lineTo(x0 + CS - 4, yy); ctx.stroke();
+      }
+    },
+
+    // Ordinary floor with the only direction through it painted on.
+    oneway(x, y, dir) {
+      api.floor(x, y);
+      const cx = px(x) + CS / 2, cy = px(y) + CS / 2, r = CS * 0.24;
+      const [dx, dy] = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }[dir];
+      const px_ = -dy, py_ = dx;
+      ctx.strokeStyle = P.oneway; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (const back of [0.55, -0.15]) {
+        ctx.beginPath();
+        ctx.moveTo(cx + (dx * back - px_) * r, cy + (dy * back - py_) * r);
+        ctx.lineTo(cx + dx * (back + 1) * r, cy + dy * (back + 1) * r);
+        ctx.lineTo(cx + (dx * back + px_) * r, cy + (dy * back + py_) * r);
         ctx.stroke();
       }
     },
@@ -430,4 +507,7 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   else if (o === codes.WHEELIE_EMPTY) sprites.wheelie(x, y, false);
   else if (o === codes.JUG) sprites.jug(x, y, true);
   else if (o === codes.JUG_EMPTY) sprites.jug(x, y, false);
+  // Not silence. An occupant with no drawing here is invisible on the board, which reads as a
+  // rules bug and is found by playing rather than by testing — so it stops the frame instead.
+  else if (o !== codes.NONE) throw new Error(`no drawing for occupant ${o}`);
 }

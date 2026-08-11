@@ -6,6 +6,14 @@ export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
              BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9, FURNITURE = 10,
              BIN_EMPTY = 11, JUG_EMPTY = 12;
 
+// The occupant codes, as one object. The renderer takes this rather than a hand-listed subset:
+// a code left out of such a list does not throw, it draws NOTHING, and a piece that is simply
+// invisible is a bug you find by playing rather than by testing.
+export const OCCUPANTS = {
+  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
+  BIN_EMPTY, JUG_EMPTY,
+};
+
 // The one code a cell does not fully describe: two adjacent FURNITURE cells may be one couch
 // or two, and only `pid` says which. `stateKey` encodes the partition as well as the codes.
 export const isMultiCell = o => o === FURNITURE;

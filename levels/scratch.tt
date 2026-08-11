@@ -1,0 +1,133 @@
+:pack   Treasure Trash — Scratch (bench pack, never shipped)
+
+:level  T1
+:name   Grease
+:teach  a slider shoved onto grease runs to the end of the slick, and settles its bill where it stops
+:par    17
+:traps  21
+:solves 12
+:solve  RurrrrDurrddlU!drr
+:grid
+############
+#----------#
+#-@C-------#
+#---------E#
+############
+:end
+:water
+------------
+------------
+----%%%-----
+------------
+------------
+:end
+
+:level  T2
+:name   Tar
+:teach  tar keeps what enters it; you walk over it freely
+:par    7
+:traps  0
+:solves 3
+:solve  drrrrrr
+:grid
+##########
+#--------#
+#-@c-----#
+#-------E#
+##########
+:end
+:water
+----------
+----------
+-----T----
+----------
+----------
+:end
+
+:level  T3
+:name   Grate
+:teach  the grate takes what fits inside it, bags and all
+:par    7
+:traps  1
+:solves 6
+:solve  Rdrrrrr
+:grid
+##########
+#--------#
+#-@C-----#
+#-------E#
+##########
+:end
+:water
+----------
+----------
+----O-----
+----------
+----------
+:end
+
+:level  T4
+:name   Broken glass
+:teach  objects rest on glass and cross it; you may not stand on it
+:par    7
+:traps  0
+:solves 2
+:solve  drrrrrr
+:grid
+##########
+#--------#
+#-@c-----#
+#-------E#
+##########
+:end
+:water
+----------
+----------
+----*-----
+----------
+----------
+:end
+
+:level  T5
+:name   One-way
+:teach  a one-way admits its own direction and no other
+:par    7
+:traps  0
+:solves 1
+:solve  drrrrrr
+:grid
+##########
+#--------#
+#-@------#
+#-------E#
+##########
+:end
+:water
+----------
+----------
+---<------
+----------
+----------
+:end
+
+:level  T6
+:name   The jug’s one cell
+:teach  the jug pours once, and poured water washes grease away
+:par    7
+:traps  0
+:solves 3
+:solve  drrrrrr
+:grid
+##########
+#--------#
+#-@j-----#
+#-------E#
+##########
+:end
+:water
+----------
+----------
+-----%----
+----------
+----------
+:end

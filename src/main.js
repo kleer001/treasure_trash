@@ -2,9 +2,11 @@
 // ES modules need http://, so run ./run.sh rather than opening the file.
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
+  JUG_EMPTY,
   FURNITURE,
   MOVE, DIRS,
   explain, isWon, bagsLeft, trashHeld, fan, inGrid, cell, cloneState, isMultiCell, stateKey,
+  GREASE, TAR, GLASS, COVERED, OCCUPANTS as CODES,
 } from './rules.js';
 import { parseLevelPack, toState } from './format.js';
 import { deadScan } from './solver.js';
@@ -24,8 +26,7 @@ const pad = id => String(id).replace(/\D+/g,'').padStart(3,'0');
 const CS=76, PAD=9;
 // The occupant codes the sprite dispatcher needs; it takes them rather than importing the
 // rules, so the art has no idea a rulebook exists.
-const CODES = { BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY,
-  JUG };
+
 
 const WHY = {
   edge:    "that's the edge of the alley",
@@ -37,12 +38,16 @@ const WHY = {
   water:   "he's not wetting his paws — fill it in first",
   afloat:  "that's out in the canal — he's not wading in after it",
   pour:    "it only pours on dry ground",
+  glass:   "broken glass — he's not standing in that",
+  tar:     "stuck in the tar for good",
+  oneway:  "that only goes one way, and it isn't this one",
 };
 // Name the thing in the way rather than saying "blocked": the red cell already carries that.
 const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"your own trash",
   [BIN]:"a full recycle bin", [BIN_EMPTY]:"an empty recycle bin",
   [STACK]:"a bag on a can", [WHEELIE]:"a wheelie bin",
-  [WHEELIE_EMPTY]:"an empty wheelie bin", [JUG]:"the water jug", [FURNITURE]:"the couch" };
+  [WHEELIE_EMPTY]:"an empty wheelie bin", [JUG]:"the water jug", [JUG_EMPTY]:"the empty jug",
+  [FURNITURE]:"the couch" };
 function whyText(b){
   const base = WHY[b.reason];
   // One reason code, several different noes: which one it is depends on where the blame
@@ -398,9 +403,15 @@ const comp = createCompositor([
       const c=cell(b,x,y); if(c.wall) continue;
       // A filled cell keeps the canal's dark rim, so you can still see where the water was and
       // what it cost to cross.
-      if(c.water)       SP.water(x,y,false);
-      else if(c.bridge) SP.water(x,y,true,hash(x,y));
-      else              SP.floor(x,y);
+      if(c.water)                   SP.water(x,y,false);
+      else if(c.bridge)             SP.water(x,y,true,hash(x,y));
+      else if(c.grate)              SP.grate(x,y);
+      else if(c.oneway!==undefined) SP.oneway(x,y,c.oneway);
+      else if(c.ter===GREASE)       SP.grease(x,y);
+      else if(c.ter===TAR)          SP.tar(x,y);
+      else if(c.ter===GLASS)        SP.glass(x,y);
+      else if(c.ter===COVERED)      SP.covered(x,y);
+      else                          SP.floor(x,y);
       if(c.exit) SP.exit(x,y, bagsLeft(s)===0 && trashHeld(s)===0, exitArrowDir(s.cols,s.rows,x,y));
     }
   }},
@@ -592,7 +603,11 @@ document.getElementById('controls').addEventListener('click',e=>{
 // Levels are data on disk, in the same pack the verifier checks. Fail loudly.
 // Acts are separate files, played end to end. The list is the running order; a room's id is
 // unique across the whole game, so nothing downstream has to know which act it came from.
-const ACTS = ['act1.tt', 'act2.tt'];
+// A scratch pack can be named on the query string. That is how a new piece gets played in the
+// real game before it belongs in a shipped act: the bench pages import `src/` and prove the
+// rules, but only this path exercises input, refusal painting, the HUD and the sprites. Inert
+// in the built artifact, which has no query string and serves its packs from inside itself.
+const ACTS = new URLSearchParams(location.search).get('acts')?.split(',') ?? ['act1.tt', 'act2.tt'];
 // Which rooms came from which act. The pack names itself; the file name is the fallback so a
 // pack with no `:pack` line still gets a heading rather than an empty one.
 // Short enough to sit on one line beside the room range: the pack's own trailing name, with
