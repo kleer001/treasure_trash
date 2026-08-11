@@ -2,255 +2,270 @@ fresh
 
 ## Summary
 
-Act 1 is 31 rooms (L0–L30). **Act 2 is 30 rooms (L31–L60), ten sets of three, and it is named.**
-Nothing placeholder now reaches the player.
+Act 1 is 31 rooms (L0–L30), Act 2 is 30 (L31–L60), both named and shipped. Nothing placeholder
+reaches the player. `src/rules.js` is the engine of record and `engine/` is a sanctioned Rust
+port under differential proof; the discovery pipeline runs on the port.
 
-The rules have **two implementations**, on purpose and under proof: `src/rules.js` is the engine
-of record, and `engine/` is a sanctioned Rust port. **It answers every op the protocol has, and
-the discovery pipeline now runs on it.** The survey was 31.5 CPU-hours and is ~3; the whole
-pipeline is about 32 CPU-hours down to about 3.6. Stages 1–3 are done where they paid.
+**Act 3 is in design and the family question is settled: the LAKE.** A rectangle with a pool of
+water in the middle and a one-or-two cell shore around it. Water is now a first-class thing the
+pipeline can generate — canals, puddle fields and lakes — where before it existed only in two
+hand-drawn Act 1 rooms.
 
 ## Todos
 
 ### Sequential
-- [ ] #17c **`resite` and `shrink` are still on JS, and that is now a small number.** 16 min and
-      4 min, against a pipeline that is ~3.6 CPU-hours. Wiring them is the EXPENSIVE one:
-      `read()` → `readsAt` → `costAt` → the sweeps → `resiteSet` → `serve` is synchronous end to
-      end, so a pipe makes all of it async in the most correctness-critical tool there is, and
-      the proof cycle is a ~16-minute byte-identical run. It also wants two more protocol ops
-      ({op:'open'} → handle, {op:'root'} → measure) because `reroot` is most of what `resite`
-      does. Worth ~15 minutes a rebuild. Do it when it annoys you, not before.
-- [ ] #17d (needs: #17c) **`:solve` is not in the protocol**, and only `resite`/`shrink` want it.
-      It is a tie-break on DISCOVERY ORDER — the first shortest win the search reached. The Rust
-      side already holds states in a `Vec` in insertion order behind an index table, precisely so
-      this costs nothing to add; what it needs is back-pointers and a `formatLurd`. Do NOT reach
-      for `HashMap` iteration order: Rust seeds its hasher per process, so it would emit a
-      different tied solve every run.
-- [ ] #17e **Retire the JS `maxStates` ceiling if the port earns it.** Bound is 50,000 states
-      because `analyze` holds every one as a cloned board. Raising it lets the survey keep rooms
-      it currently throws away — one placement in twenty on outlines, one in five on open
-      rectangles — which is now affordable in a way it was not.
+- [ ] #20 **`stateKey` emits its own field separator, and both engines do it identically.**
+      The pack is `65 + (o*3 + terrain)*2 + cart`; at `o=9` (JUG), `terrain=2` (bridge),
+      `cart=true` that is exactly 124 — `|`. Demonstrated: a cart carrying a jug on a filled
+      canal keys as `"A|BAA/AAAAA||AA|0,0"`, which splits into 5 fields where there are 4. The
+      key stops being unambiguous, so two boards can collide and the solver skips a state it has
+      never seen — wrong par, wrong traps, no error. `engine/src/solver.rs:117` packs the same
+      way, so `conform.mjs` is blind to it: both engines agree on the same wrong key. Fix is one
+      character — every emitted char is >= 65, so any separator below 65 is collision-proof.
+      `/` (47) is already safe; swap `|` for something under 65 in both engines. Reachability was
+      low before and is high now: Act 3 rooms are full of bridges, and carts and jugs are both in
+      the roster.
+- [ ] #21 (needs: #20) **The occupant-code ceiling is ~30 and it is an accident of a cast.**
+      `engine/src/solver.rs:117` ends `as u8`, so `6*o + 70 <= 255` bounds occupant codes at 30;
+      code 31 wraps to 0 SILENTLY. JS has no such bound. This is a real limit on how many kinds
+      of object the game can ever hold and it should not be one — it is a storage decision, not a
+      design one. Fix the packing rather than the number: widen the cell encoding so kinds,
+      terrain and cart membership do not share one byte. Glyphs are not the constraint (printable
+      ASCII gives ~90, `READ` uses ~15); `FURN_POOL`/`CART_POOL` cap multi-cell INSTANCES per
+      board, not kinds.
+- [ ] #22 **Teach `sets.mjs` a pool-growth ramp.** It knows `upgrade` (fill a container),
+      `addition` and `par`. Act 3's ramp is a fourth: hold the room size fixed and grow the pool
+      (2x2 -> 3x2 -> 3x3), so par climbs and the shore narrows. Measured feasible — see Context.
 
 ### Parallel
-- [ ] #19 **Act 3: search with the piece cap OFF.** `--maxpiece` in `tools/act2.mjs` (default 0.9,
-      passed through to `chooseSets` in `pick.mjs`) is the last unmeasured constraint in the
-      chooser. It was kept as a backstop, not because an unbounded pool was tried and found bad —
-      nothing has ever run without it. Half buys 24 rooms, 0.8 buys 27, 0.9 buys 30; the trend
-      says the cap only ever costs sets. Run Act 3's chooser at `--maxpiece 1` and compare the
-      acts on what a player can feel — ramp mix, outline count, par band, `onPath` spread — not on
-      piece counts, which is the metric that set the cap in the first place. If an unbounded pool
-      wins, drop the flag rather than re-tuning it.
-- [ ] #13 **Render through the compositor.** `main.js` draws straight to the canvas; the house
-      pattern is ordered layers via `src/compositor.js`, which the game still does not import.
-      Worth doing before the art pass, and it is a real refactor of the draw loop — start it
-      with a full context rather than at the end of one.
-- [ ] #10 **The stack's fate — left open, deliberately, this session.** `S` is last in the roster
-      by an order of magnitude: 5.1 solvable rooms per 1000 placements against 62.5 for every
-      group without it. It appears in no shipped room. Cut it or keep it as an expert-act piece;
-      it will not carry an introduction either way.
-- [ ] #18 **`draft-room.mjs`'s `rooms()` is the redundancy `reroot` was written for.** Lowest
-      value on this list and it is not the ten-minute job it looks like: `rac` is the *second*
-      loop, so consecutive yields do not share a board. Exploiting `reroot` means reordering the
-      loops so `rac` is innermost (same set of rooms, different order — changes what `hunt`
-      finds first) AND teaching `draft` to accept an analysis it did not run. Nothing hot goes
-      through it, which is the only reason it is still there.
+- [ ] #23 **Build the 2-decomposition metric.** Strongest published predictor of human Sokoban
+      difficulty (Spearman 0.82 vs median human solve time, over 2,000 problems and 785 hours):
+      the minimum number of group alternations along any solving path, minimised over all splits
+      of the pieces into two groups. Computed by Dijkstra over an augmented state space of
+      `(state, group)` with 0/1 edge weights — a query over the graph `analyze` already builds.
+      Our `changes` is the same family at `ABCD` granularity (each piece its own group, ρ 0.74)
+      but counted along ONE canonical solve rather than minimised over all paths.
+      `tools/metrics.mjs` is where it goes. Note the same study found solution length a POOR
+      predictor (ρ 0.47) and state-space size not significant at all (ρ −0.07) — both are things
+      this repo currently leans on.
+- [ ] #24 **Generate teaching mini-stages.** The Learning Curves finding is introduce ->
+      practise -> integrate, and our sets are practice-only. A mini-stage is the same outline with
+      fewer pieces isolating one interaction; `pick.mjs` could emit one per shipped room. The
+      `.tt` format already has a `:teach` field that nothing computes.
+- [ ] #19 **Act 3: search with the piece cap OFF.** `--maxpiece` in `tools/act2.mjs` (default 0.9)
+      is the last unmeasured constraint in the chooser — kept as a backstop, never tried
+      unbounded. Half buys 24 rooms, 0.8 buys 27, 0.9 buys 30; the trend says the cap only ever
+      costs sets. A themed act makes it worse, because a theme is a floor and the cap is a
+      ceiling. Judge the acts on ramp mix, outline count, par band and `onPath` spread.
+- [ ] #10 **The stack's fate.** `S` is last in the roster by an order of magnitude — 5.1 solvable
+      rooms per 1000 against 62.5 for every group without it — and appears in no shipped room.
+      It is the top rung of a tear ramp (`c` -> `C` -> `S`: empty can, can with a bag, can with
+      two) and the only piece that sheds two bags from one cell in a forced order. Decide it with
+      Act 3 or cut it.
+- [ ] #17c **`resite` and `shrink` are still on JS.** 16 min and 4 min against a ~3.6 CPU-hour
+      pipeline. Wiring them is the EXPENSIVE one: `read()` -> `readsAt` -> `costAt` -> the sweeps
+      -> `resiteSet` -> `serve` is synchronous end to end, so a pipe makes all of it async in the
+      most correctness-critical tool there is, and the proof cycle is a ~16-minute byte-identical
+      run. Wants two more protocol ops (`{op:'open'}` -> handle, `{op:'root'}` -> measure).
+      Do it when it annoys you.
+- [ ] #17d (needs: #17c) **`:solve` is not in the protocol**, and only `resite`/`shrink` want it.
+      It is a tie-break on DISCOVERY ORDER — the first shortest win the search reached. The Rust
+      side already holds states in a `Vec` in insertion order behind an index table precisely so
+      this costs nothing; what it needs is back-pointers and a `formatLurd`. Do NOT reach for
+      `HashMap` iteration order: Rust seeds its hasher per process, so it would emit a different
+      tied solve every run.
+- [ ] #17e **Retire the JS `maxStates` ceiling if the port earns it.** Bound is 50,000 because
+      `analyze` holds every state as a cloned board. It is now the binding constraint on par:
+      4.8% of lake draws blow it, and those are disproportionately the longest rooms, discarded
+      before their par is known. Measure the memory cost at 100k and 200k on the biggest rooms
+      before changing the number.
+- [ ] #18 **`draft-room.mjs`'s `rooms()` is the redundancy `reroot` was written for.** Not the
+      ten-minute job it looks: `rac` is the SECOND loop, so consecutive yields do not share a
+      board. Exploiting `reroot` means reordering the loops so `rac` is innermost (same rooms,
+      different order — changes what `hunt` finds first) AND teaching `draft` to accept an
+      analysis it did not run. Nothing hot goes through it.
 
 ## Context
 
-### The port — where it stands
+### Act 3 — the design as it stands
 
-**Stages 1 and 2 are done, and the shape of the proof matters more than the code.** `engine/` is
-Rust, zero dependencies (it must build in CI from a checkout with no network, beside a game that
-has no build step). It answers `step`, `answer` and `measure`, and skips nothing.
+**Shape: ten sets of three, pool growth as the ramp, par band ~40–80, `solves <= 4`.**
+Act 2's 8–32 band is far too short for the act that follows it.
 
-- **Agreement measured:** see *Run it* for the current sweep. Every op, five seeds.
-- **`measure` exists because `answer` is not what the pipeline decides on.** `resite`'s guard
-  reads eight numbers; `answer` carries five. The missing four — `silentTraps`, `onPath`, `lead`,
-  `tail` — are linear walks of a graph the enumeration already paid for, so they moved
-  engine-side rather than the graph being shipped over the pipe for JS to finish. None of them is
-  declared in a pack, which is exactly why `conform.mjs` asks `measure` of every room: nothing
-  else in the tree would ever notice them being wrong.
-- **Both bends demonstrated, not assumed.** Break a RULE — delete the raccoon's line in
-  `tip_fits`, he is the one occupant `is_occupiable` cannot see — and conform.mjs names
-  `act1.tt:L23`, the direction and the board. Break the SEARCH — count boards you can lose from
-  instead of ways to lose — and it says *"traps: 16 vs 14, and every step of it agrees. The
-  search differs, not the rules."* Do both again after any change to the harness. A third,
-  `walk-off-by`, is a permanent test: it lies about `lead` and nothing else, and has to be caught.
-- Registered in `SANCTIONED` in `verify.mjs`, which prints both files on every run. CI builds it
-  and runs `--steps 1000000 --random 120` against it.
+**The lake family (`lakeFamily()` in `tools/shapes.mjs`).** A rectangle with a water pool inside
+and margins of 1–2 cells on each side. 972 variants over 63 room sizes, floor 18–84. It shares
+`blockPlacements()` with `ringFamily()` — the two are the SAME silhouettes, one made of wall and
+one of water, and enumerating them once is what keeps that true.
 
-**Speed: 14.5× over `src/solver.js`** on the 61 shipped rooms at answer grain, including JSON and
-a pipe round trip per room. **The earlier 20×+ estimate was wrong** — treat it as retired. Three
-things got it from 6.3×, and callgrind picked all three: `explain`, the actual rules, was THREE
-PERCENT of instructions, while `state_key` was 33.6% and the allocator serving it another 22%.
-The port was slow at its own bookkeeping, not at the game. Fixes: share the board on a plain move
-(`State.cells` is an `Rc`, `at_mut` is the one door in); reuse the key buffers instead of
-allocating per call, and drop the `format!` that rendered two coordinates as text; and stop
-describing wall cells in the key, since nothing ever writes one.
+**Why a lake and not a wall block, which is the whole finding.** `isOccupiable` — what
+`fanBlockers` tests — refuses a wall and never checks water. So a tear aimed at a block is
+refused, and the same tear aimed at a pool lands in it and `layTrash` turns three cells to
+bridge. Measured on the ring (the wall version): of 624 barrier canals NOT ONE admits a bridging
+tear, dry rings tear in 28% of solves against the H family's 55%, and only 3% of ring keepers
+come from a group carrying a loose bag against 19% — a bag with no clear fan is statically dead,
+so those rooms are refused before anything measures them. A tear's fan is three cells across and
+two deep; a ring's lanes are one or two. The lake fixes all of it: tears 63%, loose-bag groups
+25%, and it is the most fertile family measured.
 
-**Measured and rejected:** swapping SipHash for FNV-1a. Best-of-five, interleaved: 154 ms vs
-155 ms. Hashing is not the bottleneck, so that code does not ship. What is left is probably the
-`Vec<u8>` allocated per key and a full `State` held per node.
+**So the water is a SHORTCUT, not a barrier.** The shore always goes round. A bag spent on the
+pool buys a way through the middle; the same bag spent on dry floor lays five cells of permanent
+trash. The room's question is where to spend a tear, not whether to.
 
-**Still true from the JS side:** same `maxStates` bound, sent in the request, reported as `error`
-and not as an answer; `blame` and the traced frames are out of contract, so a conforming port is
-proven for the pipeline and is *not* enough to drive the browser renderer. `Rc` is not `Send` — a
-threaded stage 3 wants `Arc`, which is a one-word change.
+**Measured, 372,000 placements on the 14x11 family:** 25,465 keepers, par median 29 / p90 47 /
+max 171, 8.0% at par 50+, `onPath > 0` in 45%, `blind` median 52. Shortlists: par>=50 with
+solves<=4 and losable gives 126 rooms over 113 outlines; **par>=40 with solves<=4 and losable
+gives 41 room sizes that can host a three-rung pool-growth set**, against the ten Act 3 needs.
+Strong sizes: 14x9 (par 42–63), 13x8 (41–80), 11x10 (40–82).
 
-**RNG, if the port ever generates rooms:** `src/rng.js` is mulberry32 and it is the only source
-of randomness in the pipeline. It ports exactly — `wrapping_add`/`wrapping_mul` on `u32`,
-`Math.imul` is `wrapping_mul`, divide by `4294967296.0`. Integer all the way to the last
-division, so no float drift and a seeded corpus reproduces bit for bit across both engines.
+**The pool is used and it is optional** — replaying all solves: 78% bridge it, and of those only
+2% at move 0, median move 13; 22% walk round entirely. That optionality is what makes it a
+decision, and it is why the earlier canal design failed: forcing the crossing produced rooms
+whose first and only interesting move was mandatory.
+
+**Longer is not automatically harder.** Solution length correlates ρ 0.47 with human solve time
+and state-space size not at all. Treat the par band as a shape constraint, not a difficulty claim.
+
+### Water in the pipeline
+
+`format.js` always read and wrote a `:water` mask; no GENERATOR ever emitted one. Now:
+- `canals(plan)` — every contiguous run of 3+ cells along a wall-free row or column. A line
+  carrying a wall is not offered, because a wall would break the run into two canals.
+- `puddles(plan, n, rnd)` — n single cells, no two touching. Sampled, not enumerated: the
+  choose-n space dwarfs the canal's and nothing about where one puddle sits is structural.
+- `isBarrier(plan)` — severs the dry floor into exactly two banks, far one >= 6. **Do not pass
+  it to `.filter` bare**: its second parameter is the minimum bank size and `.filter` supplies
+  the array index.
+- `bridgeSeats(plan)` / `placeOn(..., {across:true})` — aims a draw at a barrier: seats a bag on
+  a seat whose tear joins the banks, strands the exit on the far bank, reserves the five fan
+  cells. Took barrier rooms from 1 per 2000 draws to 47. Only relevant to canals; a lake needs
+  none of it.
+- `judge(wall, w, h, water)` judges on the DRY floor, which is what lets terrain carry structure.
+- `bankOf` and `bridgeSeats` are cached per plan in a `WeakMap` — both are flood fills and a run
+  asks the same plan thousands of times.
+- `harvest.mjs --family h|ring|lake [--water]`, on `pool.mjs` and the Rust engine.
+
+### The roster is eight mechanics in twelve costumes
+
+`explain` branches: tear (`$`), shed-a-bag (`C`/`S`/`W`), shed-trash (`B`), pour (`j`),
+slide-inert (`c`/`b`), roll (`W`/`w`), rigid multi-cell (`F`–`N`), carry (`P`–`R`). Four glyphs
+are one mechanic. That is why the pipeline keeps producing one idea at three sizes.
+
+**Absent axes:** nothing removes trash; nothing removes water; nothing pulls; nothing toggles;
+only bags are consumed; no piece treats another piece's KIND as different.
+
+**Candidate pieces, ranked by axis-added over cost:**
+- **Grease** — floor terrain; anything pushed onto it slides until blocked. One terrain lane,
+  multiplies against all eight mechanics. Cheapest interaction multiplier available.
+- **Sewer grate** — terrain, and the mirror of water: the raccoon walks over, objects fall in.
+  Runs of N cells, so `canals()`'s run enumerator serves it unchanged. On an edge it reads as
+  disposal; in the middle as hazard — same piece, two roles by placement. Rollers vanish into it;
+  a multi-cell piece SPANS a one-wide grate and neutralises it; a tear's fan over it disposes of
+  trash for free. Containers pushed in take their bags out of `bagsLeft`, which is a second way
+  to clear a bag that costs travel instead of floor. Bags themselves cannot be pushed there —
+  `BAG` is not in `SLIDES`.
+- **Vacuum** — eats trash and fills up. The bounded version of fire: same job, natural limit, no
+  cascade, and the exact inverse of the recycle bin. Gives trash a sink and makes the act's core
+  tension an economy.
+- **Rolled rug** — anisotropic: shoved along its axis it rolls, broadside it moves one cell.
+  A new axis for FREE, because a multi-cell piece already knows its long axis from `pid` — no
+  orientation field and no new `stateKey` lane, unlike a turnstile.
+- **Magnet** — attracts metal, ignores everything else. First piece that treats other pieces as
+  different kinds.
+- **Umbrella** — closed one cell, open three; footprint mutation, and several unfold shapes are
+  possible. Makes narrow lanes matter.
+- **Kitty litter** — pours onto grease and cancels it. Terrain cancelling terrain; a reskin of
+  the shed-a-load mechanic, which is what makes it cheap.
+- **Sponge** — mirror of the jug (`{slides, soaks:true}` against `{slides, pours:true}`), one
+  `tipOut` branch. Bound it by making a soaked sponge stay soaked, or it is an eraser.
+- **Tire with momentum** — rolls, and shoves whatever it hits one cell. Action at a distance.
+- **Ladder** — rigid 1x3 laid across water. The placeable-bridge idea that does not collide with
+  the sponge, unlike a mattress (whose interesting properties are volumetric).
+- **Pull, as a verb** — a second grammar for all eight mechanics at once, and the largest rules
+  change on the list. The usual objection (pull makes deadlocks reversible) does not bite here:
+  our permanence is trash and water, not piece position.
+
+Rejected: rope (wants to be looser than a grid), broken glass (bags never travel — `BAG` is not
+pushable at all), mattress (a sponge in bigger clothes; its real properties need 3D).
 
 ### One engine
 
-`CLAUDE.md` → **One engine** is split by audience: agents may not write a second implementation
-at all; the owner may, and the bill is stated. A second port is the same conversation again.
-`verify.mjs` walks the whole tree and fails on a copy of any engine module anywhere.
-`tools/conform.mjs` is the gate: two grains, **ANSWER** (whole room) and **STEP** (one board, one
-direction). An ANSWER failure re-runs at STEP grain over every state, so the report is the
-shallowest board where the two part — and a room that answers wrong while every step agrees is
-reported as the port's *search*, not its rules. `tests/fixtures/bent-engine.mjs` bends one rule
-at a time and the tests require each bend to be caught.
-
-### The bin is not a problem, and the hunt for bin-free sets is called off
-
-**Act 2 has the recycle bin in 27 of its 30 rooms and that is right.** The 0.9 cap was read as a
-compromise; it is not. One shove slides the bin a cell, sheds PERMANENT trash a cell beyond it,
-and leaves an empty bin behind — a body moves, an obstacle lands where the player chose to put it,
-and the piece changes state. Nothing else in the roster does that much at once, which is why it
-tops the fertility map at 86.6 solvable per 1000 against 62.0 for the next piece.
-
-**Measured, not argued.** A bin-free search ten times deeper than the one that built this act
-returned eight sets, all with viable pars — and NOT ONE of them an upgrade. The upgrade ramp fills
-a container each rung (`c`→`C`, `w`→`W`, `b`→`B`), and the bin is the container that reliably
-makes a room. Among eligible candidates the split is 6 upgrade-with-bin to 1 without. Squeezing
-the bin does not flatten the act; it deletes its best device, the Minicosmos one the code itself
-calls the hardest ramp to find.
-
-**The mistake worth remembering: piece share is `:traps` all over again** — a count standing in
-for an experience. This repo already knows to score on `onPath` rather than trap count, and the
-same reasoning applies here. Variety the player can feel is ramp, outline and where the trap
-sits, all of which Act 2 already spreads: ten outlines, three ramps, pars 8–32, onPath 0–17%.
-
-Also corrected: `act2.mjs` and `levels.md` both claimed "only ONE candidate set is bin-free". It
-is five (two carry no bin of either kind). Both now say what was measured.
-
-The cap stays at 0.9 for the shipped act rather than being pulled out from under it, and
-`act2.mjs` prints the piece counts every run so the spread stays visible. Taking it off is #19,
-and it is Act 3's job — a chooser change is not worth re-emitting thirty named rooms for.
-
-### Closed, so it does not get raised a third time
-
-**A cart shoved into open water is NOT a problem, and #5 is struck.** It was filed as "a cart can
-be lost permanently, by accident, with no warning," and every clause of that is false. Undo is
-free and unbounded — `main.js` pushes a cloned state on every move, `u` and a button pop it. And
-the room does warn: the solvability indicator prints `✕ unwinnable — undo or restart` the moment
-the board goes dead. A move you can take back after being told it was fatal is a puzzle, not a
-trap. Do not re-open this as a rules change.
-
-### Decided this session
-
-- **Act 2 is ten sets, cap 0.9.** The cost is the recycle bin in 27 of 30 rooms, and it is on the
-  label in `levels.md` and in `act2.mjs`'s comment. The default moved with the decision rather
-  than living in a flag. Note the tenth set does not append — it sorts second on `onPath`, so it
-  entered at position 2 and shifted everything after it by three rooms.
-- **The stack stays undecided** (#10). Not an oversight.
+`CLAUDE.md` -> **One engine** is split by audience: agents may not write a second implementation
+at all; the owner may, and the bill is stated. `verify.mjs` fails on a copy of any engine module
+anywhere. `tools/conform.mjs` is the gate, at two grains — ANSWER (whole room) and STEP (one
+board, one direction) — and an ANSWER failure re-runs at STEP grain so the report is the
+shallowest board where the two part. A room that answers wrong while every step agrees is
+reported as the port's SEARCH, not its rules. `tests/fixtures/bent-engine.mjs` bends one rule at
+a time and the tests require each bend to be caught. **What the harness cannot catch is a bug
+both engines share — see #20.**
 
 ### The three gates that hold the level design
 
-Each was a fault found by looking, then turned into something that fails a build.
+1. **Dead travel.** `deadTravel(a)` in `metrics.mjs` (`lead`/`tail`, over the whole shortest-solve
+   DAG). `resite.mjs` fixes it at the cause, per set, before `shrink`. `verify.mjs` bounds both
+   at `WALK_MAX` (4); over the bound a room declares `:lead`/`:tail` and the number is checked.
+2. **Sealed pieces.** Only bare floor is ever walled, so a wall pass walls AROUND a piece rather
+   than away. `isOneRoom`; `verify`, `shrink` and `draft` all refuse it.
+3. **Inert pieces.** A piece earns its cell by being HANDLED (some shortest solve touches it) or
+   BINDING (remove it and par, solves or traps change). Both halves are load-bearing:
+   binding-only fails L22, a tutorial whose can is shoved into its cart with par 5 either way;
+   handled-only passes a wheelie parked where nothing goes.
 
-1. **Dead travel.** `deadTravel(a)` in `metrics.mjs` names it (`lead`/`tail`, over the whole
-   shortest-solve DAG). `tools/resite.mjs` fixes it at the cause, per set, before `shrink`.
-   `verify.mjs` bounds both at `WALK_MAX` (4); over the bound a room declares `:lead`/`:tail`
-   and the number is checked exactly. Act 1's L12 "The Far Side" declares — distance is its
-   teach line. Worst lead was 11, worst tail 12; both are 3 now.
-2. **Sealed pieces.** Only bare floor is ever walled, so a wall pass cannot wall a piece away —
-   it walls *around* it. `isOneRoom`; `verify`, `shrink` and `draft` all refuse it.
-3. **Inert pieces** — the real fault, of which #2 was the visible half. A piece earns its cell by
-   being **HANDLED** (some shortest solve touches it) or **BINDING** (remove it and par, solves
-   or traps change). Both halves are load-bearing: binding-only fails L22, a tutorial whose can
-   is shoved into its cart with par 5 either way; handled-only passes a wheelie parked where
-   nothing goes. Act 1's 73 pieces clear it untouched — that is the evidence the definition is
-   right.
+A fourth is wanted for water rooms: **a forced crossing is a cutscene.** Gate on how deep into
+the solve the first bridge is laid, and on how many bridging seats the opening board offers.
 
 ### Still worth trusting
 
-- **Trap position beats trap count.** L29 shipped 17 traps all off the solution line. Score on
-  `onPath`/`firstOnPath`, never on `:traps`.
-- **Losable and self-announcing pull against each other.** Of 5,578 eligible harvested rooms,
-  exactly one both lets optimal play go wrong at 15% of steps and ends within 12 moves of the
-  mistake; median `onPath` is 0. Causal — the mess is permanent. This is why the solvability
-  indicator is enabling, not a nicety.
-- **Only H passes the open-floor rule** among L/U/H outlines; 48 variants, every one with a
-  two-cell neck.
+- **Trap position beats trap count.** Score on `onPath`/`firstOnPath`, never on `:traps`.
+- **Losable and self-announcing pull against each other**, and the lake makes it worse: `blind`
+  median 52 against the H family's 37. Only 3 lake rooms in 25,600 have `onPath >= 0.15` with
+  `blind <= 12`. This is why the solvability indicator is load-bearing rather than a nicety —
+  it announces death immediately, so a long `blind` is a pointless walk rather than a cruelty.
+- **The recycle bin is not a problem.** It tops the fertility map (86.6 solvable per 1000) because
+  one shove slides it, sheds permanent trash beyond it, and leaves an empty bin. Act 2 carries it
+  in 27 of 30 rooms and that is a finding. Piece share is `:traps` all over again — a count
+  standing in for an experience.
 - **Fertility, solvable per 1000:** `B` 86.6, `P` 62.0, `x` 50.4, `j` 45.7, `$` 42.6, `F` 41.9,
-  `w` 40.4, `c` 32.6, `W` 30.8, `C` 14.0, `S` 5.1.
+  `w` 40.4, `c` 32.6, `W` 30.8, `C` 14.0, `S` 5.1. By family, at equal settings: lake 68.8,
+  H 46.8, ring 28.1.
+- **A cart shoved into open water is NOT a problem** and the item is struck. Undo is free and
+  unbounded, and the indicator prints `✕ unwinnable — undo or restart` the moment the board dies.
+  A move you can take back after being told it was fatal is a puzzle. Do not re-open it.
 
-### Where the pipeline's hours went, and where they are now
+### Discipline that has caught every refactor
 
-Measured, not guessed — the survey records its own `ms` per group and the file adds up.
+**Any pipeline change must be proved byte-identical.** Regenerate and `diff` — `sets.mjs` against
+`levels/sets.jsonl`, `harvest.mjs` against a same-flags baseline. Do not trust a green test suite
+alone for tool changes. Every change this session was proved this way. Note `levels/harvest.jsonl`
+(6,651 rows) was NOT generated with default flags — defaults produce 1,811 — so diff against a
+fresh baseline, not against the committed file.
 
-| step | was | now |
-|---|---|---|
-| `survey` — 586 groups × 200 placements | **31.5 CPU-hours** | ~3 CPU-hours (10.4× measured) |
-| `harvest` — 62 groups × 400, on outlines | ~37 CPU-min | ~15 CPU-min (2.4×) |
-| `resite` | 16 min | 16 min, still JS |
-| `shrink` | 4 min | 4 min, still JS |
-
-**Survey was the whole problem and it needed no new engine work** — it judges a room on five
-numbers the protocol already carried. Harvest is different: a full row wants the solve string,
-trap depths, box-line shape and the inert test, none of it on the wire, so the engine SCREENS
-there instead. Nine draws in ten never reach a full row, and the JS enumeration is paid a second
-time only for the survivors.
-
-Both tools draw their whole batch off the seeded stream first and ask afterwards — no draw
-depends on how the last one scored — which is what lets two hundred boards go over in one breath
-instead of two hundred round trips.
-
-**Proved equal both ways.** Harvest is byte-identical. Survey matches on every field including
-the `pars` arrays in order, excluding `ms`, which is a stopwatch reading and cannot match across
-any two runs on any engine.
-
-### Rebuilding the act
-
-`sets.mjs` → **`resite.mjs`** → `shrink.mjs` → `act2.mjs`, then splice the emitted
-`levels/act2.md` rows over the Act 2 table in `levels.md`, then `node tools/verify.mjs`.
-Names and notes do not survive a regenerate — they are re-emitted as placeholders and have to be
-put back. `levels/fertility.jsonl` (group map), `levels/harvest.jsonl` (6,651 rooms),
-`levels/sets.jsonl` (56 candidate sets, re-sited and shrunk).
-
-**The discipline that has caught every refactor: any pipeline change must be proved
-byte-identical** against `levels/sets.jsonl` and `levels/act2.tt`. Regenerate and `diff`. Do not
-trust a green test suite alone for tool changes. `tools/pool.mjs` (was `set-pass.mjs`) is the
-shared worker pool and it hands results back at the index they were dealt — `sets.mjs` is the one
-pass that cannot use it, because `search` draws a whole chunk from one seeded stream.
+`tools/pool.mjs` is the shared worker pool and hands results back at the index they were dealt;
+`sets.mjs` is the one pass that cannot use it, because `search` draws a whole chunk from one
+seeded stream.
 
 ### Run it
 
-`./run.sh` · `npm test` (246) · `node tools/verify.mjs` (both acts, 1,486 checks) ·
-`node tools/conform.mjs` (the reference) · `cargo build --release --manifest-path
-engine/Cargo.toml && node tools/conform.mjs --engine engine/target/release/tt-engine` ·
-`node tools/build-artifact.mjs`. All green — 247 tests.
-`survey` and `harvest` print which engine they used; `--no-engine` forces `src/solver.js`.
+`./run.sh` · `npm test` (268) · `node tools/verify.mjs` · `node tools/conform.mjs` ·
+`cargo build --release --manifest-path engine/Cargo.toml && node tools/conform.mjs --engine
+engine/target/release/tt-engine` · `node tools/build-artifact.mjs`.
+`engine/target/` is gitignored — **build the port before any discovery run** or every tool
+silently falls back to `src/solver.js` at ~10x the cost. Each run prints which engine it used.
 
-**The port's standing proof**, five seeds (7, 101, 2718, 31337, 424242) at
-`--steps 1000000 --random 250`: 1,548 rooms, 1,548 answers, 7,597,380 board-and-direction
-vectors, zero disagreements. Re-run it after any change to `engine/`, and re-run both bends
-after any change to the harness.
+The port's standing proof, five seeds (7, 101, 2718, 31337, 424242) at
+`--steps 1000000 --random 250`: 1,548 rooms, 7,597,380 board-and-direction vectors, zero
+disagreements. Re-run after any change to `engine/`, and re-run both bends after any change to
+the harness.
 
-Branch `claude/level-design-exit-placement-gb3f04`, everything pushed, tree clean.
+`main`, everything committed, tree clean.
 
 ## Next Step
 
-The port has paid for itself and the pipeline thread can rest. **Go hunting, for Act 3**: `cargo
-build --release --manifest-path engine/Cargo.toml`, then run `survey` deeper than 200 placements
-a group — that is now hours instead of days, and a thicker fertility map is what feeds everything
-downstream. Act 2's pool was thin, not broken; a deeper one and #19's unbounded piece pool are
-the two things that change what the chooser has to work with.
+**Fix #20 before the next harvest.** It is a correctness bug in the state key, it is live today,
+both engines share it so the conformance gate cannot see it, and every room Act 3 generates has
+bridges in it — which is one of the three ingredients. One-character fix in two files, then
+re-run the standing proof and a byte-identical harvest check.
 
-On the game side the next thing with a deadline attached is #13, the compositor, which is
-explicitly worth doing BEFORE the art pass.
+Then #22, the pool-growth ramp in `sets.mjs`, which is what turns 25,465 measured lake rooms into
+ten sets of three.
 
-/home/user/treasure_trash
+/home/menser/Dropbox/ai/code/treasure_trash
