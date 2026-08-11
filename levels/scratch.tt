@@ -131,3 +131,69 @@
 ----------
 ----------
 :end
+
+:level  T7
+:name   Sponge
+:teach  the sponge dries the cell it lands on and is never spent
+:par    7
+:traps  0
+:solves 6
+:solve  drrrrrr
+:grid
+##########
+#--------#
+#-@s-----#
+#-------E#
+##########
+:end
+:water
+----------
+----------
+----~~----
+----------
+----------
+:end
+
+:level  T8
+:name   Cardboard
+:teach  a sheet is spent covering a hazard, and the cell becomes walkable
+:par    7
+:traps  0
+:solves 7
+:solve  drrrrrr
+:grid
+##########
+#--------#
+#-@d-----#
+#-------E#
+##########
+:end
+:water
+----------
+----------
+----T-----
+----------
+----------
+:end
+
+:level  T9
+:name   Pane of glass
+:teach  room is what breaks it — box it in and it survives
+:par    7
+:traps  0
+:solves 2
+:solve  drrrrrr
+:grid
+##########
+#--------#
+#-@g-----#
+#-------E#
+##########
+:end
+:water
+----------
+----------
+----------
+----------
+----------
+:end

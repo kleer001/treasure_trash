@@ -4,14 +4,14 @@
 // Occupant codes. `stateKey` encodes each as one printable character, so the list can grow.
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
              BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9, FURNITURE = 10,
-             BIN_EMPTY = 11, JUG_EMPTY = 12;
+             BIN_EMPTY = 11, JUG_EMPTY = 12, SPONGE = 13, CARDBOARD = 14, PANE = 15;
 
 // The occupant codes, as one object. The renderer takes this rather than a hand-listed subset:
 // a code left out of such a list does not throw, it draws NOTHING, and a piece that is simply
 // invisible is a bug you find by playing rather than by testing.
 export const OCCUPANTS = {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
-  BIN_EMPTY, JUG_EMPTY,
+  BIN_EMPTY, JUG_EMPTY, SPONGE, CARDBOARD, PANE,
 };
 
 // The one code a cell does not fully describe: two adjacent FURNITURE cells may be one couch
@@ -50,6 +50,8 @@ const SLIDES = {
   [JUG_EMPTY]: { slides: JUG_EMPTY },
   [CAN_EMPTY]: { slides: CAN_EMPTY },
   [BIN_EMPTY]: { slides: BIN_EMPTY },
+  [SPONGE]:    { slides: SPONGE,    soaks: true },
+  [CARDBOARD]: { slides: CARDBOARD, covers: true },
 };
 
 // Direction letters are the solution format's alphabet — see FORMATS.md.
@@ -130,6 +132,22 @@ export function pour(c) {
   c.water = true;
 }
 
+/** The one place water and grease are taken OFF a cell. Tar and glass are not soaked: the
+ *  sponge sticks to them, and being stuck is the only bound an unlimited sponge has. */
+export function soak(c) {
+  if (c.water) c.water = false;
+  else if (c.ter === GREASE) c.ter = undefined;
+}
+
+/** The one place a hazard is covered over. Water, tar and glass are the three a cell can be made
+ *  walkable from; anywhere else the sheet is simply lying on the floor. */
+export const coversOver = c => c.water || c.ter === TAR || c.ter === GLASS;
+export function cover(c) {
+  if (!coversOver(c)) return false;
+  c.water = false; c.ter = COVERED;
+  return true;
+}
+
 /** The one place trash is laid down. */
 export function layTrash(c) {
   if (isGrate(c)) return;                                   // straight through, and gone
@@ -151,6 +169,7 @@ export const travelsInto = (s, x, y, dx, dy) =>
 const stuckInTar = (s, tx, ty) => {
   const c = cell(s, tx, ty);
   if (isTar(c)) return true;
+  if (c.o === SPONGE && isGlass(c)) return true;      // shards in the sponge; it does not come off
   if (isMultiCell(c.o)) return pieceCells(s, c.pid).some(([x, y]) => isTar(cell(s, x, y)));
   if (isCart(c)) return cartCells(s, c.cart).some(([x, y]) => isTar(cell(s, x, y)));
   return false;
@@ -457,6 +476,24 @@ export function explain(s, dir, opts = {}) {
     return done(next, TEAR, step);
   }
 
+  // A pane goes where a shove sends it only in the sense that it BREAKS there. It needs the
+  // cell beyond free to break into — so it is protected by being boxed in, and broken by being
+  // given room, which is the opposite of every other piece on the board.
+  if (o === PANE) {
+    const c1 = [tx + dx, ty + dy];
+    if (!isOccupiable(s, ...c1) || !mayEnter(s, ...c1, dx, dy) || cell(s, ...c1).water)
+      return { ok: false, reason: reasonFor(s, [c1], 'canRoom'), blame: [c1] };
+    const next = cloneState(s);
+    cell(next, tx, ty).o = NONE;
+    const target1 = cell(next, ...c1);
+    if (!isGrate(target1)) target1.ter = GLASS;
+    next.rac = { x: tx, y: ty };
+    return done(next, PUSH, mkStep({
+      gone: [{ o: PANE, at: [tx, ty] }],
+      spawned: [{ o: NONE, at: c1, from: [tx, ty], effect: 'shatters' }],
+    }));
+  }
+
   if (isMultiCell(o)) {
     const own = pieceCells(s, target.pid);
     const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
@@ -487,7 +524,7 @@ export function explain(s, dir, opts = {}) {
     // going, and every bill — the tip, the cart it lands in, the grate that takes it — is
     // settled where it comes to rest rather than where it was pushed.
     let at = c1;
-    if (into === null && !blame.length) {
+    if (into === null && !blame.length && !SLIDES[o].soaks) {
       while (isGrease(cell(s, ...at)) && travelsInto(s, at[0] + dx, at[1] + dy, dx, dy)) {
         at = [at[0] + dx, at[1] + dy];
         if (isTar(cell(s, ...at)) || isGrate(cell(s, ...at))) break;
@@ -521,6 +558,11 @@ export function explain(s, dir, opts = {}) {
       drop(cell(next, c2[0], c2[1]), drops);
     }
     if (shove) applyIntoCart(s, next, into, shove, lands, step);
+    else if (SLIDES[o].soaks) { soak(cell(next, ...at)); drop(cell(next, ...at), lands); }
+    // Spent making the cell walkable. It still MOVES — the sheet slides onto the hazard and goes
+    // down with it — so the step keeps the move and names the sprite where the stage holds it,
+    // which is the cell it started from.
+    else if (SLIDES[o].covers && cover(cell(next, ...at))) step.gone = [{ o, at: [tx, ty] }];
     else drop(cell(next, at[0], at[1]), lands);
     cell(next, tx, ty).o = NONE;
     next.rac = { x: tx, y: ty };

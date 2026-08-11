@@ -27,6 +27,9 @@ export const PALETTE = {
   binMouth: '#16365c',
   couch: '#9c6249', couchEdge: '#5c382a', couchCushion: 'rgba(255,255,255,.13)',
   jugAir: '#cdeef9', jugWater: '#2e6f8e', jugEdge: '#1b4f86',
+  sponge: '#f2c14e', spongeEdge: '#b8892b', spongePore: 'rgba(120,80,20,.45)',
+  card: '#c08a55', cardEdge: '#8a5f33',
+  pane: 'rgba(190,225,235,.75)', paneEdge: '#7fb0bd',
   wheelie: '#3f7d4f', wheelieEdge: '#255034', wheelieRidge: '#2f6a40',
   wheelieLid: '#4f9a63', wheel: '#22252a',
   fur: '#9aa0a6', furEar: '#6b7076', mask: '#2b2f34', muzzle: '#eceef0',
@@ -166,6 +169,38 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
         ctx.lineTo(cx + (dx * back + px_) * r, cy + (dy * back + py_) * r);
         ctx.stroke();
       }
+    },
+
+    // A sponge: soft corners and pores, so it reads as the one thing on the board that soaks up
+    // rather than carries.
+    sponge(x, y) {
+      const x0 = px(x) + PAD, y0 = px(y) + PAD, w = CS - 2 * PAD, h = CS - 2 * PAD;
+      ctx.fillStyle = P.sponge; ctx.strokeStyle = P.spongeEdge; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.roundRect(x0, y0 + h * 0.16, w, h * 0.68, 5); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = P.spongePore;
+      for (const [ox, oy, r] of [[0.28, 0.40, 0.07], [0.52, 0.34, 0.05], [0.70, 0.50, 0.06],
+                                 [0.38, 0.62, 0.05], [0.62, 0.66, 0.045]]) {
+        ctx.beginPath(); ctx.arc(px(x) + CS * ox, px(y) + CS * oy, CS * r, 0, 7); ctx.fill();
+      }
+    },
+
+    // A flattened sheet: seen from above it is a rectangle with one fold across it.
+    cardboard(x, y) {
+      const x0 = px(x) + PAD, y0 = px(y) + PAD + 2, w = CS - 2 * PAD, h = CS - 2 * PAD - 4;
+      ctx.fillStyle = P.card; ctx.strokeStyle = P.cardEdge; ctx.lineWidth = 2;
+      ctx.fillRect(x0, y0, w, h); ctx.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1);
+      ctx.beginPath(); ctx.moveTo(x0 + w / 2, y0 + 2); ctx.lineTo(x0 + w / 2, y0 + h - 2); ctx.stroke();
+    },
+
+    // A pane: mostly transparent, one highlight, so it reads as the fragile thing it is.
+    pane(x, y) {
+      const x0 = px(x) + PAD, y0 = px(y) + PAD, w = CS - 2 * PAD, h = CS - 2 * PAD;
+      ctx.fillStyle = P.pane; ctx.strokeStyle = P.paneEdge; ctx.lineWidth = 2;
+      ctx.fillRect(x0, y0, w, h); ctx.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1);
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x0 + w * 0.22, y0 + h * 0.76); ctx.lineTo(x0 + w * 0.74, y0 + h * 0.20);
+      ctx.stroke();
     },
 
     // The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
@@ -507,6 +542,9 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   else if (o === codes.WHEELIE_EMPTY) sprites.wheelie(x, y, false);
   else if (o === codes.JUG) sprites.jug(x, y, true);
   else if (o === codes.JUG_EMPTY) sprites.jug(x, y, false);
+  else if (o === codes.SPONGE) sprites.sponge(x, y);
+  else if (o === codes.CARDBOARD) sprites.cardboard(x, y);
+  else if (o === codes.PANE) sprites.pane(x, y);
   // Not silence. An occupant with no drawing here is invisible on the board, which reads as a
   // rules bug and is found by playing rather than by testing — so it stops the frame instead.
   else if (o !== codes.NONE) throw new Error(`no drawing for occupant ${o}`);

@@ -2,7 +2,7 @@
 // ES modules need http://, so run ./run.sh rather than opening the file.
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
-  JUG_EMPTY,
+  JUG_EMPTY, SPONGE, CARDBOARD, PANE,
   FURNITURE,
   MOVE, DIRS,
   explain, isWon, bagsLeft, trashHeld, fan, inGrid, cell, cloneState, isMultiCell, stateKey,
@@ -47,6 +47,7 @@ const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"
   [BIN]:"a full recycle bin", [BIN_EMPTY]:"an empty recycle bin",
   [STACK]:"a bag on a can", [WHEELIE]:"a wheelie bin",
   [WHEELIE_EMPTY]:"an empty wheelie bin", [JUG]:"the water jug", [JUG_EMPTY]:"the empty jug",
+  [SPONGE]:"the sponge", [CARDBOARD]:"the cardboard", [PANE]:"the pane of glass",
   [FURNITURE]:"the couch" };
 function whyText(b){
   const base = WHY[b.reason];
