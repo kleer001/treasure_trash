@@ -318,7 +318,7 @@ PP-------
 :level  L46
 :name   The Corner Jug
 :par    9
-:traps  3
+:traps  6
 :solves 1
 :solve  DrrrrruRu
 :note   Set 6 of 10, opener. A jug in one corner and a bin across the room. Short, and it still needs the pour placed right.
@@ -340,7 +340,7 @@ j------B
 :level  L47
 :name   Company
 :par    20
-:traps  4
+:traps  8
 :solves 1
 :solve  DrrrrruRDDldRuuuurDl
 :note   Set 6, rung 2. A second bin, and where the jug is emptied stops being a free choice.
@@ -362,7 +362,7 @@ j------B
 :level  L48
 :name   A Crowd
 :par    22
-:traps  4
+:traps  8
 :solves 1
 :solve  DrRdrrruuRDDldRuuuurDl
 :note   Set 6, rung 3. A third. Where the water goes has to be settled before the first bin moves.

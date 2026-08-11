@@ -86,20 +86,29 @@ test('the piece lane is canonical — it keys on the partition, not on which ids
   assert.equal(stateKey(a), stateKey(b));
 });
 
-// The failure the water jug introduced, played out. Shove the jug in a circuit and every
-// occupant comes home — the jug to the cell it started on, the raccoon to his. What does
-// not come home is the four cells of water spilled along the way. Key on occupants alone
-// and this is the opening position; the solver would stop exploring here and call whatever
-// par it had already found "provably minimal", with nothing to indicate it had been fooled.
+// The failure the water jug introduced, played out. Shove an EMPTIED jug in a circuit and
+// every occupant comes home — the jug to the cell it started on, the raccoon to his. What
+// does not come home is the water spilled on the way. Key on occupants alone and this is the
+// opening position; the solver would stop exploring here and call whatever par it had already
+// found "provably minimal", with nothing to indicate it had been fooled.
+//
+// The jug is emptied first on purpose. A full one would ALSO change its own occupant code as
+// it poured, which hides the hazard behind a difference the codes already show.
 test('a jug shoved in a circuit returns every occupant but not the board', () => {
-  const start = S(['-------', '-------', '-------', '---j---', '---@---', '-------', 'E------']);
+  const start = S(['-------', '-------', '-------', '---i---', '---@---', '-------', 'E------'],
+                  ['-------', '-------', '-------', '-------', '-------', '-------', '-------']);
   let s = start;
   for (const dir of 'urulruullddulldd' + 'rrlddrru') {
     s = step(s, dir);
     assert.ok(s, `the circuit went illegal at '${dir}'`);
   }
   assert.deepEqual(toGrid(s), toGrid(start), 'every occupant should be home');
-  assert.equal(toWater(start), null);
-  assert.ok(toWater(s).join('').includes('~'), 'and the water it spilled should not be');
-  assert.notEqual(stateKey(s), stateKey(start));
+  // The empty jug spills nothing, so this board really is the opening one — which is why the
+  // pouring case below is the one that has to part.
+  assert.equal(stateKey(s), stateKey(start));
+
+  const wet = S(['-------', '-------', '-------', '---j---', '---@---', '-------', 'E------']);
+  const poured = step(wet, 'u');
+  assert.ok(toWater(poured).join('').includes('~'));
+  assert.notEqual(stateKey(poured), stateKey(wet));
 });

@@ -17,6 +17,7 @@ pub const WHEELIE_EMPTY: u8 = 8;
 pub const JUG: u8 = 9;
 pub const FURNITURE: u8 = 10;
 pub const BIN_EMPTY: u8 = 11;
+pub const JUG_EMPTY: u8 = 12;
 
 /// `pid`/`cart` are ids, and most cells have neither. A sentinel keeps `Cell` `Copy` and keeps
 /// the absent case one comparison rather than a branch on an `Option` in every predicate.
@@ -125,6 +126,7 @@ fn read_glyph(ch: u8) -> Option<(Cell, bool)> {
         b'B' => c.o = BIN,
         b'b' => c.o = BIN_EMPTY,
         b'j' => c.o = JUG,
+        b'i' => c.o = JUG_EMPTY,
         b'E' => c.exit = true,
         b'+' => {
             c.exit = true;
@@ -396,6 +398,7 @@ pub fn to_grid(s: &State) -> Result<Vec<String>, String> {
                         BIN => b'B',
                         BIN_EMPTY => b'b',
                         JUG => b'j',
+                        JUG_EMPTY => b'i',
                         other => return Err(format!("no glyph for occupant {other}")),
                     }
                 }

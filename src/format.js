@@ -3,6 +3,7 @@
 
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
+  JUG_EMPTY,
   GREASE, TAR, GLASS, COVERED,
   FURNITURE, DIRS, MOVE, PUSH, TEAR,
 } from './rules.js';
@@ -26,6 +27,7 @@ const READ = {
   'B': { o: BIN },
   'b': { o: BIN_EMPTY },
   'j': { o: JUG },
+  'i': { o: JUG_EMPTY },
   'E': { exit: true },
   // Furniture glyphs name a PIECE, not a kind of thing: a 4-connected blob of one letter is
   // one couch, so two flush couches need two letters. Hence a pool — see FURN_POOL.
@@ -64,7 +66,7 @@ export const LEGEND = [
   '# wall', '- floor', '@ raccoon', '$ bag', 'C full can', 'c empty can',
   'x spilled trash', 'E exit', '+ raccoon on exit',
   'S bag-on-can stack', 'W wheelie bin (full)', 'w wheelie bin (empty)',
-  'B recycle bin (full)', 'b recycle bin (empty)', 'j water jug',
+  'B recycle bin (full)', 'b recycle bin (empty)', 'j water jug', 'i empty jug',
   `${FURN_POOL.join('/')} furniture — one letter per piece, a touching same-letter blob is one couch`,
   'terrain lives in its own :water block — ~ open canal, = filled in (floor), - dry',
   `carts live in their own :cart block — ${CART_POOL.join('/')}, two cells each, cargo reads from :grid`,
@@ -114,7 +116,7 @@ function glyphFor(c, isRac, letters) {
     if (c.o === FURNITURE) return letters.get(c.pid);
     return { [NONE]: '-', [BAG]: '$', [CAN_FULL]: 'C', [CAN_EMPTY]: 'c', [TRASH]: 'x',
              [STACK]: 'S', [WHEELIE]: 'W', [WHEELIE_EMPTY]: 'w', [BIN]: 'B', [BIN_EMPTY]: 'b',
-             [JUG]: 'j' }[c.o];
+             [JUG]: 'j', [JUG_EMPTY]: 'i' }[c.o];
   }
   if (isRac) return '+';
   if (c.o === NONE) return 'E';

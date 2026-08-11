@@ -283,7 +283,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
 
     // A cooler bottle. Its water uses the canal's exact blue; the thin white inner rim keeps
     // it reading as translucent plastic against both floor and canal.
-    jug(x, y) {
+    jug(x, y, full = true) {
       const bx = px(x) + CS / 2 - 4, w = CS - 2 * PAD - 16, top = px(y) + PAD + 5, h = CS - 2 * PAD - 8;
       const neck = w * 0.32, shoulder = top + 10, wl = top + h * 0.34, bot = top + h;
       const L = bx - w / 2, R = bx + w / 2;
@@ -306,14 +306,16 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       body();
       ctx.fillStyle = P.jugAir; ctx.fill();                        // the air above the water
       ctx.save(); ctx.clip();
-      ctx.fillStyle = P.jugWater; ctx.fillRect(L, wl, w, bot - wl);
+      if (full) ctx.fillStyle = P.jugWater, ctx.fillRect(L, wl, w, bot - wl);
       ctx.strokeStyle = 'rgba(255,255,255,.65)'; ctx.lineWidth = 2; // two moulded ribs
       for (const t of [0.60, 0.82]) {
         const yy = top + h * t;
         ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(R, yy); ctx.stroke();
       }
-      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2; // the waterline, brightest
-      ctx.beginPath(); ctx.moveTo(L, wl + 2); ctx.quadraticCurveTo(bx, wl - 4, R, wl + 2); ctx.stroke();
+      if (full) {
+        ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2; // the waterline, brightest
+        ctx.beginPath(); ctx.moveTo(L, wl + 2); ctx.quadraticCurveTo(bx, wl - 4, R, wl + 2); ctx.stroke();
+      }
       ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 4; // clipped: only the inner half
       body(); ctx.stroke();
       ctx.restore();
@@ -426,5 +428,6 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   else if (o === codes.STACK) sprites.stack(x, y);
   else if (o === codes.WHEELIE) sprites.wheelie(x, y, true);
   else if (o === codes.WHEELIE_EMPTY) sprites.wheelie(x, y, false);
-  else if (o === codes.JUG) sprites.jug(x, y);
+  else if (o === codes.JUG) sprites.jug(x, y, true);
+  else if (o === codes.JUG_EMPTY) sprites.jug(x, y, false);
 }

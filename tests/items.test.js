@@ -170,29 +170,31 @@ test('a wheelie bin rolls clean across a canal, and he steps only into the cell 
 const JUGBOARD = ['-----', '-----', '--j--', '--@--', 'E----'];
 
 test('water jug slides one and spills a cell of water directly ahead', () => {
-  assert.deepEqual(after(JUGBOARD, 'u'), ['-----', '--j--', '--@--', '-----', 'E----']);
+  assert.deepEqual(after(JUGBOARD, 'u'), ['-----', '--i--', '--@--', '-----', 'E----']);
   assert.deepEqual(afterWet(JUGBOARD, 'u'), ['--~--', '-----', '-----', '-----', '-----']);
 });
 
-// A second shove the same way is legal — objects enter the canal — but it puts the jug in
-// the puddle it just poured, out of reach.
+// A second shove the same way is legal — objects enter the canal — but it drives the jug into
+// the very puddle it poured, out of reach.
 test('a jug shoved twice the same way drives itself into its own puddle', () => {
   const twice = explain(act(['-----', '-----', '-----', '--j--', '--@--', 'E----'], 'u'), 'u');
   assert.ok(twice.ok, 'the second shove is legal now — objects go in the canal');
   assert.deepEqual(toGrid(twice.next),
-    ['-----', '--j--', '--@--', '-----', '-----', 'E----']);
+    ['-----', '--i--', '--@--', '-----', '-----', 'E----']);
   assert.deepEqual(toWater(twice.next),
-    ['--~--', '--~--', '-----', '-----', '-----', '-----']);   // it is sitting in the lower one
+    ['-----', '--~--', '-----', '-----', '-----', '-----']);   // and it is standing in it
   assert.equal(explain(twice.next, 'u').reason, 'water');      // and now nothing can reach it
 });
 
-// The jug has no charge count; nothing decrements when it pours.
-test('the jug never runs dry — walk round and it spills again', () => {
+// One cell of water is the whole charge. What comes back round is an empty jug, and an empty
+// jug is an ordinary slider — the only thing in the game that undoes grease or tar is spent.
+test('the jug pours once and is empty after', () => {
   let s = act(['-----', '-----', '-----', '--j--', '--@--', 'E----'], 'u');
   for (const d of ['l', 'u']) s = explain(s, d).next;
   s = explain(s, 'r').next;
-  assert.deepEqual(toGrid(s), ['-----', '-----', '--@j-', '-----', '-----', 'E----']);
-  assert.deepEqual(toWater(s), ['-----', '--~--', '----~', '-----', '-----', '-----']);
+  assert.deepEqual(toGrid(s), ['-----', '-----', '--@i-', '-----', '-----', 'E----']);
+  assert.deepEqual(toWater(s), ['-----', '--~--', '-----', '-----', '-----', '-----'],
+    'the second shove moved it and spilled nothing');
 });
 
 test('the jug is refused when its water would land on the exit', () => {

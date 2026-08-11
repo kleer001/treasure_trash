@@ -4,7 +4,7 @@
 // Occupant codes. `stateKey` encodes each as one printable character, so the list can grow.
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
              BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9, FURNITURE = 10,
-             BIN_EMPTY = 11;
+             BIN_EMPTY = 11, JUG_EMPTY = 12;
 
 // The one code a cell does not fully describe: two adjacent FURNITURE cells may be one couch
 // or two, and only `pid` says which. `stateKey` encodes the partition as well as the codes.
@@ -38,7 +38,8 @@ const SLIDES = {
   [CAN_FULL]:  { slides: CAN_EMPTY, drops: BAG },
   [STACK]:     { slides: CAN_FULL,  drops: BAG },
   [BIN]:       { slides: BIN_EMPTY, drops: TRASH },
-  [JUG]:       { slides: JUG,       pours: true },
+  [JUG]:       { slides: JUG_EMPTY,  pours: true },
+  [JUG_EMPTY]: { slides: JUG_EMPTY },
   [CAN_EMPTY]: { slides: CAN_EMPTY },
   [BIN_EMPTY]: { slides: BIN_EMPTY },
 };
