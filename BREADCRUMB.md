@@ -1,89 +1,47 @@
-stale
+fresh
 
 ## Summary
 
-Act 1 is 31 rooms (L0–L30), Act 2 is 30 (L31–L60), both named and shipped. Nothing placeholder
-reaches the player. `src/rules.js` is the engine of record and `engine/` is a sanctioned Rust
-port under differential proof; the discovery pipeline runs on the port.
+**Building the new roster, stage by stage, against `ROSTER-BUILD-PLAN.md`.** That file is the
+order and the gate for each step; `SPEC-SHEET.md` -> *The candidate roster* is the design it
+builds toward. Stages A-D are done and E is half done. Everything committed is green: 301 tests,
+`verify.mjs`, and conformance against both engines.
 
-**Act 3 is in design and the family question is settled: the LAKE.** A rectangle with a pool of
-water in the middle and a one-or-two cell shore around it. Water is now a first-class thing the
-pipeline can generate — canals, puddle fields and lakes — where before it existed only in two
-hand-drawn Act 1 rooms.
+Act 1 (31 rooms) and Act 2 (30) still ship unchanged. `levels/scratch.tt` is a bench pack, never
+shipped, played in the real game via `index.html?acts=scratch.tt`.
 
 ## Todos
 
-### Sequential
-- [ ] #20 **`stateKey` emits its own field separator, and both engines do it identically.**
-      The pack is `65 + (o*3 + terrain)*2 + cart`; at `o=9` (JUG), `terrain=2` (bridge),
-      `cart=true` that is exactly 124 — `|`. Demonstrated: a cart carrying a jug on a filled
-      canal keys as `"A|BAA/AAAAA||AA|0,0"`, which splits into 5 fields where there are 4. The
-      key stops being unambiguous, so two boards can collide and the solver skips a state it has
-      never seen — wrong par, wrong traps, no error. `engine/src/solver.rs:117` packs the same
-      way, so `conform.mjs` is blind to it: both engines agree on the same wrong key. Fix is one
-      character — every emitted char is >= 65, so any separator below 65 is collision-proof.
-      `/` (47) is already safe; swap `|` for something under 65 in both engines. Reachability was
-      low before and is high now: Act 3 rooms are full of bridges, and carts and jugs are both in
-      the roster.
-- [ ] #21 (needs: #20) **The occupant-code ceiling is ~30 and it is an accident of a cast.**
-      `engine/src/solver.rs:117` ends `as u8`, so `6*o + 70 <= 255` bounds occupant codes at 30;
-      code 31 wraps to 0 SILENTLY. JS has no such bound. This is a real limit on how many kinds
-      of object the game can ever hold and it should not be one — it is a storage decision, not a
-      design one. Fix the packing rather than the number: widen the cell encoding so kinds,
-      terrain and cart membership do not share one byte. Glyphs are not the constraint (printable
-      ASCII gives ~90, `READ` uses ~15); `FURN_POOL`/`CART_POOL` cap multi-cell INSTANCES per
-      board, not kinds.
-- [ ] #22 **Teach `sets.mjs` a pool-growth ramp.** It knows `upgrade` (fill a container),
-      `addition` and `par`. Act 3's ramp is a fourth: hold the room size fixed and grow the pool
-      (2x2 -> 3x2 -> 3x3), so par climbs and the shore narrows. Measured feasible — see Context.
+### Sequential — the build plan, in order
 
-### Parallel
-- [ ] #23 **Build the 2-decomposition metric.** Strongest published predictor of human Sokoban
-      difficulty (Spearman 0.82 vs median human solve time, over 2,000 problems and 785 hours):
-      the minimum number of group alternations along any solving path, minimised over all splits
-      of the pieces into two groups. Computed by Dijkstra over an augmented state space of
-      `(state, group)` with 0/1 edge weights — a query over the graph `analyze` already builds.
-      Our `changes` is the same family at `ABCD` granularity (each piece its own group, ρ 0.74)
-      but counted along ONE canonical solve rather than minimised over all paths.
-      `tools/metrics.mjs` is where it goes. Note the same study found solution length a POOR
-      predictor (ρ 0.47) and state-space size not significant at all (ρ −0.07) — both are things
-      this repo currently leans on.
-- [ ] #24 **Generate teaching mini-stages.** The Learning Curves finding is introduce ->
-      practise -> integrate, and our sets are practice-only. A mini-stage is the same outline with
-      fewer pieces isolating one interaction; `pick.mjs` could emit one per shipped room. The
-      `.tt` format already has a `:teach` field that nothing computes.
-- [ ] #19 **Act 3: search with the piece cap OFF.** `--maxpiece` in `tools/act2.mjs` (default 0.9)
-      is the last unmeasured constraint in the chooser — kept as a backstop, never tried
-      unbounded. Half buys 24 rooms, 0.8 buys 27, 0.9 buys 30; the trend says the cap only ever
-      costs sets. A themed act makes it worse, because a theme is a floor and the cap is a
-      ceiling. Judge the acts on ramp mix, outline count, par band and `onPath` spread.
-- [ ] #10 **The stack's fate.** `S` is last in the roster by an order of magnitude — 5.1 solvable
-      rooms per 1000 against 62.5 for every group without it — and appears in no shipped room.
-      It is the top rung of a tear ramp (`c` -> `C` -> `S`: empty can, can with a bag, can with
-      two) and the only piece that sheds two bags from one cell in a forced order. Decide it with
-      Act 3 or cut it.
-- [ ] #17c **`resite` and `shrink` are still on JS.** 16 min and 4 min against a ~3.6 CPU-hour
-      pipeline. Wiring them is the EXPENSIVE one: `read()` -> `readsAt` -> `costAt` -> the sweeps
-      -> `resiteSet` -> `serve` is synchronous end to end, so a pipe makes all of it async in the
-      most correctness-critical tool there is, and the proof cycle is a ~16-minute byte-identical
-      run. Wants two more protocol ops (`{op:'open'}` -> handle, `{op:'root'}` -> measure).
-      Do it when it annoys you.
-- [ ] #17d (needs: #17c) **`:solve` is not in the protocol**, and only `resite`/`shrink` want it.
-      It is a tie-break on DISCOVERY ORDER — the first shortest win the search reached. The Rust
-      side already holds states in a `Vec` in insertion order behind an index table precisely so
-      this costs nothing; what it needs is back-pointers and a `formatLurd`. Do NOT reach for
-      `HashMap` iteration order: Rust seeds its hasher per process, so it would emit a different
-      tied solve every run.
-- [ ] #17e **Retire the JS `maxStates` ceiling if the port earns it.** Bound is 50,000 because
-      `analyze` holds every state as a cloned board. It is now the binding constraint on par:
-      4.8% of lake draws blow it, and those are disproportionately the longest rooms, discarded
-      before their par is known. Measure the memory cost at 100k and 200k on the biggest rooms
-      before changing the number.
-- [ ] #18 **`draft-room.mjs`'s `rooms()` is the redundancy `reroot` was written for.** Not the
-      ten-minute job it looks: `rac` is the SECOND loop, so consecutive yields do not share a
-      board. Exploiting `reroot` means reordering the loops so `rac` is innermost (same rooms,
-      different order — changes what `hunt` finds first) AND teaching `draft` to accept an
-      analysis it did not run. Nothing hot goes through it.
+- [x] #25 **Stage A — storage groundwork.** Separator below 65; cell packs against a named
+      terrain width; carts carry their kind in the key.
+- [x] #26 **Stage B — five terrain lanes.** Grease, tar, one-way, sewer grate, broken glass.
+      Only MUTABLE terrain reaches `stateKey`.
+- [x] #27 **Stage C — the jug carries one cell.** `JUG_EMPTY`, glyph `i`. Six rooms re-declared
+      their trap counts; no par moved. The port learned it too.
+- [x] #28 **Stage D — transfer on impact.** Rollers move as a train; motion hands off. Proved at
+      2.4M board-and-direction vectors over two seeds.
+- [ ] #29 **Stage E4 — the anisotropic rollers**, the half of Stage E still open: car tire (one
+      cell, a code per axis), bicycle (two cells), rolled rug (multi-cell). **`isRoller` has to
+      become direction-aware** — a `rollsAlong(c, dx, dy)` — and that predicate is what the
+      Stage D train is built on, so the train code changes with it. The two multi-cell kinds also
+      want glyph pools of their own, like `FURN_POOL`.
+- [ ] #30 (needs: #29) **Stage F — the office chair.** Trash knocks it one cell; everything else
+      rolls it. Needs the `fanBlockers` exception for a chair that has somewhere to flee, with
+      the flee cell in `blame`.
+- [ ] #31 **Stage G — the broom.** Line push of any kinds; slides its whole train on grease; the
+      only way a bag ever travels, which is what wakes broken glass up.
+- [ ] #32 **Stage H — the filing cabinet.** Two cells open, one closed — `isMultiCell` becomes
+      state-dependent, and that predicate is read by `pieceCells`, the push branch and
+      `stateKey`'s pid lane. Decide the representation before writing any of it.
+- [ ] #33 **Stage I — the wheelbarrow.** Needs Stage A's cart-kind lane, and the LINK lane lands
+      here. Cargo rides cart-style so `bagsLeft` and `trashHeld` keep counting it.
+- [ ] #34 (needs: #33) **Stage J — the magnet.** Shares the link lane, which is what makes it
+      affordable.
+- [ ] #35 **Stage K — the port and the pipeline.** `engine/` catches up on everything from E4
+      on, earns conformance back at both grains, and only then do new pieces enter a shipped
+      pack or get harvested.
 
 ## Context
 
@@ -304,12 +262,14 @@ the harness.
 
 ## Next Step
 
-**Fix #20 before the next harvest.** It is a correctness bug in the state key, it is live today,
-both engines share it so the conformance gate cannot see it, and every room Act 3 generates has
-bridges in it — which is one of the three ingredients. One-character fix in two files, then
-re-run the standing proof and a byte-identical harvest check.
+**Stage E4, the anisotropic rollers** — and the first move is not a piece, it is the predicate.
+`isRoller(c)` has to become `rollsAlong(c, dx, dy)`, because the car tire rolls along one axis
+and moves a single cell across it. The Stage D train is built on that predicate, so the train
+becomes direction-aware in the same change; do that first, with the transfer specs green, and
+the three pieces are then ordinary.
 
-Then #22, the pool-growth ramp in `sets.mjs`, which is what turns 25,465 measured lake rooms into
-ten sets of three.
+Watch two things a piece added late will otherwise trip over: an occupant with no drawing throws
+rather than rendering nothing, and a consumed piece names itself in `gone` by the cell the STAGE
+holds it at, which is where it started.
 
 /home/menser/Dropbox/ai/code/treasure_trash
