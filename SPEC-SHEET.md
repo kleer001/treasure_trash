@@ -161,160 +161,144 @@ nearly incompatible; a room that announces its own death is the only way to have
 
 ## The candidate roster
 
-Working notes, and the least binding thing on an already non-binding page. **Nothing here is
-chosen and nothing here is a rule.** It is kept so the same ideas are not re-derived and the
-same dead ends not re-walked — and the ambiguities at the end are the part that still wants an
-owner's answer.
+Working notes on a page that already declares itself non-binding. **Nothing here is built and
+nothing here is a rule** — `src/rules.js` decides, and when the two disagree the code is right.
+Kept so the same ground is not walked twice.
 
-### The constraint everything else hangs off
+### The constraint everything hangs off
 
-**Push is the only verb.** Pull, carry and stacking are not merely expensive; they are a
-*direction*, and the direction is the 3D puzzle-platformer Sokoban grew into. That is not what
-this is. Three absent axes are therefore closed on purpose — *nothing pulls*, *the raccoon holds
-nothing*, *a cell holds one occupant* — which is worth more than leaving them open and unfilled.
+**Push is the raccoon's only verb.** Pull, carry and stacking are a direction — the 3D puzzle
+platformer Sokoban grew into — and that is not this. Three absent axes are therefore closed on
+purpose rather than left open and unfilled: *nothing pulls*, *the raccoon holds nothing*, *a cell
+holds one occupant*.
 
-### Twelve glyphs, eight mechanics
+Pull at the *board* level is legal, which is what lets the magnet exist.
+
+### Why a roster grows by branches and not glyphs
 
 `explain` branches once per mechanic, and several glyphs share a branch: tear (`$`), shed-a-bag
 (`C`/`S`/`W`), shed-trash (`B`), pour (`j`), slide-inert (`c`/`b`), roll (`W`/`w`), rigid
-multi-cell (`FGHKMN`), carry (`PQR`). Four glyphs are one idea at three sizes.
+multi-cell (`FGHKMN`), carry (`PQR`). Four glyphs are one idea at three sizes. **That is the
+caveat on the fertility table above: it ranks costumes, and a costume's score is mostly its
+branch's score.**
 
-That is why the pipeline keeps offering the same room in a different costume, and it is the
-caveat on the fertility table above: **that table ranks costumes, and a costume's score is mostly
-its branch's score.** A roster grows by adding branches, not glyphs.
+### Cross-cutting rules
 
-### The three price tiers
+These govern several pieces at once, so they belong in one place rather than in each entry.
 
-- **A terrain lane is the cheapest in design terms.** Terrain coexists with an occupant instead
-  of excluding one, so one lane multiplies against all eight mechanics at once. It is also — see
-  the ambiguities — the most expensive in *storage* terms, for exactly the same reason.
-- **An occupant code is the middle tier**: a branch, a glyph and a sprite, twice over, plus a
-  `tools/draft-room.mjs` roster entry and a conformance re-run.
-- **A new `stateKey` lane is the dear tier.** It permanently widens what a board's identity *is*,
-  and every state the solver generates pays for it.
+- **Transfer on impact.** A rolling object that strikes a stationary rolling object stops and
+  passes its motion on; the struck object then rolls until it is stopped. Objects already in
+  contact and pushed together roll together — transfer fires on impact, not inside a pushed line.
+- **What rolls.** A rolling object is one that, given the space, keeps going: the wheelie bin,
+  the car tire, the bicycle, the rolled rug, the office chair. The pane of glass is in the class
+  for the purpose of being set in motion, and transforms instead of travelling.
+- **Every path is straight.** No lane redirects anything, so a slide, a roll and a transfer
+  cascade are all straight runs bounded by the board. Termination needs no travel budget and no
+  generation-time check.
+- **Terrain is one exclusive value per cell**, resolved as a moving thing enters it.
+- **The grate's fit rule.** An object falls in when its footprint fits inside the grate's
+  contiguous cells; otherwise it spans them. A rug longer than a one-cell grate rolls over it and
+  drops into one its own size or bigger. A cart spans a smaller grate and its cargo rides.
+- **Metal**, for the magnet: can, bin, wheelie, filing cabinet, wheelbarrow, car tire, bicycle,
+  office chair, magnet. Not metal: bag, trash, sponge, cardboard, broom, couch, rug, pane of
+  glass, jug.
 
 ### Terrain lanes
 
-| candidate | what it does | axis it opens |
-|---|---|---|
-| **Grease** | pushed things slide until blocked | the cheapest interaction multiplier available |
-| **Sewer grate** | the raccoon walks over, objects fall in | **the roster's only sink.** A container pushed in takes its bags out of `bagsLeft`; it is where the broom sweeps trash, and the only way to retire a sponge |
-| **Tar** | a pushed object that enters stops there forever; the raccoon walks on it freely | grease's opposite on the same machinery, and the pair is legible because they *are* opposites |
-| **A draught** | what enters keeps going the way the *cell* says | splits push direction from travel direction, with no piece at all |
-| **A one-way cell** | passable in one direction only | makes **position** permanent, where today only trash and water are |
+| lane | rule |
+|---|---|
+| **Grease** | A slider entering it keeps going until blocked. No effect on a roller, which already does that — so grease multiplies over the slide and shed branches, not over all eight |
+| **Tar** | Anything that enters stops there permanently. The raccoon walks on it freely |
+| **Sewer grate** | The raccoon crosses. Objects fall in by the fit rule. Poured water drains away. **The roster's only sink**: bags leave `bagsLeft`, swept trash goes, a sponge is retired |
+| **One-way** | Passable in one direction only, by objects **and** by the raccoon — the first terrain that can strand him by walking rather than pushing |
+| **Broken glass** | The raccoon may not step on it. Objects rest on it and cross it. A bag moved onto it tears. The sponge sticks. Cardboard covers it. Authored in a level, and also what a shattered pane leaves |
+
+Broken glass separates "where he can walk" from "where anything can sit" — one predicate doing
+two jobs today. That property was wanted under other fictions and refused; a floor of glass is
+the fiction that carries it.
 
 ### Occupant codes
 
-| candidate | what it does | axis it opens |
+| piece | rule | codes |
 |---|---|---|
-| **Broom** | pushes trash — any number of trash cells in a line | **makes trash mobile.** It stops being a permanent scar and becomes something to consolidate. It also reads *kind*: it moves trash and nothing else. Broom into a grate is disposal; broom into water is a bridge |
-| **Sponge** | soaks water and grease; persists, unconsumed, never becomes a surface | **removes water and grease.** Trades a fixed blocker for a mobile one that must then be managed — bounded by its own presence, needing no capacity rule. The jug's exact mirror |
-| **Wheelbarrow** | fixed orientation, never rotates. Pushed **along** its axis into a thing, it scoops it up — **including a multi-cell piece, hooked by any one of its cells.** Pushed **across** its axis, it travels one cell and sheds its load one further cell forward, then rights itself | **carrying without a carry verb** — the barrow carries and you push it. Cheap twice over: it is a one-cell cart, reusing the `cart` membership already in `stateKey`, and its dump is the recycle bin's `tipOut` shape exactly. Scooping multi-cell pieces makes a couch or a bicycle steerable by a one-cell handle |
-| **Office chair on castors** | moves one cell when **anything** is pushed into it, fleeing directly away — burst trash, a shoved can, a rolling bin | **makes every pushed object a pusher.** The chair conducts a shove onward. Against a tear it is sharper still: the fan stops being purely a cost and becomes aimed, and the direction is already unambiguous, because the tear branch stamps every `spawned` entry with the bag's own cell |
-| **Magnet** | attracts metal, ignores everything else | the only piece that reads another piece's **kind** |
-| **Pane of glass** | shove it and it shatters into the *next* cell | a tear with a one-cell footprint, triggered by a push instead of a tear — one cell of trash exactly where aimed, which over water is exactly one bridge cell |
-| **Flattened cardboard** | a flat square, pushed like anything else; in water it goes soggy and stays as a bridge | a **second consumable** — today only bags are spent. Pairs against the sponge: the sponge is reusable-with-baggage, the cardboard is one-shot-and-gone |
-| **Bicycle wheel** | one cell, anisotropic — rolls along its axis, balks broadside | anisotropy at one cell. A multi-cell piece takes its axis free from `pid`; a one-cell piece pays a code per orientation, but no `stateKey` lane, as long as it never turns |
-| **Bicycle** | two cells — the same piece at full size | axis free from `pid` |
-| **Rolled rug** | rolls along its axis, moves one cell broadside | the cheapest way into anisotropy |
-| **Tire with momentum** | anisotropic, and shoves whatever it stops against one further cell | anisotropy **plus** action at a distance |
-| **Filing cabinet** | the drawer slides out one cell in a fixed direction | directional footprint mutation, and self-telegraphing, because the drawer's facing is visible |
-| **Umbrella** | one cell closed, three open | footprint mutation; it overlaps the cabinet enough that one of the two is probably redundant |
-| **Nesting bin** — *thin* | accepts a smaller container; two occupied cells become one | makes **floor** recoverable. It thickens if it is the only way to get two containers through a one-wide gap |
+| **Broom** | Pushed, it moves the whole contiguous line ahead of it, of any kinds, one cell. On grease it slides its whole train until blocked. **It is the only way a bag ever travels.** A bag anywhere but the head of a train refuses to move onto broken glass | 1 |
+| **Sponge** | Soaks water and grease off the cell it lands on — on landing, so it never slides on grease. Unlimited, never consumed, never becomes a surface: it trades a fixed blocker for a mobile one. Sticks in tar and on broken glass. Retired only by a grate | 1 |
+| **Empty jug** | The jug carries one cell of water, pours once and empties. Poured water washes grease or tar off the cell it lands on; poured into a grate it drains away | 1 |
+| **Flattened cardboard** | A one-cell slider. Covers water, tar and broken glass, making the cell walkable, and is consumed doing it. Slides over grease. Falls into a grate | 1 |
+| **Pane of glass** | Set in motion by anything, it shatters into the next cell and leaves broken glass. When the cell beyond is occupied it rides intact — **so it is protected by being boxed in and broken by being given room.** It cannot shatter onto water | 1 |
+| **Office chair** | Burst trash knocks it exactly one cell, fleeing the bag; **everything else rolls it.** Cornered, the push that would move it is refused, which is the roller branch's existing shape | 1 |
+| **Bicycle** | Two cells, anisotropic: along its axis it rolls, across it, one cell. Axis free from `pid` | 1 |
+| **Rolled rug** | Multi-cell, anisotropic, same rule. The cheapest way into anisotropy | 1 |
+| **Car tire** | One cell, anisotropic. A one-cell piece cannot take an axis from `pid`, so it pays a code per orientation | 2 |
+| **Wheelbarrow** | One cell, fixed axis, never rotates. Pushed **along** its axis into a thing it scoops it — cargo visible and counted, cart-style. Pushed **across** its axis it travels one cell and sheds its load one further cell forward, then rights itself. A multi-cell piece is **towed** by a link instead, rigidly, keeping its footprint. Loaded, a shove along the axis is an ordinary push. Carrying without a carry verb | 2 |
+| **Magnet** | One cell, fixed facing. Shoved, the nearest metal within three cells **along its facing** closes to adjacent — up to two cells — and chains. Walls block the line; objects do not. Chained metal follows the magnet, and the chain breaks when the metal leaves the facing line or the gap exceeds three. **The magnet never moves itself to close a gap**, so nothing on the board moves unbidden. Pushing the magnet into its chained metal is an ordinary push; pushing the metal drags the magnet | 4 |
+| **Filing cabinet** | Fixed facing. A shove that moves it also opens the drawer one cell in the facing direction, and **the drawer opening is itself a push** — so the cabinet is a second aimed action, shoving something perpendicular to the direction you pushed. If the drawer's target cannot be cleared, the move is refused. Shoved from the drawer side the drawer closes and the cabinet stays put; the next shove moves it. An object pushed into an open drawer closes it and lands where the drawer was. Two cells open, one closed, and a level may start it either way | 8 |
 
-Two pairs are deliberate opposites, which is what makes each legible: **grease and tar**,
-**sponge and cardboard**.
+**24 new codes, 36 total. Five terrain lanes, eight terrain values with none, water and bridge.**
+
+Three pairs are deliberate opposites, which is what makes each legible: **grease and tar**,
+**sponge and cardboard**, **the bag's outward fan and the magnet's inward pull**.
+
+### What this costs the port
+
+The design tier ordering and the storage tier ordering are **inverted**: a terrain lane is the
+cheapest thing to design, because it coexists with an occupant instead of excluding one — and it
+is the first thing to break storage, for exactly that reason, because it multiplies against the
+occupant count.
+
+- `stateKey` packs a cell as `65 + (o*3 + terrain)*2 + cart` and `engine/src/solver.rs` casts
+  that to `u8`. For `T` terrain values and top occupant code `O` the largest byte is
+  `64 + 2T(O+1)`, so the port holds only while `T(O+1) <= 95`. Today that is `3 x 12 = 36`.
+  This roster is `8 x 36 = 288`. **The cell needs ten bits and has eight** — 36 x 8 x 2 = 576
+  distinct cell states. Widen the encoding so kinds, terrain and cart membership stop sharing
+  one byte, rather than raising a number.
+- **The carts lane has to record each cart's kind, not just its cells.** It labels carts by
+  first appearance in raster order, which is sound only while every cart is interchangeable. Two
+  wheelbarrows on different axes that swap positions key identically — the same board twice, and
+  the solver skips one it has never seen. This is the pattern already used for furniture, applied
+  to carts, and it must land *with* the barrow because the failure is silent.
+- **`fanBlockers` needs an exception for the office chair.** It refuses a tear when any fan cell
+  fails `isOccupiable`, and a chair occupies its cell — so as things stand the tear is refused and
+  the chair is never struck. The exception admits a chair that has somewhere to flee, which makes
+  the fan's legality depend on a cell beyond the fan, and puts the flee cell in `blame`.
+- **`layTrash` grows a third case.** It has one branch for water and one for everywhere else;
+  trash laid on a grate falls through. It is "the one place trash is laid down", so every caller
+  inherits it.
+- **`stateKey`'s field separator is a character a cell can emit.** At jug, bridge, in-cart the
+  packed byte is 124, which is `|`. Not a live collision — the key is used whole, per room, and
+  every section is fixed-length there — but the injectivity rests on an invariant nothing checks,
+  and a kind created or destroyed mid-solve breaks it. Every emitted character is >= 65, so any
+  separator below 65 is collision-proof.
+- **The port is where the discovery pipeline runs**, so until it is rewritten, a room holding a
+  new piece cannot be harvested or measured and `board.rs` throws on the unknown glyph. New
+  pieces are playable long before they are generatable.
 
 ### Declined, with the reason
 
-**Pull · carry · stacking** — push is the only verb.
-**Counter / hedge** (things rest on it, the raccoon may not stay) — too close to tar to earn a
-second lane, notwithstanding that both halves of the pair ship elsewhere: Sokenban has *spikes*,
-which boxes cross and the pusher cannot, and *posts*, which the pusher crosses and boxes cannot.
+**Pull · carry · stacking** — push is the raccoon's only verb.
+**Umbrella** — the filing cabinet's job, and the cabinet reads its own direction off its sprite.
+**Nesting bin** — the wheelbarrow does it, and you can steer the barrow.
+**Bicycle wheel** — the car tire, at the same price.
+**A tire with a special power** — "shoves what it stops against" became the universal transfer
+rule, which is worth more than the piece was.
+**Draught** (travel the cell's way) — the only lane that redirects, and redirect is what makes
+motion able to loop. Cutting it retired the termination problem outright.
+**Counter / hedge** — too close to tar under that fiction; the property arrived instead as
+broken glass.
 **Lid** — the garbage should go out, not be hidden.
-**Vacuum** — superseded by the broom, which relocates rather than erases.
+**Vacuum** — the broom relocates trash rather than erasing it, which is more.
 **Kitty litter** — the sponge does it, and it was the sponge in a costume anyway.
-**Leaking sack** (sheds one trash per cell travelled) — no way to make it work.
-**Ladder** — vetoed.
-**Trolley with a bad wheel** — no.
+**Leaking sack** · **trolley with a bad wheel** · **ladder** — no.
 **Coupled pair** — couches with extra machinery; multi-cell pieces are better designed by hand.
-**Weight** (two shoves per cell) — reads as tedium, the same trap push-count fell into.
-**Turnstile** — superseded by the rug: same anisotropy, and the rug pays for no orientation lane.
+**Weight** (two shoves per cell) — reads as tedium, the trap push-count already fell into.
+**Turnstile** — the rug, without an orientation lane.
 **Rope** — wants to be looser than a grid.
-**Broken glass as a floor hazard** — bags never travel, so nothing would meet it; the pane of
-glass is what survives from that family.
-**Mattress** — a sponge in bigger clothes, and its interesting properties are volumetric.
+**Mattress** — a sponge in bigger clothes; its interesting properties are volumetric.
 **A cat, or any creature** — agency is parked until the raccoon-alone game proves fun, and a
-creature here would answer the crow question sideways.
-**Conveyor** — it needs a tick, and every board is static between inputs; that staticness is
-load-bearing for the solver.
+creature would answer the crow question sideways.
+**Conveyor** — needs a tick, and every board is static between inputs.
 **Sorting destinations** — would read as sorting rather than clearing, and touches `isWon`,
 `bagsLeft`, win detection and every level file at once.
-
-### Ambiguities the combinatorics turn up
-
-Three are mechanical and checkable against the code as it stands. The rest are decisions.
-
-**M1. The terrain lane is the cheapest tier to design and the first tier to break storage.**
-`stateKey` packs a cell as `65 + (o*3 + terrain)*2 + cart`, and `engine/src/solver.rs` casts that
-to `u8`. For `T` terrain values and a top occupant code `O`, the largest byte is `64 + 2T(O+1)`,
-so the port holds only while `T(O+1) <= 95`. Today that is `3 x 12 = 36`. The five lanes above
-take `T` to 8, which at the **present** roster is `8 x 12 = 96` — over by one, before a single new
-occupant is added. Terrain multiplies against the occupant count, which is the same property
-that makes it cheap to design.
-
-**M2. A tear cannot reach the office chair.** `fanBlockers` refuses a tear when any fan cell
-fails `isOccupiable`, and a chair occupies its cell — so the tear is refused and the chair is
-never struck. The chair-and-trash interaction requires the fan rule to admit a chair that has
-somewhere to flee to, which is a change to the tear branch and not only a new piece.
-
-**M3. More terrain values make the `stateKey` separator hazard denser.** The kinds section can
-already emit `|`, which is the field separator; widening the terrain lane puts more
-`(occupant, terrain, cart)` triples on that character.
-
-**D1. The magnet pulls.** Push is the only verb, and the magnet is a pulling mechanism wearing a
-piece's costume. Does the ban govern the raccoon, or the whole board?
-
-**D2. The sponge is the anti-lake, and the lake is the family Act 3 is built on.** Unlimited
-soaking, with travel as the only cost, drains a pool a cell at a time. What bounds it is the
-shore — a sponge can only be shoved from a cell the raccoon can stand on — and whether that is
-bound enough is a playtest, not an argument.
-
-**D3. A sponge shoved onto grease.** Grease says slide until blocked; the sponge says soak what
-it lands on. Does it skate across, drying every cell it crosses, or stop on the first and soak
-one?
-
-**D4. The wheelbarrow and a multi-cell piece — tow or lift?** *Tow* keeps the couch's footprint
-and makes the barrow a handle, but two pieces moving as one wants a link lane, which is the
-coupled pair under another name. *Lift* collapses the couch into the barrow's single cell, which
-costs no link — but the dump has to put it back, so the piece's shape and orientation must be
-remembered somewhere, and a couch needs its cells free in the right arrangement to land.
-
-**D5. Does the chair chain?** A chair knocked into a second chair either stops, or passes the
-shove on. Chaining destroys the predictability a fan preview promises; not chaining means a
-chair is sometimes an ordinary blocker for reasons the board does not show.
-
-**D6. A roller that knocks a chair.** A wheelie travels until blocked. Meeting a chair, does it
-stop and displace it, or displace it and roll on into the freed cell?
-
-**D7. The tire and the chair both act at a distance.** The tire shoves what it stops against one
-cell; the chair flees anything pushed into it. Together that is either one displacement or two.
-
-**D8. The broom against everything that is not trash.** It reads kind and moves trash. Shoved
-into a can, is it refused, or is it an ordinary shove?
-
-**D9. Barrow capacity.** Loaded, and shoved along its axis into a second object — a second scoop,
-or refused?
-
-**D10. "Balks broadside."** A wheel shoved across its axis moves zero cells or one. The rug says
-one; a wheel that says zero is a different piece.
-
-**D11. A loaded barrow shoved into tar** is a permanent loss of both the barrow and its cargo.
-That is a trap with no tell, unless the tar reads as one.
-
-**D12. Grease, draught and a one-way cell all govern motion**, and a room may hold all three.
-Composition order has to be stated once, in one place, or the three of them will disagree
-per-caller.
 
 ## Open questions
 
