@@ -14,20 +14,18 @@ hand-drawn Act 1 rooms.
 ## Todos
 
 ### Sequential
-- [ ] #20 **`stateKey`'s field separator is a character a cell can emit.** The pack is
-      `65 + (o*3 + terrain)*2 + cart`; at `o=9` (JUG), `terrain=2` (bridge), `cart=true` that is
-      exactly 124 — `|`. A cart carrying a jug on a filled canal keys as `"A|BAA/AAAAA||AA|0,0"`,
-      which splits into 5 fields where there are 4. **It is a parse hazard, not a live collision,
-      and the earlier reading of it as a wrong-par bug was wrong.** Every consumer
-      (`solver.js`, `main.js`'s `deadKeys`) uses the whole string as a Set/Map key within ONE
-      room, and within one room's graph pieces are neither created nor destroyed — so the kinds,
-      pids and carts sections are all fixed-length and the string stays injective. The one thing
-      that parses it is `tests/statekey.test.js:24`. Fix anyway, because the injectivity rests on
-      an invariant nothing checks: any future kind that is created or destroyed mid-solve varies
-      a section length and the collision becomes real. Every emitted char is >= 65, so any
-      separator below 65 is collision-proof; `/` (47) is already safe. JS only — `engine/`'s key
-      carries NO separators (fixed offsets, `solver.rs:100` says why), so the port never had it.
-- [ ] #21 **The occupant-code ceiling is ~30 and it is an accident of a cast.**
+- [ ] #20 **`stateKey` emits its own field separator, and both engines do it identically.**
+      The pack is `65 + (o*3 + terrain)*2 + cart`; at `o=9` (JUG), `terrain=2` (bridge),
+      `cart=true` that is exactly 124 — `|`. Demonstrated: a cart carrying a jug on a filled
+      canal keys as `"A|BAA/AAAAA||AA|0,0"`, which splits into 5 fields where there are 4. The
+      key stops being unambiguous, so two boards can collide and the solver skips a state it has
+      never seen — wrong par, wrong traps, no error. `engine/src/solver.rs:117` packs the same
+      way, so `conform.mjs` is blind to it: both engines agree on the same wrong key. Fix is one
+      character — every emitted char is >= 65, so any separator below 65 is collision-proof.
+      `/` (47) is already safe; swap `|` for something under 65 in both engines. Reachability was
+      low before and is high now: Act 3 rooms are full of bridges, and carts and jugs are both in
+      the roster.
+- [ ] #21 (needs: #20) **The occupant-code ceiling is ~30 and it is an accident of a cast.**
       `engine/src/solver.rs:117` ends `as u8`, so `6*o + 70 <= 255` bounds occupant codes at 30;
       code 31 wraps to 0 SILENTLY. JS has no such bound. This is a real limit on how many kinds
       of object the game can ever hold and it should not be one — it is a storage decision, not a
@@ -146,12 +144,92 @@ and state-space size not at all. Treat the par band as a shape constraint, not a
   asks the same plan thousands of times.
 - `harvest.mjs --family h|ring|lake [--water]`, on `pool.mjs` and the Rust engine.
 
-### The item roster
+### The roster is eight mechanics in twelve costumes
 
-**Lives in `SPEC-SHEET.md` -> The roster, and the axes it has not got.** The diagnosis (eight
-branches in twelve glyphs), the absent axes, the three cost tiers, the candidate pile grouped by
-the axis it opens, the three blocked on a representation question, and the declines with their
-reasons. Nothing in it is chosen. Add to it there, not here.
+`explain` branches: tear (`$`), shed-a-bag (`C`/`S`/`W`), shed-trash (`B`), pour (`j`),
+slide-inert (`c`/`b`), roll (`W`/`w`), rigid multi-cell (`F`–`N`), carry (`P`–`R`). Four glyphs
+are one mechanic. That is why the pipeline keeps producing one idea at three sizes.
+
+**Absent axes:** nothing removes trash; nothing removes water; nothing pulls; nothing toggles;
+only bags are consumed; no piece treats another piece's KIND as different.
+
+**Candidate pieces, ranked by axis-added over cost:**
+- **Grease** — floor terrain; anything pushed onto it slides until blocked. One terrain lane,
+  multiplies against all eight mechanics. Cheapest interaction multiplier available.
+- **Sewer grate** — terrain, and the mirror of water: the raccoon walks over, objects fall in.
+  Runs of N cells, so `canals()`'s run enumerator serves it unchanged. On an edge it reads as
+  disposal; in the middle as hazard — same piece, two roles by placement. Rollers vanish into it;
+  a multi-cell piece SPANS a one-wide grate and neutralises it; a tear's fan over it disposes of
+  trash for free. Containers pushed in take their bags out of `bagsLeft`, which is a second way
+  to clear a bag that costs travel instead of floor. Bags themselves cannot be pushed there —
+  `BAG` is not in `SLIDES`.
+- **Vacuum** — eats trash and fills up. The bounded version of fire: same job, natural limit, no
+  cascade, and the exact inverse of the recycle bin. Gives trash a sink and makes the act's core
+  tension an economy.
+- **Rolled rug** — anisotropic: shoved along its axis it rolls, broadside it moves one cell.
+  A new axis for FREE, because a multi-cell piece already knows its long axis from `pid` — no
+  orientation field and no new `stateKey` lane, unlike a turnstile.
+- **Magnet** — attracts metal, ignores everything else. First piece that treats other pieces as
+  different kinds.
+- **Umbrella** — closed one cell, open three; footprint mutation, and several unfold shapes are
+  possible. Makes narrow lanes matter.
+- **Kitty litter** — pours onto grease and cancels it. Terrain cancelling terrain; a reskin of
+  the shed-a-load mechanic, which is what makes it cheap.
+- **Sponge** — mirror of the jug (`{slides, soaks:true}` against `{slides, pours:true}`), one
+  `tipOut` branch. Bound it by making a soaked sponge stay soaked, or it is an eraser.
+- **Tire with momentum** — rolls, and shoves whatever it hits one cell. Action at a distance.
+- **Ladder** — rigid 1x3 laid across water. The placeable-bridge idea that does not collide with
+  the sponge, unlike a mattress (whose interesting properties are volumetric).
+- **Office chair on castors** — MOVES WHEN HIT BY TRASH, one cell, fleeing directly away from the
+  bag that burst. This is the one that changes what tearing IS: the fan stops being purely a cost
+  and becomes an aimed action. The direction is already unambiguous in the data model — the tear
+  branch pushes `spawned` entries carrying `from: [tx, ty]` under the comment "one origin for the
+  whole fan" — so a five-cell spray still yields one ray. Telegraph it by extending the existing
+  pale-yellow fan preview to show the knock-on; no new HUD vocabulary. One hop per hit, and NO
+  chaining — a knocked piece knocking another destroys the predictability the preview promises.
+  Deliberately not an animal: `TODO.md` parks agency until the raccoon-alone game proves fun, and
+  a cat would quietly answer the crow question. A castored chair telegraphs "this rolls" in its
+  sprite and opens no doors. Not a way across water.
+- **Fence / railing** — nothing may REST on it, raccoon may cross. Separates "where I can walk"
+  from "where anything can sit", which is currently one predicate (`isOccupiable`) doing two
+  jobs; splitting it for one flag gives cells that forbid particular tear DIRECTIONS while
+  leaving the route untouched. **Open question: "cross but do not stay on" has no representation
+  while every move lands on a cell.** Either he may stand on it, or it is a wall to him too, or
+  movement gains a step-through rule. Decide before building.
+- **Tar / wet paint** — a pushed object that enters stops forever; grease's opposite, same
+  machinery, and the pair is legible because they are opposites. **Open question: the raccoon
+  should be able to walk on it, which is exactly what tar and wet paint argue against.** Either
+  the theme changes or the rule does.
+- **Filing cabinet** — closed it is one cell; shoved, the drawer slides out one cell in a FIXED
+  direction and it becomes two cells blocking a lane it was not blocking. Directional footprint
+  mutation, and self-telegraphing in a way the umbrella is not, because the drawer's facing is
+  visible. Overlaps the umbrella enough that one of the two is probably redundant.
+- **Bicycle wheel (one cell) and bicycle (two cells)** — the wheel rolls; the bicycle is
+  anisotropic, rolling along its length and dragging one cell sideways. The two-cell version gets
+  its axis free from `pid`, like the rug.
+- **Pane of glass** — one cell. Shove it and it SHATTERS into the next cell: a bag's tear with a
+  single-cell footprint instead of a five-cell fan, triggered by a push rather than a tear. The
+  precise instrument — one cell of trash exactly where aimed, which over water is exactly one
+  bridge cell.
+- **Wheelbarrow** — one cell, with a FIXED push direction. The turnstile's directionality carried
+  on an object instead of a terrain lane, so it needs no new cell field, and the shape says it.
+- **Pull, as a verb** — a second grammar for all eight mechanics at once, and the largest rules
+  change on the list. The usual objection (pull makes deadlocks reversible) does not bite here:
+  our permanence is trash and water, not piece position.
+
+Rejected: rope (wants to be looser than a grid), broken glass as a floor hazard (bags never
+travel — `BAG` is not pushable at all; the pane of glass above is the idea that survives),
+mattress (a sponge in bigger clothes; its real properties need 3D), a cat or any creature (see
+the office chair), **sorting destinations** (blue-bin items to the blue bin — it would make the
+game read as sorting rather than clearing, and it is a goal-structure change touching `isWon`,
+`bagsLeft`, the solver's win detection and every level file; declined).
+
+**Where to mine for more.** The trash encyclopedias are the wrong shape — *Encyclopedia of
+Consumption and Waste* (Zimring & Rathje, SAGE 2012) and *Trash Talk* (Collin) are
+garbology-as-sociology, about attitudes and policy, not object catalogues. Municipal sorting
+wizards are better (Vancouver's lists 1,486 items), and **bulky-item / large-item pickup lists
+are better still** — those are precisely the objects too big for a bin, which is to say the ones
+you push.
 
 ### One engine
 
