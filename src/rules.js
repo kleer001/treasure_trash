@@ -59,8 +59,25 @@ export const inGrid = (s, x, y) => x >= 0 && y >= 0 && x < s.cols && y < s.rows;
 export const cell = (s, x, y) => s.cells[y][x];
 
 // Terrain — `wall`, `water`, `bridge` — is a lane of its own, not an occupant code: a cell
-// holds one occupant, and terrain has to be able to coexist with one. Only `wall` is static,
-// so `stateKey` encodes the other two.
+// holds one occupant, and terrain has to be able to coexist with one.
+//
+// Only the terrain a move can CHANGE reaches `stateKey`. A static lane cannot differ between two
+// states of the same room, so encoding it would buy nothing — which is why `wall` was never in
+// there, and the rule generalises to every static lane added since.
+export const DRY = 0, WATER = 1, BRIDGE = 2;
+
+// The width `stateKey` packs against. Raising it is the whole cost of a new mutable lane, and
+// it multiplies against the occupant count — see SPEC-SHEET, what this costs the port.
+export const TERRAINS = 3;
+
+export const terrainOf = c => (c.water ? WATER : c.bridge ? BRIDGE : DRY);
+
+// Carts are not interchangeable once they have kinds, and `stateKey` labels them by first
+// appearance — so the kind travels in the key beside the label, or two different boards key
+// alike. `CART` is the two-cell cart every level has today.
+export const CART = 0;
+export const CART_KINDS = 4;
+export const cartKindOf = c => c.ck ?? CART;
 
 export const isClearFloor = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).water
@@ -503,9 +520,17 @@ export const isWon = s => bagsLeft(s) === 0 && trashHeld(s) === 0 && atExit(s);
  *  - one lane per multi-cell kind, because the codes do not determine the partition: four
  *    FURNITURE cells are one couch or two. Labelled by first appearance in raster order, so
  *    the key does not depend on which ids happen to be in play.
+ *  - each cart's KIND beside its label, because that same relabelling is what makes two carts
+ *    interchangeable — sound only while they are. Two carts of different kinds that swap
+ *    positions would otherwise hand back one key for two boards.
  *
  * Packed one character per cell and offset off 'A' rather than joined as decimals, which turn
  * ambiguous at two digits — `1,0,10` and `10,1,0` both render as "1010".
+ *
+ * `SEP` sits below the offset every lane is packed off, so no cell, label or kind can ever emit
+ * it. That is the whole reason for the number: a separator inside the alphabet it separates is
+ * only unambiguous while every section happens to be fixed-length, which is true today and is
+ * not an invariant anything checks.
  *
  * The board half of this key is recomputed for every walk, and a walk shares the board it came
  * from, so it could be cached against the cells array and reused. It is not, deliberately: the
@@ -514,6 +539,8 @@ export const isWon = s => bagsLeft(s) === 0 && trashHeld(s) === 0 && atExit(s);
  * would not throw or fail a test — it would hand the solver a stale key and a wrong answer for
  * a board it thinks it has already seen. Measured, it was worth about four percent.
  */
+const SEP = '#';                        // below 65, which is the floor every lane is packed off
+
 // One pass with lazy label maps: this runs once per state generated, and most boards have
 // neither furniture nor a cart.
 export const stateKey = s => {
@@ -524,8 +551,7 @@ export const stateKey = s => {
     const row = s.cells[y];
     for (let x = 0; x < s.cols; x++) {
       const c = row[x];
-      const terrain = c.water ? 1 : c.bridge ? 2 : 0;        // wall is static; these are not
-      kinds += String.fromCharCode(65 + (c.o * 3 + terrain) * 2 + (c.cart !== undefined ? 1 : 0));
+      kinds += String.fromCharCode(65 + (c.o * TERRAINS + terrainOf(c)) * 2 + (c.cart !== undefined ? 1 : 0));
       if (c.pid !== undefined) {
         pidLabels ??= new Map();
         if (!pidLabels.has(c.pid)) pidLabels.set(c.pid, pidLabels.size);
@@ -534,9 +560,9 @@ export const stateKey = s => {
       if (c.cart !== undefined) {
         cartLabels ??= new Map();
         if (!cartLabels.has(c.cart)) cartLabels.set(c.cart, cartLabels.size);
-        carts += String.fromCharCode(65 + cartLabels.get(c.cart));
+        carts += String.fromCharCode(65 + cartLabels.get(c.cart) * CART_KINDS + cartKindOf(c));
       }
     }
   }
-  return `${kinds}|${pids}|${carts}|${s.rac.x},${s.rac.y}`;
+  return `${kinds}${SEP}${pids}${SEP}${carts}${SEP}${s.rac.x},${s.rac.y}`;
 };
