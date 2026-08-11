@@ -3,6 +3,7 @@
 
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
+  GREASE, TAR, GLASS, COVERED,
   FURNITURE, DIRS, MOVE, PUSH, TEAR,
 } from './rules.js';
 
@@ -33,10 +34,23 @@ const READ = {
   // No glyph for water or for an occupied exit — see FORMATS.md for why each is absent.
 };
 
-// The `:water` mask alphabet. Three terrains, one character each, and the floor aliases read
-// as dry so a mask can be written with `-` or `.` like any other block.
+// The `:water` mask alphabet. One character per terrain, and the floor aliases read as dry so a
+// mask can be written with `-` or `.` like any other block. The directive keeps its old name
+// because sixty-one shipped rooms spell it that way; what it carries is every terrain lane.
 export const WET = '~';   // open canal
 const FILLED = '=';     // a canal cell somebody filled in: floor, and drawn as the plank it is
+
+// Terrain reaches a cell one of two ways, and which one decides whether `stateKey` carries it.
+// MUTABLE lanes ride in `ter`, one exclusive value, because a move can change them. STATIC lanes
+// are their own flags and stay out of the key, for the reason `wall` always did: they cannot
+// differ between two states of one room.
+const TER_GLYPHS = {
+  '%': { ter: GREASE }, 'T': { ter: TAR }, '*': { ter: GLASS }, '_': { ter: COVERED },
+  'O': { grate: true },
+  '^': { oneway: 'u' }, 'v': { oneway: 'd' }, '<': { oneway: 'l' }, '>': { oneway: 'r' },
+};
+const TER_WRITE = { [GREASE]: '%', [TAR]: 'T', [GLASS]: '*', [COVERED]: '_' };
+const ONEWAY_WRITE = { u: '^', d: 'v', l: '<', r: '>' };
 // The pool of letters furniture pieces are written with. The writer hands them out in raster
 // order of each piece's first cell, so a board's lettering is canonical and the grid
 // round-trips. Past the end of the pool, throw rather than wrap.
@@ -245,19 +259,20 @@ export function toState(level) {
   if (level.water) {
     if (level.water.length > rows)
       throw new Error(`${level.id}: :water has ${level.water.length} rows, :grid has ${rows}`);
+    const alphabet = [WET, FILLED, ...Object.keys(TER_GLYPHS)].join('');
     for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
       const ch = level.water[y]?.[x] ?? '-';
-      if (ch !== WET && ch !== FILLED) {
-        if (!FLOOR_ALIASES.has(ch)) throw new Error(`${level.id}: :water takes '${WET}', '${FILLED}' or floor, got ${JSON.stringify(ch)} at (${x + 1},${y + 1})`);
-        continue;
-      }
+      if (FLOOR_ALIASES.has(ch)) continue;
+      const spec = ch === WET ? { water: true } : ch === FILLED ? { bridge: true } : TER_GLYPHS[ch];
+      if (!spec) throw new Error(`${level.id}: :water takes one of '${alphabet}' or floor, got ${JSON.stringify(ch)} at (${x + 1},${y + 1})`);
       const c = cells[y][x];
-      if (c.wall) throw new Error(`${level.id}: (${x + 1},${y + 1}) is both wall and water`);
-      if (c.exit) throw new Error(`${level.id}: the exit cannot be water at (${x + 1},${y + 1})`);
-      if (ch === WET) c.water = true; else c.bridge = true;
+      if (c.wall) throw new Error(`${level.id}: (${x + 1},${y + 1}) is both wall and terrain`);
+      if (c.exit) throw new Error(`${level.id}: the exit cannot carry terrain at (${x + 1},${y + 1})`);
+      Object.assign(c, spec);
     }
-    if (cells[rac.y][rac.x].water)
-      throw new Error(`${level.id}: the raccoon starts in open water at (${rac.x + 1},${rac.y + 1})`);
+    const start = cells[rac.y][rac.x];
+    if (start.water) throw new Error(`${level.id}: the raccoon starts in open water at (${rac.x + 1},${rac.y + 1})`);
+    if (start.ter === GLASS) throw new Error(`${level.id}: the raccoon starts on broken glass at (${rac.x + 1},${rac.y + 1})`);
   }
 
   // The cart mask, laid over the occupant grid the same way. A cart cell's occupant IS the
@@ -306,11 +321,15 @@ export function toCart(s) {
     row.map(c => (c.cart === undefined ? '-' : letters.get(c.cart))).join(''));
 }
 
-/** Null only when the board never had a canal — a fully filled one still gets a mask. */
+const terGlyph = c =>
+  c.water ? WET : c.bridge ? FILLED
+  : c.grate ? 'O' : c.oneway !== undefined ? ONEWAY_WRITE[c.oneway]
+  : TER_WRITE[c.ter] ?? '-';
+
+/** Null only when the board carries no terrain at all — a fully filled canal still gets a mask. */
 export function toWater(s) {
-  if (!s.cells.some(row => row.some(c => c.water || c.bridge))) return null;
-  return s.cells.map(row =>
-    row.map(c => (c.water ? WET : c.bridge ? FILLED : '-')).join(''));
+  if (!s.cells.some(row => row.some(c => terGlyph(c) !== '-'))) return null;
+  return s.cells.map(row => row.map(terGlyph).join(''));
 }
 
 // --- solutions --------------------------------------------------------------

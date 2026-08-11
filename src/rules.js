@@ -64,13 +64,41 @@ export const cell = (s, x, y) => s.cells[y][x];
 // Only the terrain a move can CHANGE reaches `stateKey`. A static lane cannot differ between two
 // states of the same room, so encoding it would buy nothing — which is why `wall` was never in
 // there, and the rule generalises to every static lane added since.
-export const DRY = 0, WATER = 1, BRIDGE = 2;
+export const DRY = 0, WATER = 1, BRIDGE = 2, GREASE = 3, TAR = 4, GLASS = 5, COVERED = 6;
 
 // The width `stateKey` packs against. Raising it is the whole cost of a new mutable lane, and
 // it multiplies against the occupant count — see SPEC-SHEET, what this costs the port.
-export const TERRAINS = 3;
+export const TERRAINS = 7;
 
-export const terrainOf = c => (c.water ? WATER : c.bridge ? BRIDGE : DRY);
+// `water` and `bridge` keep their own flags: the level format, the renderer and every pipeline
+// tool read them by name, and the lanes added since ride in `ter` beside them. One resolver, so
+// no caller has to know which of the two a lane happens to live in.
+export const terrainOf = c => (c.water ? WATER : c.bridge ? BRIDGE : c.ter ?? DRY);
+
+// A cell nothing can be dragged off again. The permanence is the piece.
+export const isTar = c => c.ter === TAR;
+
+// Slick floor. A ROLLER already travels until blocked, so grease changes nothing for one — it
+// buys its keep against the shove branches, by making a slider behave like a roller.
+export const isGrease = c => c.ter === GREASE;
+
+// Broken glass: the raccoon may not stand on it, and objects rest on it and cross it freely.
+// That splits "where he can walk" from "where anything can sit" — one predicate did both.
+export const isGlass = c => c.ter === GLASS;
+
+// Static lanes. Out of `stateKey` for the reason `wall` always was.
+//
+// A grate swallows an object whose footprint FITS inside it; a bigger thing spans it. The
+// raccoon crosses either way.
+export const isGrate = c => c.grate === true;
+
+/** One-way cells bind the raccoon and objects alike, so the test needs the direction of travel
+ *  and cannot sit in `isOccupiable` with the rest. */
+export const mayEnter = (s, x, y, dx, dy) => {
+  if (!inGrid(s, x, y)) return false;
+  const w = cell(s, x, y).oneway;
+  return w === undefined || (DIRS[w][0] === dx && DIRS[w][1] === dy);
+};
 
 // Carts are not interchangeable once they have kinds, and `stateKey` labels them by first
 // appearance — so the kind travels in the key beside the label, or two different boards key
@@ -80,13 +108,22 @@ export const CART_KINDS = 4;
 export const cartKindOf = c => c.ck ?? CART;
 
 export const isClearFloor = (s, x, y) =>
-  inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).water
+  inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).water && !isGlass(cell(s, x, y))
   && cell(s, x, y).o === NONE && !isCart(cell(s, x, y));
 
 export const canStand = isClearFloor;
 
+/** The one place water is laid down. A grate takes it and it is gone; grease and tar are washed
+ *  off the cell it lands on, which is the only thing in the game that undoes either. */
+export function pour(c) {
+  if (isGrate(c)) return;
+  if (c.ter === GREASE || c.ter === TAR) c.ter = undefined;
+  c.water = true;
+}
+
 /** The one place trash is laid down. */
 export function layTrash(c) {
+  if (isGrate(c)) return;                                   // straight through, and gone
   if (c.water) { c.water = false; c.bridge = true; }
   else c.o = TRASH;
 }
@@ -94,6 +131,21 @@ export function layTrash(c) {
 export const isOccupiable = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).exit
   && cell(s, x, y).o === NONE && !isCart(cell(s, x, y));
+
+/** Where a travelling thing may go on to: a cell it can rest in, entered from a legal side.
+ *  Tar is enterable and is never left, so it ends travel rather than forbidding it. */
+export const travelsInto = (s, x, y, dx, dy) =>
+  isOccupiable(s, x, y) && mayEnter(s, x, y, dx, dy);
+
+/** A piece standing on tar is there for good, and a multi-cell one needs only a single foot in
+ *  it. `explain` asks before it asks anything else, so no branch can forget. */
+const stuckInTar = (s, tx, ty) => {
+  const c = cell(s, tx, ty);
+  if (isTar(c)) return true;
+  if (isMultiCell(c.o)) return pieceCells(s, c.pid).some(([x, y]) => isTar(cell(s, x, y)));
+  if (isCart(c)) return cartCells(s, c.cart).some(([x, y]) => isTar(cell(s, x, y)));
+  return false;
+};
 
 export const canRest = (s, x, y) => isOccupiable(s, x, y) || cartAt(s, [x, y]) !== null;
 
@@ -144,17 +196,21 @@ export function fan(bx, by, dx, dy) {
 export const fanBlockers = (s, bx, by, dx, dy) =>
   fan(bx, by, dx, dy).filter(([x, y]) => !isOccupiable(s, x, y));
 
-// The exit and open water each get their own refusal reason rather than the generic one,
-// so the UI can name what is in the way instead of just saying "blocked".
+// A lane that can refuse gets its own reason rather than the generic one, so the UI can name
+// what is in the way instead of just saying "blocked". Order is most-specific first: a one-way
+// exit cell is refused for being the exit, which is the thing the player can do nothing about.
 const reasonFor = (s, blockers, fallback) => {
   const is = pred => blockers.some(([x, y]) => inGrid(s, x, y) && pred(cell(s, x, y)));
   if (is(c => c.exit)) return 'exit';
   if (is(c => c.water && c.o === NONE)) return 'water';
+  if (is(isGlass)) return 'glass';
+  if (is(isTar)) return 'tar';
+  if (is(c => c.oneway !== undefined)) return 'oneway';
   return fallback;
 };
 
-/** The one place cargo is put down. */
-const drop = (c, o) => { if (o === TRASH) layTrash(c); else c.o = o; };
+/** The one place cargo is put down. A grate takes what lands in it, and takes it for good. */
+const drop = (c, o) => { if (isGrate(c)) return; if (o === TRASH) layTrash(c); else c.o = o; };
 
 // --- the motion account -------------------------------------------------------------------
 // A board says what is where, not what moved where, so a traced action carries a step. The
@@ -202,7 +258,7 @@ function tipOut(s, o, at, dx, dy, step) {
   const target = cell(s, ...c);
   if (t.pours) {
     if (step) step.spawned.push({ o: NONE, at: c, from: at, effect: 'pours' });
-    target.water = true;
+    pour(target);
   } else {
     if (step) step.spawned.push({ o: t.drops, at: c, from: at, effect: effectOf(target, t.drops) });
     drop(target, t.drops);
@@ -213,10 +269,10 @@ function tipOut(s, o, at, dx, dy, step) {
 /** What a container reads as once it has landed and shed. */
 const landsAs = o => (sheds(o) ? SLIDES[o].slides : o);
 
-const cartCanEnter = (s, x, y) => {
+const cartCanEnter = (s, x, y, dx, dy) => {
   if (!inGrid(s, x, y)) return false;
   const c = cell(s, x, y);
-  return !c.wall && !c.exit && !isCart(c) && !isMultiCell(c.o);
+  return !c.wall && !c.exit && !isCart(c) && !isMultiCell(c.o) && mayEnter(s, x, y, dx, dy);
 };
 
 /**
@@ -241,7 +297,7 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
   // out by the swallow with nowhere to shed. Past the first beat the same condition just
   // stops the cart, which is an ordinary way for a roll to end rather than a refusal.
   const first = aheadAt(0);
-  const blame = first.filter(([x, y]) => !cartCanEnter(s, x, y));
+  const blame = first.filter(([x, y]) => !cartCanEnter(s, x, y, dx, dy));
   if (!blame.length) files.forEach((f, i) => {
     const back = f[f.length - 1], out = cell(s, ...back).o;
     if (out === NONE || cell(s, ...first[i]).o === NONE) return;
@@ -268,7 +324,8 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
       if (out.o === NONE) return true;
       return tipFits(next, out.o, at(files[i][load.length - 1], n), -dx, -dy);
     };
-    const clear = ahead.every(([x, y]) => cartCanEnter(next, x, y));
+    const clear = ahead.every(([x, y]) => cartCanEnter(next, x, y, dx, dy))
+      && !files.some(f => isTar(cell(next, ...at(f[0], n))));
     const incoming = clear ? ahead.map(([x, y]) => cell(next, x, y).o) : ahead.map(() => NONE);
     const rolling = clear && files.every((f, i) => incoming[i] === NONE || canShed(i));
     const taken = rolling ? incoming : ahead.map(() => NONE);
@@ -357,6 +414,15 @@ export function explain(s, dir, opts = {}) {
 
   if (target.water && !isRoller(target)) return { ok: false, reason: 'water', blame: [[tx, ty]] };
 
+  // Three gates ahead of every branch, so none of them can forget one. He may not stand on
+  // broken glass, which also means he cannot shove what is standing on it; a one-way admits
+  // only its own direction; and tar keeps what it has.
+  if (isGlass(target)) return { ok: false, reason: 'glass', blame: [[tx, ty]] };
+  if (!mayEnter(s, tx, ty, dx, dy)) return { ok: false, reason: 'oneway', blame: [[tx, ty]] };
+  if (target.o !== NONE || isCart(target)) {
+    if (stuckInTar(s, tx, ty)) return { ok: false, reason: 'tar', blame: [[tx, ty]] };
+  }
+
   // A cart cell carries its cargo in `o`, so cart-ness is read before the occupant is.
   if (isCart(target)) return shoveCart(s, target.cart, [tx, ty], dx, dy, opts.trace === true);
 
@@ -386,7 +452,7 @@ export function explain(s, dir, opts = {}) {
     const own = pieceCells(s, target.pid);
     const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
     const blame = own.map(([x, y]) => [x + dx, y + dy])
-      .filter(([x, y]) => !ownSet.has(`${x},${y}`) && !isOccupiable(s, x, y));
+      .filter(([x, y]) => !ownSet.has(`${x},${y}`) && !travelsInto(s, x, y, dx, dy));
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
     const next = cloneState(s);
     // `= undefined`, not `delete`: deleting a property drops the cell into dictionary mode and
@@ -403,12 +469,26 @@ export function explain(s, dir, opts = {}) {
   // One shape of shove for everything in SLIDES, so the clearance test lives in one place.
   if (SLIDES[o]) {
     const { slides, drops, pours } = SLIDES[o];
-    const c1 = [tx + dx, ty + dy], c2 = [tx + 2 * dx, ty + 2 * dy];
+    const c1 = [tx + dx, ty + dy];
     const into = cartAt(s, c1);
-    const tips = into === null && (drops !== undefined || pours === true);
     const blame = [];
-    if (!canRest(s, c1[0], c1[1])) blame.push(c1);
-    if (tips && !tipFits(s, o, c1, dx, dy)) blame.push(c2);
+    if (!canRest(s, c1[0], c1[1]) || !mayEnter(s, c1[0], c1[1], dx, dy)) blame.push(c1);
+
+    // Where it actually stops. Off grease that is the cell it was shoved to; on grease it keeps
+    // going, and every bill — the tip, the cart it lands in, the grate that takes it — is
+    // settled where it comes to rest rather than where it was pushed.
+    let at = c1;
+    if (into === null && !blame.length) {
+      while (isGrease(cell(s, ...at)) && travelsInto(s, at[0] + dx, at[1] + dy, dx, dy)) {
+        at = [at[0] + dx, at[1] + dy];
+        if (isTar(cell(s, ...at)) || isGrate(cell(s, ...at))) break;
+      }
+    }
+    const gone = into === null && !blame.length && isGrate(cell(s, ...at));
+    const c2 = [at[0] + dx, at[1] + dy];
+    const tips = into === null && !gone && (drops !== undefined || pours === true);
+
+    if (tips && !tipFits(s, o, at, dx, dy)) blame.push(c2);
     let shove = null;
     if (into !== null && !blame.length) {
       shove = intoCart(s, into, c1, dx, dy);
@@ -418,18 +498,21 @@ export function explain(s, dir, opts = {}) {
     const lands = tips ? slides : o;
     const next = cloneState(s);
     // The load leaves the piece, so it flies from the piece's own cell rather than appearing.
-    const step = mkStep({ moved: [{ o, from: [tx, ty], to: c1,
-      ...(lands !== o && { becomes: lands }), ...(into !== null && { parent: into }) }] });
+    const step = mkStep({
+      moved: gone ? [] : [{ o, from: [tx, ty], to: at,
+        ...(lands !== o && { becomes: lands }), ...(into !== null && { parent: into }) }],
+      gone: gone ? [{ o, at }] : [],
+    });
     if (tips && pours) {
       step.spawned.push({ o: NONE, at: c2, from: [tx, ty], effect: 'pours' });
-      cell(next, c2[0], c2[1]).water = true;
+      pour(cell(next, c2[0], c2[1]));
     } else if (tips) {
       step.spawned.push({ o: drops, at: c2, from: [tx, ty],
         effect: effectOf(cell(next, c2[0], c2[1]), drops) });
       drop(cell(next, c2[0], c2[1]), drops);
     }
     if (shove) applyIntoCart(s, next, into, shove, lands, step);
-    else cell(next, c1[0], c1[1]).o = lands;
+    else drop(cell(next, at[0], at[1]), lands);
     cell(next, tx, ty).o = NONE;
     next.rac = { x: tx, y: ty };
     return done(next, PUSH, step);
@@ -437,7 +520,12 @@ export function explain(s, dir, opts = {}) {
 
   if (isRoller(target)) {
     let rx = tx, ry = ty;
-    while (isOccupiable(s, rx + dx, ry + dy)) { rx += dx; ry += dy; }
+    // Tar and a grate END a roll rather than blocking it: the cell is entered, and then either
+    // held for good or fallen through. Everything else is the ordinary "until blocked".
+    while (travelsInto(s, rx + dx, ry + dy, dx, dy)) {
+      rx += dx; ry += dy;
+      if (isTar(cell(s, rx, ry)) || isGrate(cell(s, rx, ry))) break;
+    }
     if (rx === tx && ry === ty) {
       const stop = [[tx + dx, ty + dy]];
       return { ok: false, reason: reasonFor(s, stop, 'canRoom'), blame: stop };
@@ -446,9 +534,11 @@ export function explain(s, dir, opts = {}) {
     // halfway down the alley.
     const rolled = cloneState(s);
     cell(rolled, tx, ty).o = NONE;
-    cell(rolled, rx, ry).o = o;
+    const swallowed = isGrate(cell(rolled, rx, ry));
+    if (!swallowed) cell(rolled, rx, ry).o = o;
     // Tested against `rolled`, not `s`: on a one-cell roll this cell is the bin's own start.
-    const back = o === WHEELIE ? [rx - dx, ry - dy] : null;
+    // A bin that went down a grate went down holding its bag, so it sheds nothing.
+    const back = !swallowed && o === WHEELIE ? [rx - dx, ry - dy] : null;
     if (back && !isOccupiable(rolled, back[0], back[1]))
       return { ok: false, reason: reasonFor(s, [back], 'canRoom'), blame: [back] };
 

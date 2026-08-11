@@ -90,11 +90,22 @@ writer throws rather than emit one.
 Terrain and cart membership are **aligned blocks laid over the same grid**, not glyphs in it,
 because a cell can carry both an occupant and one of these at once.
 
+The `:water` block carries every terrain lane, not only water — it keeps the name because the
+shipped rooms spell it that way.
+
 | `:water` | |
 |---|---|
 | `~` | open canal |
 | `=` | filled in |
+| `%` | grease |
+| `T` | tar |
+| `*` | broken glass |
+| `_` | covered — a hazard something was laid over |
+| `O` | sewer grate |
+| `^` `v` `<` `>` | one-way, passable only in the direction shown |
 | `-` (or a floor alias) | dry ground |
+
+One value per cell: the block is a mask, so a cell carries exactly the lane its character names.
 
 | `:cart` | |
 |---|---|
@@ -112,9 +123,9 @@ because a cell can carry both an occupant and one of these at once.
 ```
 *(shown side by side; in the file the blocks follow one another.)*
 
-The reader rejects a water mask that marks a wall or the exit, or that starts the raccoon in
-open water; and a cart cell that is a wall, the exit, the raccoon's start or furniture, or a
-cart blob that is not exactly two cells.
+The reader rejects a terrain mask that marks a wall or the exit, or that starts the raccoon in
+open water or on broken glass; and a cart cell that is a wall, the exit, the raccoon's start or
+furniture, or a cart blob that is not exactly two cells.
 
 ### What a piece is for
 
