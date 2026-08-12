@@ -2,158 +2,140 @@ fresh
 
 ## Summary
 
-**The roster is built in JS and the port is not.** Stages A-J of `ROSTER-BUILD-PLAN.md` are
-done: five terrain lanes and 22 new occupant codes, from the sponge through the magnet, each
-with specs and each played in the real game. Stage K — teaching `engine/` the same rules — is
-the only stage left, and it is large.
+**The roster is built, the port has caught up, and the barrow now stacks.** Stage K landed:
+`engine/` implements the whole roster and `tools/conform.mjs --engine` agrees with `src/rules.js`
+across four seeds. `ROSTER-BUILD-PLAN.md` has served its purpose and is waiting to be deleted.
 
-352 tests, `verify.mjs` and `conform.mjs` green. Act 1 (31 rooms) and Act 2 (30) ship unchanged.
-`levels/scratch.tt` is a bench pack, never shipped, played via `index.html?acts=scratch.tt`.
+The last feature in: **a barrow carries a loaded barrow, to any depth.** A cell holds a CHAIN
+now — `o` is the outermost thing and `hold` is what rides inside it — and every link but the last
+is a carried barrow. The chain is what moves: a slot shift carries the stack as it stands, a
+scoop takes it one level deeper, setting it down turns the head back into a cart still holding
+what it held. Every thing in a chain keeps a sprite, drawn over the one carrying it, two pixels
+right and down per level.
 
-`SPEC-SHEET.md` -> *The candidate roster* is the design; `ROSTER-BUILD-PLAN.md` is the order and
-the gate, and it gets deleted when Stage K lands.
+386 tests, `verify.mjs` ALL PASS, matrix 1785 cases with no disagreements, conformance ALL AGREE
+on seeds 7/11/23/47 (~176k steps). Act 1 (31 rooms) and Act 2 (30) ship unchanged.
 
 ## Todos
 
-### Sequential
-
-- [ ] #35 **Stage K — the port, and the pipeline. The last stage.**
-
-      `engine/` is behind by everything from Stage E on. Effectively this whole build again in
-      Rust, then proved equal. What it needs:
-
-      - **22 occupant codes**, 13-34: sponge, cardboard, pane, two tyres, bicycle, rug, chair,
-        broom, four closed cabinets, four open bodies, the drawer, four magnets.
-      - **Four mutable terrain values** past water and bridge — grease, tar, glass, covered —
-        plus the two STATIC lanes, grate and one-way, which stay out of the key exactly as
-        `wall` does.
-      - **A widened cell in `state_key_into`.** It packs a cell into a `u8` and this roster
-        needs ten bits. Widen the encoding so kinds, terrain and cart membership stop sharing
-        one byte, rather than raising a number.
-      - **Two key lanes it has not got**: each cart's KIND beside its label, and link
-        membership. Both are silent if missed — two different boards keying alike.
-      - **The branches**: transfer with trains, anisotropy (`rollsAlong`, `rollsHere`, the long
-        axis read off a footprint), the broom's line push and its shed-only-at-the-head rule,
-        the cabinet's body-and-drawer with the drawer opening as a push, the barrow's
-        scoop/tip/no-eject, the magnet's capture, keep-pace and chain, and the tow.
-
-      **Start with the cell encoding** — everything else is written against it. And build a
-      corpus that HOLDS the new pieces as you go: see #38.
-
 ### Parallel
 
-- [ ] #37 **Where are the remaining blind spots in the new pieces?** The open question, and it
-      is not rhetorical — two rounds of auditing found four real bugs after every unit test was
-      green. What has been swept, and what has not:
+- [ ] #42 **A grate that swallows a whole BODY cannot say so.** The board is right and the sprite
+      stays drawn on the grate. `gone` names a thing by its OCCUPANT code; a body's sprite is
+      keyed by kind and ref, so the schema cannot express it. Nothing throws, because no `gone`
+      entry is emitted at all — only the matrix census sees it. Repro: a two-cell rug shoved onto
+      two grate cells. The fix has the same shape as `fromCart`/`toCart`: a body form for `gone`,
+      or a `consumed` list beside `piece`. Long-form in `TODO.md`.
 
-      **Swept, clean:** every piece with a facing or an axis, in all four directions — the
-      cabinet at 4 facings x 4 shove directions (16/16 consistent), the magnet's capture and
-      keep-pace at all 4 facings, tyres and rugs on both axes, the broom and grease vertically,
-      the chair's flee in all four.
+- [ ] #43 **Run every matrix pair again with a one-cell gap.** 1176 of 1785 cases are refusals,
+      because the two pieces start adjacent and most pairs are "B blocks A". A gapped variant is
+      what lets a travelling piece actually arrive at the thing it is being tested against.
 
-      **Swept, found bugs:** new pieces meeting each other. That is where the sweep-drops-a-link
-      and the double-hold bugs were.
+- [ ] #44 **Delete `ROSTER-BUILD-PLAN.md`.** It said so itself: it goes when Stage K lands, and
+      Stage K has landed. Check nothing else still references it first.
 
-      **NOT swept, and the likeliest place left:**
-      - **Terrain under the new pieces.** Each piece was tested on bare floor and against the
-        lane it was built for. A rug rolling onto a grate it exactly fits; a towed couch dragged
-        into tar; a cabinet whose drawer opens over a grate; a chair knocked onto grease; the
-        broom's line crossing a one-way mid-run.
-      - **Undo and replay.** Every new action reports PUSH; nothing has replayed a `.sol` through
-        the new branches, and `applyAction` throws when the declared kind and the board disagree.
-      - **The solver over links.** `deadScan` and `analyze` are key-based so links should ride
-        along, but no room with a link has been analysed for traps.
-      - **Three or more of anything.** Two carts, two magnets facing each other, a line with two
-        containers that both want to shed.
+- [ ] #45 **The Rust port caps stack depth at 12 (`MAX_HOLD`) where the JS is unbounded.** It
+      aborts past it rather than answering, so it cannot be quietly wrong, and nothing the
+      pipeline builds comes within half of it. Revisit only if a room ever needs more — the cost
+      of lifting it is that `Cell` stops being `Copy`, which is an allocation on every board the
+      search touches.
 
-- [ ] #38 **Make the conformance gate bite.** It reports ALL AGREE today only because no room in
-      its corpus holds a new piece — **it is blind, not clean.** `tools/draft-room.mjs` generates
-      from a piece list that has not grown. Adding the new pieces there is what turns the gate
-      real, and it is the thing that would have caught every silent bug this session found by
-      hand. Do it as part of #35 rather than after.
+- [ ] #37 **Blind spots the matrix does not cover.** The interaction matrix now sweeps every
+      piece against every terrain lane and every other piece, wheeled pieces included, and it
+      checks the ACCOUNT of the move rather than the board. What it still does not ask:
 
-- [ ] #39 **Should a magnet resolve its field when something OTHER than a shove moves it?**
-      Today it only resolves on a direct shove. Swept by a broom, dragged by a tow or knocked by
-      a transfer, it moves without capturing and without its chain keeping pace. Consistent with
+      - **Undo and replay** through the new branches. Nothing has replayed a `.sol` across a
+        cabinet, a magnet or a stacked barrow, and `applyAction` throws when the declared kind
+        and the board disagree.
+      - **The solver over links.** `deadScan` and `analyze` are key-based so links ride along,
+        but no room with a link has been analysed for traps.
+      - **Three or more of anything.** Two magnets facing each other; a line with two containers
+        that both want to shed.
+
+- [ ] #39 **Should a magnet resolve its field when something OTHER than a shove moves it?** Today
+      it only resolves on a direct shove. Swept by a broom, dragged by a tow or knocked by a
+      transfer, it moves without capturing and without its chain keeping pace. Consistent with
       "nothing moves unbidden", inconsistent with "the field moved". A design call, not a bug.
 
-- [ ] #41 **Play every new piece in the real game, and do it again after Stage K.** All 19 bench
-      rooms in `levels/scratch.tt` currently pass, one per piece. This is a GATE, not a chore:
-      six of the bugs this session were invisible to `npm test` and showed only on screen —
-      a refusal reading `✕ undefined`, an empty jug drawing as nothing, a consumed sheet leaving
-      its sprite, a magnet pulling a can whose sprite stayed put, a rug getting two sprites per
-      cell, and a tow naming two bodies where the step allowed one. The port changing what a
-      board does is exactly the kind of thing that would show here first.
-
 - [ ] #40 **The stack (`S`) is still undecided.** Last in the fertility survey by an order of
-      magnitude, in no shipped room. It was to be decided with Act 3 or cut, and Act 3 has not
-      been designed since the roster grew.
+      magnitude, and in no shipped room. It was to be decided with Act 3 or cut, and Act 3 has
+      not been designed since the roster grew.
+
+- [ ] #41 **Play every new piece in the real game, and play it again after any rules change.**
+      This is a GATE, not a chore. A dozen bugs across these sessions were invisible to
+      `npm test` AND to board-level conformance, and showed only on screen: a body named as an
+      occupant, a container that shed without saying what it became, a `gone` naming the wrong
+      cell, a sprite that kept a stale `ck` after it stopped being a cart.
 
 ## Context
 
-### The shape of every silent bug this session
+### The bug class that keeps recurring, and the one check that catches it
 
-**A KIND named where a CATEGORY was meant**, four times, and none of them threw:
+**A step that lands the RIGHT board while describing it wrongly.** Invisible to `npm test` and to
+board-level conformance, because both compare boards and the stage animates from the step. The
+invariant that catches the whole class:
 
-- the stage skipped the couch BY NAME when minting sprites, so a rug got a second sprite per cell
-- per-kind id counters each restarted at 0, so a couch, a rug and a bicycle all held piece 0 —
-  `pieceCells` finds a piece by id alone, so shoving one would have dragged the others
-- `ck` was set when a level loaded and dropped by `repaint` on every move, so a barrow became an
-  ordinary cart the moment it rolled
-- the broom's line push moved only `o`, leaving `lk` behind on whatever it was standing on
+> landing an action on the stage must leave the same sprites as building a stage from the board
+> the action produced.
 
-Expect the Rust port to offer all four again. The fix in each case was to ask a predicate rather
-than name a kind, and to carry the whole cell rather than one field of it.
+That is `tools/matrix.mjs`, and it is a gate that has been watched failing — `tests/matrix.test.js`
+bends a step four ways on purpose and checks each bend is caught.
 
-### Two rules learned the hard way, worth keeping
+Its close cousin: **a KIND named where a CATEGORY was meant.** Ask a predicate rather than name a
+kind, and carry the whole cell rather than one field of it.
 
-- **An occupant with no drawing THROWS** rather than rendering nothing. A piece that is merely
-  invisible reads as a rules bug and is found by playing rather than by testing.
-- **Anything that moves cells must SAY so in the step**, or the board is right and the sprite is
-  somewhere else. Cost two bugs: the consumed cardboard, and the magnet's pull.
-- A consumed piece names itself in `gone` by the cell **the stage holds it at**, which is where
-  it started, not where it was going.
-- **`moved` names OCCUPANT sprites only.** A cart and a multi-cell piece are BODIES and belong in
-  `step.piece`, which now takes one or several — a tow moves two of them in a beat.
+### Chains, and what a step has to say about one
+
+- `chainOf(c)` / `setChain(c, ch)` in `src/rules.js` are the only readers and the only write.
+  `c.hold` exists only under a carried barrow, and `cloneState` deep-copies it — it is the one
+  field a spread would SHARE.
+- `stateKey` carries the stack with a per-cell length prefix. `bagsLeft` walks it, or a room opens
+  its door on a bag hidden three barrows down.
+- A `moved` entry carries **`depth`** (how far inside the destination cell it comes to rest) and
+  **`wasDepth`** (where the stage is holding it now, defaulting to `depth`). `depth` is what tells
+  two sprites of one code on one cell apart — which a barrow inside a barrow is.
+- `applyStep` resolves EVERY sprite a step names before changing any of them, and throws if two
+  entries claim one. Resolving them one at a time made the first entry's changes into what the
+  second entry searched.
 
 ### Decisions that are settled and should not be re-opened
 
-- **Push is the raccoon's only verb.** Pull, carry and stacking are closed on purpose — they
-  point at a 3D puzzle platformer. Board-level pulling is legal, which is what lets the magnet
+- **Push is the raccoon's only verb.** Board-level pulling is legal, which is what lets the magnet
   and the tow exist.
-- **Only MUTABLE terrain reaches `stateKey`.** A static lane cannot differ between two states of
-  one room, which is why `wall` was never in there and why the grate and the one-way are not.
-- **Open and closed cabinets are different codes**, so `isMultiCell` stays a flat predicate on a
-  code. An open cabinet is a BODY and a DRAWER in two ordinary cells — never a `pid` piece,
-  because the stage only mints multi-cell bodies when a level loads, and a piece that grows a
-  second cell mid-move has no sprite.
-- **One link per piece**, and the tow and the chain share one lane. They differ in behaviour, not
-  in how they are recorded.
-- **Transfer belongs to rolling, not to a piece.** That is why the tyre kept no special power.
+- **Only MUTABLE terrain reaches `stateKey`.** The grate and the one-way are static, like `wall`.
+- **Open and closed cabinets are different codes**, so `isMultiCell` stays a flat predicate. An
+  open cabinet is a BODY and a DRAWER in two ordinary cells, never a `pid` piece.
+- **One link per piece**, and the tow and the magnet's chain share the lane.
+- **The port follows; it never leads.** A rule is decided in `src/rules.js`, approved, and PLAYED
+  in the browser before any of it is written in Rust. On a conformance disagreement: play the
+  board first. If the played board says the JS is wrong, the JS is fixed and the port copies it.
 
-### The port's deferral is safe, and checked
+### The format grew a `:hold` block
 
-`board.rs` errors on an unknown glyph — fed a sponge it answers `{"error":"unknown glyph 's'"}`
-rather than guessing — so it cannot diverge quietly while it waits. Until it catches up, nothing
-new may enter a shipped pack, and `survey`/`harvest` cannot measure any of it.
+A LIST, not a mask (`4,2 >C` — the cell, then the chain from the outside in), because a chain is
+not one character per cell. Barrow glyph pools widened to three per facing (`uvw`/`def`/`lmn`/
+`rst`) so three of one facing can be written down. Spec in `FORMATS.md`.
 
-Do the port last on purpose: a rules change costs double while both engines are live.
+The conformance corpus reached a *loaded* stack zero times in 116 generated rooms, so
+`nestedRooms()` in `tools/conform.mjs` holds nine rooms that START stacked. Those caught the JS
+reference itself dropping the hold block on the way in.
 
 ### Run it
 
-`./run.sh` · `npm test` (352) · `node tools/verify.mjs` · `node tools/conform.mjs` ·
+`./run.sh` · `npm test` (386) · `node tools/verify.mjs` · `node tools/matrix.mjs` ·
 `cargo build --release --manifest-path engine/Cargo.toml && node tools/conform.mjs --engine
 engine/target/release/tt-engine`
 
-Play the new pieces: serve the root, then `index.html?acts=scratch.tt` — 19 bench rooms, one
-per piece. The `?acts=` override is a dev affordance and is inert in the built artifact.
+Bench packs, dev-only and inert in the built artifact:
+`index.html?acts=scratch.tt` — 26 rooms, one per piece. **TO/TP/TQ** are the stacking rooms: TP
+stacks three barrows deep, TQ tips a stack out.
+`index.html?acts=sandbox.tt` — every piece and every lane on one board. Its par is a WALKED
+solution, not a proven minimum. It just gained a blank row along the bottom.
 
 ## Next Step
 
-**Stage K, starting at the cell encoding**, because every other branch is written against it.
-Then #38 in the same pass: teach `draft-room.mjs` the new pieces so the conformance corpus
-actually contains them. A gate that cannot see a piece cannot catch the class of bug that took
-four rounds of hand-auditing to find here — and #37 is the standing question that gate is meant
-to answer for you.
+**#42, the body a grate swallows** — it is the one live correctness hole, it is reachable in a
+shipped-shape room, and the fix has a worked precedent in the `fromCart`/`toCart` pattern. Then
+**#43**, the gapped matrix pass, which is the cheapest large gain in coverage available.
 
 /home/menser/Dropbox/ai/code/treasure_trash
