@@ -14,34 +14,32 @@ shipped, played in the real game via `index.html?acts=scratch.tt`.
 
 ### Sequential — the build plan, in order
 
-- [x] #25 **Stage A — storage groundwork.** Separator below 65; cell packs against a named
-      terrain width; carts carry their kind in the key.
-- [x] #26 **Stage B — five terrain lanes.** Grease, tar, one-way, sewer grate, broken glass.
-      Only MUTABLE terrain reaches `stateKey`.
-- [x] #27 **Stage C — the jug carries one cell.** `JUG_EMPTY`, glyph `i`. Six rooms re-declared
-      their trap counts; no par moved. The port learned it too.
-- [x] #28 **Stage D — transfer on impact.** Rollers move as a train; motion hands off. Proved at
-      2.4M board-and-direction vectors over two seeds.
-- [ ] #29 **Stage E4 — the anisotropic rollers**, the half of Stage E still open: car tire (one
-      cell, a code per axis), bicycle (two cells), rolled rug (multi-cell). **`isRoller` has to
-      become direction-aware** — a `rollsAlong(c, dx, dy)` — and that predicate is what the
-      Stage D train is built on, so the train code changes with it. The two multi-cell kinds also
-      want glyph pools of their own, like `FURN_POOL`.
-- [ ] #30 (needs: #29) **Stage F — the office chair.** Trash knocks it one cell; everything else
-      rolls it. Needs the `fanBlockers` exception for a chair that has somewhere to flee, with
-      the flee cell in `blame`.
-- [ ] #31 **Stage G — the broom.** Line push of any kinds; slides its whole train on grease; the
-      only way a bag ever travels, which is what wakes broken glass up.
-- [ ] #32 **Stage H — the filing cabinet.** Two cells open, one closed — `isMultiCell` becomes
-      state-dependent, and that predicate is read by `pieceCells`, the push branch and
-      `stateKey`'s pid lane. Decide the representation before writing any of it.
-- [ ] #33 **Stage I — the wheelbarrow.** Needs Stage A's cart-kind lane, and the LINK lane lands
-      here. Cargo rides cart-style so `bagsLeft` and `trashHeld` keep counting it.
-- [ ] #34 (needs: #33) **Stage J — the magnet.** Shares the link lane, which is what makes it
-      affordable.
-- [ ] #35 **Stage K — the port and the pipeline.** `engine/` catches up on everything from E4
-      on, earns conformance back at both grains, and only then do new pieces enter a shipped
-      pack or get harvested.
+- [x] #25 **Stage A — storage groundwork.**
+- [x] #26 **Stage B — five terrain lanes.**
+- [x] #27 **Stage C — the jug carries one cell.** Six rooms re-declared trap counts; no par moved.
+- [x] #28 **Stage D — transfer on impact.** Rollers move as a train; motion hands off.
+- [x] #29 **Stage E — sponge, cardboard, pane, tyre, bicycle, rug.**
+- [x] #30 **Stage F — the office chair**, and a fan that can aim.
+- [x] #31 **Stage G — the broom.** Bags travel; broken glass woke up.
+- [x] #32 **Stage H — the filing cabinet.** Body + drawer as two ordinary cells.
+- [ ] #33 **Stage I — the barrow's TOW is what remains.** The scoop, the tip, the axis and the
+      cargo accounting are in. The tow is the LINK LANE: a multi-cell piece hooked by a link and
+      moved rigidly with the barrow. **Build it with #34, which shares it.** Wants a link field
+      on cells, a `stateKey` lane, format read/write, rigid movement of the pair, and refusal
+      propagation when either end is blocked.
+- [ ] #34 (needs: #33) **Stage J — the magnet.** One facing, four orientations, strict rook along
+      the facing, line of sight blocked by walls and not by objects. Nearest metal within three
+      closes to adjacent and chains; the chain breaks off-line or past three; the magnet never
+      moves itself. Metal: can, bin, wheelie, cabinet, barrow, tyre, bicycle, chair, magnet.
+- [ ] #35 **Stage K — the port and the pipeline.** `engine/` is behind by everything from Stage E
+      on: 19 new occupant codes, 5 terrain lanes, transfer, the broom's line, the cabinet, the
+      barrow. It still AGREES today only because no room in the conformance corpus holds a new
+      piece. Until it catches up, nothing new may enter a shipped pack or be harvested.
+- [ ] #36 **Multi-cell rollers do not hand off on impact.** Transfer lives in the single-cell
+      roller branch, so a rolling rug that strikes a bicycle stops against it instead of passing
+      its motion on — which contradicts the rule everything else follows. Unifying them means one
+      rolling path for both; note the receiving piece must roll along ITS OWN axis to accept.
+      Also a design question: should a rug shove a bicycle at all?
 
 ## Context
 
@@ -262,14 +260,16 @@ the harness.
 
 ## Next Step
 
-**Stage E4, the anisotropic rollers** — and the first move is not a piece, it is the predicate.
-`isRoller(c)` has to become `rollsAlong(c, dx, dy)`, because the car tire rolls along one axis
-and moves a single cell across it. The Stage D train is built on that predicate, so the train
-becomes direction-aware in the same change; do that first, with the transfer specs green, and
-the three pieces are then ordinary.
+**The link lane — #33 and #34 together.** They are one piece of work wearing two names: the
+barrow's tow and the magnet's chain are the same mechanism, which is what makes the dear tier
+affordable. Doing either alone pays for it twice.
 
-Watch two things a piece added late will otherwise trip over: an occupant with no drawing throws
-rather than rendering nothing, and a consumed piece names itself in `gone` by the cell the STAGE
-holds it at, which is where it started.
+Two things a piece added late will otherwise trip over, both learned the hard way: an occupant
+with no drawing THROWS rather than rendering nothing, and a consumed piece names itself in `gone`
+by the cell the STAGE holds it at, which is where it started rather than where it was going.
+
+And one shape of bug to watch for, which has now appeared three times: a KIND named where a
+CATEGORY was meant. `isMultiCell` rather than the couch by name; per-kind id counters that must
+share one sequence; `ck` carried wherever `cart` is carried. Each was silent.
 
 /home/menser/Dropbox/ai/code/treasure_trash
