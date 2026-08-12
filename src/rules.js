@@ -820,17 +820,16 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
   // out by the swallow with nowhere to shed. Past the first beat the same condition just
   // stops the cart, which is an ordinary way for a roll to end rather than a refusal.
   const first = aheadAt(0);
-  let blame = first.filter(([x, y]) => !cartCanEnter(s, x, y, dx, dy));
+  const blame = first.filter(([x, y]) => !cartCanEnter(s, x, y, dx, dy));
   // A cart rolled up against the back of a shut cabinet knocks it open, and stops there. The
   // blow is the whole of the beat, so nothing else on the cart moves.
   if (blame.length) {
     const knocked = cloneState(s);
     const step = mkStep();
     for (const at of blame) strikeBack(knocked, at, dx, dy, step);
-    if (step.moved.length) {
-      blame = blame.filter(([x, y]) => !cartCanEnter(knocked, x, y, dx, dy));
-      return { ok: true, kind: PUSH, next: knocked, ...(trace && { frames: [cloneState(s), knocked], steps: [step] }) };
-    }
+    if (step.moved.length)
+      return { ok: true, kind: PUSH, next: knocked,
+               ...(trace && { frames: [cloneState(s), knocked], steps: [step] }) };
   }
   if (!blame.length) files.forEach((f, i) => {
     const back = f[f.length - 1], out = cell(s, ...back).o;
