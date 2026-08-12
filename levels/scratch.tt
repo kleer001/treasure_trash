@@ -197,3 +197,47 @@
 ----------
 ----------
 :end
+
+:level  TA
+:name   Tyres
+:teach  a tyre rolls along its axis and is shoved one cell across it
+:par    8
+:traps  13
+:solves 3
+:solve  drrrrrrr
+:grid
+###########
+#---------#
+#-@o--O---#
+#--------E#
+###########
+:end
+:water
+-----------
+-----------
+-----------
+-----------
+-----------
+:end
+
+:level  TB
+:name   Rug and bicycle
+:teach  both take their axis from the cells they already fill
+:par    9
+:traps  10
+:solves 3
+:solve  drrrrrrrr
+:grid
+############
+#----------#
+#-@UUU--YY-#
+#---------E#
+############
+:end
+:water
+------------
+------------
+------------
+------------
+------------
+:end

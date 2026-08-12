@@ -56,3 +56,20 @@ test('a roll that ends down a grate carries the bag down with it', () => {
   const after = toGrid(push(s, 'r'))[0];
   assert.ok(!after.includes('W') && !after.includes('$'), 'bin and bag both gone');
 });
+
+// --- anisotropy -----------------------------------------------------------------------------
+// A bin is round from every side. A tyre has an axis, and that is the whole of the difference:
+// the question a shove asks is not "does this roll" but "does this roll from here".
+
+test('a tyre rolls along its axis and is shoved one cell across it', () => {
+  assert.deepEqual(toGrid(push(S(['@o----E']), 'r')), ['-@---oE'], 'along: to the far end');
+  const across = toGrid(push(S(['------', '-@----', '-o----', '------', 'E-----']), 'd'));
+  assert.deepEqual(across, ['------', '------', '-@----', '-o----', 'E-----'], 'across: one cell');
+});
+
+test('a tyre takes a hand-off along its axis, and refuses one across it', () => {
+  // Same board twice, the tyre turned. Turned to match, it takes the roll and carries on;
+  // turned across, it is simply something the bin stops against.
+  assert.deepEqual(toGrid(push(S(['@w--o-E']), 'r')), ['-@-w-oE'], 'along: the roll carries on');
+  assert.deepEqual(toGrid(push(S(['@w--O-E']), 'r')), ['-@-wO-E'], 'across: it blocks instead');
+});

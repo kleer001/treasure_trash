@@ -2,7 +2,7 @@
 // ES modules need http://, so run ./run.sh rather than opening the file.
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
-  JUG_EMPTY, SPONGE, CARDBOARD, PANE,
+  JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG,
   FURNITURE,
   MOVE, DIRS,
   explain, isWon, bagsLeft, trashHeld, fan, inGrid, cell, cloneState, isMultiCell, stateKey,
@@ -48,6 +48,7 @@ const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"
   [STACK]:"a bag on a can", [WHEELIE]:"a wheelie bin",
   [WHEELIE_EMPTY]:"an empty wheelie bin", [JUG]:"the water jug", [JUG_EMPTY]:"the empty jug",
   [SPONGE]:"the sponge", [CARDBOARD]:"the cardboard", [PANE]:"the pane of glass",
+  [TIRE_H]:"the tyre", [TIRE_V]:"the tyre", [BICYCLE]:"the bicycle", [RUG]:"the rolled rug",
   [FURNITURE]:"the couch" };
 function whyText(b){
   const base = WHY[b.reason];
@@ -382,7 +383,11 @@ function drawSprite(sp, f){
     if(ph){ const k = ph.lunge*0.42; SP.raccoon(s.rac.x+fx.dx*k, s.rac.y+fx.dy*k); }
     else SP.raccoon(sp.x, sp.y);
   }
-  else if(sp.kind === COUCH) SP.furniture(sp.cells, sp.x, sp.y);
+  else if(sp.kind === COUCH){
+    if(sp.o === BICYCLE) SP.bicycle(sp.cells, sp.x, sp.y);
+    else if(sp.o === RUG) SP.rug(sp.cells, sp.x, sp.y);
+    else SP.furniture(sp.cells, sp.x, sp.y);
+  }
   else if(sp.kind === CART)  SP.cart(sp.cells, sp.x, sp.y);
   else if(sp.kind === SPLASH) SP.splash(sp.x, sp.y);
   else drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {

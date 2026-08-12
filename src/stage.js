@@ -7,7 +7,7 @@
 // separate states, which the solver would pay for. A sprite persists across an action, owns a
 // fractional position, and can be parented to a cart rather than standing on a square.
 
-import { NONE, FURNITURE, cell, cartCells, pieceCells, isCart } from './rules.js';
+import { NONE, cell, cartCells, pieceCells, isCart, isMultiCell } from './rules.js';
 import { mulberry32 } from './rng.js';
 
 /** Multi-cell kinds are their own sprites; every other sprite is keyed by occupant code. */
@@ -46,14 +46,19 @@ export function stageFrom(state, seed = 1) {
     }
     if (c.pid !== undefined && !seenPid.has(c.pid)) {
       seenPid.add(c.pid);
-      mint(COUCH, x, y, { ref: c.pid, cells: offsets(pieceCells(state, c.pid), x, y) });
+      // COUCH is the BAND — a rigid multi-cell body — and `o` is which one, so the renderer
+      // picks a skin without a second sprite kind per piece.
+      mint(COUCH, x, y, { ref: c.pid, o: c.o, cells: offsets(pieceCells(state, c.pid), x, y) });
     }
   }
   // Then the things standing on it, cargo included — cargo is an ordinary occupant that
   // happens to be riding, so it is minted the same way and simply starts out parented.
   for (let y = 0; y < state.rows; y++) for (let x = 0; x < state.cols; x++) {
     const c = cell(state, x, y);
-    if (c.o === NONE || c.o === FURNITURE) continue;
+    // A multi-cell piece was already minted as one body above; naming its kind here would mint
+    // a second sprite per cell on top of it. `isMultiCell` rather than the couch by name, so a
+    // kind added later cannot be missed.
+    if (c.o === NONE || isMultiCell(c.o)) continue;
     mint(c.o, x, y, { parent: isCart(c) ? c.cart : null });
   }
   return stage;

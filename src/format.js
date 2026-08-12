@@ -3,9 +3,9 @@
 
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
-  JUG_EMPTY, SPONGE, CARDBOARD, PANE,
+  JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG,
   GREASE, TAR, GLASS, COVERED,
-  FURNITURE, DIRS, MOVE, PUSH, TEAR,
+  FURNITURE, DIRS, MOVE, PUSH, TEAR, isMultiCell,
 } from './rules.js';
 
 // --- glyphs -----------------------------------------------------------------
@@ -31,10 +31,14 @@ const READ = {
   's': { o: SPONGE },
   'd': { o: CARDBOARD },
   'g': { o: PANE },
+  'o': { o: TIRE_H },
+  'O': { o: TIRE_V },
   'E': { exit: true },
   // Furniture glyphs name a PIECE, not a kind of thing: a 4-connected blob of one letter is
   // one couch, so two flush couches need two letters. Hence a pool — see FURN_POOL.
   ...Object.fromEntries([...'FGHKMN'].map(ch => [ch, { o: FURNITURE }])),
+  ...Object.fromEntries([...'YZ'].map(ch => [ch, { o: BICYCLE }])),
+  ...Object.fromEntries([...'UV'].map(ch => [ch, { o: RUG }])),
   '+': { exit: true, rac: true },     // raccoon standing on the exit (XSB's player-on-goal)
   // No glyph for water or for an occupied exit — see FORMATS.md for why each is absent.
 };
@@ -60,6 +64,15 @@ const ONEWAY_WRITE = { u: '^', d: 'v', l: '<', r: '>' };
 // order of each piece's first cell, so a board's lettering is canonical and the grid
 // round-trips. Past the end of the pool, throw rather than wrap.
 export const FURN_POOL = [...'FGHKMN'];
+// Each multi-cell KIND needs a pool of its own, for the reason furniture does: a blob of one
+// letter is one piece, so two flush bicycles need two letters between them.
+export const BIKE_POOL = [...'YZ'];
+export const RUG_POOL = [...'UV'];
+const MULTI_POOLS = [
+  { pool: FURN_POOL, o: FURNITURE, what: 'furniture', bad: n => (n < 2 ? 'is a single cell; use a can, or give it a second cell' : null) },
+  { pool: BIKE_POOL, o: BICYCLE, what: 'bicycle', bad: n => (n !== 2 ? `covers ${n} cell${n === 1 ? '' : 's'}; a bicycle is exactly two` : null) },
+  { pool: RUG_POOL, o: RUG, what: 'rug', bad: n => (n < 2 ? 'is a single cell; a rug is at least two' : null) },
+];
 // Carts are written in their own aligned `:cart` block rather than the occupant grid, for the
 // same reason water is: a cart cell holds cargo, and one character cannot say "empty cart
 // cell", "cart holding a can" and "cart Q holding trash" at once. Same blob rule, own pool.
@@ -70,6 +83,7 @@ export const LEGEND = [
   'x spilled trash', 'E exit', '+ raccoon on exit',
   'S bag-on-can stack', 'W wheelie bin (full)', 'w wheelie bin (empty)',
   'B recycle bin (full)', 'b recycle bin (empty)', 'j water jug', 'i empty jug', 's sponge', 'd flattened cardboard', 'g pane of glass',
+  'o tyre lying across the alley — rolls left and right', 'O tyre rolls up and down',
   `${FURN_POOL.join('/')} furniture — one letter per piece, a touching same-letter blob is one couch`,
   'terrain lives in its own :water block — ~ open canal, = filled in (floor), - dry',
   `carts live in their own :cart block — ${CART_POOL.join('/')}, two cells each, cargo reads from :grid`,
@@ -82,9 +96,9 @@ export const LEGEND = [
  * handed out in raster order of each piece's first cell, which is what makes the writer
  * reproduce the lettering it was given. `wrongSize` names the complaint, or returns null.
  */
-function labelBlobs(cells, glyphs, id, field, what, wrongSize) {
+function labelBlobs(cells, glyphs, id, field, what, wrongSize, first = 0) {
   const rows = cells.length, cols = cells[0].length;
-  let next = 0;
+  let next = first;
   for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
     if (!glyphs[y][x] || cells[y][x][field] !== undefined) continue;
     const pid = next++, ch = glyphs[y][x], stack = [[x, y]], size = [];
@@ -98,6 +112,24 @@ function labelBlobs(cells, glyphs, id, field, what, wrongSize) {
     const bad = wrongSize(size.length);
     if (bad) throw new Error(`${id}: ${what} '${ch}' at (${x + 1},${y + 1}) ${bad}`);
   }
+  return next;
+}
+
+/** Letters for the multi-cell pieces, each kind drawn from its own pool. Handed out in raster
+ *  order of a piece's first cell, so a board's lettering is canonical and round-trips. */
+function pieceLetters(s) {
+  const letters = new Map(), used = new Map();
+  for (const row of s.cells) for (const c of row) {
+    if (c.pid === undefined || letters.has(c.pid)) continue;
+    const spec = MULTI_POOLS.find(m => m.o === c.o);
+    if (!spec) throw new Error(`occupant ${c.o} carries a piece id but has no glyph pool`);
+    const n = used.get(spec.what) ?? 0;
+    if (n >= spec.pool.length)
+      throw new Error(`more than ${spec.pool.length} ${spec.what} pieces: the glyph pool is ${spec.pool.join('')}`);
+    letters.set(c.pid, spec.pool[n]);
+    used.set(spec.what, n + 1);
+  }
+  return letters;
 }
 
 function poolLetters(s, field, pool, what) {
@@ -116,11 +148,11 @@ function glyphFor(c, isRac, letters) {
   if (c.wall) return '#';
   if (!c.exit) {
     if (isRac) return '@';
-    if (c.o === FURNITURE) return letters.get(c.pid);
+    if (isMultiCell(c.o)) return letters.get(c.pid);
     return { [NONE]: '-', [BAG]: '$', [CAN_FULL]: 'C', [CAN_EMPTY]: 'c', [TRASH]: 'x',
              [STACK]: 'S', [WHEELIE]: 'W', [WHEELIE_EMPTY]: 'w', [BIN]: 'B', [BIN_EMPTY]: 'b',
              [JUG]: 'j', [JUG_EMPTY]: 'i', [SPONGE]: 's', [CARDBOARD]: 'd',
-             [PANE]: 'g' }[c.o];
+             [PANE]: 'g', [TIRE_H]: 'o', [TIRE_V]: 'O' }[c.o];
   }
   if (isRac) return '+';
   if (c.o === NONE) return 'E';
@@ -252,14 +284,19 @@ export function toState(level) {
       }
       if (c.exit) exits++;
       row.push(c);
-      grow.push(c.o === FURNITURE ? ch : null);   // which letter wrote this cell, for grouping
+      grow.push(isMultiCell(c.o) ? ch : null);    // which letter wrote this cell, for grouping
     }
     cells.push(row); glyphs.push(grow);
   }
   if (!rac) throw new Error(`${level.id}: no raccoon`);
   if (exits !== 1) throw new Error(`${level.id}: needs exactly one exit, found ${exits}`);
-  labelBlobs(cells, glyphs, level.id, 'pid', 'furniture',
-    n => n < 2 ? 'is a single cell; use a can, or give it a second cell' : null);
+  // One counter across every kind. `pieceCells` finds a piece by id alone, so a couch and a rug
+  // that shared one would be read as a single piece and shoved as one.
+  let nextPid = 0;
+  for (const { o, what, bad } of MULTI_POOLS)
+    nextPid = labelBlobs(cells,
+      glyphs.map((row, y) => row.map((ch, x) => (cells[y][x].o === o ? ch : null))),
+      level.id, 'pid', what, bad, nextPid);
 
   // The water mask, laid over the occupant grid. Optional — a room with no canal omits it.
   if (level.water) {
@@ -313,7 +350,7 @@ export function toState(level) {
 
 /** Used for traces and for the round-trip checks in `verify.mjs`. */
 export function toGrid(s) {
-  const letters = poolLetters(s, 'pid', FURN_POOL, 'furniture pieces');
+  const letters = pieceLetters(s);
   return s.cells.map((row, y) =>
     row.map((c, x) => glyphFor(c, s.rac.x === x && s.rac.y === y, letters)).join(''));
 }

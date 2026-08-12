@@ -30,6 +30,9 @@ export const PALETTE = {
   sponge: '#f2c14e', spongeEdge: '#b8892b', spongePore: 'rgba(120,80,20,.45)',
   card: '#c08a55', cardEdge: '#8a5f33',
   pane: 'rgba(190,225,235,.75)', paneEdge: '#7fb0bd',
+  tyre: '#2f3238', tyreTread: '#585d66', hub: '#9aa1ab',
+  bike: '#3f7fa8', bikeEdge: '#28536d',
+  rug: '#a4485c', rugEdge: '#6f2c3c', rugTrim: '#e5c46a',
   wheelie: '#3f7d4f', wheelieEdge: '#255034', wheelieRidge: '#2f6a40',
   wheelieLid: '#4f9a63', wheel: '#22252a',
   fur: '#9aa0a6', furEar: '#6b7076', mask: '#2b2f34', muzzle: '#eceef0',
@@ -203,6 +206,40 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.stroke();
     },
 
+    // A tyre, seen edge-on, so its axis is the long way it is drawn. That is the whole tell:
+    // which way it lies is which way it rolls.
+    tyre(x, y, horizontal) {
+      const cx = px(x) + CS / 2, cy = px(y) + CS / 2;
+      const a = CS * 0.40, b = CS * 0.20;
+      const [rx, ry] = horizontal ? [a, b] : [b, a];
+      ctx.fillStyle = P.tyre;
+      ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = P.tyreTread; ctx.lineWidth = 2;
+      for (const t of [-0.5, 0, 0.5]) {
+        ctx.beginPath();
+        if (horizontal) { ctx.moveTo(cx + rx * t, cy - ry * 0.8); ctx.lineTo(cx + rx * t, cy + ry * 0.8); }
+        else { ctx.moveTo(cx - rx * 0.8, cy + ry * t); ctx.lineTo(cx + rx * 0.8, cy + ry * t); }
+        ctx.stroke();
+      }
+      ctx.fillStyle = P.hub;
+      ctx.beginPath(); ctx.ellipse(cx, cy, rx * 0.28, ry * 0.28, 0, 0, 7); ctx.fill();
+    },
+
+    // Multi-cell pieces are drawn over their whole footprint, so these take the cell list the
+    // couch does and read their own long axis off it, exactly as the rules do.
+    bicycle(cells, x, y) {
+      api.furniture(cells, x, y, { fill: P.bike, edge: P.bikeEdge });
+      const cx = px(x) + CS / 2, cy = px(y) + CS / 2;
+      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, CS * 0.26, 0, 7); ctx.stroke();
+    },
+
+    rug(cells, x, y) {
+      api.furniture(cells, x, y, { fill: P.rug, edge: P.rugEdge });
+      ctx.strokeStyle = P.rugTrim; ctx.lineWidth = 2;
+      ctx.strokeRect(px(x) + PAD + 3.5, px(y) + PAD + 3.5, CS - 2 * PAD - 7, CS - 2 * PAD - 7);
+    },
+
     // The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
     // "safe condition" coding (ISO 7010 E002). The caller decides whether it is `lit`.
     // `dir` points at the board edge he is actually leaving by — see `exitArrowDir`.
@@ -365,22 +402,26 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
 
     // The couch is drawn from its whole footprint, not a cell at a time: only the outer edges
     // are stroked, because an internal seam would read as two couches. ox/oy offset the slide.
-    furniture(cells, ox = 0, oy = 0) {
+    // `skin` is what makes this one drawing serve every rigid multi-cell piece: the shape work
+    // — which edges are outer, where the cushions go — is the same for all of them.
+    furniture(cells, ox = 0, oy = 0, skin = {}) {
+      const fill = skin.fill ?? P.couch, edge = skin.edge ?? P.couchEdge;
+      const cushion = skin.cushion ?? P.couchCushion;
       const has = new Set(cells.map(([x, y]) => `${x},${y}`));
       const at = (x, y) => has.has(`${x},${y}`);
       const M = Math.max(3, Math.round(CS * 0.079));
       ctx.save();
-      ctx.fillStyle = P.couch;
+      ctx.fillStyle = fill;
       for (const [cx, cy] of cells) {
         const x0 = px(cx + ox), y0 = px(cy + oy);
         const l = at(cx - 1, cy), r = at(cx + 1, cy), u = at(cx, cy - 1), d = at(cx, cy + 1);
         ctx.fillRect(x0 + (l ? 0 : M), y0 + (u ? 0 : M),
           CS - (l ? 0 : M) - (r ? 0 : M), CS - (u ? 0 : M) - (d ? 0 : M));
       }
-      ctx.fillStyle = P.couchCushion;                 // one cushion per cell
+      ctx.fillStyle = cushion;                        // one cushion per cell
       for (const [cx, cy] of cells)
         ctx.fillRect(px(cx + ox) + M + 6, px(cy + oy) + M + 6, CS - 2 * M - 12, CS - 2 * M - 12);
-      ctx.strokeStyle = P.couchEdge; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.strokeStyle = edge; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
       ctx.beginPath();
       for (const [cx, cy] of cells) {
         const x0 = px(cx + ox), y0 = px(cy + oy), a = M, b = CS - M;
@@ -545,6 +586,8 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   else if (o === codes.SPONGE) sprites.sponge(x, y);
   else if (o === codes.CARDBOARD) sprites.cardboard(x, y);
   else if (o === codes.PANE) sprites.pane(x, y);
+  else if (o === codes.TIRE_H) sprites.tyre(x, y, true);
+  else if (o === codes.TIRE_V) sprites.tyre(x, y, false);
   // Not silence. An occupant with no drawing here is invisible on the board, which reads as a
   // rules bug and is found by playing rather than by testing — so it stops the frame instead.
   else if (o !== codes.NONE) throw new Error(`no drawing for occupant ${o}`);

@@ -74,3 +74,34 @@ test('a pane with nowhere to break rides intact, and against water it will not b
   assert.equal(refuse(S(['@gc--E']), 'r'), 'canRoom', 'boxed in behind a can');
   assert.equal(refuse(S(['@g---E'], ['--~---']), 'r'), 'water', 'and glass does not go in the canal');
 });
+
+// --- the multi-cell rollers -----------------------------------------------------------------
+// A rug takes its axis from the cells it already occupies, so anisotropy costs no field of its
+// own and nothing in the state key. That is the whole reason it is cheaper than a turnstile.
+
+test('a rug rolls along its length and shifts one cell broadside', () => {
+  assert.deepEqual(toGrid(push(S(['@UUU---E']), 'r')), ['-@--UUUE'], 'along: to the far end');
+  const broadside = toGrid(push(S(['--------', '-@------', '-UUU----', '--------', 'E-------']), 'd'));
+  assert.deepEqual(broadside, ['--------', '--------', '-@------', '-UUU----', 'E-------']);
+});
+
+test('a bicycle is the same rule at two cells, and takes its axis the same way', () => {
+  assert.deepEqual(toGrid(push(S(['@YY---E']), 'r')), ['-@--YYE']);
+});
+
+// Every multi-cell KIND is numbered from the same counter. Restart it per kind and a couch and
+// a rug both hold piece 0 — `pieceCells` looks a piece up by id alone, so shoving one would
+// silently drag the other, and the board would be right about nothing.
+test('pieces of different kinds never share an id', () => {
+  const s = S(['-FF-UUU-YY-', '-@---------', 'E----------']);
+  const ids = s.cells[0].filter(c => c.pid !== undefined).map(c => c.pid);
+  assert.equal(new Set(ids).size, 3, 'couch, rug and bicycle are three pieces');
+  assert.deepEqual(toGrid(s), ['-FF-UUU-YY-', '-@---------', 'E----------'], 'and each writes back as itself');
+});
+
+test('shoving one multi-cell piece leaves its neighbours where they are', () => {
+  const s = S(['-----------', '-FF-UUU-YY-', '-@---------', 'E----------']);
+  const after = toGrid(push(s, 'u'));
+  assert.equal(after[0], '-FF--------', 'the couch went up');
+  assert.equal(after[1], '-@--UUU-YY-', 'and the rug and the bicycle did not');
+});
