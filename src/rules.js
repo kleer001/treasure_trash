@@ -1038,7 +1038,9 @@ export function explain(s, dir, opts = {}) {
     const steps = [mkStep({
       moved: train.filter(c => !swallowed.some(([sc]) => sc[0] === c[0] && sc[1] === c[1]))
         .map(([x, y]) => ({ o: cell(s, x, y).o, from: [x, y], to: [x + k * dx, y + k * dy] })),
-      gone: swallowed.map(([at, o2]) => ({ o: o2, at: [at[0] + k * dx, at[1] + k * dy] })),
+      // Named by the cell the STAGE holds it at, which is where it started rather than the
+      // grate it was travelling into.
+      gone: swallowed.map(([at, o2]) => ({ o: o2, at })),
       impact: true,
     })];
     if (shedAt || passedTo.moved.length || passedTo.bodies.length) {
@@ -1226,7 +1228,7 @@ export function explain(s, dir, opts = {}) {
     const step = mkStep({
       moved: gone ? [] : [{ o, from: [tx, ty], to: at,
         ...(lands !== o && { becomes: lands }), ...(into !== null && { parent: into }) }],
-      gone: gone ? [{ o, at }] : [],
+      gone: gone ? [{ o, at: [tx, ty] }] : [],
     });
     if (tips && pours) {
       step.spawned.push({ o: NONE, at: c2, from: [tx, ty], effect: 'pours' });

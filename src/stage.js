@@ -120,8 +120,12 @@ export function applyStep(stage, step, racTo = null) {
   }
 
   for (const g of step.gone) {
+    // Loud for the reason `moved` is: a step naming a sprite the stage does not hold means the
+    // rules and the stage disagree about the board. Passing over it quietly leaves the sprite
+    // drawn where it was consumed, which reads as a rules bug and is found only by playing.
     const sp = find(stage, g.o, g.at);
-    if (sp) sp.dying = true;                        // the one thing that really does deflate
+    if (!sp) throw new Error(`no ${g.o} sprite at ${g.at} to consume`);
+    sp.dying = true;                                // the one thing that really does deflate
   }
 
   for (const sp of step.spawned) {

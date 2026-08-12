@@ -311,3 +311,15 @@ test('a swept container reports what it becomes as it sheds', () => {
   assert.equal(head.becomes, CAN_EMPTY, 'the can that sheds says so');
   assert.equal(r.steps[0].spawned.filter(sp => sp.o === BAG).length, 1);
 });
+
+test('a grate names what it swallows by the cell the stage holds it at', () => {
+  // `gone` is matched against a sprite's ANCHOR — where it stood before the step. Naming the
+  // grate it fell into finds nothing, and the sprite is left drawn on the cell the raccoon
+  // walks onto.
+  const slid = audit('grate slide', ['-----', '-@C--', 'E----'], 'r', { water: ['-----', '---O-', '-----'] });
+  assert.deepEqual(slid.steps[0].gone, [{ o: CAN_FULL, at: [2, 1] }]);
+
+  const rolled = audit('grate roll', ['------', '-@W---', 'E-----'], 'r', { water: ['------', '----O-', '------'] });
+  const gone = rolled.steps.flatMap(st => st.gone);
+  assert.deepEqual(gone, [{ o: WHEELIE, at: [2, 1] }]);
+});
