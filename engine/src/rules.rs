@@ -1463,11 +1463,21 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
         if is_magnet(o) {
             // The magnet is an ordinary slider; what it does happens after it lands.
             drop_o(next.at_mut(at.0, at.1), lands);
-            next.at_mut(tx, ty).o = NONE;
             let lk = next.at(tx, ty).lk;
-            next.at_mut(at.0, at.1).lk = lk;
+            next.at_mut(tx, ty).o = NONE;
             next.at_mut(tx, ty).lk = NO_ID;
-            magnet_resolve(&mut next, at.0, at.1, dx, dy);
+            // Unless a grate took it on the way, in which case it never lands and there is no
+            // field to resolve. Nothing holds what it was holding.
+            if gone {
+                if lk != NO_ID {
+                    for (lx, ly) in link_cells(&next, lk) {
+                        next.at_mut(lx, ly).lk = NO_ID;
+                    }
+                }
+            } else {
+                next.at_mut(at.0, at.1).lk = lk;
+                magnet_resolve(&mut next, at.0, at.1, dx, dy);
+            }
             next.rac = (tx, ty);
             return Ok(Outcome::Ok { kind: Kind::Push, next });
         }

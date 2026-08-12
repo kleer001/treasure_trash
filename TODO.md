@@ -86,6 +86,13 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   in use — `stage.js` seeds sprites with it.)
 
 ## Open decisions
+- **A multi-cell piece that a grate swallows whole has no way to say so.** The board is right —
+  the piece is gone — but the step reports only the body's translation, so the stage slides the
+  sprite over the grate and leaves it drawn there. `gone` names a sprite by its OCCUPANT code
+  and a body's sprite is keyed by kind and id, so today's schema cannot express it at all.
+  Reachable: a rug or bicycle whose whole footprint lands on grates. Repro is a two-cell rug on
+  two grate cells, shoved along its axis. Fixing it means deciding the shape — a body form for
+  `gone`, or a `consumed` list beside `piece` — and every implementation follows the choice.
 - **The crow.** Un-pin and design its powers. What can the crow do that the raccoon can't
   — reach gaps, fly over low trash, grab the shiny the burst reveals?
 - **The title.** Treasure was cut, so the name promises loot the game refuses. Blocks

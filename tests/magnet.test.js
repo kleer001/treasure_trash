@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { explain, MAGNET_REACH } from '../src/rules.js';
 import { toState, toGrid } from '../src/format.js';
 
-const S = grid => toState({ id: 't', grid });
+const S = (grid, water) => toState({ id: 't', grid, water });
 const push = (s, dir) => { const r = explain(s, dir); assert.ok(r.ok, `refused: ${r.reason}`); return r.next; };
 const refuse = (s, dir) => { const r = explain(s, dir); assert.ok(!r.ok, 'expected a refusal'); return r.reason; };
 const held = s => s.cells.flat().filter(c => c.lk !== undefined).length;
@@ -89,4 +89,13 @@ test('a magnet will not take hold of something that is already held', () => {
   assert.equal(groups.size, 1, 'still one group: the tow, untouched');
   assert.equal(after.cells.flat().filter(c => c.lk !== undefined).length, 3, 'barrow and both couch cells');
   assert.ok(s, 'board builds');
+});
+
+test('a grate takes a magnet, and there is no field left to resolve', () => {
+  // It never lands, so nothing resolves — and whatever it was holding is let go, because the
+  // thing that held it is gone.
+  const s = S(['-------', '-@q-C-E', '-------'], ['-------', '---O---', '-------']);
+  const r = explain(s, 'r');
+  assert.ok(r.ok, `refused: ${r.reason}`);
+  assert.deepEqual(toGrid(r.next), ['-------', '--@-C-E', '-------'], 'the magnet is gone, the can stayed');
 });

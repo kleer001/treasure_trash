@@ -1241,10 +1241,17 @@ export function explain(s, dir, opts = {}) {
     if (isMagnet(o)) {
       // The magnet is an ordinary slider; what it does happens after it lands.
       drop(cell(next, at[0], at[1]), lands);
+      const lk = cell(next, tx, ty).lk;
       cell(next, tx, ty).o = NONE;
-      cell(next, at[0], at[1]).lk = cell(next, tx, ty).lk;
       cell(next, tx, ty).lk = undefined;
-      magnetResolve(next, at[0], at[1], step, dx, dy);
+      // Unless a grate took it on the way, in which case it never lands and there is no field
+      // to resolve. Nothing holds what it was holding.
+      if (gone) {
+        if (lk !== undefined) for (const [x, y] of linkCells(next, lk)) cell(next, x, y).lk = undefined;
+      } else {
+        cell(next, at[0], at[1]).lk = lk;
+        magnetResolve(next, at[0], at[1], step, dx, dy);
+      }
       next.rac = { x: tx, y: ty };
       return done(next, PUSH, step);
     }
