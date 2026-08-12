@@ -36,8 +36,9 @@ function named(prev, step) {
   step.gone.forEach(g => t.add(key(g.at)));
   step.spawned.forEach(sp => t.add(key(sp.at)));
   step.moved.forEach(m => { t.add(key(m.from)); t.add(key(m.to)); });
-  if (step.piece) {
-    const { kind, ref, dx, dy } = step.piece;
+  // One body or several — a tow moves a barrow and its load in one beat, and a rug that sets a
+  // bicycle going moves two pieces. Same shape `applyStep` reads.
+  for (const { kind, ref, dx, dy } of [step.piece ?? []].flat()) {
     const cells = kind === 'cart' ? cartCells(prev, ref) : pieceCells(prev, ref);
     assert.ok(cells.length, `piece ${kind}:${ref} has no cells on the board it moves from`);
     for (const [x, y] of cells) { t.add(`${x},${y}`); t.add(`${x + dx},${y + dy}`); }
@@ -120,8 +121,7 @@ test('an empty can is one move and nothing else', () => {
 test('a couch reports one rigid translation, not four cell edits', () => {
   const r = audit('couch', ['-----', '-FF--', '-FF--', '-@---', 'E----'], 'u');
   const [step] = r.steps;
-  assert.equal(step.piece.kind, 'furniture');
-  assert.deepEqual([step.piece.dx, step.piece.dy], [0, -1]);
+  assert.deepEqual(step.piece, [{ kind: 'furniture', ref: 0, dx: 0, dy: -1 }]);
   assert.deepEqual(step.moved, [], 'a rigid body is one piece, not a pile of moves');
 });
 
@@ -287,4 +287,27 @@ test('nothing is traced unless it is asked for', () => {
   const plain = explain(s, 'r');
   assert.equal(plain.frames, undefined);
   assert.equal(plain.steps, undefined);
+});
+
+test('a rug that sets a bicycle going reports the bicycle as a BODY', () => {
+  // Both are multi-cell, so both have one sprite for a whole footprint. Naming the bicycle's
+  // cells in `moved` names sprites the stage does not hold, and `applyStep` throws — which is
+  // invisible to a board comparison and shows only on screen.
+  const r = audit('rug', ['----------', '-@UUU--YY-', 'E---------'], 'r');
+  const [step] = r.steps;
+  assert.deepEqual(step.moved, [], 'a body is never an occupant sprite');
+  assert.deepEqual(step.piece, [
+    { kind: 'furniture', ref: 1, dx: 2, dy: 0 },     // the rug, the whole of its roll
+    { kind: 'furniture', ref: 0, dx: 1, dy: 0 },     // the bicycle it handed off to
+  ]);
+});
+
+test('a swept container reports what it becomes as it sheds', () => {
+  // The head of the line is the only cell with room beyond it, so it is the only one that can
+  // shed — and the board empties it. A `moved` entry with no `becomes` leaves the sprite drawn
+  // full beside the bag it just threw, which reads as two bags.
+  const r = audit('sweep', ['-----------', '-@rC-------', 'E----------'], 'r');
+  const head = r.steps[0].moved.find(m => m.o === CAN_FULL);
+  assert.equal(head.becomes, CAN_EMPTY, 'the can that sheds says so');
+  assert.equal(r.steps[0].spawned.filter(sp => sp.o === BAG).length, 1);
 });

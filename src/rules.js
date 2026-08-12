@@ -470,10 +470,11 @@ const cartCanEnter = (s, x, y, dx, dy) => {
  * forward, so a cascade is a straight run on a finite board and cannot fail to end.
  */
 function handOff(next, from, dx, dy) {
-  const moved = [];
+  const moved = [], bodies = [];
   for (let p = from; inGrid(next, ...p) && rollsHere(next, ...p, dx, dy);) {
     const c = cell(next, ...p);
-    const own = isMultiCell(c.o) ? pieceCells(next, c.pid) : [[...p]];
+    const multi = isMultiCell(c.o), pid = c.pid;
+    const own = multi ? pieceCells(next, c.pid) : [[...p]];
     const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
     const blockedAt = j => own.map(([x, y]) => [x + j * dx, y + j * dy])
       .filter(([x, y]) => !ownSet.has(`${x},${y}`) && !travelsInto(next, x, y, dx, dy)).length > 0;
@@ -491,12 +492,15 @@ function handOff(next, from, dx, dy) {
       if (isGrate(to)) return;
       to.o = was[i].o; to.pid = was[i].pid;
     });
-    own.forEach(([x, y], i) =>
+    // A multi-cell piece is a BODY: it has one sprite for the whole footprint, and naming its
+    // cells here would name sprites the stage does not hold.
+    if (multi) bodies.push({ kind: 'furniture', ref: pid, dx: j * dx, dy: j * dy });
+    else own.forEach(([x, y], i) =>
       moved.push({ o: was[i].o, from: [x, y], to: [x + j * dx, y + j * dy] }));
     const lead = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
     p = [lead[0] + (j + 1) * dx, lead[1] + (j + 1) * dy];
   }
-  return moved;
+  return { moved, bodies };
 }
 
 /**
@@ -966,11 +970,13 @@ export function explain(s, dir, opts = {}) {
     // it going, and one lying across it is simply what the rug stops against.
     const lead = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
     const passed = ROLLS_LONGWAYS.has(o)
-      ? handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy) : [];
+      ? handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy)
+      : { moved: [], bodies: [] };
     next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
     return done(next, PUSH, mkStep({
-      piece: { kind: 'furniture', ref: target.pid, dx, dy },
-      moved: passed,
+      // The whole roll in one beat, so the body's own entry carries the whole distance.
+      piece: [{ kind: 'furniture', ref: target.pid, dx: k * dx, dy: k * dy }, ...passed.bodies],
+      moved: passed.moved,
     }));
   }
 
@@ -1035,13 +1041,14 @@ export function explain(s, dir, opts = {}) {
       gone: swallowed.map(([at, o2]) => ({ o: o2, at: [at[0] + k * dx, at[1] + k * dy] })),
       impact: true,
     })];
-    if (shedAt || passedTo.length) {
+    if (shedAt || passedTo.moved.length || passedTo.bodies.length) {
       frames.push(next);
       steps.push(mkStep({
+        piece: passedTo.bodies.length ? passedTo.bodies : null,
         moved: [
           ...(shedAt ? [{ o: WHEELIE, from: [rear[0] + k * dx, rear[1] + k * dy],
                           to: [rear[0] + k * dx, rear[1] + k * dy], becomes: WHEELIE_EMPTY }] : []),
-          ...passedTo,
+          ...passedTo.moved,
         ],
         spawned: shedAt ? [{ o: BAG, at: shedAt, from: [rear[0] + k * dx, rear[1] + k * dy] }] : [],
       }));
@@ -1144,6 +1151,7 @@ export function explain(s, dir, opts = {}) {
 
     const next = cloneState(s);
     const step = mkStep({ moved: [], gone: [] });
+    let headMoved = null;
     for (const [x, y] of line) { const c = cell(next, x, y); c.o = NONE; c.lk = undefined; }
     for (const [x, y] of [...line].reverse()) {
       const from = [x, y], to = [x + k * dx, y + k * dy];
@@ -1163,14 +1171,21 @@ export function explain(s, dir, opts = {}) {
       // left behind belongs to whatever is standing there now, which is a different board.
       const c = cell(next, ...to);
       c.o = what; c.lk = cell(s, x, y).lk;
-      step.moved.push({ o: what, from, to });
+      const m = { o: what, from, to };
+      step.moved.push(m);
+      if (x === head[0] && y === head[1]) headMoved = m;
     }
     // Only the head has a free cell beyond it; every other has its neighbour there, so the shed
     // rule needs no statement of its own.
     const headTo = [head[0] + k * dx, head[1] + k * dy];
     const headWas = cell(s, ...head).o;
-    if (sheds(headWas) && cell(next, ...headTo).o === headWas) {
-      if (tipFits(next, headWas, headTo, dx, dy)) tipOut(next, headWas, headTo, dx, dy, step);
+    if (sheds(headWas) && cell(next, ...headTo).o === headWas
+        && tipFits(next, headWas, headTo, dx, dy)) {
+      tipOut(next, headWas, headTo, dx, dy, step);
+      // The container empties as it lands, and the sprite is already drawn: without this it
+      // keeps its old kind, and a can still drawn full beside the bag it just shed reads as
+      // two bags.
+      if (headMoved && landsAs(headWas) !== headWas) headMoved.becomes = landsAs(headWas);
     }
     next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
     return done(next, PUSH, step);
