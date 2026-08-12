@@ -127,6 +127,7 @@ export function applyStep(stage, step, racTo = null) {
     // has just thrown reads as two bags.
     if (m.becomes !== undefined) sp.kind = m.becomes;
     if (CONSUMES.has(m.effect)) sp.spent = true;
+    if (m.effect === 'falls') sp.falls = true;
     if (aboard && m.from[0] === m.to[0] && m.from[1] === m.to[1])
       sp.nudge = [step.piece.dx, step.piece.dy];
   }
@@ -147,7 +148,7 @@ export function applyStep(stage, step, racTo = null) {
                    // Where it came FROM is where a drawer's body still is.
                    face: [Math.sign(sp.at[0] - ax), Math.sign(sp.at[1] - ay)],
                    seed: (stage.nextId * 2654435761) >>> 0, parent: null, dying: false,
-                   spent: CONSUMES.has(sp.effect) };
+                   spent: CONSUMES.has(sp.effect), falls: sp.effect === 'falls' };
     stage.sprites.push(born);
   }
 
@@ -169,6 +170,9 @@ export function applyStep(stage, step, racTo = null) {
  * deflate always keep the beat's own time — a nudged sprite has no distance to normalise by,
  * and a deflating one is timed by the beat that consumed it rather than by how far it drifted.
  */
+/** When something dropping through a grate has finished travelling and starts going down. */
+const FALL_AT = 0.55;
+
 export function advance(stage, u, cells = 0) {
   for (const sp of stage.sprites) {
     const d = Math.abs(sp.tx - sp.ax) + Math.abs(sp.ty - sp.ay);
@@ -177,6 +181,15 @@ export function advance(stage, u, cells = 0) {
     sp.y = sp.ay + (sp.ty - sp.ay) * su;
     if (sp.nudge) { sp.x += sp.nudge[0] * NUDGE * bump(u); sp.y += sp.nudge[1] * NUDGE * bump(u); }
     if (sp.dying) sp.deflate = 1 - u;
+    // Down a grate is two things in one beat and the order is the whole of what makes it read:
+    // it ARRIVES over the grate, and only then goes down it. Shrinking on the way would say it
+    // was disappearing rather than falling, and the cell it fell into would not be legible.
+    if (sp.falls) {
+      const fly = Math.min(1, u / FALL_AT);
+      sp.x = sp.ax + (sp.tx - sp.ax) * fly;
+      sp.y = sp.ay + (sp.ty - sp.ay) * fly;
+      sp.deflate = Math.max(0, Math.min(1, (1 - u) / (1 - FALL_AT)));
+    }
   }
 }
 
@@ -236,6 +249,12 @@ export function pileLook(seed) {
 const dist = st => Math.max(1,
   ...st.moved.map(m => Math.abs(m.to[0] - m.from[0]) + Math.abs(m.to[1] - m.from[1])));
 
+/** Whether anything in this step goes down a grate — which is a beat of its own, after the
+ *  travelling is done. Crammed into the same beat it is three frames, which reads as the sprite
+ *  being cut rather than as something dropping through. */
+const drops = st =>
+  st.spawned.some(sp => sp.effect === 'falls') || st.moved.some(m => m.effect === 'falls');
+
 /**
  * A traced action, cut into the segments a clock can play. One action can be several cells of
  * travel, and the cells are not independent, so consecutive cart steps are welded into ONE
@@ -260,8 +279,9 @@ export function timeline(r, cellTime) {
       const roll = it.step.impact === true;
       // A step reporting `impact` is paced by how far it travelled, since it may report one
       // step for many cells. Everything else is ONE beat however far its pieces fly, so it
-      // gets no pace at all.
-      segs.push({ items: [it], cells: dist(it.step), dur: (roll ? dist(it.step) : 1) * cellTime,
+      // gets no pace at all — plus one more for anything that has a grate to go down.
+      const beats = (roll ? dist(it.step) : 1) + (drops(it.step) ? 1 : 0);
+      segs.push({ items: [it], cells: dist(it.step), dur: beats * cellTime,
                   roll, pace: roll ? dist(it.step) : 0 });
     }
   }

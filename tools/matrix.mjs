@@ -47,8 +47,11 @@ export const PIECES = {
   magnetU: 'f', magnetD: 'l', magnetL: 'p', magnetR: 'q',
 };
 
-/** The multi-cell pieces, written as a run of one letter. */
+/** The multi-cell pieces, written as a run of one letter — and the letter a SECOND one of the
+ *  same kind is written with. A 4-connected run of one letter is one piece, so two of a kind
+ *  standing flush merge into a single illegal blob unless they are spelled apart. */
 export const BODIES = { couch: 'F', bicycle: 'Y', rug: 'U' };
+const SECOND = { F: 'G', Y: 'Z', U: 'V' };
 
 /** Every lane the `:water` mask carries. `-` is the control: the same case on bare floor. */
 export const LANES = {
@@ -278,7 +281,7 @@ export function corridor({ left, right = null, lane = '-', vertical = false }) {
   grid[ROW][1] = '@';
   grid[ROW][W - 2] = 'E';
 
-  const isBody = g => Object.values(BODIES).includes(g);
+  const isBody = g => Object.values(BODIES).includes(g) || Object.values(SECOND).includes(g);
   // Where a piece put down at column x reaches to, along the shove.
   const put = (glyph, x) => {
     if (!isBody(glyph)) { grid[ROW][x] = glyph; return [[x, ROW]]; }
@@ -298,7 +301,7 @@ export function corridor({ left, right = null, lane = '-', vertical = false }) {
 
   let at = [[front, ROW]];
   if (right !== null) {
-    const theirs = put(right, front);
+    const theirs = put(right === left ? SECOND[right] ?? right : right, front);
     if (!theirs) return null;
     at = theirs;
   }

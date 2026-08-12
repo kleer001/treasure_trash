@@ -328,3 +328,30 @@ test('easeOut is the other envelope: it arrives slowing down', () => {
   const mid = (easeOut(0.5) - easeOut(0.49)) / 0.01;
   assert.ok(last < mid, 'it is slower at the end than in the middle');
 });
+
+test('what goes down a grate arrives first, then drops', () => {
+  // Two things in one beat, and the order is the whole of what makes it read as falling: it
+  // travels over the grate at full size, and only then goes down. Shrinking on the way would
+  // say it was disappearing rather than dropping, and would not say which cell took it.
+  const stage = { sprites: [], nextId: 0 };
+  applyStep(stage, {
+    moved: [], gone: [], piece: null, impact: false,
+    spawned: [{ o: BAG, at: [3, 1], from: [1, 1], effect: 'falls' }],
+  });
+  const [bag] = stage.sprites;
+  assert.equal(bag.falls, true);
+  assert.equal(bag.spent, true, 'the board never received it');
+
+  advance(stage, 0.3);
+  assert.equal(bag.deflate, 1, 'still whole while it is travelling');
+  assert.ok(bag.x > 1 && bag.x < 3, 'and on its way');
+
+  advance(stage, 0.6);
+  assert.equal(bag.x, 3, 'over the grate before it starts to go');
+  assert.ok(bag.deflate < 1 && bag.deflate > 0, 'and going');
+
+  advance(stage, 1);
+  assert.equal(bag.deflate, 0, 'gone by the end of the beat');
+  settle(stage);
+  assert.deepEqual(stage.sprites, [], 'and off the stage');
+});

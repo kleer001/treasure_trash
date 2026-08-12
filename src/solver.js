@@ -184,9 +184,18 @@ export function reroot(a, start) {
  * Where `analyze` keeps a cloned board per state so it can report paths and pars, this keeps
  * only keys and adjacency — boards are dropped as soon as they are expanded. That is what
  * makes it affordable to run for every room the player opens.
+ *
+ * BOUNDED, and this one gives up rather than throwing. `analyze` refuses to truncate because
+ * every claim downstream of it is only worth anything if the graph is whole; this answers a
+ * question the player can live without an answer to, and a room whose graph does not fit is a
+ * room where the honest reply is nothing at all. Past the bound it RETURNS NULL, which the
+ * indicator already treats as "cannot say" — and the caller stops driving it, which is the
+ * point: unbounded, a room too big to enumerate takes a slice of every frame for as long as it
+ * is open, and grows a map that never stops growing.
  */
 export function* deadScan(start, opts = {}) {
   const budget = opts.budget ?? 1200;
+  const maxStates = opts.maxStates ?? 120_000;   // a memory guard; the caller bounds the TIME
   const adj = new Map();                       // key -> [key], the only thing retained
   const wins = [];
   const seen = new Set([stateKey(start)]);
@@ -206,6 +215,7 @@ export function* deadScan(start, opts = {}) {
       }
       adj.set(key, outs);
       if (isWon(s)) wins.push(key);
+      if (seen.size > maxStates) return null;
       if (++work % budget === 0) yield { scanned: work };
     }
     frontier = next;                           // the previous layer's boards go out of scope

@@ -348,9 +348,18 @@ function load(i){
 /** Whether the board he is standing on can still be won. Silent until the scan lands. */
 function readLost(){ lost = !!deadKeys && !won && deadKeys.has(stateKey(state)); }
 
+// How long the answer is worth waiting for. Every shipped room lands inside a small fraction of
+// this — the slowest is under half a second of work and the average is a couple of frames — so
+// what the budget actually bounds is the rooms that were never going to finish: a board with
+// thirty movable pieces has a graph that runs to tens of millions, and scanning it took half a
+// minute of taking a bite out of every frame. The player feels that as a game that will not
+// answer the arrow key, which is a bad trade for a verdict that is not coming.
+const SCAN_BUDGET_MS = 1200;
+let scanSpent = 0;
+
 function startScan(){
   if(scanRaf) cancelAnimationFrame(scanRaf);
-  deadKeys = null; lost = false;
+  deadKeys = null; lost = false; scanSpent = 0;
   scan = deadScan(state);
   scanRaf = requestAnimationFrame(pumpScan);
 }
@@ -364,10 +373,14 @@ function pumpScan(){
   while(performance.now() - t0 < 6){
     const r = scan.next();
     if(!r.done) continue;
+    // Null is the scan giving up on a room too big to enumerate. Either way, stop driving it:
+    // the slice is charged to every frame the room is open, and there is no answer coming.
     deadKeys = r.value; scan = null;
-    readLost(); render();                 // the room may already have been lost while it thought
+    if(deadKeys){ readLost(); render(); }  // the room may already have been lost while it thought
     return;
   }
+  scanSpent += performance.now() - t0;
+  if(scanSpent >= SCAN_BUDGET_MS){ scan = null; return; }   // silent, and out of the frame
   scanRaf = requestAnimationFrame(pumpScan);
 }
 /** The stage at rest on the current board — every jump that is not an action goes through here. */
@@ -408,6 +421,22 @@ function drawSprite(sp, f){
   });
 }
 
+/** Whatever goes down a grate, drawn going down it: smaller and fainter as it drops.
+ *
+ *  Here rather than in each drawing, because `k` is a scale only some of them take and every
+ *  kind can end up over a grate — a bag out of a can, a can out of a cart, a tyre that rolled
+ *  onto one. Vanishing between frames instead reads as the sprite being forgotten. */
+function drawFalling(sp, f){
+  const k = sp.deflate ?? 1;
+  if(k <= 0) return;
+  const cx = (sp.x + 0.5) * CS, cy = (sp.y + 0.5) * CS;
+  ctx.save();
+  ctx.globalAlpha = k;
+  ctx.translate(cx, cy); ctx.scale(k, k); ctx.translate(-cx, -cy);
+  drawSprite(sp, f);
+  ctx.restore();
+}
+
 const comp = createCompositor([
   { name:'clear', draw:(ctx,f)=>ctx.clearRect(0,0,f.w,f.h) },
 
@@ -443,7 +472,7 @@ const comp = createCompositor([
   }},
 
   ...BANDS.map((name,band)=>({ name, draw:(ctx,f)=>{
-    for(const sp of f.sprites) if(bandOf(sp)===band) drawSprite(sp,f);
+    for(const sp of f.sprites) if(bandOf(sp)===band) (sp.falls ? drawFalling : drawSprite)(sp,f);
   }})),
 
   // Fan preview, over everything including the exit sign. Always pale yellow: it answers
