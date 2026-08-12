@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, bagsLeft } from '../src/rules.js';
+import { explain, bagsLeft, NONE } from '../src/rules.js';
 import { toState, toGrid, toCart } from '../src/format.js';
 
 const S = (grid, cart) => toState({ id: 't', grid, cart });
@@ -98,4 +98,17 @@ test('tipping lets go of what it was towing', () => {
   for (const d of ['u', 'r']) s = push(s, d);
   s = push(s, 'd');                                   // across the axis: it tips
   assert.equal(linked(s).length, 0, 'the link is gone');
+});
+
+test('a tipping barrow is a BODY, not an occupant that moved', () => {
+  // Across its axis the barrow turns over: it goes one cell and its load carries on one
+  // further. The barrow has a cart sprite keyed by id — naming it in `moved` asks the stage
+  // for an occupant of code NONE, which it does not hold.
+  const s = S(['-----', '--@--', '--C--', '-----', '-----', 'E----'],
+              ['-----', '-----', '--y--', '-----', '-----', '-----']);
+  const r = explain(s, 'd', { trace: true });
+  assert.ok(r.ok, `refused: ${r.reason}`);
+  const step = r.steps.at(-1);
+  assert.deepEqual([step.piece].flat(), [{ kind: 'cart', ref: 0, dx: 0, dy: 1 }]);
+  assert.ok(!step.moved.some(m => m.o === NONE), 'nothing of code NONE is an occupant sprite');
 });

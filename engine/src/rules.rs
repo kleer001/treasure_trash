@@ -691,6 +691,14 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
 
 // --- carrying on ------------------------------------------------------------------------------
 
+/// The cell of a piece furthest along the shove. Ties keep the first in raster order.
+fn lead_of(own: &[Pt], dx: i32, dy: i32) -> Pt {
+    own.iter()
+        .copied()
+        .reduce(|a, b| if a.0 * dx + a.1 * dy >= b.0 * dx + b.1 * dy { a } else { b })
+        .expect("a piece has cells")
+}
+
 /// IMPACT, for whatever is standing there. A train stops; if what stopped it rolls this way, the
 /// motion carries on into it, and into whatever THAT stops against. Every hand-off goes strictly
 /// forward, so a cascade is a straight run on a finite board and cannot fail to end.
@@ -733,10 +741,10 @@ fn hand_off(next: &mut State, from: Pt, dx: i32, dy: i32) {
             t.o = was[i].0;
             t.pid = was[i].1;
         }
-        let lead = *own
-            .iter()
-            .max_by_key(|&&(x, y)| x * dx + y * dy)
-            .expect("a piece has cells");
+        // Ties keep the FIRST cell in raster order, which is what `reduce` does on the JS side.
+        // A piece lying ACROSS the shove has every cell tied, and which one is called the lead
+        // decides the cell the hand-off starts from — so the tie-break is a rule, not a detail.
+        let lead = lead_of(&own, dx, dy);
         p = (lead.0 + (j + 1) * dx, lead.1 + (j + 1) * dy);
     }
 }
@@ -1187,7 +1195,7 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
         // The same hand-off every roller gets: a rug that reaches a bicycle lying the same way
         // sets it going, and one lying across it is simply what the rug stops against.
         if rolls_longways(o) {
-            let lead = *own.iter().max_by_key(|&&(ox, oy)| ox * dx + oy * dy).expect("cells");
+            let lead = lead_of(&own, dx, dy);
             hand_off(&mut next, (lead.0 + (k + 1) * dx, lead.1 + (k + 1) * dy), dx, dy);
         }
         next.rac = if is_clear_floor(&next, tx, ty) { (tx, ty) } else { s.rac };
@@ -1460,27 +1468,6 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
                 Some(drops) => drop_o(next.at_mut(c2.0, c2.1), drops),
             }
         }
-        if is_magnet(o) {
-            // The magnet is an ordinary slider; what it does happens after it lands.
-            drop_o(next.at_mut(at.0, at.1), lands);
-            let lk = next.at(tx, ty).lk;
-            next.at_mut(tx, ty).o = NONE;
-            next.at_mut(tx, ty).lk = NO_ID;
-            // Unless a grate took it on the way, in which case it never lands and there is no
-            // field to resolve. Nothing holds what it was holding.
-            if gone {
-                if lk != NO_ID {
-                    for (lx, ly) in link_cells(&next, lk) {
-                        next.at_mut(lx, ly).lk = NO_ID;
-                    }
-                }
-            } else {
-                next.at_mut(at.0, at.1).lk = lk;
-                magnet_resolve(&mut next, at.0, at.1, dx, dy);
-            }
-            next.rac = (tx, ty);
-            return Ok(Outcome::Ok { kind: Kind::Push, next });
-        }
         match &shove {
             Some(sh) => apply_into_cart(s, &mut next, sh, lands),
             None if t.soaks => {
@@ -1492,7 +1479,27 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
             None if t.covers && cover(next.at_mut(at.0, at.1)) => {}
             None => drop_o(next.at_mut(at.0, at.1), lands),
         }
+        let lk = next.at(tx, ty).lk;
         next.at_mut(tx, ty).o = NONE;
+        next.at_mut(tx, ty).lk = NO_ID;
+        // The magnet is an ordinary slider; what it does happens after it lands, and it lands
+        // wherever the dispatch above put it — a cart slot is a place to land like any other.
+        // Asking the board where it ended up is also how a grate that took it on the way says
+        // so: there is then no field to resolve, and nothing holds what it was holding.
+        if is_magnet(o) {
+            let rest = match &shove {
+                Some(sh) => sh.file[0],
+                None => at,
+            };
+            if next.at(rest.0, rest.1).o == o {
+                next.at_mut(rest.0, rest.1).lk = lk;
+                magnet_resolve(&mut next, rest.0, rest.1, dx, dy);
+            } else if lk != NO_ID {
+                for (lx, ly) in link_cells(&next, lk) {
+                    next.at_mut(lx, ly).lk = NO_ID;
+                }
+            }
+        }
         next.rac = if is_clear_floor(&next, tx, ty) { (tx, ty) } else { s.rac };
         return Ok(Outcome::Ok { kind: Kind::Push, next });
     }

@@ -826,7 +826,9 @@ export function explain(s, dir, opts = {}) {
       cell(next, tx, ty).o = NONE;
       const landed = cell(next, ...to);
       landed.cart = target.cart; landed.ck = kind; landed.o = NONE;
-      step.moved.push({ o: NONE, from: [tx, ty], to });
+      // The barrow is a BODY. Naming it in `moved` names an occupant sprite of code NONE, which
+      // the stage does not hold and cannot animate.
+      step.piece = { kind: 'cart', ref: target.cart, dx, dy };
       if (load !== NONE) {
         step.moved.push({ o: load, from: [tx, ty], to: out, parent: null,
           effect: effectOf(cell(next, ...out), load),
@@ -1238,23 +1240,6 @@ export function explain(s, dir, opts = {}) {
         effect: effectOf(cell(next, c2[0], c2[1]), drops) });
       drop(cell(next, c2[0], c2[1]), drops);
     }
-    if (isMagnet(o)) {
-      // The magnet is an ordinary slider; what it does happens after it lands.
-      drop(cell(next, at[0], at[1]), lands);
-      const lk = cell(next, tx, ty).lk;
-      cell(next, tx, ty).o = NONE;
-      cell(next, tx, ty).lk = undefined;
-      // Unless a grate took it on the way, in which case it never lands and there is no field
-      // to resolve. Nothing holds what it was holding.
-      if (gone) {
-        if (lk !== undefined) for (const [x, y] of linkCells(next, lk)) cell(next, x, y).lk = undefined;
-      } else {
-        cell(next, at[0], at[1]).lk = lk;
-        magnetResolve(next, at[0], at[1], step, dx, dy);
-      }
-      next.rac = { x: tx, y: ty };
-      return done(next, PUSH, step);
-    }
     if (shove) applyIntoCart(s, next, into, shove, lands, step);
     else if (SLIDES[o].soaks) { soak(cell(next, ...at)); drop(cell(next, ...at), lands); }
     // Spent making the cell walkable. It still MOVES — the sheet slides onto the hazard and goes
@@ -1262,7 +1247,22 @@ export function explain(s, dir, opts = {}) {
     // which is the cell it started from.
     else if (SLIDES[o].covers && cover(cell(next, ...at))) step.gone = [{ o, at: [tx, ty] }];
     else drop(cell(next, at[0], at[1]), lands);
+    const lk = cell(next, tx, ty).lk;
     cell(next, tx, ty).o = NONE;
+    cell(next, tx, ty).lk = undefined;
+    // The magnet is an ordinary slider; what it does happens after it lands, and it lands
+    // wherever the dispatch above put it — a cart slot is a place to land like any other.
+    // Asking the board where it ended up is also how a grate that took it on the way says so:
+    // there is then no field to resolve, and nothing holds what it was holding.
+    if (isMagnet(o)) {
+      const rest = shove ? shove.file[0] : at;
+      if (cell(next, ...rest).o === o) {
+        cell(next, ...rest).lk = lk;
+        magnetResolve(next, ...rest, step, dx, dy);
+      } else if (lk !== undefined) {
+        for (const [x, y] of linkCells(next, lk)) cell(next, x, y).lk = undefined;
+      }
+    }
     // He follows only onto floor he could have walked onto, the same question every travelling
     // branch asks. A ROLLER standing in water is shovable — that is what the water gate lets
     // through — and across its axis a tire takes this branch, so the cell it leaves is the

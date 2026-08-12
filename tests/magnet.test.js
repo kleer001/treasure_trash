@@ -7,9 +7,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { explain, MAGNET_REACH } from '../src/rules.js';
-import { toState, toGrid } from '../src/format.js';
+import { toState, toGrid, toCart } from '../src/format.js';
 
-const S = (grid, water) => toState({ id: 't', grid, water });
+const S = (grid, water, cart) => toState({ id: 't', grid, water, cart });
 const push = (s, dir) => { const r = explain(s, dir); assert.ok(r.ok, `refused: ${r.reason}`); return r.next; };
 const refuse = (s, dir) => { const r = explain(s, dir); assert.ok(!r.ok, 'expected a refusal'); return r.reason; };
 const held = s => s.cells.flat().filter(c => c.lk !== undefined).length;
@@ -98,4 +98,25 @@ test('a grate takes a magnet, and there is no field left to resolve', () => {
   const r = explain(s, 'r');
   assert.ok(r.ok, `refused: ${r.reason}`);
   assert.deepEqual(toGrid(r.next), ['-------', '--@-C-E', '-------'], 'the magnet is gone, the can stayed');
+});
+
+test('a magnet shoved into a cart rides in it, and its field resolves from there', () => {
+  // It is cargo like any other: the cart swallows it and the file shuffles. Placing it with a
+  // plain drop instead would overwrite whatever slot it landed in.
+  const s = S(['-------', '-@q----', 'E------'], null, ['-------', '---PP--', '-------']);
+  const r = explain(s, 'r');
+  assert.ok(r.ok, `refused: ${r.reason}`);
+  assert.deepEqual(toGrid(r.next), ['-------', '--@q---', 'E------'], 'the magnet is in the near slot');
+  assert.deepEqual(toCart(r.next), ['-------', '---PP--', '-------'], 'the cart has not moved');
+});
+
+test('a cart slot over a grate still holds what is shoved into it', () => {
+  // The grate is under the cart, not under the cargo. A magnet is the case that found this:
+  // it was placed with a drop, which a grate refuses, and then its field was resolved off an
+  // empty cell.
+  const s = S(['-------', '-@q----', 'E------'], ['-------', '---O---', '-------'],
+              ['-------', '---PP--', '-------']);
+  const r = explain(s, 'r');
+  assert.ok(r.ok, `refused: ${r.reason}`);
+  assert.deepEqual(toGrid(r.next), ['-------', '--@q---', 'E------'], 'the cart holds it over the grate');
 });
