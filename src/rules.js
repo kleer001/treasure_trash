@@ -63,6 +63,16 @@ export const bodyOfDrawer = (s, [x, y]) => {
 // in `stateKey`. That is the whole reason they are cheaper than a turnstile.
 const ROLLS_LONGWAYS = new Set([BICYCLE, RUG]);
 
+/** Whether the thing standing here rolls THIS way — one cell or many, the same question. A
+ *  multi-cell piece asks it of its own footprint; that is what lets a rug hand its motion to a
+ *  bicycle, and what stops it when the two lie across each other. */
+export const rollsHere = (s, x, y, dx, dy) => {
+  const c = cell(s, x, y);
+  if (isMultiCell(c.o))
+    return ROLLS_LONGWAYS.has(c.o) && longAxis(pieceCells(s, c.pid)) === (dx !== 0 ? 'x' : 'y');
+  return rollsAlong(c, dx, dy);
+};
+
 /** A multi-cell piece's long axis, read off its own footprint. */
 export function longAxis(cells) {
   let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
@@ -411,6 +421,41 @@ const cartCanEnter = (s, x, y, dx, dy) => {
  * `entry` is the cart cell the raccoon shoved. `trace` collects a frame per transition; off
  * by default, since the clones cost and `analyze()` wants only the last board.
  */
+/**
+ * IMPACT, for whatever is standing there. A train stops; if what stopped it rolls this way, the
+ * motion carries on into it, and into whatever THAT stops against. Every hand-off goes strictly
+ * forward, so a cascade is a straight run on a finite board and cannot fail to end.
+ */
+function handOff(next, from, dx, dy) {
+  const moved = [];
+  for (let p = from; inGrid(next, ...p) && rollsHere(next, ...p, dx, dy);) {
+    const c = cell(next, ...p);
+    const own = isMultiCell(c.o) ? pieceCells(next, c.pid) : [[...p]];
+    const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
+    const blockedAt = j => own.map(([x, y]) => [x + j * dx, y + j * dy])
+      .filter(([x, y]) => !ownSet.has(`${x},${y}`) && !travelsInto(next, x, y, dx, dy)).length > 0;
+    let j = 0;
+    while (!blockedAt(j + 1)) {
+      j++;
+      if (own.some(([x, y]) => isTar(cell(next, x + j * dx, y + j * dy))
+                            || isGrate(cell(next, x + j * dx, y + j * dy)))) break;
+    }
+    if (j === 0) break;
+    const was = own.map(([x, y]) => ({ o: cell(next, x, y).o, pid: cell(next, x, y).pid }));
+    for (const [x, y] of own) { const t = cell(next, x, y); t.o = NONE; t.pid = undefined; }
+    own.forEach(([x, y], i) => {
+      const to = cell(next, x + j * dx, y + j * dy);
+      if (isGrate(to)) return;
+      to.o = was[i].o; to.pid = was[i].pid;
+    });
+    own.forEach(([x, y], i) =>
+      moved.push({ o: was[i].o, from: [x, y], to: [x + j * dx, y + j * dy] }));
+    const lead = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
+    p = [lead[0] + (j + 1) * dx, lead[1] + (j + 1) * dy];
+  }
+  return moved;
+}
+
 /** An open cabinet shoved anywhere but shut: body and drawer move together, one cell. */
 function shoveCabinet(s, body, draw, dx, dy, done) {
   const pair = [body, draw];
@@ -709,8 +754,16 @@ export function explain(s, dir, opts = {}) {
       const c = cell(next, x, y);
       c.o = o; c.pid = target.pid;
     }
+    // The same hand-off every roller gets: a rug that reaches a bicycle lying the same way sets
+    // it going, and one lying across it is simply what the rug stops against.
+    const lead = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
+    const passed = ROLLS_LONGWAYS.has(o)
+      ? handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy) : [];
     next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
-    return done(next, PUSH, mkStep({ piece: { kind: 'furniture', ref: target.pid, dx, dy } }));
+    return done(next, PUSH, mkStep({
+      piece: { kind: 'furniture', ref: target.pid, dx, dy },
+      moved: passed,
+    }));
   }
 
   if (rollsAlong(target, dx, dy)) {
@@ -762,23 +815,7 @@ export function explain(s, dir, opts = {}) {
     // IMPACT. The train stopped; if what stopped it rolls, the motion carries on into it and
     // the train stays put. One rule, applied until nothing is left rolling — every hand-off
     // goes strictly forward, so a cascade is a straight run and cannot fail to end.
-    const passedTo = [];
-    for (let p = [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy];
-         inGrid(next, ...p) && rollsAlong(cell(next, ...p), dx, dy);) {
-      let j = 0;
-      while (travelsInto(next, p[0] + (j + 1) * dx, p[1] + (j + 1) * dy, dx, dy)) {
-        j++;
-        const c = cell(next, p[0] + j * dx, p[1] + j * dy);
-        if (isTar(c) || isGrate(c)) break;
-      }
-      if (j === 0) break;
-      const o2 = cell(next, ...p).o;
-      const to = [p[0] + j * dx, p[1] + j * dy];
-      cell(next, ...p).o = NONE;
-      if (!isGrate(cell(next, ...to))) cell(next, ...to).o = o2;
-      passedTo.push({ o: o2, from: [...p], to });
-      p = [to[0] + dx, to[1] + dy];
-    }
+    const passedTo = handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy);
 
     next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
     if (!opts.trace) return { ok: true, kind: PUSH, next };

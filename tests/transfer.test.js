@@ -73,3 +73,21 @@ test('a tyre takes a hand-off along its axis, and refuses one across it', () => 
   assert.deepEqual(toGrid(push(S(['@w--o-E']), 'r')), ['-@-w-oE'], 'along: the roll carries on');
   assert.deepEqual(toGrid(push(S(['@w--O-E']), 'r')), ['-@-wO-E'], 'across: it blocks instead');
 });
+
+// One hand-off rule, whatever shape the receiver is. A multi-cell piece asks the question of its
+// own footprint, so a rug sets a bicycle going only when the two lie the same way — and a
+// bicycle lying across the lane is simply what the rug stops against.
+test('a rolling rug hands its motion to a bicycle whose axis lines up', () => {
+  const after = toGrid(push(S(['@UUU-YY---', 'E---------']), 'r'));
+  assert.equal(after[0], '-@UUU---YY', 'the rug stopped against it and the bicycle went on');
+});
+
+test('and stops dead against one lying across the lane', () => {
+  const after = toGrid(push(S(['@UUU-Y----', '-----Y----', 'E---------']), 'r'));
+  assert.equal(after[0], '-@UUUY----', 'no hand-off: it cannot roll that way');
+  assert.equal(after[1], '-----Y----', 'so it has not moved');
+});
+
+test('a single-cell roller and a multi-cell one hand off to each other', () => {
+  assert.equal(toGrid(push(S(['@w--UUU---', 'E---------']), 'r'))[0], '-@-w---UUU');
+});
