@@ -332,48 +332,47 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
     },
 
     /**
-     * A barrow from above: the tray, and the handles you take hold of.
+     * A barrow from above: the tub, and the two handles you take hold of.
      *
-     * The handles run the axis it rolls on and stick out BOTH ends, which is the one thing this
-     * drawing has to get right. A real barrow has its handles at one end, but a barrow here has
-     * an axis and no facing — shoved either way along it, it scoops the same — so handles on one
-     * end would draw a front the rules do not have. Out both ends they read as the line it runs
-     * along, which is exactly what the piece is.
+     * `horizontal` is the axis it rolls on, and it is the only thing here the rules know about.
+     * Which END the handles sit at they do not: a barrow is shoved either way along its axis and
+     * scoops the same. So the end is fixed by this drawing rather than read off the piece —
+     * left on the side-to-side axis, top on the up-and-down one — and nothing should ever come
+     * to depend on it.
      */
     barrow(x, y, horizontal) {
       const cx = px(x) + CS / 2, cy = px(y) + CS / 2;
-      const [ax, ay] = horizontal ? [1, 0] : [0, 1];       // along the axis
+      const [ax, ay] = horizontal ? [1, 0] : [0, 1];       // along the axis, toward the tub
       const [bx, by] = horizontal ? [0, 1] : [1, 0];       // across it
 
-      // The handles first, so the tray sits over them and they read as passing underneath.
+      // The handles first, so the tub sits over the ends of them and they read as bolted under.
       ctx.lineCap = 'round';
       for (const side of [-1, 1]) {
-        const ox = bx * side * CS * 0.19, oy = by * side * CS * 0.19;
+        const ox = bx * side * CS * 0.17, oy = by * side * CS * 0.17;
+        const from = -0.47, to = 0.14;                     // the shaft, back to under the tub
         ctx.strokeStyle = P.barrowHandle; ctx.lineWidth = CS * 0.075;
         ctx.beginPath();
-        ctx.moveTo(cx + ox - ax * CS * 0.46, cy + oy - ay * CS * 0.46);
-        ctx.lineTo(cx + ox + ax * CS * 0.46, cy + oy + ay * CS * 0.46);
+        ctx.moveTo(cx + ox + ax * CS * from, cy + oy + ay * CS * from);
+        ctx.lineTo(cx + ox + ax * CS * to, cy + oy + ay * CS * to);
         ctx.stroke();
-        // Grips at the ends, which is where a hand goes.
-        ctx.strokeStyle = P.barrowGrip;
-        for (const end of [-1, 1]) {
-          ctx.beginPath();
-          ctx.moveTo(cx + ox + ax * end * CS * 0.46, cy + oy + ay * end * CS * 0.46);
-          ctx.lineTo(cx + ox + ax * end * CS * 0.39, cy + oy + ay * end * CS * 0.39);
-          ctx.stroke();
-        }
+        ctx.strokeStyle = P.barrowGrip;                    // the bit a hand closes on
+        ctx.beginPath();
+        ctx.moveTo(cx + ox + ax * CS * from, cy + oy + ay * CS * from);
+        ctx.lineTo(cx + ox + ax * CS * -0.36, cy + oy + ay * CS * -0.36);
+        ctx.stroke();
       }
       ctx.lineCap = 'butt';
 
-      // The tray: a tub seen down into, its walls tapering to a smaller floor.
-      const tw = CS * 0.62, th = CS * 0.62;
+      // The tub, over at the far end: a tapered tray seen down into.
+      const tw = CS * 0.56, th = CS * 0.56;
+      const mx = cx + ax * CS * 0.19, my = cy + ay * CS * 0.19;
       ctx.fillStyle = P.barrow; ctx.strokeStyle = P.barrowEdge; ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.roundRect(cx - tw / 2, cy - th / 2, tw, th, 7);
+      ctx.roundRect(mx - tw / 2, my - th / 2, tw, th, 7);
       ctx.fill(); ctx.stroke();
       ctx.fillStyle = P.barrowWell;
       ctx.beginPath();
-      ctx.roundRect(cx - tw * 0.31, cy - th * 0.31, tw * 0.62, th * 0.62, 5);
+      ctx.roundRect(mx - tw * 0.31, my - th * 0.31, tw * 0.62, th * 0.62, 5);
       ctx.fill();
     },
 
