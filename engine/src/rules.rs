@@ -300,13 +300,7 @@ fn stuck_in_tar(s: &State, tx: i32, ty: i32) -> bool {
     if c.o == SPONGE && is_glass(c) {
         return true; // shards in the sponge; it does not come off
     }
-    if is_multi_cell_o(c.o) {
-        return s.piece_cells(c.pid).iter().any(|&(x, y)| is_tar(s.at(x, y)));
-    }
-    if c.is_cart() {
-        return s.cart_cells(c.cart).iter().any(|&(x, y)| is_tar(s.at(x, y)));
-    }
-    false
+    body_cells(s, (tx, ty)).iter().any(|&(x, y)| is_tar(s.at(x, y)))
 }
 
 fn can_pour(s: &State, x: i32, y: i32) -> bool {
@@ -364,7 +358,7 @@ fn rolls_here(s: &State, x: i32, y: i32, dx: i32, dy: i32) -> bool {
 fn cart_can_enter(s: &State, x: i32, y: i32, dx: i32, dy: i32) -> bool {
     s.in_grid(x, y) && {
         let c = s.at(x, y);
-        !c.wall && !c.exit && !c.is_cart() && !is_multi_cell_o(c.o) && may_enter(s, x, y, dx, dy)
+        !c.wall && !c.exit && !c.is_cart() && !is_half_of_a_body(s, x, y) && may_enter(s, x, y, dx, dy)
     }
 }
 
@@ -749,6 +743,83 @@ fn hand_off(next: &mut State, from: Pt, dx: i32, dy: i32) {
     }
 }
 
+/// An open cabinet is a BODY and a DRAWER in two ordinary cells, and it is ONE thing: the two
+/// move together or not at all. Given either half, both cells in raster order.
+fn cabinet_pair(s: &State, at: Pt) -> Option<[Pt; 2]> {
+    let o = s.at(at.0, at.1).o;
+    let order = |a: Pt, b: Pt| if (a.1, a.0) <= (b.1, b.0) { [a, b] } else { [b, a] };
+    if is_cabinet_open(o) {
+        let d = drawer_of(s, at);
+        return (s.in_grid(d.0, d.1) && s.at(d.0, d.1).o == DRAWER).then(|| order(at, d));
+    }
+    if o != DRAWER {
+        return None;
+    }
+    body_of_drawer(s, at).map(|b| order(b, at))
+}
+
+/// Whether this cell is one half of something bigger, and so may not be taken on its own.
+fn is_half_of_a_body(s: &State, x: i32, y: i32) -> bool {
+    let c = s.at(x, y);
+    is_multi_cell_o(c.o) || c.is_cart() || cabinet_pair(s, (x, y)).is_some()
+}
+
+/// Every cell of the thing standing here. A body is all of it — anything that moves one cell of
+/// a two-cell thing leaves halves the board cannot even write down.
+fn body_cells(s: &State, at: Pt) -> Vec<Pt> {
+    let c = s.at(at.0, at.1);
+    if is_multi_cell_o(c.o) {
+        s.piece_cells(c.pid)
+    } else if c.is_cart() {
+        s.cart_cells(c.cart)
+    } else if let Some(pair) = cabinet_pair(s, at) {
+        pair.to_vec()
+    } else {
+        vec![at]
+    }
+}
+
+/// Whether a whole body can travel that far, testing against the cells it is vacating — the
+/// same question `clear_at` asks of a couch.
+fn body_travels(s: &State, own: &[Pt], dx: i32, dy: i32) -> bool {
+    own.iter().all(|&(x, y)| {
+        let q = (x + dx, y + dy);
+        own.contains(&q) || travels_into(s, q.0, q.1, dx, dy)
+    })
+}
+
+/// Move the whole body standing at `at`. Its caller has already established that it fits.
+fn slide_body(next: &mut State, at: Pt, dx: i32, dy: i32) {
+    let own = body_cells(next, at);
+    let was: Vec<Cell> = own.iter().map(|&(x, y)| *next.at(x, y)).collect();
+    for &(x, y) in &own {
+        let c = next.at_mut(x, y);
+        c.o = NONE;
+        c.pid = NO_ID;
+        c.cart = NO_ID;
+        c.ck = CART;
+        c.lk = NO_ID;
+    }
+    for (i, &(x, y)) in own.iter().enumerate() {
+        let c = next.at_mut(x + dx, y + dy);
+        c.o = was[i].o;
+        c.pid = was[i].pid;
+        c.cart = was[i].cart;
+        c.ck = was[i].ck;
+        c.lk = was[i].lk;
+    }
+}
+
+/// How far a body may be drawn that way, never more than `max`.
+fn draw_in(next: &State, at: Pt, dx: i32, dy: i32, max: i32) -> i32 {
+    let own = body_cells(next, at);
+    let mut k = 0;
+    while k < max && body_travels(next, &own, dx * (k + 1), dy * (k + 1)) {
+        k += 1;
+    }
+    k
+}
+
 /// Everything a magnet does, and it only ever does it on a shove — nothing on this board moves
 /// unbidden. First the chain it already has follows or lets go, then it takes hold of whatever
 /// is now in reach.
@@ -758,29 +829,18 @@ fn magnet_resolve(next: &mut State, mx: i32, my: i32, dx: i32, dy: i32) {
     let lk = next.at(mx, my).lk;
 
     if lk != NO_ID {
-        let mut held: Vec<Pt> = link_cells(next, lk).into_iter().filter(|&p| p != (mx, my)).collect();
+        let held_now = |s: &State| -> Vec<Pt> {
+            link_cells(s, lk).into_iter().filter(|&p| p != (mx, my)).collect()
+        };
+        let mut held = held_now(next);
 
         // ACROSS the field, what is held keeps pace: it moves the way the magnet moved, or the
         // two simply come apart. ALONG the field there is nothing to keep pace with — the gap
         // closes instead, further down.
         if !held.is_empty() && (dx != 0 || dy != 0) && dx * f.0 + dy * f.1 == 0 {
-            let (hx, hy) = held[0];
-            let to = (hx + dx, hy + dy);
-            if travels_into(next, to.0, to.1, dx, dy) {
-                let was = *next.at(hx, hy);
-                let c0 = next.at_mut(hx, hy);
-                c0.o = NONE;
-                c0.pid = NO_ID;
-                c0.cart = NO_ID;
-                c0.ck = CART;
-                c0.lk = NO_ID;
-                let c1 = next.at_mut(to.0, to.1);
-                c1.o = was.o;
-                c1.pid = was.pid;
-                c1.cart = was.cart;
-                c1.ck = was.ck;
-                c1.lk = was.lk;
-                held = vec![to];
+            if draw_in(next, held[0], dx, dy, 1) > 0 {
+                slide_body(next, held[0], dx, dy);
+                held = held_now(next);
             }
         }
         let on_line = !held.is_empty()
@@ -795,27 +855,10 @@ fn magnet_resolve(next: &mut State, mx: i32, my: i32, dx: i32, dy: i32) {
         } else {
             // It closes the gap by up to two, and stops when it is alongside.
             let (hx, hy) = held[0];
-            let mut k = (hx - mx) * f.0 + (hy - my) * f.1;
-            let mut moved = 0i32;
-            while k > 1 && moved < 2 {
-                let to = (hx - f.0 * (moved + 1), hy - f.1 * (moved + 1));
-                if !travels_into(next, to.0, to.1, -f.0, -f.1) {
-                    break;
-                }
-                moved += 1;
-                k -= 1;
-            }
-            if moved > 0 {
-                let was = *next.at(hx, hy);
-                let c0 = next.at_mut(hx, hy);
-                c0.o = NONE;
-                c0.pid = NO_ID;
-                c0.lk = NO_ID;
-                let to = (hx - f.0 * moved, hy - f.1 * moved);
-                let c1 = next.at_mut(to.0, to.1);
-                c1.o = was.o;
-                c1.pid = was.pid;
-                c1.lk = was.lk;
+            let gap = (hx - mx) * f.0 + (hy - my) * f.1;
+            let k = draw_in(next, (hx, hy), -f.0, -f.1, (gap - 1).min(2));
+            if k > 0 {
+                slide_body(next, (hx, hy), -f.0 * k, -f.1 * k);
             }
         }
     }
@@ -842,30 +885,16 @@ fn magnet_resolve(next: &mut State, mx: i32, my: i32, dx: i32, dy: i32) {
         if c.lk != NO_ID {
             return;
         }
-        let mut moved = 0i32;
-        while moved < k - 1 {
-            let to = (p.0 - f.0 * (moved + 1), p.1 - f.1 * (moved + 1));
-            if !travels_into(next, to.0, to.1, -f.0, -f.1) {
-                break;
-            }
-            moved += 1;
+        let drew = draw_in(next, p, -f.0, -f.1, k - 1);
+        let at = (p.0 - f.0 * drew, p.1 - f.1 * drew);
+        if drew > 0 {
+            slide_body(next, p, -f.0 * drew, -f.1 * drew);
         }
         let lk2 = free_link(next);
-        if moved > 0 {
-            let d = next.at_mut(p.0, p.1);
-            d.o = NONE;
-            d.pid = NO_ID;
-            d.cart = NO_ID;
-            d.ck = CART;
-            let to = (p.0 - f.0 * moved, p.1 - f.1 * moved);
-            let d = next.at_mut(to.0, to.1);
-            d.o = c.o;
-            d.pid = c.pid;
-            d.cart = c.cart;
-            d.ck = c.ck;
-            d.lk = lk2;
-        } else {
-            next.at_mut(p.0, p.1).lk = lk2;
+        // The whole body is held, not the cell the field happened to touch: a link on one cell
+        // of a bicycle is a tow that would drag that cell out of it.
+        for (x, y) in body_cells(next, at) {
+            next.at_mut(x, y).lk = lk2;
         }
         next.at_mut(mx, my).lk = lk2;
         return;
@@ -1289,8 +1318,7 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
                 None => true,
                 Some(c) => {
                     c.o == NONE
-                        || c.is_cart()
-                        || is_multi_cell_o(c.o)
+                        || is_half_of_a_body(&next, draw.0, draw.1)
                         || !travels_into(&next, past.0, past.1, f.0, f.1)
                 }
             };
@@ -1334,11 +1362,7 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
     if o == BROOM {
         let mut line: Vec<Pt> = Vec::new();
         let (mut px, mut py) = (tx, ty);
-        while s.in_grid(px, py)
-            && s.at(px, py).o != NONE
-            && !s.at(px, py).is_cart()
-            && !is_multi_cell_o(s.at(px, py).o)
-        {
+        while s.in_grid(px, py) && s.at(px, py).o != NONE && !is_half_of_a_body(s, px, py) {
             line.push((px, py));
             px += dx;
             py += dy;

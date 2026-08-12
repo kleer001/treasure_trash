@@ -69,6 +69,11 @@ export function stageFrom(state, seed = 1) {
 /** A body's parts keep their places relative to its anchor, so its offsets hold for life. */
 const offsets = (cells, ox, oy) => cells.map(([x, y]) => [x - ox, y - oy]);
 
+/** Effects that consume the sprite in the beat they happen: it plays where it arrives, and is
+ *  then gone. What they have in common is that the BOARD does not hold what arrived — the water
+ *  took it, the grate took it, or there was never an occupant to hold. */
+const CONSUMES = new Set(['fills', 'pours', 'shatters', 'falls']);
+
 const atCell = (sp, x, y) => sp.ax === x && sp.ay === y;
 const find = (stage, kind, [x, y]) =>
   stage.sprites.find(sp => sp.kind === kind && !sp.dying && atCell(sp, x, y));
@@ -114,7 +119,7 @@ export function applyStep(stage, step, racTo = null) {
     // Immediately, not at the end of the beat, or a bin still drawn full alongside the bag it
     // has just thrown reads as two bags.
     if (m.becomes !== undefined) sp.kind = m.becomes;
-    if (m.effect === 'fills') sp.spent = true;
+    if (CONSUMES.has(m.effect)) sp.spent = true;
     if (aboard && m.from[0] === m.to[0] && m.from[1] === m.to[1])
       sp.nudge = [step.piece.dx, step.piece.dy];
   }
@@ -133,7 +138,7 @@ export function applyStep(stage, step, racTo = null) {
     const born = { id: stage.nextId++, kind: sp.effect === 'pours' ? SPLASH : sp.o,
                    x: ax, y: ay, ax, ay, tx: sp.at[0], ty: sp.at[1],
                    seed: (stage.nextId * 2654435761) >>> 0, parent: null, dying: false,
-                   spent: sp.effect === 'fills' || sp.effect === 'pours' };
+                   spent: CONSUMES.has(sp.effect) };
     stage.sprites.push(born);
   }
 

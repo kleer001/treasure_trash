@@ -54,6 +54,28 @@ export const drawerOf = (s, [x, y]) => {
   return [x + f[0], y + f[1]];
 };
 
+/**
+ * An open cabinet is a BODY and a DRAWER in two ordinary cells, and it is ONE thing: the two
+ * move together or not at all. Given either half, both cells, in raster order — null when this
+ * cell is neither half.
+ *
+ * It is not a `pid` piece, because the stage mints multi-cell bodies only when a level loads
+ * and a cabinet grows its second cell mid-move. So the pairing is READ off the facing rather
+ * than stored, exactly as `drawerOf` and `bodyOfDrawer` already read it.
+ */
+export const cabinetPair = (s, [x, y]) => {
+  const c = cell(s, x, y);
+  if (isCabinetOpen(c.o)) {
+    const d = drawerOf(s, [x, y]);
+    return inGrid(s, ...d) && cell(s, ...d).o === DRAWER ? order([[x, y], d]) : null;
+  }
+  if (c.o !== DRAWER) return null;
+  const b = bodyOfDrawer(s, [x, y]);
+  return b ? order([b, [x, y]]) : null;
+};
+
+const order = cells => [...cells].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+
 /** The body a drawer belongs to: the one neighbour whose facing points at it. */
 export const bodyOfDrawer = (s, [x, y]) => {
   for (const d of DIR_ORDER) {
@@ -294,9 +316,7 @@ const stuckInTar = (s, tx, ty) => {
   const c = cell(s, tx, ty);
   if (isTar(c)) return true;
   if (c.o === SPONGE && isGlass(c)) return true;      // shards in the sponge; it does not come off
-  if (isMultiCell(c.o)) return pieceCells(s, c.pid).some(([x, y]) => isTar(cell(s, x, y)));
-  if (isCart(c)) return cartCells(s, c.cart).some(([x, y]) => isTar(cell(s, x, y)));
-  return false;
+  return bodyCells(s, [tx, ty]).some(([x, y]) => isTar(cell(s, x, y)));
 };
 
 export const canRest = (s, x, y) => isOccupiable(s, x, y) || cartAt(s, [x, y]) !== null;
@@ -404,7 +424,10 @@ const drop = (c, o) => { if (isGrate(c)) return; if (o === TRASH) layTrash(c); e
 //   piece    { kind, ref, dx, dy } | null
 //   impact   boolean
 const mkStep = (over = {}) => ({ moved: [], spawned: [], gone: [], piece: null, impact: false, ...over });
-const effectOf = (c, o) => (o === TRASH && c.water ? 'fills' : 'rest');
+// What landing here looks like. A grate takes what arrives regardless of what it is, so the
+// thing that arrives plays its arrival and is then gone — which is what stops the stage holding
+// a sprite for cargo the board never received.
+const effectOf = (c, o) => (isGrate(c) ? 'falls' : o === TRASH && c.water ? 'fills' : 'rest');
 
 // --- tipping -------------------------------------------------------------------------------
 // A container comes to rest in three places — the cell a shove slides it to, the cell a cart
@@ -454,7 +477,7 @@ const landsAs = o => (sheds(o) ? SLIDES[o].slides : o);
 const cartCanEnter = (s, x, y, dx, dy) => {
   if (!inGrid(s, x, y)) return false;
   const c = cell(s, x, y);
-  return !c.wall && !c.exit && !isCart(c) && !isMultiCell(c.o) && mayEnter(s, x, y, dx, dy);
+  return !c.wall && !c.exit && !isCart(c) && !isHalfOfABody(s, x, y) && mayEnter(s, x, y, dx, dy);
 };
 
 /**
@@ -503,6 +526,70 @@ function handOff(next, from, dx, dy) {
   return { moved, bodies };
 }
 
+/** Every cell of the thing standing here. A body is all of it — anything that moves one cell of
+ *  a two-cell thing leaves halves that the board cannot even write down. */
+export const bodyCells = (s, [x, y]) => {
+  const c = cell(s, x, y);
+  if (isMultiCell(c.o)) return pieceCells(s, c.pid);
+  if (isCart(c)) return cartCells(s, c.cart);
+  const pair = cabinetPair(s, [x, y]);
+  return pair ?? [[x, y]];
+};
+
+/** Whether this cell is one half of something bigger, and so may not be taken on its own. The
+ *  question every branch that shifts a single cell has to ask. */
+export const isHalfOfABody = (s, x, y) => {
+  const c = cell(s, x, y);
+  return isMultiCell(c.o) || isCart(c) || cabinetPair(s, [x, y]) !== null;
+};
+
+/** Whether a whole body can travel `k` cells that way, testing against the cells it is vacating
+ *  — the same question `clearAt` asks of a couch. */
+const bodyTravels = (s, own, dx, dy) => {
+  const set = new Set(own.map(([x, y]) => `${x},${y}`));
+  return own.every(([x, y]) =>
+    set.has(`${x + dx},${y + dy}`) || travelsInto(s, x + dx, y + dy, dx, dy));
+};
+
+/**
+ * Name what moved. A cart and a multi-cell piece have ONE sprite for a whole footprint, so they
+ * are named as bodies and naming their cells would ask the stage for sprites it has not got.
+ * Everything else is named cell by cell — which is what an open cabinet needs, since its two
+ * halves are two ordinary occupants that happen to travel together.
+ */
+const nameMove = (step, was, cells, dx, dy) => {
+  if (!step) return;
+  const c = was[0];
+  if (c.cart !== undefined) (step.piece ??= []).push({ kind: 'cart', ref: c.cart, dx, dy });
+  else if (isMultiCell(c.o)) (step.piece ??= []).push({ kind: 'furniture', ref: c.pid, dx, dy });
+  else cells.forEach(([x, y], i) =>
+    step.moved.push({ o: was[i].o, from: [x, y], to: [x + dx, y + dy] }));
+};
+
+/** Move the whole body standing at `at` by (dx,dy). Its caller has already established that it
+ *  fits; this is the write, and the one place a body's cells are carried across whole. */
+function slideBody(next, at, dx, dy, step) {
+  const own = bodyCells(next, at);
+  const was = own.map(([x, y]) => ({ ...cell(next, x, y) }));
+  for (const [x, y] of own) {
+    const c = cell(next, x, y);
+    c.o = NONE; c.pid = undefined; c.cart = undefined; c.ck = undefined; c.lk = undefined;
+  }
+  own.forEach(([x, y], i) => {
+    const c = cell(next, x + dx, y + dy);
+    c.o = was[i].o; c.pid = was[i].pid; c.cart = was[i].cart; c.ck = was[i].ck; c.lk = was[i].lk;
+  });
+  nameMove(step, was, own, dx, dy);
+}
+
+/** How far a body may be drawn along (dx,dy), never more than `max`. */
+const drawIn = (next, at, dx, dy, max) => {
+  const own = bodyCells(next, at);
+  let k = 0;
+  while (k < max && bodyTravels(next, own, dx * (k + 1), dy * (k + 1))) k++;
+  return k;
+};
+
 /**
  * Everything a magnet does, and it only ever does it on a shove — nothing on this board moves
  * unbidden. First the chain it already has follows or lets go, then it takes hold of whatever
@@ -516,22 +603,16 @@ function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
   // The chain is strictly along the facing. Anything that has fallen off that line, or drifted
   // past the reach, is simply let go — which is why the piece needs no distance metric.
   if (lk !== undefined) {
-    let held = linkCells(next, lk).filter(([x, y]) => !(x === mx && y === my));
+    const heldNow = () => linkCells(next, lk).filter(([x, y]) => !(x === mx && y === my));
+    let held = heldNow();
 
     // ACROSS the field, what is held keeps pace: it moves the way the magnet moved, or the two
     // simply come apart. ALONG the field there is nothing to keep pace with — the gap closes
     // instead, further down. A shove that carries the magnet sideways carries its load sideways.
     if (held.length && (dx || dy) && dx * f[0] + dy * f[1] === 0) {
-      const [hx, hy] = held[0];
-      const to = [hx + dx, hy + dy];
-      if (travelsInto(next, ...to, dx, dy)) {
-        const was = { ...cell(next, hx, hy) };
-        const c0 = cell(next, hx, hy);
-        c0.o = NONE; c0.pid = undefined; c0.cart = undefined; c0.ck = undefined; c0.lk = undefined;
-        const c1 = cell(next, ...to);
-        c1.o = was.o; c1.pid = was.pid; c1.cart = was.cart; c1.ck = was.ck; c1.lk = was.lk;
-        step?.moved.push({ o: was.o, from: [hx, hy], to });
-        held = [to];
+      if (drawIn(next, held[0], dx, dy, 1)) {
+        slideBody(next, held[0], dx, dy, step);
+        held = heldNow();
       }
     }
     const onLine = held.length && held.every(([x, y]) => {
@@ -542,22 +623,9 @@ function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
     else {
       // It closes the gap by up to two, and stops when it is alongside.
       const [hx, hy] = held[0];
-      let k = (hx - mx) * f[0] + (hy - my) * f[1];
-      let moved = 0;
-      while (k > 1 && moved < 2) {
-        const to = [hx - f[0] * (moved + 1), hy - f[1] * (moved + 1)];
-        if (!travelsInto(next, ...to, -f[0], -f[1])) break;
-        moved++; k--;
-      }
-      if (moved) {
-        const was = { ...cell(next, hx, hy) };
-        const c0 = cell(next, hx, hy);
-        c0.o = NONE; c0.pid = undefined; c0.lk = undefined;
-        const to = [hx - f[0] * moved, hy - f[1] * moved];
-        const c1 = cell(next, ...to);
-        c1.o = was.o; c1.pid = was.pid; c1.lk = was.lk;
-        step?.moved.push({ o: was.o, from: [hx, hy], to });
-      }
+      const gap = (hx - mx) * f[0] + (hy - my) * f[1];
+      const k = drawIn(next, held[0], -f[0], -f[1], Math.min(2, gap - 1));
+      if (k) slideBody(next, [hx, hy], -f[0] * k, -f[1] * k, step);
     }
   }
 
@@ -573,22 +641,13 @@ function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
     // One link per piece. A barrow already towing cannot also be captured — the second hold
     // would overwrite the first and leave what it was towing orphaned, with nothing to say so.
     if (c.lk !== undefined) return;
-    let moved = 0;
-    while (moved < k - 1) {
-      const to = [p[0] - f[0] * (moved + 1), p[1] - f[1] * (moved + 1)];
-      if (!travelsInto(next, ...to, -f[0], -f[1])) break;
-      moved++;
-    }
-    const was = { ...c };
+    const drew = drawIn(next, p, -f[0], -f[1], k - 1);
+    const at = [p[0] - f[0] * drew, p[1] - f[1] * drew];
+    if (drew) slideBody(next, p, -f[0] * drew, -f[1] * drew, step);
     const lk2 = freeLink(next);
-    if (moved) {
-      c.o = NONE; c.pid = undefined; c.cart = undefined; c.ck = undefined;
-      const to = [p[0] - f[0] * moved, p[1] - f[1] * moved];
-      const d = cell(next, ...to);
-      d.o = was.o; d.pid = was.pid; d.cart = was.cart; d.ck = was.ck;
-      d.lk = lk2;
-      step?.moved.push({ o: was.o, from: [...p], to });
-    } else c.lk = lk2;
+    // The whole body is held, not the cell the field happened to touch: a link on one cell of a
+    // bicycle is a tow that would drag that cell out of it.
+    for (const [x, y] of bodyCells(next, at)) cell(next, x, y).lk = lk2;
     cell(next, mx, my).lk = lk2;
     return;
   }
@@ -1080,7 +1139,7 @@ export function explain(s, dir, opts = {}) {
     if (!travelsInto(next, ...draw, f[0], f[1])) {
       const past = [draw[0] + f[0], draw[1] + f[1]];
       const inWay = inGrid(next, ...draw) ? cell(next, ...draw) : null;
-      if (!inWay || inWay.o === NONE || isCart(inWay) || isMultiCell(inWay.o)
+      if (!inWay || inWay.o === NONE || isHalfOfABody(next, ...draw)
           || !travelsInto(next, ...past, f[0], f[1]))
         return { ok: false, reason: reasonFor(s, [draw], 'canRoom'), blame: [draw] };
       const shoved = inWay.o;
@@ -1125,7 +1184,7 @@ export function explain(s, dir, opts = {}) {
   if (o === BROOM) {
     const line = [];
     for (let p = [tx, ty]; inGrid(s, ...p) && cell(s, ...p).o !== NONE
-         && !isCart(cell(s, ...p)) && !isMultiCell(cell(s, ...p).o); p = [p[0] + dx, p[1] + dy])
+         && !isHalfOfABody(s, ...p); p = [p[0] + dx, p[1] + dy])
       line.push(p);
     const head = line[line.length - 1];
     const beyond = [head[0] + dx, head[1] + dy];

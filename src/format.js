@@ -5,7 +5,7 @@ import {
   CART, BARROW_H, BARROW_V,
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
   JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
-  CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER,
+  CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER, cabinetPair,
   MAG_U, MAG_D, MAG_L, MAG_R,
   GREASE, TAR, GLASS, COVERED,
   FURNITURE, DIRS, MOVE, PUSH, TEAR, isMultiCell,
@@ -345,6 +345,17 @@ export function toState(level) {
     const start = cells[rac.y][rac.x];
     if (start.water) throw new Error(`${level.id}: the raccoon starts in open water at (${rac.x + 1},${rac.y + 1})`);
     if (start.ter === GLASS) throw new Error(`${level.id}: the raccoon starts on broken glass at (${rac.x + 1},${rac.y + 1})`);
+  }
+
+  // An open cabinet is a BODY and a DRAWER, and it is one thing. Nothing in play can separate
+  // the halves; a file can write one down, and every branch that reads a cabinet would then read
+  // it wrong — so it is refused here, where the complaint can name the cell.
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    const o = cells[y][x].o;
+    if (o !== DRAWER && !(o >= CABO_U && o <= CABO_R)) continue;
+    if (cabinetPair({ cols, rows, cells, rac }, [x, y])) continue;
+    throw new Error(`${level.id}: ${o === DRAWER ? 'a drawer with no cabinet behind it'
+      : 'an open cabinet with no drawer'} at (${x + 1},${y + 1})`);
   }
 
   // The cart mask, laid over the occupant grid the same way. A cart cell's occupant IS the
