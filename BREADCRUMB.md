@@ -22,24 +22,39 @@ shipped, played in the real game via `index.html?acts=scratch.tt`.
 - [x] #30 **Stage F — the office chair**, and a fan that can aim.
 - [x] #31 **Stage G — the broom.** Bags travel; broken glass woke up.
 - [x] #32 **Stage H — the filing cabinet.** Body + drawer as two ordinary cells.
-- [ ] #33 **Stage I — the barrow's TOW is what remains.** The scoop, the tip, the axis and the
-      cargo accounting are in. The tow is the LINK LANE: a multi-cell piece hooked by a link and
-      moved rigidly with the barrow. **Build it with #34, which shares it.** Wants a link field
-      on cells, a `stateKey` lane, format read/write, rigid movement of the pair, and refusal
-      propagation when either end is blocked.
-- [ ] #34 (needs: #33) **Stage J — the magnet.** One facing, four orientations, strict rook along
-      the facing, line of sight blocked by walls and not by objects. Nearest metal within three
-      closes to adjacent and chains; the chain breaks off-line or past three; the magnet never
-      moves itself. Metal: can, bin, wheelie, cabinet, barrow, tyre, bicycle, chair, magnet.
-- [ ] #35 **Stage K — the port and the pipeline.** `engine/` is behind by everything from Stage E
-      on: 19 new occupant codes, 5 terrain lanes, transfer, the broom's line, the cabinet, the
-      barrow. It still AGREES today only because no room in the conformance corpus holds a new
-      piece. Until it catches up, nothing new may enter a shipped pack or be harvested.
-- [ ] #36 **Multi-cell rollers do not hand off on impact.** Transfer lives in the single-cell
-      roller branch, so a rolling rug that strikes a bicycle stops against it instead of passing
-      its motion on — which contradicts the rule everything else follows. Unifying them means one
-      rolling path for both; note the receiving piece must roll along ITS OWN axis to accept.
-      Also a design question: should a rug shove a bicycle at all?
+- [x] #33 **Stage I — the barrow, and the link lane.** Scoop along the axis, tip across it, hook
+      what it cannot scoop, tow it rigidly, drag the barrow when the load is pushed, release on
+      the tip.
+- [x] #34 **Stage J — the magnet.** Rook-line field, reach three, walls stop it and objects do
+      not, chain rides the same link lane.
+- [x] #36 **One hand-off rule** for single- and multi-cell rollers alike.
+- [ ] #35 **Stage K — the port, and the pipeline. THE ONLY THING LEFT.**
+
+      `engine/` is behind by everything from Stage E on, and it is a large job — effectively
+      this whole session again in Rust, then proved equal. What it needs:
+
+      - **22 occupant codes**, 13 through 34: sponge, cardboard, pane, two tyres, bicycle, rug,
+        chair, broom, four closed cabinets, four open bodies, the drawer, four magnets.
+      - **Six terrain values** past water and bridge: grease, tar, glass, covered — plus the two
+        STATIC lanes, grate and one-way, which stay out of the key exactly as `wall` does.
+      - **A widened cell in `state_key_into`.** The port packs a cell into a `u8` and this roster
+        does not fit: it needs ten bits. Kinds, terrain and cart membership must stop sharing one
+        byte rather than the number being raised.
+      - **Three key lanes it does not have**: cart KIND beside the cart label, and link
+        membership. Both are silent if missed — two different boards keying alike.
+      - **The branches**: transfer on impact with trains, anisotropy (`rollsAlong`, `rollsHere`,
+        the long axis read off a footprint), the broom's line push and its shed-only-at-the-head
+        rule, the cabinet's body-and-drawer with the drawer opening as a push, the barrow's
+        scoop/tip/no-eject, the magnet's capture and chain, and the tow.
+
+      **The deferral is safe and it is checked.** `board.rs` errors on an unknown glyph — fed a
+      sponge it answers `{"error":"unknown glyph 's'"}` rather than guessing — so the port cannot
+      diverge quietly while it waits. Conformance reports ALL AGREE today only because no room in
+      its corpus holds a new piece; **it is blind, not clean.** Until it catches up, nothing new
+      may enter a shipped pack, and `survey`/`harvest` cannot measure any of it.
+
+      Do it last on purpose: a rules change costs double while both engines are live, and the JS
+      side is only settled now.
 
 ## Context
 
@@ -260,16 +275,18 @@ the harness.
 
 ## Next Step
 
-**The link lane — #33 and #34 together.** They are one piece of work wearing two names: the
-barrow's tow and the magnet's chain are the same mechanism, which is what makes the dear tier
-affordable. Doing either alone pays for it twice.
+**Stage K, and it is the only thing left.** Scope is above. Start with the cell encoding, because
+everything else is written against it: widen the packed cell past a byte, add the cart-kind and
+link lanes, and only then port the branches. Build the corpus that makes the gate bite as you
+go — a generated room holding a new piece is what turns conformance from blind to clean.
 
-Two things a piece added late will otherwise trip over, both learned the hard way: an occupant
-with no drawing THROWS rather than rendering nothing, and a consumed piece names itself in `gone`
-by the cell the STAGE holds it at, which is where it started rather than where it was going.
+Three traps this session hit repeatedly, all silent, all the same shape — **a KIND named where a
+CATEGORY was meant**: the stage skipped the couch by name and a rug got double sprites; per-kind
+id counters restarted and a couch, a rug and a bicycle all held piece 0; `ck` was carried on load
+and dropped on every move. Expect the Rust port to offer all three again.
 
-And one shape of bug to watch for, which has now appeared three times: a KIND named where a
-CATEGORY was meant. `isMultiCell` rather than the couch by name; per-kind id counters that must
-share one sequence; `ck` carried wherever `cart` is carried. Each was silent.
+Two more that cost real time: an occupant with no drawing THROWS rather than rendering nothing
+(deliberate — keep it), and anything that moves cells must SAY so in the step, or the board is
+right and the sprite is somewhere else.
 
 /home/menser/Dropbox/ai/code/treasure_trash
