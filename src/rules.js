@@ -11,7 +11,8 @@ export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
              // predicate on a code it has always been: an open cabinet is simply a multi-cell
              // kind, and a closed one is not.
              CABC_U = 22, CABC_D = 23, CABC_L = 24, CABC_R = 25,
-             CABO_U = 26, CABO_D = 27, CABO_L = 28, CABO_R = 29, DRAWER = 30;
+             CABO_U = 26, CABO_D = 27, CABO_L = 28, CABO_R = 29, DRAWER = 30,
+             MAG_U = 31, MAG_D = 32, MAG_L = 33, MAG_R = 34;
 
 // The one code a cell does not fully describe: two adjacent FURNITURE cells may be one couch
 // or two, and only `pid` says which. `stateKey` encodes the partition as well as the codes.
@@ -26,13 +27,19 @@ export const isCabinetOpen = o => o >= CABO_U && o <= CABO_R;
 // The occupant codes, as one object. The renderer takes this rather than a hand-listed subset:
 // a code left out of such a list does not throw, it draws NOTHING, and a piece that is simply
 // invisible is a bug you find by playing rather than by testing.
+export const MAGNET_REACH = 3;
+export const magnetFace = o =>
+  ({ [MAG_U]: 'u', [MAG_D]: 'd', [MAG_L]: 'l', [MAG_R]: 'r' })[o];
+export const isMagnet = o => o >= MAG_U && o <= MAG_R;
+
 export const OCCUPANTS = {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
   BIN_EMPTY, JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
   CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER,
+  MAG_U, MAG_D, MAG_L, MAG_R,
   // The cabinet is the one kind whose drawing needs more than its code, so the questions the
   // renderer has to ask travel with the codes rather than being re-derived over there.
-  cabinetFace, isCabinetOpen,
+  cabinetFace, isCabinetOpen, magnetFace,
 };
 
 const CAB_OPENS = { [CABC_U]: CABO_U, [CABC_D]: CABO_D, [CABC_L]: CABO_L, [CABC_R]: CABO_R };
@@ -126,6 +133,10 @@ const SLIDES = {
   [BIN_EMPTY]: { slides: BIN_EMPTY },
   [TIRE_H]:    { slides: TIRE_H },
   [TIRE_V]:    { slides: TIRE_V },
+  [MAG_U]:     { slides: MAG_U },
+  [MAG_D]:     { slides: MAG_D },
+  [MAG_L]:     { slides: MAG_L },
+  [MAG_R]:     { slides: MAG_R },
   [SPONGE]:    { slides: SPONGE,    soaks: true },
   [CARDBOARD]: { slides: CARDBOARD, covers: true },
 };
@@ -197,6 +208,20 @@ export const cartKindOf = c => c.ck ?? CART;
 // A barrow is a cart of one cell with an axis it cannot turn. Shoved ALONG that axis it behaves
 // as a cart does and swallows what it meets — that is the scoop. Shoved ACROSS it, it tips.
 export const isBarrow = k => k === BARROW_H || k === BARROW_V;
+
+// --- the magnet ------------------------------------------------------------------------------
+// One facing, four orientations, and it never turns. Its field is a straight line along that
+// facing, like a rook's — walls stop it, objects do not. Reach is three cells, which is also
+// where a chain lets go, so the piece is one sentence long.
+
+// What a magnet takes hold of. The chair is in and the sponge is not, which is a design
+// statement rather than an oversight: the chair is only ever moved by being hit, and the one
+// piece that cleans up water and grease cannot be fetched back from wherever it was left.
+const METAL = new Set([CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMPTY,
+                       TIRE_H, TIRE_V, BICYCLE, CHAIR,
+                       CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER,
+                       MAG_U, MAG_D, MAG_L, MAG_R]);
+export const isMetal = c => (isCart(c) ? isBarrow(cartKindOf(c)) : METAL.has(c.o));
 
 // --- links ---------------------------------------------------------------------------------
 // Two things held together, and the ONE lane both the barrow's tow and the magnet's chain ride
@@ -472,6 +497,77 @@ function handOff(next, from, dx, dy) {
     p = [lead[0] + (j + 1) * dx, lead[1] + (j + 1) * dy];
   }
   return moved;
+}
+
+/**
+ * Everything a magnet does, and it only ever does it on a shove — nothing on this board moves
+ * unbidden. First the chain it already has follows or lets go, then it takes hold of whatever
+ * is now in reach.
+ */
+function magnetResolve(next, mx, my, step) {
+  const o = cell(next, mx, my).o;
+  const f = DIRS[magnetFace(o)];
+  const lk = cell(next, mx, my).lk;
+
+  // The chain is strictly along the facing. Anything that has fallen off that line, or drifted
+  // past the reach, is simply let go — which is why the piece needs no distance metric.
+  if (lk !== undefined) {
+    const held = linkCells(next, lk).filter(([x, y]) => !(x === mx && y === my));
+    const onLine = held.length && held.every(([x, y]) => {
+      const k = (x - mx) * f[0] + (y - my) * f[1];
+      return k >= 1 && k <= MAGNET_REACH && x - mx === f[0] * k && y - my === f[1] * k;
+    });
+    if (!onLine) for (const [x, y] of linkCells(next, lk)) cell(next, x, y).lk = undefined;
+    else {
+      // It closes the gap by up to two, and stops when it is alongside.
+      const [hx, hy] = held[0];
+      let k = (hx - mx) * f[0] + (hy - my) * f[1];
+      let moved = 0;
+      while (k > 1 && moved < 2) {
+        const to = [hx - f[0] * (moved + 1), hy - f[1] * (moved + 1)];
+        if (!travelsInto(next, ...to, -f[0], -f[1])) break;
+        moved++; k--;
+      }
+      if (moved) {
+        const was = { ...cell(next, hx, hy) };
+        const c0 = cell(next, hx, hy);
+        c0.o = NONE; c0.pid = undefined; c0.lk = undefined;
+        const to = [hx - f[0] * moved, hy - f[1] * moved];
+        const c1 = cell(next, ...to);
+        c1.o = was.o; c1.pid = was.pid; c1.lk = was.lk;
+        step?.moved.push({ o: was.o, from: [hx, hy], to });
+      }
+    }
+  }
+
+  // Capture. Walls stop the field; objects do not, so the first METAL along the line is taken
+  // even with something standing in front of it — it simply closes as far as it can.
+  if (cell(next, mx, my).lk !== undefined) return;
+  for (let k = 1; k <= MAGNET_REACH; k++) {
+    const p = [mx + f[0] * k, my + f[1] * k];
+    if (!inGrid(next, ...p) || cell(next, ...p).wall) return;
+    const c = cell(next, ...p);
+    if (c.o === NONE && !isCart(c)) continue;
+    if (!isMetal(c)) continue;
+    let moved = 0;
+    while (moved < k - 1) {
+      const to = [p[0] - f[0] * (moved + 1), p[1] - f[1] * (moved + 1)];
+      if (!travelsInto(next, ...to, -f[0], -f[1])) break;
+      moved++;
+    }
+    const was = { ...c };
+    const lk2 = freeLink(next);
+    if (moved) {
+      c.o = NONE; c.pid = undefined; c.cart = undefined; c.ck = undefined;
+      const to = [p[0] - f[0] * moved, p[1] - f[1] * moved];
+      const d = cell(next, ...to);
+      d.o = was.o; d.pid = was.pid; d.cart = was.cart; d.ck = was.ck;
+      d.lk = lk2;
+      step?.moved.push({ o: was.o, from: [...p], to });
+    } else c.lk = lk2;
+    cell(next, mx, my).lk = lk2;
+    return;
+  }
 }
 
 /** The barrow has come to rest; if what stopped it is a piece too big to scoop, hook it. */
@@ -802,9 +898,11 @@ export function explain(s, dir, opts = {}) {
     }
   }
 
-  // Shoved from the far side, a towed piece drags its barrow along behind it. That is the board
-  // pulling, not the raccoon, which is the one place pulling was ever allowed.
-  if (isMultiCell(o) && target.lk !== undefined) return towMove(s, target.lk, dx, dy, done);
+  // Shoved from the far side, anything held drags its holder along behind it — a towed couch
+  // takes its barrow, a chained can takes its magnet. That is the board pulling, not the
+  // raccoon, which is the one place pulling was ever allowed. The magnet itself is exempt: a
+  // shove on IT is an ordinary shove, and what it holds follows after.
+  if (target.lk !== undefined && !isMagnet(o)) return towMove(s, target.lk, dx, dy, done);
 
   if (isMultiCell(o)) {
     const own = pieceCells(s, target.pid);
@@ -1091,6 +1189,16 @@ export function explain(s, dir, opts = {}) {
       step.spawned.push({ o: drops, at: c2, from: [tx, ty],
         effect: effectOf(cell(next, c2[0], c2[1]), drops) });
       drop(cell(next, c2[0], c2[1]), drops);
+    }
+    if (isMagnet(o)) {
+      // The magnet is an ordinary slider; what it does happens after it lands.
+      drop(cell(next, at[0], at[1]), lands);
+      cell(next, tx, ty).o = NONE;
+      cell(next, at[0], at[1]).lk = cell(next, tx, ty).lk;
+      cell(next, tx, ty).lk = undefined;
+      magnetResolve(next, at[0], at[1], step);
+      next.rac = { x: tx, y: ty };
+      return done(next, PUSH, step);
     }
     if (shove) applyIntoCart(s, next, into, shove, lands, step);
     else if (SLIDES[o].soaks) { soak(cell(next, ...at)); drop(cell(next, ...at), lands); }

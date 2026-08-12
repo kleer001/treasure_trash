@@ -4,6 +4,7 @@ import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
   JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
   CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER,
+  MAG_U, MAG_D, MAG_L, MAG_R,
   FURNITURE,
   MOVE, DIRS,
   explain, isWon, bagsLeft, trashHeld, fan, inGrid, cell, cloneState, isMultiCell, stateKey,
@@ -54,6 +55,7 @@ const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"
   [CABC_L]:"the filing cabinet", [CABC_R]:"the filing cabinet",
   [CABO_U]:"the open cabinet", [CABO_D]:"the open cabinet",
   [CABO_L]:"the open cabinet", [CABO_R]:"the open cabinet", [DRAWER]:"the open drawer",
+  [MAG_U]:"the magnet", [MAG_D]:"the magnet", [MAG_L]:"the magnet", [MAG_R]:"the magnet",
   [FURNITURE]:"the couch" };
 function whyText(b){
   const base = WHY[b.reason];

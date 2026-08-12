@@ -1,5 +1,42 @@
 :pack   Treasure Trash — Scratch (bench pack, never shipped)
 
+:level  TH
+:name   The magnet
+:teach  its field runs one way; the nearest metal within three comes to it
+:par    17
+:traps  809
+:solves 3
+:solve  RurDRurDurrddlU!dr
+:grid
+##########
+#--------#
+#-@q--C--#
+#-------E#
+##########
+:end
+
+:level  TI
+:name   The tow
+:teach  one cell cannot swallow a couch, so the barrow is the handle
+:par    7
+:traps  8
+:solves 1
+:solve  drrrrrr
+:grid
+##########
+#--------#
+#-@-FF---#
+#-------E#
+##########
+:end
+:cart
+----------
+----------
+---y------
+----------
+----------
+:end
+
 :level  TG
 :name   The wheelbarrow
 :teach  along its axis it scoops; across it, it tips
@@ -246,8 +283,8 @@
 :name   Rug and bicycle
 :teach  both take their axis from the cells they already fill
 :par    9
-:traps  10
-:solves 3
+:traps  7
+:solves 4
 :solve  drrrrrrrr
 :grid
 ############

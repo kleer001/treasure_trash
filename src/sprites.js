@@ -37,6 +37,7 @@ export const PALETTE = {
   handle: '#a9793f', bristle: '#d8c07a', bristleEdge: '#8e7433',
   cab: '#7b8794', cabEdge: '#4a5560', cabPull: '#d7dce2',
   barrow: '#4f7f5a', barrowEdge: '#2f5638', barrowWheel: '#33383f',
+  magBody: '#c2352f', magTip: '#dfe3e8', magEdge: '#7d1f1b',
   wheelie: '#3f7d4f', wheelieEdge: '#255034', wheelieRidge: '#2f6a40',
   wheelieLid: '#4f9a63', wheel: '#22252a',
   fur: '#9aa0a6', furEar: '#6b7076', mask: '#2b2f34', muzzle: '#eceef0',
@@ -315,6 +316,24 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
         horizontal ? CS * 0.16 : CS * 0.07, 0, 0, 7); ctx.fill();
       ctx.beginPath(); ctx.ellipse(cx - wx, cy - wy, horizontal ? CS * 0.07 : CS * 0.16,
         horizontal ? CS * 0.16 : CS * 0.07, 0, 0, 7); ctx.fill();
+    },
+
+    // A horseshoe magnet, opening the way its field runs. The gap points down the line it pulls
+    // along, so the board says what it will reach before you shove it.
+    magnet(x, y, face) {
+      const cx = px(x) + CS / 2, cy = px(y) + CS / 2, r = CS * 0.28;
+      const turn = { r: 0, d: Math.PI / 2, l: Math.PI, u: -Math.PI / 2 }[face];
+      const gap = Math.PI * 0.34;                 // half the opening, centred on the facing
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(turn);
+      ctx.lineCap = 'butt'; ctx.lineWidth = CS * 0.19;
+      // The body is the long way round, so the opening sits on the line it pulls along.
+      ctx.strokeStyle = P.magBody;
+      ctx.beginPath(); ctx.arc(0, 0, r, gap, -gap, false); ctx.stroke();
+      // Two short poles at the ends of the opening, and only there.
+      ctx.strokeStyle = P.magTip;
+      ctx.beginPath(); ctx.arc(0, 0, r, gap, gap + Math.PI * 0.12, false); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, r, -gap - Math.PI * 0.12, -gap, false); ctx.stroke();
+      ctx.restore();
     },
 
     // The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
@@ -668,6 +687,7 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   else if (o === codes.CHAIR) sprites.chair(x, y);
   else if (o === codes.BROOM) sprites.broom(x, y);
   else if (o === codes.DRAWER) sprites.drawer(x, y);
+  else if (codes.magnetFace(o)) sprites.magnet(x, y, codes.magnetFace(o));
   else if (codes.cabinetFace(o)) sprites.cabinet(x, y, codes.cabinetFace(o), codes.isCabinetOpen(o));
   // Not silence. An occupant with no drawing here is invisible on the board, which reads as a
   // rules bug and is found by playing rather than by testing — so it stops the frame instead.

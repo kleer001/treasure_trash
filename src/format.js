@@ -6,6 +6,7 @@ import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
   JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
   CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER,
+  MAG_U, MAG_D, MAG_L, MAG_R,
   GREASE, TAR, GLASS, COVERED,
   FURNITURE, DIRS, MOVE, PUSH, TEAR, isMultiCell,
 } from './rules.js';
@@ -42,6 +43,8 @@ const READ = {
   'a': { o: CABC_U }, 'e': { o: CABC_D }, 'k': { o: CABC_L }, 'm': { o: CABC_R },
   'A': { o: CABO_U }, 'D': { o: CABO_D }, 'I': { o: CABO_L }, 'J': { o: CABO_R },
   'X': { o: DRAWER },        // the drawer; which cabinet it belongs to is read off its facing
+  // The magnet, by the way its field points. It never turns, so the glyph is the whole of it.
+  'f': { o: MAG_U }, 'l': { o: MAG_D }, 'p': { o: MAG_L }, 'q': { o: MAG_R },
   'E': { exit: true },
   // Furniture glyphs name a PIECE, not a kind of thing: a 4-connected blob of one letter is
   // one couch, so two flush couches need two letters. Hence a pool — see FURN_POOL.
@@ -103,6 +106,7 @@ export const LEGEND = [
   'a/e/k/m filing cabinet, closed — drawer faces up/down/left/right',
   'A/D/I/J the same cabinet open — its drawer is the X beside it',
   'X a cabinet drawer, out',
+  'f/l/p/q magnet — its field runs up/down/left/right',
   `${FURN_POOL.join('/')} furniture — one letter per piece, a touching same-letter blob is one couch`,
   'terrain lives in its own :water block — ~ open canal, = filled in (floor), - dry',
   `carts live in their own :cart block — ${CART_POOL.join('/')}, two cells each, cargo reads from :grid`,
@@ -176,7 +180,8 @@ function glyphFor(c, isRac, letters) {
              [CHAIR]: 'h', [BROOM]: 'r',
              [CABC_U]: 'a', [CABC_D]: 'e', [CABC_L]: 'k', [CABC_R]: 'm',
              [CABO_U]: 'A', [CABO_D]: 'D', [CABO_L]: 'I', [CABO_R]: 'J',
-             [DRAWER]: 'X' }[c.o];
+             [DRAWER]: 'X',
+             [MAG_U]: 'f', [MAG_D]: 'l', [MAG_L]: 'p', [MAG_R]: 'q' }[c.o];
   }
   if (isRac) return '+';
   if (c.o === NONE) return 'E';
