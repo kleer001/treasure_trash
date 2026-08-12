@@ -357,20 +357,36 @@ function readLost(){ lost = !!deadKeys && !won && deadKeys.has(stateKey(state));
 const SCAN_BUDGET_MS = 1200;
 let scanSpent = 0;
 
+// Driven on IDLE time, not on the frame. The verdict is wanted once per room and then never
+// again — every move after it is a lookup — so there is no reason for it to compete with the
+// arrow key. `requestIdleCallback` hands back how long the browser expects to be doing nothing,
+// which is the longest wait available and the only honest answer to "when should this run".
+// The timeout is what stops a page that is never idle from never answering at all.
+const askIdle = window.requestIdleCallback
+  ? cb => requestIdleCallback(cb, { timeout: 400 })
+  : cb => requestAnimationFrame(() => cb({ timeRemaining: () => 6 }));
+const dropIdle = window.cancelIdleCallback
+  ? h => cancelIdleCallback(h)
+  : h => cancelAnimationFrame(h);
+
 function startScan(){
-  if(scanRaf) cancelAnimationFrame(scanRaf);
+  if(scanRaf) dropIdle(scanRaf);
   deadKeys = null; lost = false; scanSpent = 0;
   scan = deadScan(state);
-  scanRaf = requestAnimationFrame(pumpScan);
+  scanRaf = askIdle(pumpScan);
 }
 
 // A slice per frame rather than one blocking pass: the rooms this pack is growing toward
 // reach tens of thousands of boards, and the player is owed a responsive first move more
 // than an instant verdict.
-function pumpScan(){
+function pumpScan(deadline){
   scanRaf = 0;
   const t0 = performance.now();
-  while(performance.now() - t0 < 6){
+  // What the browser says it has spare, held to a frame at the top so one generous deadline
+  // cannot turn into a stutter, and to a trickle at the bottom so a page that is never idle
+  // still gets there.
+  const slice = Math.min(12, Math.max(3, deadline?.timeRemaining?.() ?? 6));
+  while(performance.now() - t0 < slice){
     const r = scan.next();
     if(!r.done) continue;
     // Null is the scan giving up on a room too big to enumerate. Either way, stop driving it:
@@ -380,8 +396,8 @@ function pumpScan(){
     return;
   }
   scanSpent += performance.now() - t0;
-  if(scanSpent >= SCAN_BUDGET_MS){ scan = null; return; }   // silent, and out of the frame
-  scanRaf = requestAnimationFrame(pumpScan);
+  if(scanSpent >= SCAN_BUDGET_MS){ scan = null; return; }   // silent, and out of the way
+  scanRaf = askIdle(pumpScan);
 }
 /** The stage at rest on the current board — every jump that is not an action goes through here. */
 function rest(){ anim = null; board = state; stage = stageFrom(state, cur + 1); }

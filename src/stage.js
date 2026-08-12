@@ -170,8 +170,9 @@ export function applyStep(stage, step, racTo = null) {
  * deflate always keep the beat's own time — a nudged sprite has no distance to normalise by,
  * and a deflating one is timed by the beat that consumed it rather than by how far it drifted.
  */
-/** When something dropping through a grate has finished travelling and starts going down. */
-const FALL_AT = 0.55;
+/** When something dropping through a grate has finished travelling and starts going down. The
+ *  drop gets two of the beat's three parts: it is the thing being looked at. */
+const FALL_AT = 1 / 3;
 
 export function advance(stage, u, cells = 0) {
   for (const sp of stage.sprites) {
@@ -280,7 +281,7 @@ export function timeline(r, cellTime) {
       // A step reporting `impact` is paced by how far it travelled, since it may report one
       // step for many cells. Everything else is ONE beat however far its pieces fly, so it
       // gets no pace at all — plus one more for anything that has a grate to go down.
-      const beats = (roll ? dist(it.step) : 1) + (drops(it.step) ? 1 : 0);
+      const beats = (roll ? dist(it.step) : 1) + (drops(it.step) ? 2 : 0);
       segs.push({ items: [it], cells: dist(it.step), dur: beats * cellTime,
                   roll, pace: roll ? dist(it.step) : 0 });
     }

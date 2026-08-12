@@ -36,7 +36,8 @@ export const PALETTE = {
   chair: '#4a4f57', chairSeat: '#6d7480', castor: '#b9bec6',
   handle: '#a9793f', bristle: '#d8c07a', bristleEdge: '#8e7433',
   cab: '#7b8794', cabEdge: '#4a5560', cabPull: '#d7dce2',
-  barrow: '#4f7f5a', barrowEdge: '#2f5638', barrowWheel: '#33383f',
+  barrow: '#b9bfc7', barrowEdge: '#7d858f', barrowWell: '#d3d8de',
+  barrowHandle: '#e8912f', barrowGrip: '#3a3f46',
   magBody: '#c2352f', magTip: '#dfe3e8', magEdge: '#7d1f1b',
   wheelie: '#3f7d4f', wheelieEdge: '#255034', wheelieRidge: '#2f6a40',
   wheelieLid: '#4f9a63', wheel: '#22252a',
@@ -330,19 +331,50 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.fillRect(hx - pw / 2, hy - ph / 2, pw, ph);
     },
 
-    // A barrow, from above: a tray with one wheel at the front. The wheel sits on the axis it
-    // rolls along, which is the tell for which shove scoops and which tips.
+    /**
+     * A barrow from above: the tray, and the handles you take hold of.
+     *
+     * The handles run the axis it rolls on and stick out BOTH ends, which is the one thing this
+     * drawing has to get right. A real barrow has its handles at one end, but a barrow here has
+     * an axis and no facing — shoved either way along it, it scoops the same — so handles on one
+     * end would draw a front the rules do not have. Out both ends they read as the line it runs
+     * along, which is exactly what the piece is.
+     */
     barrow(x, y, horizontal) {
-      const x0 = px(x) + PAD, y0 = px(y) + PAD, w = CS - 2 * PAD, h = CS - 2 * PAD;
-      ctx.fillStyle = P.barrow; ctx.strokeStyle = P.barrowEdge; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.roundRect(x0, y0, w, h, 4); ctx.stroke();
-      ctx.fillStyle = P.barrowWheel;
       const cx = px(x) + CS / 2, cy = px(y) + CS / 2;
-      const [wx, wy] = horizontal ? [CS * 0.34, 0] : [0, CS * 0.34];
-      ctx.beginPath(); ctx.ellipse(cx + wx, cy + wy, horizontal ? CS * 0.07 : CS * 0.16,
-        horizontal ? CS * 0.16 : CS * 0.07, 0, 0, 7); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(cx - wx, cy - wy, horizontal ? CS * 0.07 : CS * 0.16,
-        horizontal ? CS * 0.16 : CS * 0.07, 0, 0, 7); ctx.fill();
+      const [ax, ay] = horizontal ? [1, 0] : [0, 1];       // along the axis
+      const [bx, by] = horizontal ? [0, 1] : [1, 0];       // across it
+
+      // The handles first, so the tray sits over them and they read as passing underneath.
+      ctx.lineCap = 'round';
+      for (const side of [-1, 1]) {
+        const ox = bx * side * CS * 0.19, oy = by * side * CS * 0.19;
+        ctx.strokeStyle = P.barrowHandle; ctx.lineWidth = CS * 0.075;
+        ctx.beginPath();
+        ctx.moveTo(cx + ox - ax * CS * 0.46, cy + oy - ay * CS * 0.46);
+        ctx.lineTo(cx + ox + ax * CS * 0.46, cy + oy + ay * CS * 0.46);
+        ctx.stroke();
+        // Grips at the ends, which is where a hand goes.
+        ctx.strokeStyle = P.barrowGrip;
+        for (const end of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(cx + ox + ax * end * CS * 0.46, cy + oy + ay * end * CS * 0.46);
+          ctx.lineTo(cx + ox + ax * end * CS * 0.39, cy + oy + ay * end * CS * 0.39);
+          ctx.stroke();
+        }
+      }
+      ctx.lineCap = 'butt';
+
+      // The tray: a tub seen down into, its walls tapering to a smaller floor.
+      const tw = CS * 0.62, th = CS * 0.62;
+      ctx.fillStyle = P.barrow; ctx.strokeStyle = P.barrowEdge; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(cx - tw / 2, cy - th / 2, tw, th, 7);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = P.barrowWell;
+      ctx.beginPath();
+      ctx.roundRect(cx - tw * 0.31, cy - th * 0.31, tw * 0.62, th * 0.62, 5);
+      ctx.fill();
     },
 
     // A horseshoe magnet, opening the way its field runs. The gap points down the line it pulls
