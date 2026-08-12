@@ -197,6 +197,24 @@ export const cartKindOf = c => c.ck ?? CART;
 // A barrow is a cart of one cell with an axis it cannot turn. Shoved ALONG that axis it behaves
 // as a cart does and swallows what it meets — that is the scoop. Shoved ACROSS it, it tips.
 export const isBarrow = k => k === BARROW_H || k === BARROW_V;
+
+// --- links ---------------------------------------------------------------------------------
+// Two things held together, and the ONE lane both the barrow's tow and the magnet's chain ride
+// in. They differ in how they behave, not in how they are recorded: a tow is rigid and a chain
+// stretches, and which it is falls out of what the group holds rather than out of a second field.
+export const linkOf = c => c.lk;
+export const linkCells = (s, lk) => {
+  const out = [];
+  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++)
+    if (s.cells[y][x].lk === lk) out.push([x, y]);
+  return out;
+};
+/** An id no link on this board is using. */
+export const freeLink = s => {
+  let top = -1;
+  for (const row of s.cells) for (const c of row) if (c.lk !== undefined && c.lk > top) top = c.lk;
+  return top + 1;
+};
 export const barrowRollsAlong = (k, dx, dy) => (k === BARROW_H ? dx !== 0 : dy !== 0);
 
 export const isClearFloor = (s, x, y) =>
@@ -456,6 +474,42 @@ function handOff(next, from, dx, dy) {
   return moved;
 }
 
+/** The barrow has come to rest; if what stopped it is a piece too big to scoop, hook it. */
+function hookTow(next, cid, dx, dy) {
+  const at = cartCells(next, cid)[0];
+  if (!at) return;
+  const ahead = [at[0] + dx, at[1] + dy];
+  if (!inGrid(next, ...ahead)) return;
+  const c = cell(next, ...ahead);
+  if (!isMultiCell(c.o) || c.lk !== undefined) return;
+  const lk = freeLink(next);
+  cell(next, ...at).lk = lk;
+  for (const [x, y] of pieceCells(next, c.pid)) cell(next, x, y).lk = lk;
+}
+
+/** A tow is rigid: barrow and load move together, or the shove is refused. */
+function towMove(s, lk, dx, dy, done) {
+  const own = linkCells(s, lk);
+  const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
+  const blame = own.map(([x, y]) => [x + dx, y + dy])
+    .filter(([x, y]) => !ownSet.has(`${x},${y}`) && !travelsInto(s, x, y, dx, dy));
+  if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
+  const next = cloneState(s);
+  const was = own.map(([x, y]) => ({ ...cell(s, x, y) }));
+  for (const [x, y] of own) {
+    const c = cell(next, x, y);
+    c.o = NONE; c.pid = undefined; c.cart = undefined; c.ck = undefined; c.lk = undefined;
+  }
+  own.forEach(([x, y], i) => {
+    const c = cell(next, x + dx, y + dy);
+    c.o = was[i].o; c.pid = was[i].pid; c.cart = was[i].cart; c.ck = was[i].ck; c.lk = was[i].lk;
+  });
+  next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
+  return done(next, PUSH, mkStep({
+    moved: own.map(([x, y], i) => ({ o: was[i].o, from: [x, y], to: [x + dx, y + dy] })),
+  }));
+}
+
 /** An open cabinet shoved anywhere but shut: body and drawer move together, one cell. */
 function shoveCabinet(s, body, draw, dx, dy, done) {
   const pair = [body, draw];
@@ -637,6 +691,9 @@ export function explain(s, dir, opts = {}) {
                  blame: [tipsInto(load, out, dx, dy)] };
       const next = cloneState(s);
       const step = mkStep();
+      // Tipping lets go of whatever it was towing: the barrow turns out from under the load.
+      if (target.lk !== undefined)
+        for (const [x, y] of linkCells(next, target.lk)) cell(next, x, y).lk = undefined;
       cell(next, tx, ty).cart = undefined; cell(next, tx, ty).ck = undefined;
       cell(next, tx, ty).o = NONE;
       const landed = cell(next, ...to);
@@ -652,7 +709,28 @@ export function explain(s, dir, opts = {}) {
       next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
       return done(next, PUSH, step);
     }
-    return shoveCart(s, target.cart, [tx, ty], dx, dy, opts.trace === true);
+    // Already towing: the pair is rigid, so it moves as one thing or not at all.
+    if (target.lk !== undefined) return towMove(s, target.lk, dx, dy, done);
+
+    // Shoved straight at something too big to scoop, the barrow hooks on rather than refusing.
+    // The shove is spent taking hold, which is the same beat a scoop costs.
+    if (isBarrow(kind)) {
+      const ahead = [tx + dx, ty + dy];
+      if (inGrid(s, ...ahead) && isMultiCell(cell(s, ...ahead).o)
+          && cell(s, ...ahead).lk === undefined) {
+        const next = cloneState(s);
+        const lk = freeLink(next);
+        cell(next, tx, ty).lk = lk;
+        for (const [x, y] of pieceCells(next, cell(next, ...ahead).pid)) cell(next, x, y).lk = lk;
+        return done(next, PUSH, mkStep());
+      }
+    }
+
+    const res = shoveCart(s, target.cart, [tx, ty], dx, dy, opts.trace === true);
+    // A barrow that rolls up against something too big to scoop HOOKS it instead. One cell
+    // cannot swallow a couch, and the barrow is the handle rather than the container.
+    if (res.ok && isBarrow(kind)) hookTow(res.next, target.cart, dx, dy);
+    return res;
   }
 
   const o = target.o;
@@ -723,6 +801,10 @@ export function explain(s, dir, opts = {}) {
       }));
     }
   }
+
+  // Shoved from the far side, a towed piece drags its barrow along behind it. That is the board
+  // pulling, not the raccoon, which is the one place pulling was ever allowed.
+  if (isMultiCell(o) && target.lk !== undefined) return towMove(s, target.lk, dx, dy, done);
 
   if (isMultiCell(o)) {
     const own = pieceCells(s, target.pid);
@@ -1065,6 +1147,8 @@ export const isWon = s => bagsLeft(s) === 0 && trashHeld(s) === 0 && atExit(s);
  *  - one lane per multi-cell kind, because the codes do not determine the partition: four
  *    FURNITURE cells are one couch or two. Labelled by first appearance in raster order, so
  *    the key does not depend on which ids happen to be in play.
+ *  - link membership, because what is hooked to what changes what a shove does. The same
+ *    pieces in the same cells, one pair linked and one not, are two boards.
  *  - each cart's KIND beside its label, because that same relabelling is what makes two carts
  *    interchangeable — sound only while they are. Two carts of different kinds that swap
  *    positions would otherwise hand back one key for two boards.
@@ -1089,8 +1173,8 @@ const SEP = '#';                        // below 65, which is the floor every la
 // One pass with lazy label maps: this runs once per state generated, and most boards have
 // neither furniture nor a cart.
 export const stateKey = s => {
-  let kinds = '', pids = '', carts = '';
-  let pidLabels = null, cartLabels = null;
+  let kinds = '', pids = '', carts = '', links = '';
+  let pidLabels = null, cartLabels = null, linkLabels = null;
   for (let y = 0; y < s.rows; y++) {
     if (y) kinds += '/';
     const row = s.cells[y];
@@ -1107,7 +1191,14 @@ export const stateKey = s => {
         if (!cartLabels.has(c.cart)) cartLabels.set(c.cart, cartLabels.size);
         carts += String.fromCharCode(65 + cartLabels.get(c.cart) * CART_KINDS + cartKindOf(c));
       }
+      // What is hooked to what is board state: the same pieces in the same cells, one pair
+      // linked and one pair not, are two different boards and play differently.
+      if (c.lk !== undefined) {
+        linkLabels ??= new Map();
+        if (!linkLabels.has(c.lk)) linkLabels.set(c.lk, linkLabels.size);
+        links += String.fromCharCode(65 + linkLabels.get(c.lk));
+      }
     }
   }
-  return `${kinds}${SEP}${pids}${SEP}${carts}${SEP}${s.rac.x},${s.rac.y}`;
+  return `${kinds}${SEP}${pids}${SEP}${carts}${SEP}${links}${SEP}${s.rac.x},${s.rac.y}`;
 };

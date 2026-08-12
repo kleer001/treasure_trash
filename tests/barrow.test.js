@@ -54,3 +54,48 @@ test('a barrow keeps its kind when it moves, or two boards would key alike', () 
   const after = push(S(['@----E', '------'], ['-y----', '------']), 'r');
   assert.ok(toCart(after)[0].includes('y'), 'still a barrow, not an ordinary cart');
 });
+
+// --- the tow --------------------------------------------------------------------------------
+// One cell cannot swallow a couch, so the barrow is the HANDLE rather than the container: it
+// hooks what it cannot scoop and the pair moves as one. This is the link lane, and the magnet's
+// chain rides in the same one.
+
+import { linkCells } from '../src/rules.js';
+
+const linked = s => s.cells.flatMap((row, y) => row.map((c, x) => [c.lk, x, y]))
+  .filter(([lk]) => lk !== undefined);
+
+test('shoved at something too big to scoop, the barrow hooks on instead of refusing', () => {
+  const s = push(S(['------', '@-FF--', '------', 'E-----'], ['------', '-y----', '------', '------']), 'r');
+  assert.equal(linked(s).length, 3, 'the barrow and both couch cells are one group');
+  assert.deepEqual(toGrid(s)[1], '@-FF--', 'and the shove was spent taking hold');
+});
+
+test('a hooked pair moves as one rigid thing', () => {
+  let s = push(S(['@--FF--E', '--------'], ['-y------', '--------']), 'r');   // rolls up and hooks
+  assert.equal(linkCells(s, 0).length, 3);
+  s = push(s, 'r');
+  assert.equal(toGrid(s)[0], '--@-FF-E', 'the couch came along');
+});
+
+test('a tow that cannot move refuses rather than tearing itself apart', () => {
+  let s = push(S(['------', '@-FF#-', '------', 'E-----'], ['------', '-y----', '------', '------']), 'r');
+  assert.equal(refuse(s, 'r'), 'canRoom', 'the couch is against the wall, so nothing moves');
+});
+
+// Shoved from the far side the load drags its barrow behind it. That is the board pulling, not
+// the raccoon — the one place pulling was ever allowed.
+test('pushing the load drags the barrow along', () => {
+  let s = push(S(['------', '@-FF--', '------', 'E-----'], ['------', '-y----', '------', '------']), 'r');
+  const from = S(['------', '--FF@-', '------', 'E-----'], ['------', '-y----', '------', '------']);
+  from.cells[1][1].lk = 0; from.cells[1][2].lk = 0; from.cells[1][3].lk = 0;
+  const after = push(from, 'l');
+  assert.equal(toGrid(after)[1], '-FF@--', 'couch moved left, and the barrow with it');
+});
+
+test('tipping lets go of what it was towing', () => {
+  let s = push(S(['------', '@-FF--', '------', 'E-----'], ['------', '-y----', '------', '------']), 'r');
+  for (const d of ['u', 'r']) s = push(s, d);
+  s = push(s, 'd');                                   // across the axis: it tips
+  assert.equal(linked(s).length, 0, 'the link is gone');
+});
