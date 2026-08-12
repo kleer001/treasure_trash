@@ -66,17 +66,50 @@ export function disagreement(mine, theirs) {
  * Rooms the shipped acts do not contain. Seeded, so a failure is reproducible from the seed
  * printed in the report rather than from a corpus file nobody kept.
  */
+/**
+ * Lay terrain over a drawn room. Every lane the `:water` mask carries, not only the canal —
+ * a corpus that cannot express grease or a one-way cannot catch an engine that gets them wrong.
+ *
+ * Walls and the exit refuse terrain and the raccoon may not start in water or on glass, so the
+ * draw simply avoids his cell and theirs. An OCCUPIED cell is fair game and is the point: a can
+ * standing on grease and a rug lying over a grate are where the two engines part company.
+ */
+function sprinkleTerrain(room, rnd, n) {
+  const LANES = [...'~=%T*_O^v<>'];
+  const rows = room.grid.map(r => [...r].map(() => '-'));
+  const spots = [];
+  room.grid.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (ch !== '#' && ch !== 'E' && ch !== '@' && ch !== '+') spots.push([x, y]);
+  }));
+  for (let i = 0; i < n && spots.length; i++) {
+    const [x, y] = spots.splice(Math.floor(rnd() * spots.length), 1)[0];
+    rows[y][x] = LANES[Math.floor(rnd() * LANES.length)];
+  }
+  return { ...room, water: rows.map(r => r.join('')) };
+}
+
 export function generatedRooms(count, seed) {
   const rnd = mulberry32(seed);
+  // Every piece the rules know, in combinations the shipped acts do not contain. A group left
+  // out here is a piece the gate cannot see, and a gate that cannot see a piece reports
+  // agreement about it either way.
   const GROUPS = ['$', '$b', '$C', '$W', 'xB', '$P', 'CP', '$j', 'Fb', '$$b', 'BW', 'jb',
-                  '$Bw', 'xPC', 'F$', 'S$', '$bw'];
+                  '$Bw', 'xPC', 'F$', 'S$', '$bw',
+                  // the roster added since
+                  '$s', 'Cd', '$g', 'oO', '$o', 'UC', 'Y$', 'Uo', 'hC', '$h', 'r$', 'rC',
+                  // No lone drawer: it is half of an open cabinet and never stands by itself.
+                  'a$', 'mC', 'eo', 'kU', 'qC', 'f$', 'pU', 'lo', 'q$C', 'yF', 'nU',
+                  'y$', 'zC', 'uF', 'rh$', 'dg', 'sC', 'YU', 'Pq', 'Fy', '$qb'];
   const out = [];
   for (let i = 0; out.length < count && i < count * 40; i++) {
     const [w, h] = [[8, 4], [8, 5], [7, 5], [9, 5]][Math.floor(rnd() * 4)];
     const plan = outline(w, h, rnd);
     if (!plan) continue;
-    const room = placeOn(GROUPS[Math.floor(rnd() * GROUPS.length)], plan, w, h, rnd);
+    let room = placeOn(GROUPS[Math.floor(rnd() * GROUPS.length)], plan, w, h, rnd);
     if (!room) continue;
+    // Half the corpus carries terrain. The other half keeps the bare-floor cases, which is
+    // where a piece's own rule shows without a lane on top of it.
+    if (rnd() < 0.5) room = sprinkleTerrain(room, rnd, 1 + Math.floor(rnd() * 4));
     try { toState(room); } catch { continue; }
     out.push({ name: `generated#${out.length}`, level: { id: 'gen', ...room } });
   }

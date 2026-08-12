@@ -112,3 +112,14 @@ test('water poured into a grate drains away', () => {
   const after = push(s, 'r');
   assert.equal(toWater(after)[0][3], 'O', 'still a grate, and dry');
 });
+
+test('a tyre shoved out of water does not take the raccoon in with it', () => {
+  // A roller standing in water is shovable — that is what the water gate lets through. Across
+  // its axis a tire is a slider, and the cell it leaves is the canal it was sitting in, so the
+  // slide asks the same question every other travelling branch asks before he follows.
+  const s = S(['-------', '-@O---E', '-------'], ['-------', '--~----', '-------']);
+  const r = explain(s, 'r');
+  assert.ok(r.ok, `expected the shove to be legal, got ${r.reason}`);
+  assert.deepEqual(r.next.rac, { x: 1, y: 1 }, 'he stays on the bank');
+  assert.deepEqual(toWater(r.next), ['-------', '--~----', '-------'], 'the canal is still there');
+});

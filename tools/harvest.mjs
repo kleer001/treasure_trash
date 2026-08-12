@@ -32,8 +32,13 @@ import {
 } from './metrics.mjs';
 import { parseLurd } from '../src/format.js';
 
-const DOMINOES = new Set(['F', 'P']);
-const POOLS = { F: [...'FGHKMN'], P: [...'PQR'] };
+// The glyphs that need two cells and a pool of their own, keyed by the letter a group names
+// them with. A blob of one letter is one piece, so two flush ones need two letters.
+const DOMINOES = new Set(['F', 'P', 'Y', 'U']);
+const POOLS = { F: [...'FGHKMN'], P: [...'PQR'], Y: [...'YZ'], U: [...'UV'] };
+// A barrow is a cart of ONE cell, so it is drawn from the group like any single glyph but
+// written in the `:cart` mask rather than the occupant grid.
+const BARROWS = new Set([...'yznu']);
 
 // Shapes to draw outlines on. Walls make a bigger board affordable, so the harvest is not
 // stuck at the survey's 8x4.
@@ -150,7 +155,7 @@ export function placeOn(group, plan, w, h, rnd, opts = {}) {
   grid[ex[1]][ex[0]] = 'E';
   grid[rac[1]][rac[0]] = '@';
 
-  const next = { F: [...POOLS.F], P: [...POOLS.P] };
+  const next = Object.fromEntries(Object.entries(POOLS).map(([k, v]) => [k, [...v]]));
   for (const g of rest) {
     if (DOMINOES.has(g)) {
       const pair = takePair();
@@ -161,11 +166,11 @@ export function placeOn(group, plan, w, h, rnd, opts = {}) {
     } else {
       const c = takeOne();
       if (!c) return null;
-      grid[c[1]][c[0]] = g;
+      if (BARROWS.has(g)) cart[c[1]][c[0]] = g; else grid[c[1]][c[0]] = g;
     }
   }
   const room = { id: 'harvest', grid: grid.map(r => r.join('')) };
-  if (group.includes('P')) room.cart = cart.map(r => r.join(''));
+  if ([...group].some(g => g === 'P' || BARROWS.has(g))) room.cart = cart.map(r => r.join(''));
   // A watered plan narrows `plan.floor` to the dry cells, so every draw above already avoided
   // the canal; this only writes down where it was.
   if (plan.water) room.water = plan.water.map(r => r.map(c => (c ? WET : '-')).join(''));

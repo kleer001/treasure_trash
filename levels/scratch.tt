@@ -408,3 +408,26 @@
 ----------
 ----------
 :end
+
+:level  TK
+:name   Tyre in the canal
+:teach  shoving a tyre out of the water is not a way in
+:par    7
+:traps  0
+:solves 1
+:solve  drrrrrr
+:grid
+##########
+#--------#
+#-@O-----#
+#-------E#
+##########
+:end
+:water
+----------
+----------
+---~------
+----------
+----------
+:end
+

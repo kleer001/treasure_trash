@@ -1256,7 +1256,11 @@ export function explain(s, dir, opts = {}) {
     else if (SLIDES[o].covers && cover(cell(next, ...at))) step.gone = [{ o, at: [tx, ty] }];
     else drop(cell(next, at[0], at[1]), lands);
     cell(next, tx, ty).o = NONE;
-    next.rac = { x: tx, y: ty };
+    // He follows only onto floor he could have walked onto, the same question every travelling
+    // branch asks. A ROLLER standing in water is shovable — that is what the water gate lets
+    // through — and across its axis a tire takes this branch, so the cell it leaves is the
+    // canal it was sitting in.
+    next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
     return done(next, PUSH, step);
   }
 

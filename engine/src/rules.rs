@@ -1483,7 +1483,7 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
             None => drop_o(next.at_mut(at.0, at.1), lands),
         }
         next.at_mut(tx, ty).o = NONE;
-        next.rac = (tx, ty);
+        next.rac = if is_clear_floor(&next, tx, ty) { (tx, ty) } else { s.rac };
         return Ok(Outcome::Ok { kind: Kind::Push, next });
     }
 
