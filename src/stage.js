@@ -7,7 +7,7 @@
 // separate states, which the solver would pay for. A sprite persists across an action, owns a
 // fractional position, and can be parented to a cart rather than standing on a square.
 
-import { NONE, cell, cartCells, pieceCells, isCart, isMultiCell } from './rules.js';
+import { NONE, DRAWER, cell, cartCells, pieceCells, isCart, isMultiCell, bodyOfDrawer } from './rules.js';
 import { mulberry32 } from './rng.js';
 
 /** Multi-cell kinds are their own sprites; every other sprite is keyed by occupant code. */
@@ -61,7 +61,14 @@ export function stageFrom(state, seed = 1) {
     // a second sprite per cell on top of it. `isMultiCell` rather than the couch by name, so a
     // kind added later cannot be missed.
     if (c.o === NONE || isMultiCell(c.o)) continue;
-    mint(c.o, x, y, { parent: isCart(c) ? c.cart : null });
+    // A drawer is drawn joined to the body it slid out of, so which way that body lies is part
+    // of its appearance rather than something the renderer can work out from one cell.
+    const extra = { parent: isCart(c) ? c.cart : null };
+    if (c.o === DRAWER) {
+      const b = bodyOfDrawer(state, [x, y]);
+      if (b) extra.face = [x - b[0], y - b[1]];
+    }
+    mint(c.o, x, y, extra);
   }
   return stage;
 }
@@ -137,6 +144,8 @@ export function applyStep(stage, step, racTo = null) {
     const [ax, ay] = sp.from ?? sp.at;
     const born = { id: stage.nextId++, kind: sp.effect === 'pours' ? SPLASH : sp.o,
                    x: ax, y: ay, ax, ay, tx: sp.at[0], ty: sp.at[1],
+                   // Where it came FROM is where a drawer's body still is.
+                   face: [Math.sign(sp.at[0] - ax), Math.sign(sp.at[1] - ay)],
                    seed: (stage.nextId * 2654435761) >>> 0, parent: null, dying: false,
                    spent: CONSUMES.has(sp.effect) };
     stage.sprites.push(born);

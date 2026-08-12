@@ -293,14 +293,41 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       }
     },
 
-    // The drawer, out. Shallower than the body it came from, so the pair reads as one object in
-    // two parts rather than two cabinets.
-    drawer(x, y) {
-      const x0 = px(x) + PAD + 2, y0 = px(y) + PAD + 2, w = CS - 2 * PAD - 4, h = CS - 2 * PAD - 4;
+    // The drawer, out. Shallower than the body it came from, and JOINED to it: it is flush on
+    // the side it slid from, with runners bridging the gap, so the pair reads as one object with
+    // a moving part rather than as two cabinets standing next to each other.
+    //
+    // `face` points from the body to the drawer. Without one — a board drawn with no cabinet to
+    // read it from — it falls back to a free-standing slab.
+    drawer(x, y, face = null) {
+      const [fx, fy] = face ?? [0, 0];
+      const inset = PAD + 3, back = 3;             // how far the joined side reaches back
+      // The joined edge runs past its own cell and under the body, which is the ink that makes
+      // the two read as attached however far apart the slide has carried them.
+      const x0 = px(x) + inset - (fx < 0 ? 0 : fx > 0 ? back : 0);
+      const y0 = px(y) + inset - (fy < 0 ? 0 : fy > 0 ? back : 0);
+      const w = CS - 2 * inset + (fx ? back : 0), h = CS - 2 * inset + (fy ? back : 0);
       ctx.fillStyle = P.cab; ctx.strokeStyle = P.cabEdge; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.roundRect(x0, y0, w, h, 3); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(x0, y0, w, h, fx || fy ? 2 : 3); ctx.fill(); ctx.stroke();
+      // Two runners, along the axis it slides on. They reach back PAST the cell edge and into
+      // the body's own cell — ink crossing the boundary is what makes the two read as one
+      // object, and a runner that stops at the edge leaves a seam that reads as a gap.
+      if (fx || fy) {
+        ctx.strokeStyle = P.cabEdge; ctx.lineWidth = 3;
+        const cx = px(x) + CS / 2, cy = px(y) + CS / 2;
+        const off = CS * 0.26, reach = CS * 0.8;
+        for (const sgn of [-1, 1]) {
+          ctx.beginPath();
+          if (fx) { ctx.moveTo(cx - fx * reach, cy + sgn * off); ctx.lineTo(cx, cy + sgn * off); }
+          else { ctx.moveTo(cx + sgn * off, cy - fy * reach); ctx.lineTo(cx + sgn * off, cy); }
+          ctx.stroke();
+        }
+      }
+      // The pull, on the face away from the body — the end you would take hold of.
       ctx.fillStyle = P.cabPull;
-      ctx.fillRect(px(x) + CS / 2 - CS * 0.17, px(y) + CS / 2 - CS * 0.04, CS * 0.34, CS * 0.08);
+      const hx = px(x) + CS / 2 + fx * CS * 0.22, hy = px(y) + CS / 2 + fy * CS * 0.22;
+      const pw = fx ? CS * 0.08 : CS * 0.34, ph = fx ? CS * 0.34 : CS * 0.08;
+      ctx.fillRect(hx - pw / 2, hy - ph / 2, pw, ph);
     },
 
     // A barrow, from above: a tray with one wheel at the front. The wheel sits on the axis it
@@ -667,7 +694,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
  * occupant constants; passing them keeps this file free of any dependency on the rules.
  */
 export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
-  const { k = 1, seed = 0, src = null } = opts;
+  const { k = 1, seed = 0, src = null, face = null } = opts;
   if (o === codes.TRASH) sprites.trash(x, y, { seed, k, src });
   else if (o === codes.BAG) sprites.bag(x, y, k);
   else if (o === codes.CAN_FULL) sprites.can(x, y, true);
@@ -686,7 +713,7 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   else if (o === codes.TIRE_V) sprites.tyre(x, y, false);
   else if (o === codes.CHAIR) sprites.chair(x, y);
   else if (o === codes.BROOM) sprites.broom(x, y);
-  else if (o === codes.DRAWER) sprites.drawer(x, y);
+  else if (o === codes.DRAWER) sprites.drawer(x, y, face);
   else if (codes.magnetFace(o)) sprites.magnet(x, y, codes.magnetFace(o));
   else if (codes.cabinetFace(o)) sprites.cabinet(x, y, codes.cabinetFace(o), codes.isCabinetOpen(o));
   // Not silence. An occupant with no drawing here is invisible on the board, which reads as a
