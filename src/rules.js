@@ -180,9 +180,14 @@ export const mayEnter = (s, x, y, dx, dy) => {
 // Carts are not interchangeable once they have kinds, and `stateKey` labels them by first
 // appearance — so the kind travels in the key beside the label, or two different boards key
 // alike. `CART` is the two-cell cart every level has today.
-export const CART = 0;
+export const CART = 0, BARROW_H = 1, BARROW_V = 2;
 export const CART_KINDS = 4;
 export const cartKindOf = c => c.ck ?? CART;
+
+// A barrow is a cart of one cell with an axis it cannot turn. Shoved ALONG that axis it behaves
+// as a cart does and swallows what it meets — that is the scoop. Shoved ACROSS it, it tips.
+export const isBarrow = k => k === BARROW_H || k === BARROW_V;
+export const barrowRollsAlong = (k, dx, dy) => (k === BARROW_H ? dx !== 0 : dy !== 0);
 
 export const isClearFloor = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).water && !isGlass(cell(s, x, y))
@@ -424,6 +429,7 @@ function shoveCabinet(s, body, draw, dx, dy, done) {
 }
 
 function shoveCart(s, cid, entry, dx, dy, trace) {
+  const kind = cartKindOf(cell(s, ...entry));
   const at = (p, k) => [p[0] + k * dx, p[1] + k * dy];
   const isOwn = (x, y) => inGrid(s, x, y) && cell(s, x, y).cart === cid;
   const files = cartCells(s, cid).filter(([x, y]) => !isOwn(x + dx, y + dy))   // lead cells
@@ -451,8 +457,10 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
   const steps = trace ? [] : null;
   const loads = files.map(f => f.map(([x, y]) => ({ o: cell(s, x, y).o })));
   const repaint = (k, from) => files.forEach((f, i) => f.forEach((p, j) => {
-    const c = cell(next, ...at(p, from)); c.o = NONE; c.cart = undefined;
-    const d = cell(next, ...at(p, k)); d.cart = cid; d.o = loads[i][j].o;
+    const c = cell(next, ...at(p, from)); c.o = NONE; c.cart = undefined; c.ck = undefined;
+    // The kind travels with the cart. Without it a barrow becomes an ordinary cart the moment it
+    // moves — and `stateKey` would then key two different boards alike.
+    const d = cell(next, ...at(p, k)); d.cart = cid; d.ck = kind; d.o = loads[i][j].o;
   }));
 
   let n = 0, lastRoll = -1;
@@ -476,6 +484,9 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
 
     files.forEach((f, i) => {
       if (rolling && taken[i] === NONE) return;
+      // A cart that stops rolling pushes its load out the back. A barrow does not: what it
+      // scooped stays in it until it is tipped, which is the whole of what scooping buys.
+      if (!rolling && isBarrow(kind)) return;
       const load = loads[i], depth = load.length, out = load[depth - 1];
       const behind = at(f[depth - 1], end - 1);
       if (!rolling && out.o !== NONE
@@ -565,7 +576,39 @@ export function explain(s, dir, opts = {}) {
   }
 
   // A cart cell carries its cargo in `o`, so cart-ness is read before the occupant is.
-  if (isCart(target)) return shoveCart(s, target.cart, [tx, ty], dx, dy, opts.trace === true);
+  if (isCart(target)) {
+    const kind = cartKindOf(target);
+    // Across its axis a barrow tips: it goes one cell and its load carries on one further,
+    // which is the recycle bin's shape exactly — the dump is a shed, not a new mechanic.
+    if (isBarrow(kind) && !barrowRollsAlong(kind, dx, dy)) {
+      const to = [tx + dx, ty + dy], out = [to[0] + dx, to[1] + dy];
+      const load = target.o;
+      if (!travelsInto(s, ...to, dx, dy))
+        return { ok: false, reason: reasonFor(s, [to], 'canRoom'), blame: [to] };
+      if (load !== NONE && !travelsInto(s, ...out, dx, dy))
+        return { ok: false, reason: reasonFor(s, [out], 'canRoom'), blame: [out] };
+      if (load !== NONE && !tipFits(s, load, out, dx, dy))
+        return { ok: false, reason: reasonFor(s, [tipsInto(load, out, dx, dy)], 'canRoom'),
+                 blame: [tipsInto(load, out, dx, dy)] };
+      const next = cloneState(s);
+      const step = mkStep();
+      cell(next, tx, ty).cart = undefined; cell(next, tx, ty).ck = undefined;
+      cell(next, tx, ty).o = NONE;
+      const landed = cell(next, ...to);
+      landed.cart = target.cart; landed.ck = kind; landed.o = NONE;
+      step.moved.push({ o: NONE, from: [tx, ty], to });
+      if (load !== NONE) {
+        step.moved.push({ o: load, from: [tx, ty], to: out, parent: null,
+          effect: effectOf(cell(next, ...out), load),
+          ...(landsAs(load) !== load && { becomes: landsAs(load) }) });
+        drop(cell(next, ...out), load);
+        tipOut(next, load, out, dx, dy, step);
+      }
+      next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
+      return done(next, PUSH, step);
+    }
+    return shoveCart(s, target.cart, [tx, ty], dx, dy, opts.trace === true);
+  }
 
   const o = target.o;
 

@@ -1,5 +1,27 @@
 :pack   Treasure Trash — Scratch (bench pack, never shipped)
 
+:level  TG
+:name   The wheelbarrow
+:teach  along its axis it scoops; across it, it tips
+:par    17
+:traps  132
+:solves 4
+:solve  urDrRurDurrddlU!dr
+:grid
+##########
+#--------#
+#-@--C---#
+#-------E#
+##########
+:end
+:cart
+----------
+----------
+---y------
+----------
+----------
+:end
+
 :level  T1
 :name   Grease
 :teach  a slider shoved onto grease runs to the end of the slick, and settles its bill where it stops

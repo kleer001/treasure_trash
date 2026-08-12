@@ -42,7 +42,9 @@ export function stageFrom(state, seed = 1) {
     const c = cell(state, x, y);
     if (isCart(c) && !seenCart.has(c.cart)) {
       seenCart.add(c.cart);
-      mint(CART, x, y, { ref: c.cart, cells: offsets(cartCells(state, c.cart), x, y) });
+      // The kind rides on the sprite for the same reason it rides on the cell: a barrow and a
+      // cart are drawn differently and are not interchangeable.
+      mint(CART, x, y, { ref: c.cart, ck: c.ck, cells: offsets(cartCells(state, c.cart), x, y) });
     }
     if (c.pid !== undefined && !seenPid.has(c.pid)) {
       seenPid.add(c.pid);

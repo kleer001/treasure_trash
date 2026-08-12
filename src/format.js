@@ -2,6 +2,7 @@
 // Text in, data out; data in, byte-identical text out. See FORMATS.md for the spec.
 
 import {
+  CART, BARROW_H, BARROW_V,
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
   JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
   CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER,
@@ -85,6 +86,13 @@ const MULTI_POOLS = [
 // same reason water is: a cart cell holds cargo, and one character cannot say "empty cart
 // cell", "cart holding a can" and "cart Q holding trash" at once. Same blob rule, own pool.
 export const CART_POOL = [...'PQR'];
+// A barrow is a cart of ONE cell, and its axis is in the glyph because nothing else carries it.
+
+const CART_KINDS_IN_MASK = [
+  { glyphs: [...'PQR'], ck: CART, size: 2, word: 'two', what: 'cart' },
+  { glyphs: [...'yz'], ck: BARROW_H, size: 1, word: 'one', what: 'barrow (side to side)' },
+  { glyphs: [...'nu'], ck: BARROW_V, size: 1, word: 'one', what: 'barrow (up and down)' },
+];
 
 export const LEGEND = [
   '# wall', '- floor', '@ raccoon', '$ bag', 'C full can', 'c empty can',
@@ -98,6 +106,7 @@ export const LEGEND = [
   `${FURN_POOL.join('/')} furniture — one letter per piece, a touching same-letter blob is one couch`,
   'terrain lives in its own :water block — ~ open canal, = filled in (floor), - dry',
   `carts live in their own :cart block — ${CART_POOL.join('/')}, two cells each, cargo reads from :grid`,
+  'barrows live there too — y/z roll side to side, n/u up and down, one cell each',
 ];
 
 /**
@@ -345,8 +354,12 @@ export function toState(level) {
       for (let x = 0; x < cols; x++) {
         const ch = level.cart[y]?.[x] ?? '-';
         if (FLOOR_ALIASES.has(ch)) { row.push(null); continue; }
-        if (!CART_POOL.includes(ch))
-          throw new Error(`${level.id}: :cart takes ${CART_POOL.join('')} or floor, got ${JSON.stringify(ch)} at (${x + 1},${y + 1})`);
+        const kind = CART_KINDS_IN_MASK.find(k => k.glyphs.includes(ch));
+        if (!kind) {
+          const all = CART_KINDS_IN_MASK.flatMap(k => k.glyphs).join('');
+          throw new Error(`${level.id}: :cart takes ${all} or floor, got ${JSON.stringify(ch)} at (${x + 1},${y + 1})`);
+        }
+        cells[y][x].ck = kind.ck;
         const c = cells[y][x];
         if (c.wall) throw new Error(`${level.id}: (${x + 1},${y + 1}) is both wall and cart`);
         if (c.exit) throw new Error(`${level.id}: the exit cannot hold a cart at (${x + 1},${y + 1})`);
@@ -357,8 +370,15 @@ export function toState(level) {
       }
       marks.push(row);
     }
-    labelBlobs(cells, marks, level.id, 'cart', 'cart',
-      n => n !== 2 ? `covers ${n} cell${n === 1 ? '' : 's'}; a cart is exactly two` : null);
+    // One counter across the kinds, and a size rule per kind: a cart is two cells and a barrow
+    // is one, so the two cannot share a single check.
+    let nextCid = 0;
+    for (const k of CART_KINDS_IN_MASK)
+      nextCid = labelBlobs(cells,
+        marks.map(row => row.map(ch => (ch !== null && k.glyphs.includes(ch) ? ch : null))),
+        level.id, 'cart', k.what,
+        n => (n !== k.size ? `covers ${n} cell${n === 1 ? '' : 's'}; a ${k.what} is exactly ${k.word}` : null),
+        nextCid);
   }
   return { cols, rows, cells, rac };
 }
@@ -374,7 +394,16 @@ export function toGrid(s) {
  *  an ordinary occupant sitting in an ordinary cell, and `toGrid` writes it. */
 export function toCart(s) {
   if (!s.cells.some(row => row.some(c => c.cart !== undefined))) return null;
-  const letters = poolLetters(s, 'cart', CART_POOL, 'carts');
+  const letters = new Map(), used = new Map();
+  for (const row of s.cells) for (const c of row) {
+    if (c.cart === undefined || letters.has(c.cart)) continue;
+    const k = CART_KINDS_IN_MASK.find(m => m.ck === (c.ck ?? CART));
+    const n = used.get(k.what) ?? 0;
+    if (n >= k.glyphs.length)
+      throw new Error(`more than ${k.glyphs.length} of ${k.what}: the glyph pool is ${k.glyphs.join('')}`);
+    letters.set(c.cart, k.glyphs[n]);
+    used.set(k.what, n + 1);
+  }
   return s.cells.map(row =>
     row.map(c => (c.cart === undefined ? '-' : letters.get(c.cart))).join(''));
 }

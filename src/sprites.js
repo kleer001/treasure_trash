@@ -36,6 +36,7 @@ export const PALETTE = {
   chair: '#4a4f57', chairSeat: '#6d7480', castor: '#b9bec6',
   handle: '#a9793f', bristle: '#d8c07a', bristleEdge: '#8e7433',
   cab: '#7b8794', cabEdge: '#4a5560', cabPull: '#d7dce2',
+  barrow: '#4f7f5a', barrowEdge: '#2f5638', barrowWheel: '#33383f',
   wheelie: '#3f7d4f', wheelieEdge: '#255034', wheelieRidge: '#2f6a40',
   wheelieLid: '#4f9a63', wheel: '#22252a',
   fur: '#9aa0a6', furEar: '#6b7076', mask: '#2b2f34', muzzle: '#eceef0',
@@ -299,6 +300,21 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.beginPath(); ctx.roundRect(x0, y0, w, h, 3); ctx.fill(); ctx.stroke();
       ctx.fillStyle = P.cabPull;
       ctx.fillRect(px(x) + CS / 2 - CS * 0.17, px(y) + CS / 2 - CS * 0.04, CS * 0.34, CS * 0.08);
+    },
+
+    // A barrow, from above: a tray with one wheel at the front. The wheel sits on the axis it
+    // rolls along, which is the tell for which shove scoops and which tips.
+    barrow(x, y, horizontal) {
+      const x0 = px(x) + PAD, y0 = px(y) + PAD, w = CS - 2 * PAD, h = CS - 2 * PAD;
+      ctx.fillStyle = P.barrow; ctx.strokeStyle = P.barrowEdge; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.roundRect(x0, y0, w, h, 4); ctx.stroke();
+      ctx.fillStyle = P.barrowWheel;
+      const cx = px(x) + CS / 2, cy = px(y) + CS / 2;
+      const [wx, wy] = horizontal ? [CS * 0.34, 0] : [0, CS * 0.34];
+      ctx.beginPath(); ctx.ellipse(cx + wx, cy + wy, horizontal ? CS * 0.07 : CS * 0.16,
+        horizontal ? CS * 0.16 : CS * 0.07, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx - wx, cy - wy, horizontal ? CS * 0.07 : CS * 0.16,
+        horizontal ? CS * 0.16 : CS * 0.07, 0, 0, 7); ctx.fill();
     },
 
     // The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
