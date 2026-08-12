@@ -24,6 +24,10 @@ around it — art, audio, progression, and the solvability indicator.
   is presentation only and **imports `src/`**, so it cannot disagree with the game about what a
   piece does. See **One engine** below for what may and may not carry a copy of the rules.
 - `npm test` — Node's built-in runner (`node --test`); specs in `tests/*.test.js`.
+- `index.html?acts=sandbox.tt` — one room holding every piece and every terrain lane, to be
+  poked at by hand. Its par is a solution that was walked and checked action by action rather
+  than a minimum: a board of thirty movable pieces has a state graph nothing enumerates, which
+  is the price of having everything out at once.
 - `node tools/verify.mjs` — checks every claim the level files make, and that the engine is
   defined in one place. Run bare it verifies every `levels/act*.tt`; name a pack to check
   just one.
