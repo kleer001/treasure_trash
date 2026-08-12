@@ -410,9 +410,20 @@ const BANDS = ['couch','cart','loose','carried','raccoon'];
 const bandOf = sp => sp.kind === COUCH ? 0 : sp.kind === CART ? 1
   : sp.kind === RACCOON ? 4 : (sp.parent === null ? 2 : 3);
 
+// A thing riding INSIDE another thing is drawn over it and nudged clear of it: two pixels right
+// and two down for every level down the stack it is. Here rather than in each drawing, because
+// every kind can end up inside a barrow and none of them knows how deep it is.
+function drawSprite(sp, f){
+  if(!sp.depth) return paintSprite(sp, f);
+  ctx.save();
+  ctx.translate(sp.depth * 2, sp.depth * 2);
+  paintSprite(sp, f);
+  ctx.restore();
+}
+
 // Everything but the ground is a sprite with a position of its own, so a couch comes out as one
 // slab with no seam, cargo is carried rather than redrawn, and a bin's bag leaves the bin.
-function drawSprite(sp, f){
+function paintSprite(sp, f){
   const { state:s, ph, fx } = f;
   if(sp.kind === RACCOON){
     // A refusal is a lunge from where he stands, not travel — the stage knows nothing of it.

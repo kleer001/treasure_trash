@@ -11,7 +11,7 @@ changes faster than prose can track.
 ## 1. Level file — `.tt`
 
 Line-oriented. `;` starts a comment, `:` starts a directive, and everything inside a block —
-`:grid`, `:water` or `:cart`, each closed by `:end` — is taken verbatim.
+`:grid`, `:water`, `:cart` or `:hold`, each closed by `:end` — is taken verbatim.
 
 ```
 :pack   Treasure Trash — Act 1 (raccoon only)
@@ -45,7 +45,8 @@ Line-oriented. `;` starts a comment, `:` starts a directive, and everything insi
 | `:solve` | LURD | the par solution, replayed by the verifier |
 | `:grid` … `:end` | glyphs | the occupant grid |
 | `:water` … `:end` | `~`/`=`/`-` | optional terrain mask over the grid |
-| `:cart` … `:end` | `P`/`Q`/`R`/`-` | optional cart mask over the grid |
+| `:cart` … `:end` | see below | optional cart mask over the grid |
+| `:hold` … `:end` | `x,y glyphs` | optional. What a carried barrow has inside it |
 
 A duplicate key or block, an unknown glyph, a non-integer where an int is wanted, or an
 unclosed block throws.
@@ -109,8 +110,17 @@ One value per cell: the block is a mask, so a cell carries exactly the lane its 
 
 | `:cart` | |
 |---|---|
-| `P` `Q` `R` | a cart cell — one letter per cart |
+| `P` `Q` `R` | a cart cell — one letter per cart, two cells each |
+| `u` `v` `w` | a barrow facing up — one cell each, one letter per barrow |
+| `d` `e` `f` | facing down |
+| `l` `m` `n` | facing left |
+| `r` `s` `t` | facing right |
 | `-` (or a floor alias) | not a cart |
+
+The letters within a facing are a POOL, the way the furniture letters are: a 4-connected run of
+one letter is one piece, so two barrows of the same facing standing flush need two letters
+between them. The seconds are the next letters along rather than capitals, because `R` is
+already a two-cell cart and the reader would match that first.
 
 ```
 :grid                   :water                  :grid                   :cart
@@ -125,7 +135,32 @@ One value per cell: the block is a mask, so a cell carries exactly the lane its 
 
 The reader rejects a terrain mask that marks a wall or the exit, or that starts the raccoon in
 open water or on broken glass; and a cart cell that is a wall, the exit, the raccoon's start or
-furniture, or a cart blob that is not exactly two cells.
+furniture, or a cart blob whose size is not the one its glyph names.
+
+### The `:hold` list
+
+A LIST, not a mask, and the only block that is one: what it says is not one character per cell.
+
+A cart cell holds its cargo in the grid, and that cargo may be a barrow — `^` `v` `<` `>`, a
+barrow riding in something rather than standing on its own wheel. What THAT barrow is carrying
+has nowhere in the grid to go, so it is written here: one line per loaded cell, `x,y` in grid
+indices (zero-based, from the top left) and then the chain from the outside in.
+
+```
+:hold
+4,2 >C
+:end
+```
+
+Reads as: whatever stands at (4,2) is carrying a barrow facing right, and that barrow has a
+full can in it. The line is a statement ABOUT a cell the grid and the cart mask have already
+settled, so it is read last.
+
+The reader rejects a `:hold` line naming a cell off the grid, naming one twice, naming a cell
+that is not a carried barrow, putting something inside a glyph that is not a barrow, or holding
+a piece bigger than one cell. It also rejects a carried barrow in the grid with no cart under
+it: that is cargo with nothing to be cargo in, and neither the rules nor the writer can read it
+back.
 
 ### What a piece is for
 

@@ -66,6 +66,7 @@ struct KeyBuf {
     pids: Vec<u8>,
     carts: Vec<u8>,
     links: Vec<u8>,
+    holds: Vec<u8>,
     pid_seen: Vec<u16>,
     cart_seen: Vec<u16>,
     link_seen: Vec<u16>,
@@ -109,11 +110,12 @@ fn label(seen: &mut Vec<u16>, id: u16) -> u16 {
 /// are made and broken as the room plays, so THAT section's length varies — which is why it is
 /// last, where the remainder of the key is all it can be.
 fn state_key_into(s: &State, b: &mut KeyBuf) {
-    let KeyBuf { live, key, pids, carts, links, pid_seen, cart_seen, link_seen } = b;
+    let KeyBuf { live, key, pids, carts, links, holds, pid_seen, cart_seen, link_seen } = b;
     key.clear();
     pids.clear();
     carts.clear();
     links.clear();
+    holds.clear();
     pid_seen.clear();
     cart_seen.clear();
     link_seen.clear();
@@ -138,29 +140,53 @@ fn state_key_into(s: &State, b: &mut KeyBuf) {
             let n = label(link_seen, c.lk);
             links.extend_from_slice(&n.to_le_bytes());
         }
+        // What a carried barrow is holding, and what THAT is holding. Variable length, so each
+        // one is written with its own count — the cells it belongs to are the ones the cell
+        // section already says hold a carried barrow, in this same order, and every one of them
+        // writes a count even when it is nothing. Two boards differing only in what is stowed
+        // out of sight are two boards.
+        if is_carried_barrow(c.o) {
+            holds.push(c.nhold);
+            holds.extend_from_slice(&c.hold[..c.nhold as usize]);
+        }
     }
     key.extend_from_slice(pids);
     key.extend_from_slice(carts);
     key.extend_from_slice(links);
+    key.extend_from_slice(holds);
     // Raw bytes rather than decimal text: `format!` drags the whole formatting machinery in for
     // two small integers, and it measured at five percent of the binary doing so.
     key.extend_from_slice(&s.rac.0.to_le_bytes());
     key.extend_from_slice(&s.rac.1.to_le_bytes());
 }
 
+// Both walk the whole chain. A bag stowed inside a barrow that is itself riding in a cart is
+// still a bag the exit is waiting on.
 fn bags_left(s: &State) -> u32 {
     s.cells
         .iter()
-        .map(|c| match c.o {
-            BAG | CAN_FULL | WHEELIE | BIN => 1,
-            STACK => 2,
-            _ => 0,
+        .map(|c| {
+            let ch = c.chain();
+            (0..ch.len())
+                .map(|i| match ch.at(i) {
+                    BAG | CAN_FULL | WHEELIE | BIN => 1,
+                    STACK => 2,
+                    _ => 0,
+                })
+                .sum::<u32>()
         })
         .sum()
 }
 
 fn trash_held(s: &State) -> u32 {
-    s.cells.iter().filter(|c| c.is_cart() && c.o == TRASH).count() as u32
+    s.cells
+        .iter()
+        .filter(|c| c.is_cart())
+        .map(|c| {
+            let ch = c.chain();
+            (0..ch.len()).filter(|&i| ch.at(i) == TRASH).count() as u32
+        })
+        .sum()
 }
 
 fn is_won(s: &State) -> bool {

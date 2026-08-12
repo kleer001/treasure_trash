@@ -108,10 +108,10 @@ const CART_KINDS_IN_MASK: [CartKind; 5] = [
     CartKind { glyphs: CART_POOL, ck: CART, size: 2, word: "two", what: "cart" },
     // A barrow faces the way its tub points, and the mask says so outright: the direction it
     // faces, and its capital for a second one facing the same way.
-    CartKind { glyphs: b"uv", ck: BARROW_U, size: 1, word: "one", what: "barrow (facing up)" },
-    CartKind { glyphs: b"de", ck: BARROW_D, size: 1, word: "one", what: "barrow (facing down)" },
-    CartKind { glyphs: b"lm", ck: BARROW_L, size: 1, word: "one", what: "barrow (facing left)" },
-    CartKind { glyphs: b"rs", ck: BARROW_R, size: 1, word: "one", what: "barrow (facing right)" },
+    CartKind { glyphs: b"uvw", ck: BARROW_U, size: 1, word: "one", what: "barrow (facing up)" },
+    CartKind { glyphs: b"def", ck: BARROW_D, size: 1, word: "one", what: "barrow (facing down)" },
+    CartKind { glyphs: b"lmn", ck: BARROW_L, size: 1, word: "one", what: "barrow (facing left)" },
+    CartKind { glyphs: b"rst", ck: BARROW_R, size: 1, word: "one", what: "barrow (facing right)" },
 ];
 
 /// The `:water` alphabet, which carries every terrain lane and not only the canal. Mutable
@@ -136,6 +136,69 @@ fn read_terrain(ch: u8, c: &mut Cell) -> bool {
 
 const TERRAIN_ALPHABET: &str = "~=%T*_O^v<>";
 
+/// How deep a stack this port can hold. A barrow carries a barrow carries a barrow, and JS puts
+/// no bound on that at all — this side does, because a cell here is `Copy` and a growable field
+/// would cost an allocation on every board the search touches. Past it the port ABORTS rather
+/// than answering: a wrong answer from the sanctioned second engine is the one thing it must
+/// never give, and no room the pipeline builds comes within half of this.
+pub const MAX_HOLD: usize = 12;
+
+/// Everything riding in one cell, outermost first. Length zero is an empty cell.
+///
+/// `o` alone is the chain of length one every cell had before, which is why every branch that
+/// only ever moves a bare occupant still reads and writes `o` and is none the wiser.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Chain {
+    n: u8,
+    v: [u8; MAX_HOLD + 1],
+}
+
+impl Chain {
+    pub const EMPTY: Chain = Chain { n: 0, v: [NONE; MAX_HOLD + 1] };
+    pub fn of(o: u8) -> Chain {
+        let mut ch = Chain::EMPTY;
+        if o != NONE {
+            ch.v[0] = o;
+            ch.n = 1;
+        }
+        ch
+    }
+    pub fn len(&self) -> usize {
+        self.n as usize
+    }
+    pub fn is_empty(&self) -> bool {
+        self.n == 0
+    }
+    /// The outermost thing, which is the one a cart slot holds and the one a grid writes.
+    pub fn head(&self) -> u8 {
+        if self.n == 0 { NONE } else { self.v[0] }
+    }
+    pub fn at(&self, i: usize) -> u8 {
+        self.v[i]
+    }
+    pub fn push(&mut self, o: u8) {
+        assert!(self.n as usize <= MAX_HOLD, "a stack deeper than {MAX_HOLD}");
+        self.v[self.n as usize] = o;
+        self.n += 1;
+    }
+    /// Everything but the head — what the head is itself carrying.
+    pub fn tail(&self) -> Chain {
+        let mut out = Chain::EMPTY;
+        for i in 1..self.len() {
+            out.push(self.v[i]);
+        }
+        out
+    }
+    /// This chain riding inside `o`.
+    pub fn under(&self, o: u8) -> Chain {
+        let mut out = Chain::of(o);
+        for i in 0..self.len() {
+            out.push(self.v[i]);
+        }
+        out
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Cell {
     pub wall: bool,
@@ -158,6 +221,10 @@ pub struct Cell {
     /// What this cell is hooked to. One link per piece, and the tow and the magnet's chain
     /// share the lane — they differ in behaviour, not in how they are recorded.
     pub lk: u16,
+    /// What `o` is itself carrying, outermost first. Only a carried barrow has anywhere to put
+    /// one, so every entry but the last is one.
+    pub hold: [u8; MAX_HOLD],
+    pub nhold: u8,
 }
 
 impl Cell {
@@ -174,9 +241,28 @@ impl Cell {
         pid: NO_ID,
         cart: NO_ID,
         lk: NO_ID,
+        hold: [NONE; MAX_HOLD],
+        nhold: 0,
     };
     pub fn is_cart(&self) -> bool {
         self.cart != NO_ID
+    }
+    /// Everything riding here, outermost first.
+    pub fn chain(&self) -> Chain {
+        let mut ch = Chain::of(self.o);
+        for i in 0..self.nhold as usize {
+            ch.push(self.hold[i]);
+        }
+        ch
+    }
+    /// The one write.
+    pub fn set_chain(&mut self, ch: &Chain) {
+        self.o = ch.head();
+        self.nhold = 0;
+        for i in 1..ch.len() {
+            self.hold[i - 1] = ch.at(i);
+            self.nhold += 1;
+        }
     }
     /// What `terrainOf` answers: the flags win over the `ter` lane, in that order.
     pub fn terrain(&self) -> u8 {
@@ -244,6 +330,55 @@ impl State {
 }
 
 // ---------------------------------------------------------------- reading
+
+/// A barrow riding as cargo, and which way it is still facing.
+pub fn is_carried_barrow(o: u8) -> bool {
+    (BAR_U..=BAR_R).contains(&o)
+}
+
+/// One occupant code, one character. Out here rather than inside `to_grid` because `:hold`
+/// writes bare codes with no cell around them, and two tables would drift.
+pub fn glyph_of(o: u8) -> Option<u8> {
+    Some(match o {
+        NONE => b'-',
+        BAG => b'$',
+        CAN_FULL => b'C',
+        CAN_EMPTY => b'c',
+        TRASH => b'x',
+        STACK => b'S',
+        WHEELIE => b'W',
+        WHEELIE_EMPTY => b'w',
+        BIN => b'B',
+        BIN_EMPTY => b'b',
+        JUG => b'j',
+        JUG_EMPTY => b'i',
+        SPONGE => b's',
+        CARDBOARD => b'd',
+        PANE => b'g',
+        TIRE_H => b'o',
+        TIRE_V => b'O',
+        CHAIR => b'h',
+        BROOM => b'r',
+        CABC_U => b'a',
+        CABC_D => b'e',
+        CABC_L => b'k',
+        CABC_R => b'm',
+        CABO_U => b'A',
+        CABO_D => b'D',
+        CABO_L => b'I',
+        CABO_R => b'J',
+        DRAWER => b'X',
+        MAG_U => b'f',
+        MAG_D => b'l',
+        MAG_L => b'p',
+        MAG_R => b'q',
+        BAR_U => b'^',
+        BAR_D => b'v',
+        BAR_L => b'<',
+        BAR_R => b'>',
+        _ => return None,
+    })
+}
 
 fn read_glyph(ch: u8) -> Option<(Cell, bool)> {
     let mut c = Cell::FLOOR;
@@ -362,6 +497,7 @@ pub fn to_state(
     grid: &[String],
     cart: Option<&Vec<String>>,
     water: Option<&Vec<String>>,
+    hold: Option<&Vec<String>>,
 ) -> Result<State, String> {
     let rows = grid.len() as i32;
     if rows == 0 {
@@ -566,7 +702,92 @@ pub fn to_state(
         }
     }
 
+    // A carried barrow is cargo, and cargo needs something to be in. On the floor it would be a
+    // code no branch can shove and no writer can put back.
+    for y in 0..rows {
+        for x in 0..cols {
+            let c = &cells[(y * cols + x) as usize];
+            if is_carried_barrow(c.o) && c.cart == NO_ID {
+                return Err(format!(
+                    "a carried barrow at ({},{}) with no cart to ride in",
+                    x + 1,
+                    y + 1
+                ));
+            }
+        }
+    }
+
+    // What a carried barrow has inside it. One line per loaded cell, `x,y` in grid indices
+    // followed by the chain from the outside in — a list and not a mask, because what it says
+    // is not one character per cell.
+    if let Some(hold) = hold {
+        for raw in hold {
+            let line = raw.trim();
+            if line.is_empty() || line.starts_with(';') {
+                continue;
+            }
+            let (at, chain) = line
+                .split_once(|ch: char| ch == ' ' || ch == '\t')
+                .ok_or_else(|| format!(":hold wants 'x,y glyphs', got {line:?}"))?;
+            let (sx, sy) = at.split_once(',').ok_or_else(|| format!(":hold wants 'x,y glyphs', got {line:?}"))?;
+            let x: i32 = sx.trim().parse().map_err(|_| format!(":hold wants 'x,y glyphs', got {line:?}"))?;
+            let y: i32 = sy.trim().parse().map_err(|_| format!(":hold wants 'x,y glyphs', got {line:?}"))?;
+            if x >= cols || y >= rows || x < 0 || y < 0 {
+                return Err(format!(":hold names ({x},{y}), off a {cols}x{rows} grid"));
+            }
+            let i = (y * cols + x) as usize;
+            if !is_carried_barrow(cells[i].o) {
+                return Err(format!("({x},{y}) is not a carried barrow, so it holds nothing"));
+            }
+            let chain = chain.trim();
+            if chain.len() > MAX_HOLD {
+                return Err(format!(":hold at ({x},{y}) is deeper than {MAX_HOLD}"));
+            }
+            let mut n = 0u8;
+            for (k, ch) in chain.bytes().enumerate() {
+                let (spec, is_rac) = read_glyph(ch)
+                    .ok_or_else(|| format!(":hold at ({x},{y}) takes occupant glyphs, got {:?}", ch as char))?;
+                if is_rac || spec.o == NONE || spec.wall || spec.exit {
+                    return Err(format!(":hold at ({x},{y}) takes occupant glyphs, got {:?}", ch as char));
+                }
+                if k + 1 < chain.len() && !is_carried_barrow(spec.o) {
+                    return Err(format!(
+                        ":hold at ({x},{y}) puts something inside {:?}, which is not a barrow",
+                        ch as char
+                    ));
+                }
+                if is_multi_cell(spec.o) {
+                    return Err(format!(
+                        ":hold at ({x},{y}) holds {:?}, which is bigger than one cell",
+                        ch as char
+                    ));
+                }
+                cells[i].hold[k] = spec.o;
+                n += 1;
+            }
+            cells[i].nhold = n;
+        }
+    }
+
     Ok(State { cols, rows, cells: Rc::new(cells), rac })
+}
+
+/// The `:hold` lines for a board, or none when nothing on it is carrying a loaded barrow.
+pub fn to_hold(s: &State) -> Option<Vec<String>> {
+    let mut out = Vec::new();
+    for y in 0..s.rows {
+        for x in 0..s.cols {
+            let c = s.at(x, y);
+            if c.nhold == 0 {
+                continue;
+            }
+            let glyphs: String = (0..c.nhold as usize)
+                .map(|i| glyph_of(c.hold[i]).expect("a held code has a glyph") as char)
+                .collect();
+            out.push(format!("{x},{y} {glyphs}"));
+        }
+    }
+    (!out.is_empty()).then_some(out)
 }
 
 // ---------------------------------------------------------------- writing
@@ -634,44 +855,9 @@ pub fn to_grid(s: &State) -> Result<Vec<String>, String> {
                 } else if is_multi_cell(c.o) {
                     letter_of(&letters, c.pid)
                 } else {
-                    match c.o {
-                        NONE => b'-',
-                        BAG => b'$',
-                        CAN_FULL => b'C',
-                        CAN_EMPTY => b'c',
-                        TRASH => b'x',
-                        STACK => b'S',
-                        WHEELIE => b'W',
-                        WHEELIE_EMPTY => b'w',
-                        BIN => b'B',
-                        BIN_EMPTY => b'b',
-                        JUG => b'j',
-                        JUG_EMPTY => b'i',
-                        SPONGE => b's',
-                        CARDBOARD => b'd',
-                        PANE => b'g',
-                        TIRE_H => b'o',
-                        TIRE_V => b'O',
-                        CHAIR => b'h',
-                        BROOM => b'r',
-                        CABC_U => b'a',
-                        CABC_D => b'e',
-                        CABC_L => b'k',
-                        CABC_R => b'm',
-                        CABO_U => b'A',
-                        CABO_D => b'D',
-                        CABO_L => b'I',
-                        CABO_R => b'J',
-                        DRAWER => b'X',
-                        MAG_U => b'f',
-                        MAG_D => b'l',
-                        MAG_L => b'p',
-                        MAG_R => b'q',
-                        BAR_U => b'^',
-                        BAR_D => b'v',
-                        BAR_L => b'<',
-                        BAR_R => b'>',
-                        other => return Err(format!("no glyph for occupant {other}")),
+                    match glyph_of(c.o) {
+                        Some(g) => g,
+                        None => return Err(format!("no glyph for occupant {}", c.o)),
                     }
                 }
             } else if is_rac {

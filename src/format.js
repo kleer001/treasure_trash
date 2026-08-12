@@ -6,7 +6,7 @@ import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
   JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
   CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER,
-  BAR_U, BAR_D, BAR_L, BAR_R, cabinetPair,
+  BAR_U, BAR_D, BAR_L, BAR_R, cabinetPair, isCarriedBarrow,
   MAG_U, MAG_D, MAG_L, MAG_R,
   GREASE, TAR, GLASS, COVERED,
   FURNITURE, DIRS, MOVE, PUSH, TEAR, isMultiCell,
@@ -100,10 +100,10 @@ const CART_KINDS_IN_MASK = [
   // A barrow faces the way its tub points, and the mask says so outright: the direction it
   // faces, and the NEXT LETTER ALONG for a second one facing the same way. Not its capital,
   // which would want `R` — and `R` is a two-cell cart, which the reader would match first.
-  { glyphs: [...'uv'], ck: BARROW_U, size: 1, word: 'one', what: 'barrow (facing up)' },
-  { glyphs: [...'de'], ck: BARROW_D, size: 1, word: 'one', what: 'barrow (facing down)' },
-  { glyphs: [...'lm'], ck: BARROW_L, size: 1, word: 'one', what: 'barrow (facing left)' },
-  { glyphs: [...'rs'], ck: BARROW_R, size: 1, word: 'one', what: 'barrow (facing right)' },
+  { glyphs: [...'uvw'], ck: BARROW_U, size: 1, word: 'one', what: 'barrow (facing up)' },
+  { glyphs: [...'def'], ck: BARROW_D, size: 1, word: 'one', what: 'barrow (facing down)' },
+  { glyphs: [...'lmn'], ck: BARROW_L, size: 1, word: 'one', what: 'barrow (facing left)' },
+  { glyphs: [...'rst'], ck: BARROW_R, size: 1, word: 'one', what: 'barrow (facing right)' },
 ];
 
 export const LEGEND = [
@@ -119,7 +119,9 @@ export const LEGEND = [
   `${FURN_POOL.join('/')} furniture — one letter per piece, a touching same-letter blob is one couch`,
   'terrain lives in its own :water block — ~ open canal, = filled in (floor), - dry',
   `carts live in their own :cart block — ${CART_POOL.join('/')}, two cells each, cargo reads from :grid`,
-  'barrows live there too — y/z roll side to side, n/u up and down, one cell each',
+  'barrows live there too, one cell each — u/d/l/r face up/down/left/right, and the next '
+    + 'letters along are further barrows facing the same way',
+  ':hold says what a carried barrow has inside it — "x,y glyphs", outermost first',
 ];
 
 /**
@@ -176,25 +178,32 @@ function poolLetters(s, field, pool, what) {
   return letters;
 }
 
+// One occupant code, one character. Out here rather than inside `glyphFor` because `:hold`
+// writes bare codes with no cell around them, and two tables would drift.
+const WRITE = { [NONE]: '-', [BAG]: '$', [CAN_FULL]: 'C', [CAN_EMPTY]: 'c', [TRASH]: 'x',
+                [STACK]: 'S', [WHEELIE]: 'W', [WHEELIE_EMPTY]: 'w', [BIN]: 'B', [BIN_EMPTY]: 'b',
+                [JUG]: 'j', [JUG_EMPTY]: 'i', [SPONGE]: 's', [CARDBOARD]: 'd',
+                [PANE]: 'g', [TIRE_H]: 'o', [TIRE_V]: 'O',
+                [CHAIR]: 'h', [BROOM]: 'r',
+                [CABC_U]: 'a', [CABC_D]: 'e', [CABC_L]: 'k', [CABC_R]: 'm',
+                [CABO_U]: 'A', [CABO_D]: 'D', [CABO_L]: 'I', [CABO_R]: 'J',
+                [DRAWER]: 'X',
+                [MAG_U]: 'f', [MAG_D]: 'l', [MAG_L]: 'p', [MAG_R]: 'q',
+                [BAR_U]: '^', [BAR_D]: 'v', [BAR_L]: '<', [BAR_R]: '>' };
+
+// A code with no glyph writes NOTHING and shortens the row, which reads downstream as a board
+// of a different shape rather than as a piece nobody taught the writer about.
+const glyphOf = o => WRITE[o] ?? (() => {
+  throw new Error(`no glyph for occupant ${o}`);
+})();
+
 // Terrain rides in the masks, not in this grid.
 function glyphFor(c, isRac, letters) {
   if (c.wall) return '#';
   if (!c.exit) {
     if (isRac) return '@';
     if (isMultiCell(c.o)) return letters.get(c.pid);
-    return { [NONE]: '-', [BAG]: '$', [CAN_FULL]: 'C', [CAN_EMPTY]: 'c', [TRASH]: 'x',
-             [STACK]: 'S', [WHEELIE]: 'W', [WHEELIE_EMPTY]: 'w', [BIN]: 'B', [BIN_EMPTY]: 'b',
-             [JUG]: 'j', [JUG_EMPTY]: 'i', [SPONGE]: 's', [CARDBOARD]: 'd',
-             [PANE]: 'g', [TIRE_H]: 'o', [TIRE_V]: 'O',
-             [CHAIR]: 'h', [BROOM]: 'r',
-             [CABC_U]: 'a', [CABC_D]: 'e', [CABC_L]: 'k', [CABC_R]: 'm',
-             [CABO_U]: 'A', [CABO_D]: 'D', [CABO_L]: 'I', [CABO_R]: 'J',
-             [DRAWER]: 'X',
-             [MAG_U]: 'f', [MAG_D]: 'l', [MAG_L]: 'p', [MAG_R]: 'q',
-             [BAR_U]: '^', [BAR_D]: 'v', [BAR_L]: '<', [BAR_R]: '>' }[c.o]
-      // A code with no glyph writes NOTHING and shortens the row, which reads downstream as a
-      // board of a different shape rather than as a piece nobody taught the writer about.
-      ?? (() => { throw new Error(`no glyph for occupant ${c.o}`); })();
+    return glyphOf(c.o);
   }
   if (isRac) return '+';
   if (c.o === NONE) return 'E';
@@ -211,9 +220,11 @@ const INT_KEYS = new Set(['par', 'traps', 'solves', 'lead', 'tail']);
 const BOOL_KEYS = new Set(['arm']);
 const BOOLS = { on: true, off: false, true: true, false: false };
 
-// Three directives open a verbatim block, each closed by `:end`: the occupant `:grid`, and
-// the optional `:water` and `:cart` masks laid over it.
-const BLOCK_KEYS = new Set(['grid', 'water', 'cart']);
+// Four directives open a verbatim block, each closed by `:end`: the occupant `:grid`, the
+// optional `:water` and `:cart` masks laid over it, and `:hold` — which is a LIST rather than a
+// mask, because what it says is not one character per cell. A cell that is carrying a barrow
+// that is itself carrying something has a chain in it, and a chain is as long as it is.
+const BLOCK_KEYS = new Set(['grid', 'water', 'cart', 'hold']);
 
 /**
  * One grammar, two files. `sectionKey` is 'level' or 'solution'; entries collect every
@@ -301,6 +312,7 @@ export function formatLevelPack(pack) {
     out.push(':grid', ...l.grid, ':end');
     if (l.water) out.push(':water', ...l.water, ':end');
     if (l.cart) out.push(':cart', ...l.cart, ':end');
+    if (l.hold) out.push(':hold', ...l.hold, ':end');
     out.push('');
   }
   return out.join('\n').replace(/\n+$/, '\n');
@@ -409,7 +421,62 @@ export function toState(level) {
         n => (n !== k.size ? `covers ${n} cell${n === 1 ? '' : 's'}; a ${k.what} is exactly ${k.word}` : null),
         nextCid);
   }
+  // A carried barrow is cargo, and cargo needs something to be in. On the floor it would be a
+  // code no branch can shove and no writer can put back — `:cart` is where a barrow that is
+  // standing on its own wheel is written.
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    if (isCarriedBarrow(cells[y][x].o) && cells[y][x].cart === undefined)
+      throw new Error(`${level.id}: a carried barrow at (${x + 1},${y + 1}) with no cart to ride in`);
+  }
+
+  // What a carried barrow has inside it. One line per loaded cell, `x,y` in grid indices
+  // followed by the chain from the outside in — so `4,2 >C` is a barrow facing right with a
+  // full can in it, riding in whatever stands at (4,2).
+  //
+  // A list and not a mask, and read last: it names cells the grid and the cart mask have
+  // already settled, and everything it can say is a statement ABOUT one of them.
+  if (level.hold) {
+    const seen = new Set();
+    for (const raw of level.hold) {
+      const line = raw.trim();
+      if (!line || line.startsWith(';')) continue;
+      const m = /^(\d+),(\d+)[ \t]+(\S+)$/.exec(line);
+      if (!m) throw new Error(`${level.id}: :hold wants 'x,y glyphs', got ${JSON.stringify(raw)}`);
+      const [, sx, sy, chain] = m;
+      const x = Number(sx), y = Number(sy);
+      if (x >= cols || y >= rows) throw new Error(`${level.id}: :hold names (${x},${y}), off a ${cols}x${rows} grid`);
+      if (seen.has(`${x},${y}`)) throw new Error(`${level.id}: :hold names (${x},${y}) twice`);
+      seen.add(`${x},${y}`);
+      // Only a carried barrow has anywhere to put one. Anything else with a `:hold` line is a
+      // board that cannot exist, and one nothing downstream would be able to read back out.
+      if (!isCarriedBarrow(cells[y][x].o))
+        throw new Error(`${level.id}: (${x},${y}) is not a carried barrow, so it holds nothing`);
+      const codes = [...chain].map(ch => {
+        const spec = READ[ch];
+        if (!spec || spec.o === undefined || spec.o === NONE)
+          throw new Error(`${level.id}: :hold at (${x},${y}) takes occupant glyphs, got ${JSON.stringify(ch)}`);
+        return spec.o;
+      });
+      codes.forEach((o, i) => {
+        if (i < codes.length - 1 && !isCarriedBarrow(o))
+          throw new Error(`${level.id}: :hold at (${x},${y}) puts something inside ${JSON.stringify(chain[i])}, which is not a barrow`);
+        if (isMultiCell(o))
+          throw new Error(`${level.id}: :hold at (${x},${y}) holds ${JSON.stringify(chain[i])}, which is bigger than one cell`);
+      });
+      cells[y][x].hold = codes;
+    }
+  }
   return { cols, rows, cells, rac };
+}
+
+/** The `:hold` lines for a board, or null when nothing on it is carrying a loaded barrow. */
+export function toHold(s) {
+  const out = [];
+  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) {
+    const h = s.cells[y][x].hold;
+    if (h?.length) out.push(`${x},${y} ${h.map(glyphOf).join('')}`);
+  }
+  return out.length ? out : null;
 }
 
 /** Used for traces and for the round-trip checks in `verify.mjs`. */

@@ -44,17 +44,18 @@
 // does, and a solver has no reason to carry it.
 
 import { createInterface } from 'node:readline';
-import { toState, toGrid, toCart, toWater } from '../src/format.js';
+import { toState, toGrid, toCart, toWater, toHold } from '../src/format.js';
 import { explain } from '../src/rules.js';
 import { analyze } from '../src/solver.js';
 import { shortestDag, pathBite, deadTravel } from './metrics.mjs';
 
 /** A request's board, read back in. */
 const boardOf = req => toState({ id: 'conform', grid: req.grid,
-  ...(req.cart && { cart: req.cart }), ...(req.water && { water: req.water }) });
+  ...(req.cart && { cart: req.cart }), ...(req.water && { water: req.water }),
+  ...(req.hold && { hold: req.hold }) });
 
 /** A board, in the shape a reply carries one. */
-export const shapeOf = s => ({ grid: toGrid(s), cart: toCart(s), water: toWater(s) });
+export const shapeOf = s => ({ grid: toGrid(s), cart: toCart(s), water: toWater(s), hold: toHold(s) });
 
 /** The `answer` reply for an analysis already in hand. */
 export const answerOf = a => ({ par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,

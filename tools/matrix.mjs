@@ -53,6 +53,29 @@ export const PIECES = {
 export const BODIES = { couch: 'F', bicycle: 'Y', rug: 'U' };
 const SECOND = { F: 'G', Y: 'Z', U: 'V' };
 
+/**
+ * The wheeled pieces. These do not live in the grid at all — a cart cell holds its CARGO in the
+ * grid, so which cells are cart cells is only ever said by the `:cart` mask, and a matrix built
+ * out of grid glyphs alone could not put one on the board.
+ *
+ * `cargo` is what is riding in it, written in the grid cell underneath; `hold` is what THAT is
+ * holding, which only a carried barrow can have and which no grid cell can say.
+ */
+export const CARTS = {
+  cart: { mask: 'PP' },
+  barrowU: { mask: 'u' }, barrowD: { mask: 'd' },
+  barrowL: { mask: 'l' }, barrowR: { mask: 'r' },
+  // A barrow with something in it, and a barrow with a loaded barrow in it. The stack is the
+  // case nothing else on this board can make: it is only reachable by playing, so a matrix that
+  // could not write one down could not put it in front of anything.
+  barrowFull: { mask: 'r', cargo: 'C' },
+  barrowStacked: { mask: 'r', cargo: '>', hold: 'C' },
+};
+const isCart = g => typeof g === 'object' && g !== null;
+// The cart mask is its own alphabet, so its second-of-a-kind letters are their own map. Put
+// them in with the grid's and `isBody` starts reading `m` — a filing cabinet — as half a couch.
+const SECOND_CART = { P: 'Q', u: 'v', d: 'e', l: 'm', r: 's' };
+
 /** Every lane the `:water` mask carries. `-` is the control: the same case on bare floor. */
 export const LANES = {
   dry: '-', canal: '~', filled: '=', grease: '%', tar: 'T', glass: '*', covered: '_',
@@ -66,7 +89,7 @@ export const LANES = {
  *  along with everything the renderer reads to decide what to draw there. */
 const shapeOf = sp => JSON.stringify([
   sp.kind, sp.tx, sp.ty, sp.parent ?? null, sp.ref ?? null, sp.o ?? null, sp.ck ?? null,
-  sp.cells ?? null,
+  sp.cells ?? null, sp.depth ?? 0,
 ]);
 
 const census = stage => stage.sprites.map(shapeOf).sort();
@@ -162,6 +185,12 @@ export function meeting(room, at, dir = 'r') {
       [...row].map((ch, x) => (holes.includes(`${x},${y}`) ? '-' : ch)).join('')),
     ...(room.water && { water: room.water.map((row, y) =>
       [...row].map((ch, x) => (holes.includes(`${x},${y}`) ? '-' : ch)).join('')) }),
+    // A cart lives in its own mask and what it is holding lives in a third block, so taking the
+    // thing under test off the board means taking it off all three. Leave the mask and the room
+    // has a cart cell with nothing in it; leave the hold and it names a cell that is now floor.
+    ...(room.cart && { cart: room.cart.map((row, y) =>
+      [...row].map((ch, x) => (holes.includes(`${x},${y}`) ? '-' : ch)).join('')) }),
+    ...(room.hold && { hold: room.hold.filter(h => !holes.includes(h.split(' ')[0])) }),
   };
   let b;
   try { b = explain(toState({ ...bare, id: 'm' }), dir); }
@@ -238,7 +267,8 @@ export function halfCabinets(s) {
 export function reachable(s0, cap = 4000) {
   const seen = new Map(), stack = [s0];
   const key = st => JSON.stringify([st.cells.map(r => r.map(c =>
-    [c.o, c.pid ?? -1, c.cart ?? -1, c.ck ?? -1, c.lk ?? -1, c.water, c.bridge, c.ter ?? 0])), st.rac]);
+    [c.o, c.hold ?? null, c.pid ?? -1, c.cart ?? -1, c.ck ?? -1, c.lk ?? -1,
+     c.water, c.bridge, c.ter ?? 0])), st.rac]);
   seen.set(key(s0), s0);
   while (stack.length && seen.size < cap) {
     const st = stack.pop();
@@ -276,6 +306,8 @@ const W = 11, H = 5, ROW = 2, AT = 2;
 export function corridor({ left, right = null, lane = '-', vertical = false }) {
   const grid = Array.from({ length: H }, () => Array.from({ length: W }, () => '-'));
   const water = Array.from({ length: H }, () => Array.from({ length: W }, () => '-'));
+  const cart = Array.from({ length: H }, () => Array.from({ length: W }, () => '-'));
+  const hold = [];
   for (let x = 0; x < W; x++) { grid[0][x] = '#'; grid[H - 1][x] = '#'; }
   for (let y = 0; y < H; y++) { grid[y][0] = '#'; grid[y][W - 1] = '#'; }
   grid[ROW][1] = '@';
@@ -284,6 +316,14 @@ export function corridor({ left, right = null, lane = '-', vertical = false }) {
   const isBody = g => Object.values(BODIES).includes(g) || Object.values(SECOND).includes(g);
   // Where a piece put down at column x reaches to, along the shove.
   const put = (glyph, x) => {
+    if (isCart(glyph)) {
+      const cells = [...glyph.mask].map((ch, i) => (vertical ? [x, ROW - i] : [x + i, ROW]));
+      if (cells.some(([cx, cy]) => cx > W - 3 || cy < 1)) return null;
+      cells.forEach(([cx, cy], i) => { cart[cy][cx] = glyph.mask[i]; });
+      if (glyph.cargo) grid[ROW][x] = glyph.cargo;
+      if (glyph.hold) hold.push(`${x},${ROW} ${glyph.hold}`);
+      return cells;
+    }
     if (!isBody(glyph)) { grid[ROW][x] = glyph; return [[x, ROW]]; }
     if (vertical) {
       if (ROW - 1 < 1) return null;
@@ -301,7 +341,7 @@ export function corridor({ left, right = null, lane = '-', vertical = false }) {
 
   let at = [[front, ROW]];
   if (right !== null) {
-    const theirs = put(right === left ? SECOND[right] ?? right : right, front);
+    const theirs = put(clashes(left, right) ? secondOf(right) : right, front);
     if (!theirs) return null;
     at = theirs;
   }
@@ -309,13 +349,27 @@ export function corridor({ left, right = null, lane = '-', vertical = false }) {
 
   const room = { id: 'm', grid: grid.map(r => r.join('')) };
   if (water.some(r => r.some(c => c !== '-'))) room.water = water.map(r => r.join(''));
+  if (cart.some(r => r.some(c => c !== '-'))) room.cart = cart.map(r => r.join(''));
+  if (hold.length) room.hold = hold;
   return { room, at };
 }
+
+/** Whether these two would be written with the same letters. Two carts differing only in what
+ *  they are carrying share a mask glyph, so identity is not the question — the letters are. */
+const clashes = (a, b) => (isCart(a) && isCart(b)
+  ? [...a.mask].some(ch => b.mask.includes(ch))
+  : a === b);
+
+/** The same piece again, spelled apart from the first — a second of a kind standing flush would
+ *  otherwise read as one illegal blob, in the cart mask exactly as in the grid. */
+const secondOf = g => (isCart(g)
+  ? { ...g, mask: [...g.mask].map(ch => SECOND_CART[ch] ?? ch).join('') }
+  : SECOND[g] ?? g);
 
 /** Every case the matrix runs: a piece meeting a lane, and a piece meeting a piece. */
 export function cases() {
   const out = [];
-  const all = { ...PIECES, ...BODIES };
+  const all = { ...PIECES, ...BODIES, ...CARTS };
   const add = (id, what, built) => { if (built) out.push({ id, what, ...built }); };
   for (const [pn, pg] of Object.entries(all)) {
     for (const [ln, lg] of Object.entries(LANES))
@@ -324,7 +378,7 @@ export function cases() {
       add(`${pn}-into-${qn}`, `${pn} shoved into ${qn}`, corridor({ left: pg, right: qg }));
     // The same piece broadside: a rug or a bicycle lying across the shove is a different rule
     // from one lying along it, and the two share every other field.
-    if (Object.values(BODIES).includes(pg))
+    if (Object.values(BODIES).includes(pg) || (isCart(pg) && pg.mask.length > 1))
       for (const [qn, qg] of Object.entries(all))
         add(`${pn}-broadside-into-${qn}`, `${pn} lying across, shoved into ${qn}`,
             corridor({ left: pg, right: qg, vertical: true }));
@@ -376,6 +430,8 @@ export function pack(rows) {
              `:solves ${a.shortestCount}`, `:solve  ${a.shortestLurd}`,
              ':grid', ...r.room.grid, ':end');
     if (r.room.water) out.push(':water', ...r.room.water, ':end');
+    if (r.room.cart) out.push(':cart', ...r.room.cart, ':end');
+    if (r.room.hold) out.push(':hold', ...r.room.hold, ':end');
     out.push('');
   }
   return { text: out.join('\n') + '\n', dropped };

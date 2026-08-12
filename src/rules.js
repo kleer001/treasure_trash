@@ -40,6 +40,34 @@ export const carriedKind = o => BARROW_U + (o - BAR_U);
 /** Which way a carried barrow is still pointing — the renderer draws it as the barrow it is. */
 export const carriedFace = o => (isCarriedBarrow(o) ? barrowFace(carriedKind(o)) : undefined);
 
+// --- what a cell is carrying ---------------------------------------------------------------
+// A barrow that is carrying something can itself be carried, and what IT carries may be another
+// barrow. So a cell holds a CHAIN rather than an occupant: `o` is the outermost thing — the one
+// standing in the cart slot or on the floor, and the one the stage draws — and `hold` is what
+// rides inside it, outermost first. Only a carried barrow has anywhere to put a `hold`, so
+// every link of the chain but the last is one.
+//
+// `o` alone is the chain of length one every cell had before, which is why every branch that
+// only ever moves a bare occupant still reads and writes `o` and is none the wiser.
+
+/** Everything riding in this cell, outermost first; empty when the cell holds nothing. */
+export const chainOf = c => (c.o === NONE ? [] : c.hold !== undefined ? [c.o, ...c.hold] : [c.o]);
+
+/** The one write. `= undefined` rather than `delete`, for the reason every other lane is. */
+export const setChain = (c, ch) => {
+  c.o = ch.length ? ch[0] : NONE;
+  if (ch.length > 1) c.hold = ch.slice(1);
+  else if (c.hold !== undefined) c.hold = undefined;
+};
+
+/** Everything a cell is carrying, at every depth — what `bagsLeft` and the format have to walk
+ *  so a bag stowed three barrows deep still counts and still round-trips. */
+export const deepCells = s => {
+  const out = [];
+  for (const row of s.cells) for (const c of row) out.push(...chainOf(c));
+  return out;
+};
+
 export const MAGNET_REACH = 3;
 export const magnetFace = o =>
   ({ [MAG_U]: 'u', [MAG_D]: 'd', [MAG_L]: 'l', [MAG_R]: 'r' })[o];
@@ -185,7 +213,10 @@ export const MOVE = 'move', PUSH = 'push', TEAR = 'tear';
 
 export const cloneState = s => ({
   cols: s.cols, rows: s.rows, rac: { ...s.rac },
-  cells: s.cells.map(row => row.map(c => ({ ...c }))),
+  // `hold` is the one field that is not a scalar, so it is the one a spread would SHARE. A
+  // shared array is a write on one board arriving on another, which no test would see as
+  // anything but a wrong answer several moves later.
+  cells: s.cells.map(row => row.map(c => (c.hold ? { ...c, hold: [...c.hold] } : { ...c }))),
 });
 
 export const inGrid = (s, x, y) => x >= 0 && y >= 0 && x < s.cols && y < s.rows;
@@ -354,31 +385,30 @@ function intoCart(s, cid, entry, dx, dy) {
   for (let p = entry; cartAt(s, p) === cid; p = [p[0] + dx, p[1] + dy]) file.push(p);
   const last = file[file.length - 1];
   const beyond = [last[0] + dx, last[1] + dy];
-  const out = cell(s, ...last).o;
-  if (out !== NONE && !isOccupiable(s, ...beyond)) return { blame: [beyond] };
-  if (out !== NONE && !tipFits(s, out, beyond, dx, dy))
-    return { blame: [tipsInto(out, beyond, dx, dy)] };
+  const out = chainOf(cell(s, ...last));
+  if (out.length && !isOccupiable(s, ...beyond)) return { blame: [beyond] };
+  if (out.length && !tipFits(s, out[0], beyond, dx, dy))
+    return { blame: [tipsInto(out[0], beyond, dx, dy)] };
   return { file, beyond, out, dx, dy };
 }
 
 function applyIntoCart(s, next, cid, { file, beyond, out, dx, dy }, o, step) {
   for (let j = file.length - 1; j > 0; j--) {
-    const was = cell(s, ...file[j - 1]).o;
-    cell(next, ...file[j]).o = was;
-    if (step && was !== NONE)
-      step.moved.push({ o: was, from: file[j - 1], to: file[j], parent: cid });
+    const was = chainOf(cell(s, ...file[j - 1]));
+    setChain(cell(next, ...file[j]), was);
+    if (step) was.forEach((o, k) =>
+      step.moved.push({ o, from: file[j - 1], to: file[j], parent: cid, depth: k }));
   }
-  cell(next, ...file[0]).o = o;
-  if (out !== NONE) {
+  setChain(cell(next, ...file[0]), [o]);
+  if (out.length) {
     const m = {
-      o: out, from: file[file.length - 1], to: beyond, parent: null,
-      effect: effectOf(cell(next, ...beyond), out),
-      ...(landsAs(out) !== out && { becomes: landsAs(out) }),
+      o: out[0], from: file[file.length - 1], to: beyond, parent: null,
+      effect: effectOf(cell(next, ...beyond), out[0]),
+      ...(landsAs(out[0]) !== out[0] && { becomes: landsAs(out[0]) }),
     };
     if (step) step.moved.push(m);
-    const born = drop(next, beyond, out);
-    if (born !== undefined) m.toCart = born;
-    tipOut(next, out, beyond, dx, dy, step);
+    land(next, beyond, out, step, m);
+    tipOut(next, out[0], beyond, dx, dy, step);
   }
 }
 
@@ -447,32 +477,64 @@ export const freeCart = s => {
 };
 
 /**
- * The one place cargo is put down. A grate takes what lands in it, and takes it for good.
+ * The one place cargo is put down. A grate takes what lands in it, and takes it for good —
+ * a loaded barrow included, load and all.
  *
  * And the one place a carried barrow stops being cargo. It rode as an occupant because a cell
  * holds one cart and it was in somebody else's; set down, it is a barrow again, facing the way
- * it always was. Here rather than at each of the places cargo leaves a cart, so no one of them
- * can forget and leave a barrow lying about as a code nothing can shove.
+ * it always was, holding what it was holding. Here rather than at each of the places cargo
+ * leaves a cart, so no one of them can forget and leave a barrow lying about as a code nothing
+ * can shove.
+ *
+ * `ch` is a chain, and what comes back is what the STEP has to say about it: the id of the cart
+ * the head became, when it became one.
  */
-const drop = (s, at, o) => {
+const drop = (s, at, ch) => {
   const c = cell(s, ...at);
-  if (isGrate(c)) return undefined;
-  if (o === TRASH) { layTrash(c); return undefined; }
-  if (isCarriedBarrow(o)) {
-    c.cart = freeCart(s); c.ck = carriedKind(o); c.o = NONE;
-    return c.cart;                       // the caller has a step entry to tell about this
+  if (isGrate(c)) return {};
+  const head = ch[0];
+  if (head === TRASH) { layTrash(c); return {}; }
+  if (isCarriedBarrow(head)) {
+    c.cart = freeCart(s); c.ck = carriedKind(head);
+    setChain(c, ch.slice(1));
+    return { cart: c.cart };
   }
-  c.o = o;
-  return undefined;
+  setChain(c, ch);
+  return {};
+};
+
+/**
+ * `drop`, and the step entries that go with it. `m` is the `moved` entry for the head, if the
+ * caller made one; everything the head was carrying travels with it and needs one of its own.
+ *
+ * Set down, the head is a cart again and what was inside it is one level shallower than it was
+ * — which is the whole of what the stage has to be told, since nothing appears and nothing is
+ * consumed. Every place a chain comes to rest goes through here, so no one of them can put one
+ * down and leave the load drawn where the cart used to be.
+ */
+const land = (s, at, ch, step, m = null) => {
+  const swallowed = isGrate(cell(s, ...at));
+  const { cart } = drop(s, at, ch);
+  if (cart !== undefined && m) m.toCart = cart;
+  if (!step) return;
+  for (let i = 1; i < ch.length; i++)
+    step.moved.push({
+      o: ch[i], from: m ? m.from : at, to: at, wasDepth: i, depth: i - 1,
+      parent: cart ?? null, ...(swallowed && { effect: 'falls' }),
+    });
 };
 
 // --- the motion account -------------------------------------------------------------------
 // A board says what is where, not what moved where, so a traced action carries a step. The
 // schema is stage.js's contract; the branches that fill it are the spec for what goes in it.
 //
-//   moved    { o, from, to, becomes?, parent?, effect? }
-//   spawned  { o, at, from?, effect? }
-//   gone     { o, at }
+//   moved    { o, from, to, becomes?, parent?, effect?, fromCart?, toCart?, depth?, wasDepth? }
+//   spawned  { o, at, from?, effect?, parent? }
+//   gone     { o, at, depth? }
+//
+// `depth` is how far INSIDE this cell's contents a thing comes to rest: 0 is what stands in the
+// cart slot or on the floor, 1 is what that is carrying, and so on down. `wasDepth` is where the
+// stage is holding it now, and defaults to `depth` — a thing that only changes cells keeps it.
 //   piece    { kind, ref, dx, dy } | null
 //   impact   boolean
 const mkStep = (over = {}) => ({ moved: [], spawned: [], gone: [], piece: null, impact: false, ...over });
@@ -518,7 +580,7 @@ function tipOut(s, o, at, dx, dy, step) {
     pour(target);
   } else {
     if (step) step.spawned.push({ o: t.drops, at: c, from: at, effect: effectOf(target, t.drops) });
-    drop(s, c, t.drops);
+    drop(s, c, [t.drops]);
   }
   if (t.slides !== o) cell(s, ...at).o = t.slides;
 }
@@ -527,23 +589,26 @@ function tipOut(s, o, at, dx, dy, step) {
 const landsAs = o => (sheds(o) ? SLIDES[o].slides : o);
 
 /**
- * A barrow that something else can take aboard: one cell, nothing in it, and not held. Carrying
- * one is the only way a cart ever enters another cart's cell.
+ * A barrow that something else can take aboard: one cell, and not held. Carrying one is the
+ * only way a cart ever enters another cart's cell.
  *
- * Empty, because a cell holds one occupant and a loaded barrow would have to bring its load in
- * with it. Unheld, because a hooked one is already spoken for, and a hold that outlived the
- * thing holding it is a link pointing at nothing.
+ * What it is holding comes with it — a barrow does not have to be emptied to be lifted, and
+ * what it is holding may be another loaded barrow, as deep as anyone cares to stack them.
+ * Unheld, because a hooked one is already spoken for, and a hold that outlived the thing
+ * holding it is a link pointing at nothing.
  */
 export const isScoopable = (s, x, y) => {
   const c = cell(s, x, y);
-  return isCart(c) && isBarrow(cartKindOf(c)) && c.o === NONE && c.lk === undefined
+  return isCart(c) && isBarrow(cartKindOf(c)) && c.lk === undefined
     && cartCells(s, c.cart).length === 1;
 };
 
-/** What a cart takes in when it swallows this cell — a barrow rides as cargo, everything else
- *  is already the occupant it will be. */
-export const cargoAt = (s, x, y) =>
-  (isScoopable(s, x, y) ? carriedAs(cartKindOf(cell(s, x, y))) : cell(s, x, y).o);
+/** What a cart takes in when it swallows this cell — a barrow rides as cargo with everything
+ *  it was holding stacked behind it, and anything else is already the chain it will be. */
+export const cargoAt = (s, x, y) => {
+  const c = cell(s, x, y);
+  return isScoopable(s, x, y) ? [carriedAs(cartKindOf(c)), ...chainOf(c)] : chainOf(c);
+};
 
 /** `swallows` is false for a barrow shoved against its facing: it rolls, but it has no mouth
  *  that way, so anything at all in the cell ahead is what stops it rather than what it takes. */
@@ -662,11 +727,13 @@ function slideBody(next, at, dx, dy, step) {
   const was = own.map(([x, y]) => ({ ...cell(next, x, y) }));
   for (const [x, y] of own) {
     const c = cell(next, x, y);
-    c.o = NONE; c.pid = undefined; c.cart = undefined; c.ck = undefined; c.lk = undefined;
+    c.o = NONE; c.hold = undefined; c.pid = undefined;
+    c.cart = undefined; c.ck = undefined; c.lk = undefined;
   }
   own.forEach(([x, y], i) => {
     const c = cell(next, x + dx, y + dy);
-    c.o = was[i].o; c.pid = was[i].pid; c.cart = was[i].cart; c.ck = was[i].ck; c.lk = was[i].lk;
+    c.o = was[i].o; c.hold = was[i].hold; c.pid = was[i].pid;
+    c.cart = was[i].cart; c.ck = was[i].ck; c.lk = was[i].lk;
   });
   nameMove(step, was, own, dx, dy);
 }
@@ -766,11 +833,13 @@ function towMove(s, lk, dx, dy, done) {
   const was = own.map(([x, y]) => ({ ...cell(s, x, y) }));
   for (const [x, y] of own) {
     const c = cell(next, x, y);
-    c.o = NONE; c.pid = undefined; c.cart = undefined; c.ck = undefined; c.lk = undefined;
+    c.o = NONE; c.hold = undefined; c.pid = undefined;
+    c.cart = undefined; c.ck = undefined; c.lk = undefined;
   }
   own.forEach(([x, y], i) => {
     const c = cell(next, x + dx, y + dy);
-    c.o = was[i].o; c.pid = was[i].pid; c.cart = was[i].cart; c.ck = was[i].ck; c.lk = was[i].lk;
+    c.o = was[i].o; c.hold = was[i].hold; c.pid = was[i].pid;
+    c.cart = was[i].cart; c.ck = was[i].ck; c.lk = was[i].lk;
   });
   next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
   // Both halves are BODIES — a cart and a multi-cell piece — so neither can be named in `moved`,
@@ -808,7 +877,7 @@ function openCabinet(s, at, done) {
       return { ok: false, reason: reasonFor(s, [draw], 'canRoom'), blame: [draw] };
     const shoved = inWay.o;
     cell(next, ...draw).o = NONE;
-    drop(next, past, shoved);
+    drop(next, past, [shoved]);
     step.moved.push({ o: shoved, from: draw, to: past });
   }
   cell(next, ...at).o = CAB_OPENS[o];
@@ -919,12 +988,16 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
   const next = cloneState(s);
   const frames = trace ? [cloneState(s)] : null;
   const steps = trace ? [] : null;
-  const loads = files.map(f => f.map(([x, y]) => ({ o: cell(s, x, y).o })));
+  // A slot holds a CHAIN, not an occupant: what is in it may be a barrow, and that barrow may
+  // be holding something. The whole chain rides in the slot and is shifted, shed and set down
+  // as one, which is what makes a loaded barrow no different from a can to everything below.
+  const loads = files.map(f => f.map(([x, y]) => ({ ch: chainOf(cell(s, x, y)) })));
   const repaint = (k, from) => files.forEach((f, i) => f.forEach((p, j) => {
-    const c = cell(next, ...at(p, from)); c.o = NONE; c.cart = undefined; c.ck = undefined;
+    const c = cell(next, ...at(p, from));
+    setChain(c, []); c.cart = undefined; c.ck = undefined;
     // The kind travels with the cart. Without it a barrow becomes an ordinary cart the moment it
     // moves — and `stateKey` would then key two different boards alike.
-    const d = cell(next, ...at(p, k)); d.cart = cid; d.ck = kind; d.o = loads[i][j].o;
+    const d = cell(next, ...at(p, k)); d.cart = cid; d.ck = kind; setChain(d, loads[i][j].ch);
   }));
 
   let n = 0, lastRoll = -1, stoppedAt = null;
@@ -934,60 +1007,66 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
     // so only the cell that load would shed into has to be free.
     const canShed = i => {
       const load = loads[i], out = load[load.length - 1];
-      if (out.o === NONE) return true;
-      return tipFits(next, out.o, at(files[i][load.length - 1], n), -dx, -dy);
+      if (!out.ch.length) return true;
+      return tipFits(next, out.ch[0], at(files[i][load.length - 1], n), -dx, -dy);
     };
     const clear = ahead.every(([x, y]) => cartCanEnter(next, x, y, dx, dy, swallows))
       && !files.some(f => isTar(cell(next, ...at(f[0], n))));
-    const incoming = clear ? ahead.map(([x, y]) => cargoAt(next, x, y)) : ahead.map(() => NONE);
+    const incoming = clear ? ahead.map(([x, y]) => cargoAt(next, x, y)) : ahead.map(() => []);
     // Which of them were CARTS before they were cargo. The stage holds a cart sprite for those,
     // so the step has to say which one turned into what rather than naming an occupant sprite
     // that does not exist yet.
     const wasCart = ahead.map(([x, y]) => (clear && isScoopable(next, x, y) ? cell(next, x, y).cart : undefined));
-    const rolling = clear && files.every((f, i) => incoming[i] === NONE || canShed(i));
-    const taken = rolling ? incoming : ahead.map(() => NONE);
+    const rolling = clear && files.every((f, i) => !incoming[i].length || canShed(i));
+    const taken = rolling ? incoming : ahead.map(() => []);
     const end = rolling ? n + 1 : n;              // where the cart stands once this step is over
     const step = trace ? mkStep(rolling ? { piece: { kind: 'cart', ref: cid, dx, dy } } : {}) : null;
     const spill = [];
 
     files.forEach((f, i) => {
-      if (rolling && taken[i] === NONE) return;
+      if (rolling && !taken[i].length) return;
       // A cart that stops rolling pushes its load out the back. A barrow does not: what it
       // scooped stays in it until it is tipped, which is the whole of what scooping buys.
       if (!rolling && isBarrow(kind)) return;
       const load = loads[i], depth = load.length, out = load[depth - 1];
       const behind = at(f[depth - 1], end - 1);
-      if (!rolling && out.o !== NONE
-          && (!isOccupiable(next, ...behind) || !tipFits(next, out.o, behind, -dx, -dy))) return;
+      if (!rolling && out.ch.length
+          && (!isOccupiable(next, ...behind) || !tipFits(next, out.ch[0], behind, -dx, -dy))) return;
 
       for (let j = depth - 1; j > 0; j--) {
         const it = load[j] = load[j - 1];
-        if (step && it.o !== NONE)
-          step.moved.push({ o: it.o, from: at(f[j - 1], n), to: at(f[j], end), parent: cid });
+        // A slot shift moves the whole stack in it, and moves it as it stands: each thing comes
+        // to rest exactly as deep in the next slot as it was in this one.
+        if (step) it.ch.forEach((o, k) => step.moved.push({
+          o, from: at(f[j - 1], n), to: at(f[j], end), parent: cid, depth: k,
+        }));
       }
-      load[0] = { o: taken[i] };
-      if (step && taken[i] !== NONE)
-        step.moved.push({ o: taken[i], from: ahead[i], to: at(f[0], end), parent: cid,
+      load[0] = { ch: taken[i] };
+      if (step && taken[i].length) {
+        step.moved.push({ o: taken[i][0], from: ahead[i], to: at(f[0], end), parent: cid, depth: 0,
                           ...(wasCart[i] !== undefined && { fromCart: wasCart[i] }) });
-      if (out.o !== NONE) {
+        // A barrow taken aboard brings its load, and the load comes aboard one level deeper than
+        // it was: it was standing in that barrow, and now the barrow is standing in this one.
+        for (let k = 1; k < taken[i].length; k++)
+          step.moved.push({ o: taken[i][k], from: ahead[i], to: at(f[0], end), parent: cid,
+                            wasDepth: wasCart[i] !== undefined ? k - 1 : k, depth: k });
+      }
+      if (out.ch.length) {
         if (step) step.moved.push({
-          o: out.o, from: at(f[depth - 1], n), to: behind, parent: null,
-          effect: effectOf(cell(next, ...behind), out.o),
-          ...(landsAs(out.o) !== out.o && { becomes: landsAs(out.o) }),
+          o: out.ch[0], from: at(f[depth - 1], n), to: behind, parent: null,
+          effect: effectOf(cell(next, ...behind), out.ch[0]),
+          ...(landsAs(out.ch[0]) !== out.ch[0] && { becomes: landsAs(out.ch[0]) }),
         });
-        spill.push([behind, out.o]);
+        spill.push([behind, out.ch]);
       }
     });
 
     repaint(end, n);
     n = end;
-    for (const [[x, y], o] of spill) {
-      const born = drop(next, [x, y], o);
-      if (born !== undefined && step) {
-        const m = step.moved.find(e => e.o === o && e.to[0] === x && e.to[1] === y);
-        if (m) m.toCart = born;
-      }
-      tipOut(next, o, [x, y], -dx, -dy, step);
+    for (const [[x, y], ch] of spill) {
+      const m = step && step.moved.find(e => e.o === ch[0] && e.to[0] === x && e.to[1] === y);
+      land(next, [x, y], ch, step, m);
+      tipOut(next, ch[0], [x, y], -dx, -dy, step);
     }
     if (trace && (rolling || step.moved.length)) {
       frames.push(cloneState(next)); steps.push(step);
@@ -1060,34 +1139,35 @@ export function explain(s, dir, opts = {}) {
     // which is the recycle bin's shape exactly — the dump is a shed, not a new mechanic.
     if (isBarrow(kind) && !barrowRollsAlong(kind, dx, dy)) {
       const to = [tx + dx, ty + dy], out = [to[0] + dx, to[1] + dy];
-      const load = target.o;
+      // Whatever was in it goes over the front as one — a barrow it was carrying lands as a
+      // barrow, still holding what IT was holding.
+      const load = chainOf(target);
       if (!travelsInto(s, ...to, dx, dy))
         return { ok: false, reason: reasonFor(s, [to], 'canRoom'), blame: [to] };
-      if (load !== NONE && !travelsInto(s, ...out, dx, dy))
+      if (load.length && !travelsInto(s, ...out, dx, dy))
         return { ok: false, reason: reasonFor(s, [out], 'canRoom'), blame: [out] };
-      if (load !== NONE && !tipFits(s, load, out, dx, dy))
-        return { ok: false, reason: reasonFor(s, [tipsInto(load, out, dx, dy)], 'canRoom'),
-                 blame: [tipsInto(load, out, dx, dy)] };
+      if (load.length && !tipFits(s, load[0], out, dx, dy))
+        return { ok: false, reason: reasonFor(s, [tipsInto(load[0], out, dx, dy)], 'canRoom'),
+                 blame: [tipsInto(load[0], out, dx, dy)] };
       const next = cloneState(s);
       const step = mkStep();
       // Tipping lets go of whatever it was towing: the barrow turns out from under the load.
       if (target.lk !== undefined)
         for (const [x, y] of linkCells(next, target.lk)) cell(next, x, y).lk = undefined;
       cell(next, tx, ty).cart = undefined; cell(next, tx, ty).ck = undefined;
-      cell(next, tx, ty).o = NONE;
+      setChain(cell(next, tx, ty), []);
       const landed = cell(next, ...to);
-      landed.cart = target.cart; landed.ck = kind; landed.o = NONE;
+      landed.cart = target.cart; landed.ck = kind; setChain(landed, []);
       // The barrow is a BODY. Naming it in `moved` names an occupant sprite of code NONE, which
       // the stage does not hold and cannot animate.
       step.piece = { kind: 'cart', ref: target.cart, dx, dy };
-      if (load !== NONE) {
-        const m = { o: load, from: [tx, ty], to: out, parent: null,
-          effect: effectOf(cell(next, ...out), load),
-          ...(landsAs(load) !== load && { becomes: landsAs(load) }) };
+      if (load.length) {
+        const m = { o: load[0], from: [tx, ty], to: out, parent: null,
+          effect: effectOf(cell(next, ...out), load[0]),
+          ...(landsAs(load[0]) !== load[0] && { becomes: landsAs(load[0]) }) };
         step.moved.push(m);
-        const born = drop(next, out, load);
-        if (born !== undefined) m.toCart = born;
-        tipOut(next, load, out, dx, dy, step);
+        land(next, out, load, step, m);
+        tipOut(next, load[0], out, dx, dy, step);
       }
       next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
       return done(next, PUSH, step);
@@ -1278,7 +1358,7 @@ export function explain(s, dir, opts = {}) {
     const shedAt = back && !swallowed.length ? back : null;
     if (shedAt) {
       cell(next, rear[0] + k * dx, rear[1] + k * dy).o = WHEELIE_EMPTY;
-      drop(next, shedAt, BAG);
+      drop(next, shedAt, [BAG]);
     }
 
     // IMPACT. The train stopped; if what stopped it rolls, the motion carries on into it and
@@ -1398,7 +1478,9 @@ export function explain(s, dir, opts = {}) {
     const next = cloneState(s);
     const step = mkStep({ moved: [], gone: [] });
     let headMoved = null;
-    for (const [x, y] of line) { const c = cell(next, x, y); c.o = NONE; c.lk = undefined; }
+    for (const [x, y] of line) {
+      const c = cell(next, x, y); c.o = NONE; c.hold = undefined; c.lk = undefined;
+    }
     for (const [x, y] of [...line].reverse()) {
       const from = [x, y], to = [x + k * dx, y + k * dy];
       const what = cell(s, x, y).o;
@@ -1416,7 +1498,7 @@ export function explain(s, dir, opts = {}) {
       // Everything the cell was carrying travels with it, not just the occupant code. A link
       // left behind belongs to whatever is standing there now, which is a different board.
       const c = cell(next, ...to);
-      c.o = what; c.lk = cell(s, x, y).lk;
+      c.o = what; c.hold = cell(s, x, y).hold; c.lk = cell(s, x, y).lk;
       const m = { o: what, from, to };
       step.moved.push(m);
       if (x === head[0] && y === head[1]) headMoved = m;
@@ -1480,15 +1562,15 @@ export function explain(s, dir, opts = {}) {
     } else if (tips) {
       step.spawned.push({ o: drops, at: c2, from: [tx, ty],
         effect: effectOf(cell(next, c2[0], c2[1]), drops) });
-      drop(next, c2, drops);
+      drop(next, c2, [drops]);
     }
     if (shove) applyIntoCart(s, next, into, shove, lands, step);
-    else if (SLIDES[o].soaks) { soak(cell(next, ...at)); drop(next, at, lands); }
+    else if (SLIDES[o].soaks) { soak(cell(next, ...at)); drop(next, at, [lands]); }
     // Spent making the cell walkable. It still MOVES — the sheet slides onto the hazard and goes
     // down with it — so the step keeps the move and names the sprite where the stage holds it,
     // which is the cell it started from.
     else if (SLIDES[o].covers && cover(cell(next, ...at))) step.gone = [{ o, at: [tx, ty] }];
-    else drop(next, at, lands);
+    else drop(next, at, [lands]);
     const lk = cell(next, tx, ty).lk;
     cell(next, tx, ty).o = NONE;
     cell(next, tx, ty).lk = undefined;
@@ -1531,15 +1613,19 @@ export function applyAction(s, { dir, kind }) {
 }
 
 const BAGS_IN = { [BAG]: 1, [CAN_FULL]: 1, [WHEELIE]: 1, [STACK]: 2, [BIN]: 1 };
+// Both walk the whole chain. A bag stowed inside a barrow that is itself riding in a cart is
+// still a bag the exit is waiting on, and a room that let it out of sight would open its door
+// on a yard that is not clear.
 export function bagsLeft(s) {
   let k = 0;
-  for (const row of s.cells) for (const c of row) k += BAGS_IN[c.o] ?? 0;
+  for (const o of deepCells(s)) k += BAGS_IN[o] ?? 0;
   return k;
 }
 
 export function trashHeld(s) {
   let k = 0;
-  for (const row of s.cells) for (const c of row) if (isCart(c) && c.o === TRASH) k++;
+  for (const row of s.cells) for (const c of row)
+    if (isCart(c)) for (const o of chainOf(c)) if (o === TRASH) k++;
   return k;
 }
 
@@ -1582,7 +1668,7 @@ const SEP = '#';                        // below 65, which is the floor every la
 // One pass with lazy label maps: this runs once per state generated, and most boards have
 // neither furniture nor a cart.
 export const stateKey = s => {
-  let kinds = '', pids = '', carts = '', links = '';
+  let kinds = '', pids = '', carts = '', links = '', holds = '';
   let pidLabels = null, cartLabels = null, linkLabels = null;
   for (let y = 0; y < s.rows; y++) {
     if (y) kinds += '/';
@@ -1607,7 +1693,17 @@ export const stateKey = s => {
         if (!linkLabels.has(c.lk)) linkLabels.set(c.lk, linkLabels.size);
         links += String.fromCharCode(65 + linkLabels.get(c.lk));
       }
+      // What a carried barrow is holding, and what THAT is holding. Variable length, so each
+      // one is written with its own count — the cells it belongs to are the ones the kinds lane
+      // already says hold a carried barrow, in this same order, and every one of them writes a
+      // count even when it is nothing. Two boards differing only in what is stowed out of sight
+      // are two boards, and without this the solver would take the second for the first.
+      if (isCarriedBarrow(c.o)) {
+        const h = c.hold ?? [];
+        holds += String.fromCharCode(65 + h.length);
+        for (const o of h) holds += String.fromCharCode(65 + o);
+      }
     }
   }
-  return `${kinds}${SEP}${pids}${SEP}${carts}${SEP}${links}${SEP}${s.rac.x},${s.rac.y}`;
+  return `${kinds}${SEP}${pids}${SEP}${carts}${SEP}${links}${SEP}${holds}${SEP}${s.rac.x},${s.rac.y}`;
 };

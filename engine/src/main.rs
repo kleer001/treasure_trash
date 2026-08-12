@@ -103,6 +103,8 @@ fn respond(req: &json::Json) -> Result<String, String> {
                     json::rows_or_null(board::to_cart(&next)?.as_ref(), &mut body);
                     body.push_str(",\"water\":");
                     json::rows_or_null(board::to_water(&next).as_ref(), &mut body);
+                    body.push_str(",\"hold\":");
+                    json::rows_or_null(board::to_hold(&next).as_ref(), &mut body);
                     Ok(body)
                 }
             }
@@ -146,5 +148,6 @@ fn read_board(req: &json::Json) -> Result<board::State, String> {
         .ok_or("no `grid`")?;
     let cart = req.opt("cart").and_then(json::Json::as_rows);
     let water = req.opt("water").and_then(json::Json::as_rows);
-    board::to_state(&grid, cart.as_ref(), water.as_ref())
+    let hold = req.opt("hold").and_then(json::Json::as_rows);
+    board::to_state(&grid, cart.as_ref(), water.as_ref(), hold.as_ref())
 }

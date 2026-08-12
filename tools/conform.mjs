@@ -53,7 +53,7 @@ export function disagreement(mine, theirs) {
     if (!(k in mine)) continue;
     if (norm(mine[k]) !== norm(theirs[k])) return `${k}: ${norm(mine[k])} vs ${norm(theirs[k])}`;
   }
-  for (const k of ['grid', 'cart', 'water']) {
+  for (const k of ['grid', 'cart', 'water', 'hold']) {
     if (!(k in mine)) continue;
     if (!sameRows(mine[k], theirs[k])) return `${k} differs`;
   }
@@ -120,6 +120,38 @@ export function generatedRooms(count, seed) {
 }
 
 /**
+ * Rooms that START with a stack: a barrow holding a barrow that is holding something.
+ *
+ * A room only reaches one after a particular run of shoves, and rooms drawn at random walk it
+ * about one time in a hundred — so the lane that carries a load inside a load would be asked
+ * for by nothing, and a port that dropped it on the floor would agree with everything the
+ * corpus happened to try. These start on the boards that lane exists for, and the sampler then
+ * takes them apart a direction at a time like any other room.
+ */
+export function nestedRooms() {
+  const rooms = [
+    // Along its facing, at a wall, at a can, and at another barrow.
+    { grid: ['#########', '#-@->---#', '#------E#', '#########'], cart: ['---------', '----r----', '---------', '---------'], hold: ['4,1 C'] },
+    { grid: ['#########', '#-@->-C-#', '#------E#', '#########'], cart: ['---------', '----r----', '---------', '---------'], hold: ['4,1 c'] },
+    { grid: ['#########', '#-@->---#', '#------E#', '#########'], cart: ['---------', '----r-s--', '---------', '---------'], hold: ['4,1 $'] },
+    // Backwards down the same alley: it rolls, and takes nothing off it.
+    { grid: ['#########', '#-@-<-C-#', '#------E#', '#########'], cart: ['---------', '----l----', '---------', '---------'], hold: ['4,1 C'] },
+    // Across the axis, where the whole stack goes over the front.
+    { grid: ['#######', '#--@--#', '#-v---#', '#-----#', '#E----#', '#######'], cart: ['-------', '-------', '--d----', '-------', '-------', '-------'], hold: ['2,2 C'] },
+    // Into a cart, which is the one thing that can swallow it whole.
+    { grid: ['##########', '#-@->----#', '#-------E#', '##########'], cart: ['----------', '----r-PP--', '----------', '----------'], hold: ['4,1 C'] },
+    // Onto every lane, one room: a grate that takes what falls in it, and water it plank over.
+    { grid: ['##########', '#-@->----#', '#-------E#', '##########'], cart: ['----------', '----r-----', '----------', '----------'],
+      water: ['----------', '------O%--', '----------', '----------'], hold: ['4,1 $'] },
+    { grid: ['##########', '#-@->----#', '#-------E#', '##########'], cart: ['----------', '----r-----', '----------', '----------'],
+      water: ['----------', '------~T--', '----------', '----------'], hold: ['4,1 C'] },
+    // And in reach of a magnet, which drags what it holds and never what is inside it.
+    { grid: ['##########', '#-@->--q-#', '#-------E#', '##########'], cart: ['----------', '----r-----', '----------', '----------'], hold: ['4,1 C'] },
+  ];
+  return rooms.map((room, i) => ({ name: `nested#${i}`, level: { id: 'nest', ...room } }));
+}
+
+/**
  * Boards from a room, and every direction from each. Sampled evenly through BFS discovery order
  * rather than from the front, because the first hundred states of any room are the raccoon
  * walking about and the interesting boards are the ones several shoves deep.
@@ -143,7 +175,7 @@ const WINDOW = 256;
 export async function conform(command, { rooms = null, steps = 120, random = 40, seed = 7,
                                          log = console.log } = {}) {
   const engine = connect(command);
-  const corpus = rooms ?? [...actLevels(), ...generatedRooms(random, seed)];
+  const corpus = rooms ?? [...actLevels(), ...nestedRooms(), ...generatedRooms(random, seed)];
   const tally = { rooms: 0, answers: 0, measures: 0, steps: 0, skipped: 0 };
   const failures = [];
 

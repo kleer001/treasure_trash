@@ -8,7 +8,7 @@
 // fractional position, and can be parented to a cart rather than standing on a square.
 
 import { NONE, DRAWER, cell, cartCells, pieceCells, isCart, isMultiCell, bodyOfDrawer,
-         carriedKind } from './rules.js';
+         carriedKind, chainOf } from './rules.js';
 import { mulberry32 } from './rng.js';
 
 /** Multi-cell kinds are their own sprites; every other sprite is keyed by occupant code. */
@@ -29,7 +29,7 @@ export function stageFrom(state, seed = 1) {
   const rnd = mulberry32(seed);
   const stage = { sprites: [], nextId: 0 };
   const mint = (kind, x, y, extra = {}) => {
-    const sp = { id: stage.nextId++, kind, x, y, ax: x, ay: y, tx: x, ty: y,
+    const sp = { id: stage.nextId++, kind, x, y, ax: x, ay: y, tx: x, ty: y, depth: 0,
                  seed: (rnd() * 0x100000000) >>> 0, parent: null, dying: false, ...extra };
     stage.sprites.push(sp);
     return sp;
@@ -69,7 +69,11 @@ export function stageFrom(state, seed = 1) {
       const b = bodyOfDrawer(state, [x, y]);
       if (b) extra.face = [x - b[0], y - b[1]];
     }
-    mint(c.o, x, y, extra);
+    // One sprite per thing in the cell, not one per cell: a barrow riding in a cart may be
+    // carrying something itself, and that something is drawn over it rather than hidden by it.
+    // `depth` is how far down the stack it is, and it is also what tells two sprites of the
+    // same code on the same cell apart.
+    chainOf(c).forEach((o, depth) => mint(o, x, y, { ...extra, depth }));
   }
   return stage;
 }
@@ -83,8 +87,15 @@ const offsets = (cells, ox, oy) => cells.map(([x, y]) => [x - ox, y - oy]);
 const CONSUMES = new Set(['fills', 'pours', 'shatters', 'falls']);
 
 const atCell = (sp, x, y) => sp.ax === x && sp.ay === y;
-const find = (stage, kind, [x, y]) =>
-  stage.sprites.find(sp => sp.kind === kind && !sp.dying && atCell(sp, x, y));
+// `parent` narrows the match when kind and cell are not enough: a barrow riding in a barrow is
+// the same code as the barrow carrying it, standing on the same cell, and what tells them apart
+// is which of them the other is inside.
+// `depth` is what tells apart two sprites of one code standing on one cell — a barrow riding in
+// a barrow, most of all, where the two are the same code and the only difference is which of
+// them the other is inside.
+const find = (stage, kind, [x, y], depth = 0) =>
+  stage.sprites.find(sp => sp.kind === kind && !sp.dying && atCell(sp, x, y)
+    && (sp.depth ?? 0) === depth);
 
 /**
  * Retarget everything for one step of an action. Positions are not applied here — `advance`
@@ -113,7 +124,12 @@ export function applyStep(stage, step, racTo = null) {
         if (sp.parent === ref) { sp.tx = sp.ax + dx; sp.ty = sp.ay + dy; }
   }
 
-  for (const m of step.moved) {
+  // Every sprite is found BEFORE any of them is changed. A step can move several things that
+  // are alike — a barrow riding in a barrow is the same code on the same cell as the barrow
+  // carrying it — and they are told apart by what they are NOW. Resolve them one at a time and
+  // the first entry's changes are what the second entry searches, which finds the wrong one.
+  const claimed = new Set();
+  const targets = step.moved.map(m => {
     // A step naming a sprite the stage does not hold means the rules and the stage disagree
     // about the board. Nothing downstream would notice: the piece would simply not animate.
     //
@@ -123,18 +139,33 @@ export function applyStep(stage, step, racTo = null) {
     // swapped — which is what keeps its draw seed and stops it popping.
     const sp = m.fromCart !== undefined
       ? stage.sprites.find(s => s.kind === CART && s.ref === m.fromCart && !s.dying)
-      : find(stage, m.o, m.from);
+      : find(stage, m.o, m.from, m.wasDepth ?? m.depth ?? 0);
     if (!sp) throw new Error(`no ${m.o} sprite at ${m.from} to move to ${m.to}`);
-    if (m.fromCart !== undefined) { sp.kind = m.o; sp.ref = undefined; sp.cells = undefined; }
+    // Two entries landing on one sprite is a step describing a board it did not produce: one of
+    // the things it says moved is not on the stage at all, and the other is being moved twice.
+    if (claimed.has(sp.id)) throw new Error(`two moves claim the ${m.o} sprite at ${m.from}`);
+    claimed.add(sp.id);
+    return sp;
+  });
+
+  step.moved.forEach((m, i) => {
+    const sp = targets[i];
+    // Everything that made it a cart goes, `ck` included: a sprite that is cargo now and still
+    // carries a cart kind is a sprite a rebuild of the same board would not produce.
+    if (m.fromCart !== undefined) {
+      sp.kind = m.o; sp.ref = undefined; sp.cells = undefined; sp.ck = undefined;
+    }
     // And the way back: set down, it is a barrow again.
     if (m.toCart !== undefined) {
       sp.kind = CART; sp.ref = m.toCart; sp.ck = carriedKind(m.o); sp.cells = [[0, 0]];
+      sp.depth = 0;                                  // a cart is never inside anything
     }
     // Only what was ALREADY riding gets nudged: a slot shift is a true no-op on the board and
     // would otherwise read as nothing at all. Something being scooped up is not hit by
     // anything, so it does not lurch.
     const aboard = step.piece && sp.parent === step.piece.ref;
     [sp.tx, sp.ty] = m.to;
+    sp.depth = m.depth ?? 0;
     if (m.parent !== undefined) sp.parent = m.parent;
     // Immediately, not at the end of the beat, or a bin still drawn full alongside the bag it
     // has just thrown reads as two bags.
@@ -143,13 +174,13 @@ export function applyStep(stage, step, racTo = null) {
     if (m.effect === 'falls') sp.falls = true;
     if (aboard && m.from[0] === m.to[0] && m.from[1] === m.to[1])
       sp.nudge = [step.piece.dx, step.piece.dy];
-  }
+  });
 
   for (const g of step.gone) {
     // Loud for the reason `moved` is: a step naming a sprite the stage does not hold means the
     // rules and the stage disagree about the board. Passing over it quietly leaves the sprite
     // drawn where it was consumed, which reads as a rules bug and is found only by playing.
-    const sp = find(stage, g.o, g.at);
+    const sp = find(stage, g.o, g.at, g.depth ?? 0);
     if (!sp) throw new Error(`no ${g.o} sprite at ${g.at} to consume`);
     sp.dying = true;                                // the one thing that really does deflate
   }
@@ -160,7 +191,8 @@ export function applyStep(stage, step, racTo = null) {
                    x: ax, y: ay, ax, ay, tx: sp.at[0], ty: sp.at[1],
                    // Where it came FROM is where a drawer's body still is.
                    face: [Math.sign(sp.at[0] - ax), Math.sign(sp.at[1] - ay)],
-                   seed: (stage.nextId * 2654435761) >>> 0, parent: null, dying: false,
+                   depth: sp.depth ?? 0,
+                   seed: (stage.nextId * 2654435761) >>> 0, parent: sp.parent ?? null, dying: false,
                    spent: CONSUMES.has(sp.effect), falls: sp.effect === 'falls' };
     stage.sprites.push(born);
   }

@@ -186,9 +186,7 @@ fn barrow_scoops(k: u8, dx: i32, dy: i32) -> bool {
     dir_of(barrow_face(k)) == (dx, dy)
 }
 
-fn is_carried_barrow(o: u8) -> bool {
-    (BAR_U..=BAR_R).contains(&o)
-}
+use crate::board::is_carried_barrow;
 fn carried_as(k: u8) -> u8 {
     BAR_U + (k - BARROW_U)
 }
@@ -196,23 +194,24 @@ fn carried_kind(o: u8) -> u8 {
     BARROW_U + (o - BAR_U)
 }
 
-/// A barrow that something else can take aboard: one cell, nothing in it, and not held. Carrying
-/// one is the only way a cart ever enters another cart's cell.
+/// A barrow that something else can take aboard: one cell, and not held. Carrying one is the
+/// only way a cart ever enters another cart's cell.
+///
+/// What it is holding comes with it — a barrow does not have to be emptied to be lifted, and
+/// what it is holding may be another loaded barrow.
 fn is_scoopable(s: &State, x: i32, y: i32) -> bool {
     let c = s.at(x, y);
-    c.is_cart()
-        && is_barrow(c.ck)
-        && c.o == NONE
-        && c.lk == NO_ID
-        && s.cart_cells(c.cart).len() == 1
+    c.is_cart() && is_barrow(c.ck) && c.lk == NO_ID && s.cart_cells(c.cart).len() == 1
 }
 
-/// What a cart takes in when it swallows this cell.
-fn cargo_at(s: &State, x: i32, y: i32) -> u8 {
+/// What a cart takes in when it swallows this cell — a barrow rides as cargo with everything it
+/// was holding stacked behind it, and anything else is already the chain it will be.
+fn cargo_at(s: &State, x: i32, y: i32) -> Chain {
+    let c = s.at(x, y);
     if is_scoopable(s, x, y) {
-        carried_as(s.at(x, y).ck)
+        c.chain().under(carried_as(c.ck))
     } else {
-        s.at(x, y).o
+        c.chain()
     }
 }
 
@@ -439,23 +438,25 @@ fn lay_trash(c: &mut Cell) {
 ///
 /// And the one place a carried barrow stops being cargo: set down, it is a barrow again, facing
 /// the way it always was.
-fn drop_at(s: &mut State, at: Pt, o: u8) {
+fn drop_at(s: &mut State, at: Pt, ch: &Chain) {
     if is_grate(s.at(at.0, at.1)) {
-        return;
+        return; // the grate takes the lot, a loaded barrow included
     }
-    if o == TRASH {
+    let head = ch.head();
+    if head == TRASH {
         lay_trash(s.at_mut(at.0, at.1));
         return;
     }
-    if is_carried_barrow(o) {
+    if is_carried_barrow(head) {
         let id = free_cart(s);
+        let tail = ch.tail();
         let c = s.at_mut(at.0, at.1);
         c.cart = id;
-        c.ck = carried_kind(o);
-        c.o = NONE;
+        c.ck = carried_kind(head);
+        c.set_chain(&tail);
         return;
     }
-    s.at_mut(at.0, at.1).o = o;
+    s.at_mut(at.0, at.1).set_chain(ch);
 }
 
 /// The exit and open water each get their own refusal reason rather than the generic one.
@@ -560,7 +561,7 @@ fn tip_out(s: &mut State, o: u8, at: Pt, dx: i32, dy: i32) {
     let (cx, cy) = (at.0 + dx, at.1 + dy);
     match t.drops {
         None => s.at_mut(cx, cy).water = true, // pours
-        Some(drops) => drop_at(s, (cx, cy), drops),
+        Some(drops) => drop_at(s, (cx, cy), &Chain::of(drops)),
     }
     if t.slides != o {
         s.at_mut(at.0, at.1).o = t.slides;
@@ -572,7 +573,7 @@ fn tip_out(s: &mut State, o: u8, at: Pt, dx: i32, dy: i32) {
 struct Shove {
     file: Vec<Pt>,
     beyond: Pt,
-    out: u8,
+    out: Chain,
     dx: i32,
     dy: i32,
 }
@@ -586,12 +587,12 @@ fn into_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Result<Shove, 
     }
     let last = *file.last().expect("entry is a cell of this cart");
     let beyond = (last.0 + dx, last.1 + dy);
-    let out = s.at(last.0, last.1).o;
-    if out != NONE && !is_occupiable(s, beyond.0, beyond.1) {
+    let out = s.at(last.0, last.1).chain();
+    if !out.is_empty() && !is_occupiable(s, beyond.0, beyond.1) {
         return Err(vec![beyond]);
     }
-    if out != NONE && !tip_fits(s, out, beyond, dx, dy) {
-        return Err(vec![tips_into(out, beyond, dx, dy).expect("out sheds")]);
+    if !out.is_empty() && !tip_fits(s, out.head(), beyond, dx, dy) {
+        return Err(vec![tips_into(out.head(), beyond, dx, dy).expect("out sheds")]);
     }
     Ok(Shove { file, beyond, out, dx, dy })
 }
@@ -599,13 +600,13 @@ fn into_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Result<Shove, 
 fn apply_into_cart(s: &State, next: &mut State, sh: &Shove, o: u8) {
     // Read from `s`: `next` is being overwritten cell by cell as the file shuffles along.
     for j in (1..sh.file.len()).rev() {
-        let was = s.at(sh.file[j - 1].0, sh.file[j - 1].1).o;
-        next.at_mut(sh.file[j].0, sh.file[j].1).o = was;
+        let was = s.at(sh.file[j - 1].0, sh.file[j - 1].1).chain();
+        next.at_mut(sh.file[j].0, sh.file[j].1).set_chain(&was);
     }
-    next.at_mut(sh.file[0].0, sh.file[0].1).o = o;
-    if sh.out != NONE {
-        drop_at(next, sh.beyond, sh.out);
-        tip_out(next, sh.out, sh.beyond, sh.dx, sh.dy);
+    next.at_mut(sh.file[0].0, sh.file[0].1).set_chain(&Chain::of(o));
+    if !sh.out.is_empty() {
+        drop_at(next, sh.beyond, &sh.out);
+        tip_out(next, sh.out.head(), sh.beyond, sh.dx, sh.dy);
     }
 }
 
@@ -675,9 +676,12 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
     }
 
     let mut next = s.clone();
-    let mut loads: Vec<Vec<u8>> = files
+    // A slot holds a CHAIN, not an occupant: what is in it may be a barrow, and that barrow may
+    // be holding something. The whole chain rides in the slot and is shifted, shed and set down
+    // as one, which is what makes a loaded barrow no different from a can to everything below.
+    let mut loads: Vec<Vec<Chain>> = files
         .iter()
-        .map(|f| f.iter().map(|&(x, y)| s.at(x, y).o).collect())
+        .map(|f| f.iter().map(|&(x, y)| s.at(x, y).chain()).collect())
         .collect();
 
     let mut n = 0i32;
@@ -688,26 +692,27 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
         // beat, so only the cell that load would shed into has to be free.
         let clear = ahead.iter().all(|&(x, y)| cart_can_enter(&next, x, y, dx, dy, swallows))
             && !files.iter().any(|f| is_tar(next.at(along(f[0], n).0, along(f[0], n).1)));
-        let incoming: Vec<u8> = if clear {
+        let incoming: Vec<Chain> = if clear {
             ahead.iter().map(|&(x, y)| cargo_at(&next, x, y)).collect()
         } else {
-            vec![NONE; files.len()]
+            vec![Chain::EMPTY; files.len()]
         };
         let rolling = clear
             && (0..files.len()).all(|i| {
-                if incoming[i] == NONE {
+                if incoming[i].is_empty() {
                     return true;
                 }
                 let load = &loads[i];
                 let out = load[load.len() - 1];
-                out == NONE || tip_fits(&next, out, along(files[i][load.len() - 1], n), -dx, -dy)
+                out.is_empty()
+                    || tip_fits(&next, out.head(), along(files[i][load.len() - 1], n), -dx, -dy)
             });
-        let taken: Vec<u8> = if rolling { incoming } else { vec![NONE; files.len()] };
+        let taken: Vec<Chain> = if rolling { incoming } else { vec![Chain::EMPTY; files.len()] };
         let end = if rolling { n + 1 } else { n }; // where the cart stands once this step is over
-        let mut spill: Vec<(Pt, u8)> = Vec::new();
+        let mut spill: Vec<(Pt, Chain)> = Vec::new();
 
         for i in 0..files.len() {
-            if rolling && taken[i] == NONE {
+            if rolling && taken[i].is_empty() {
                 continue;
             }
             // A cart that stops rolling pushes its load out the back. A barrow does not: what it
@@ -719,9 +724,9 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
             let out = loads[i][depth - 1];
             let behind = along(files[i][depth - 1], end - 1);
             if !rolling
-                && out != NONE
+                && !out.is_empty()
                 && (!is_occupiable(&next, behind.0, behind.1)
-                    || !tip_fits(&next, out, behind, -dx, -dy))
+                    || !tip_fits(&next, out.head(), behind, -dx, -dy))
             {
                 continue;
             }
@@ -729,7 +734,7 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
                 loads[i][j] = loads[i][j - 1];
             }
             loads[i][0] = taken[i];
-            if out != NONE {
+            if !out.is_empty() {
                 spill.push((behind, out));
             }
         }
@@ -739,7 +744,7 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
             for j in 0..files[i].len() {
                 let from = along(files[i][j], n);
                 let c = next.at_mut(from.0, from.1);
-                c.o = NONE;
+                c.set_chain(&Chain::EMPTY);
                 c.cart = NO_ID;
                 c.ck = CART;
                 let to = along(files[i][j], end);
@@ -749,13 +754,13 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
                 // The kind travels with the cart. Without it a barrow becomes an ordinary cart
                 // the moment it moves — and the key would then read two boards alike.
                 d.ck = kind;
-                d.o = cargo;
+                d.set_chain(&cargo);
             }
         }
         n = end;
-        for (p, o) in spill {
-            drop_at(&mut next, p, o);
-            tip_out(&mut next, o, p, -dx, -dy);
+        for (p, ch) in spill {
+            drop_at(&mut next, p, &ch);
+            tip_out(&mut next, ch.head(), p, -dx, -dy);
         }
         if !rolling {
             stopped_at = Some(ahead);
@@ -889,7 +894,7 @@ fn slide_body(next: &mut State, at: Pt, dx: i32, dy: i32) {
     let was: Vec<Cell> = own.iter().map(|&(x, y)| *next.at(x, y)).collect();
     for &(x, y) in &own {
         let c = next.at_mut(x, y);
-        c.o = NONE;
+        c.set_chain(&Chain::EMPTY);
         c.pid = NO_ID;
         c.cart = NO_ID;
         c.ck = CART;
@@ -897,7 +902,7 @@ fn slide_body(next: &mut State, at: Pt, dx: i32, dy: i32) {
     }
     for (i, &(x, y)) in own.iter().enumerate() {
         let c = next.at_mut(x + dx, y + dy);
-        c.o = was[i].o;
+        c.set_chain(&was[i].chain());
         c.pid = was[i].pid;
         c.cart = was[i].cart;
         c.ck = was[i].ck;
@@ -1029,7 +1034,7 @@ fn tow_move(s: &State, lk: u16, dx: i32, dy: i32) -> Outcome {
     let was: Vec<Cell> = own.iter().map(|&(x, y)| *s.at(x, y)).collect();
     for &(x, y) in &own {
         let c = next.at_mut(x, y);
-        c.o = NONE;
+        c.set_chain(&Chain::EMPTY);
         c.pid = NO_ID;
         c.cart = NO_ID;
         c.ck = CART;
@@ -1037,7 +1042,7 @@ fn tow_move(s: &State, lk: u16, dx: i32, dy: i32) -> Outcome {
     }
     for (i, &(x, y)) in own.iter().enumerate() {
         let c = next.at_mut(x + dx, y + dy);
-        c.o = was[i].o;
+        c.set_chain(&was[i].chain());
         c.pid = was[i].pid;
         c.cart = was[i].cart;
         c.ck = was[i].ck;
@@ -1101,7 +1106,7 @@ fn open_cabinet(s: &State, at: Pt) -> Outcome {
         }
         let shoved = in_way.expect("checked").o;
         next.at_mut(draw.0, draw.1).o = NONE;
-        drop_at(&mut next, past, shoved);
+        drop_at(&mut next, past, &Chain::of(shoved));
     }
     next.at_mut(at.0, at.1).o = cab_opens(o);
     next.at_mut(draw.0, draw.1).o = DRAWER;
@@ -1219,15 +1224,15 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
         if is_barrow(kind) && !barrow_rolls_along(kind, dx, dy) {
             let to = (tx + dx, ty + dy);
             let out = (to.0 + dx, to.1 + dy);
-            let load = target.o;
+            let load = target.chain();
             if !travels_into(s, to.0, to.1, dx, dy) {
                 return no(reason_for(s, &[to], "canRoom"));
             }
-            if load != NONE && !travels_into(s, out.0, out.1, dx, dy) {
+            if !load.is_empty() && !travels_into(s, out.0, out.1, dx, dy) {
                 return no(reason_for(s, &[out], "canRoom"));
             }
-            if load != NONE && !tip_fits(s, load, out, dx, dy) {
-                let t = tips_into(load, out, dx, dy).expect("load sheds");
+            if !load.is_empty() && !tip_fits(s, load.head(), out, dx, dy) {
+                let t = tips_into(load.head(), out, dx, dy).expect("load sheds");
                 return no(reason_for(s, &[t], "canRoom"));
             }
             let mut next = s.clone();
@@ -1240,14 +1245,14 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
             let c = next.at_mut(tx, ty);
             c.cart = NO_ID;
             c.ck = CART;
-            c.o = NONE;
+            c.set_chain(&Chain::EMPTY);
             let landed = next.at_mut(to.0, to.1);
             landed.cart = target.cart;
             landed.ck = kind;
-            landed.o = NONE;
-            if load != NONE {
-                drop_at(&mut next, out, load);
-                tip_out(&mut next, load, out, dx, dy);
+            landed.set_chain(&Chain::EMPTY);
+            if !load.is_empty() {
+                drop_at(&mut next, out, &load);
+                tip_out(&mut next, load.head(), out, dx, dy);
             }
             next.rac = if is_clear_floor(&next, tx, ty) { (tx, ty) } else { s.rac };
             return Ok(Outcome::Ok { kind: Kind::Push, next });
@@ -1462,7 +1467,7 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
         if let Some(b) = back {
             if swallowed == 0 {
                 next.at_mut(rear.0 + k * dx, rear.1 + k * dy).o = WHEELIE_EMPTY;
-                drop_at(&mut next, b, BAG);
+                drop_at(&mut next, b, &Chain::of(BAG));
             }
         }
 
@@ -1562,7 +1567,7 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
         let mut next = s.clone();
         for &(lx, ly) in &line {
             let c = next.at_mut(lx, ly);
-            c.o = NONE;
+            c.set_chain(&Chain::EMPTY);
             c.lk = NO_ID;
         }
         for &(lx, ly) in line.iter().rev() {
@@ -1585,8 +1590,9 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
             // link left behind belongs to whatever is standing there now, which is a different
             // board.
             let lk = s.at(lx, ly).lk;
+            let held = s.at(lx, ly).chain();
             let c = next.at_mut(to.0, to.1);
-            c.o = what;
+            c.set_chain(&held);
             c.lk = lk;
         }
         // Only the head has a free cell beyond it; every other has its neighbour there, so the
@@ -1647,19 +1653,19 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
         if tips {
             match t.drops {
                 None => pour(next.at_mut(c2.0, c2.1)),
-                Some(drops) => drop_at(&mut next, c2, drops),
+                Some(drops) => drop_at(&mut next, c2, &Chain::of(drops)),
             }
         }
         match &shove {
             Some(sh) => apply_into_cart(s, &mut next, sh, lands),
             None if t.soaks => {
                 soak(next.at_mut(at.0, at.1));
-                drop_at(&mut next, at, lands);
+                drop_at(&mut next, at, &Chain::of(lands));
             }
             // Spent making the cell walkable. It still MOVES — the sheet slides onto the hazard
             // and goes down with it.
             None if t.covers && cover(next.at_mut(at.0, at.1)) => {}
-            None => drop_at(&mut next, at, lands),
+            None => drop_at(&mut next, at, &Chain::of(lands)),
         }
         let lk = next.at(tx, ty).lk;
         next.at_mut(tx, ty).o = NONE;

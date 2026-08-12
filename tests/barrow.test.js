@@ -8,8 +8,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, bagsLeft, NONE } from '../src/rules.js';
-import { toState, toGrid, toCart } from '../src/format.js';
+import { explain, bagsLeft, NONE, CAN_FULL, BAR_R, cell, chainOf } from '../src/rules.js';
+import { toState, toGrid, toCart, toHold } from '../src/format.js';
 
 const S = (grid, cart) => toState({ id: 't', grid, cart });
 const push = (s, dir) => { const r = explain(s, dir); assert.ok(r.ok, `refused: ${r.reason}`); return r.next; };
@@ -158,16 +158,33 @@ test('tipped out, it is a barrow again', () => {
   assert.equal(toGrid(after)[4], 'E-----', 'nothing riding anywhere');
 });
 
-test('a loaded barrow is too full to be picked up', () => {
-  // A cell holds one occupant, so a barrow with something in it cannot bring it aboard.
-  const s = S(['@--c-E', '------'], ['-r-r--', '------']);
-  const loaded = push(s, 'r');                       // the far barrow now holds the can
-  assert.ok(toGrid(loaded)[0].includes('c'), 'it scooped the can');
-  const again = S(['-@---E', '------'], ['--r-r-', '------']);
-  again.cells[0][4].o = 2;                           // a full can riding in the far barrow
-  const r = explain(again, 'r');
+test('a loaded barrow is picked up with its load still in it', () => {
+  const s = S(['-@---E', '------'], ['--r-r-', '------']);
+  s.cells[0][4].o = CAN_FULL;                        // a full can riding in the far barrow
+  const r = explain(s, 'r');
   assert.ok(r.ok, `refused: ${r.reason}`);
-  assert.equal(toCart(r.next)[0], '---rs-', 'it rolled up and stopped against it');
+  assert.equal(toCart(r.next)[0], '----r-', 'one barrow left, holding the other');
+  assert.deepEqual(chainOf(cell(r.next, 4, 0)), [BAR_R, CAN_FULL],
+    'a barrow facing right, with the can still in it');
+  assert.deepEqual(toHold(r.next), ['4,0 C'], 'and the load is written down');
+});
+
+test('a barrow carries a barrow carrying a barrow, and every load comes back', () => {
+  // Nothing bounds the stack: what a barrow holds is a chain, and a chain is as long as it is.
+  const s = S(['-@-----E', '--------'], ['--r-r-s-', '--------']);
+  s.cells[0][6].o = CAN_FULL;
+  let at = s;
+  for (const dir of [...'rrrr']) {
+    const r = explain(at, dir);
+    assert.ok(r.ok, `${dir} refused: ${r.reason}`);
+    at = r.next;
+  }
+  assert.deepEqual(chainOf(cell(at, 6, 0)), [BAR_R, BAR_R, CAN_FULL], 'three deep');
+  assert.equal(bagsLeft(at), 1, 'the can is still a can the exit is waiting on');
+
+  // And it all comes out again: tipped across its axis, the barrow turns the stack out whole.
+  const back = toState({ id: 'rt', grid: toGrid(at), cart: toCart(at), hold: toHold(at) });
+  assert.deepEqual(chainOf(cell(back, 6, 0)), [BAR_R, BAR_R, CAN_FULL], 'and it round-trips');
 });
 
 test('a hooked barrow is spoken for, and cannot be picked up', () => {

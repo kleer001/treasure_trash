@@ -483,3 +483,72 @@
 ----------
 :end
 
+:level  TO
+:name   A loaded barrow is still a barrow you can pick up
+:teach  nothing has to be emptied first — a barrow with something in it rides in another one, load and all
+:par    7
+:traps  0
+:solves 6
+:solve  drrrrrr
+:grid
+##########
+#-@---c--#
+#-------E#
+##########
+:end
+:cart
+----------
+---r--r---
+----------
+----------
+:end
+
+:level  TP
+:name   Barrows all the way down
+:teach  and what a barrow holds may be another loaded barrow, as deep as you care to stack them
+:par    9
+:traps  0
+:solves 7
+:solve  drrrrrrrr
+:grid
+############
+#-@---c-c--#
+#---------E#
+############
+:end
+:cart
+------------
+---r--r-r---
+------------
+------------
+:end
+
+:level  TQ
+:name   Tipped, the whole stack comes out
+:teach  across its axis a barrow turns over, and the stack lands one cell on — still stacked
+:par    6
+:traps  110
+:solves 10
+:solve  ddddll
+:grid
+#######
+#--@--#
+#-v---#
+#-----#
+#-----#
+#E----#
+#######
+:end
+:cart
+-------
+-------
+--d----
+-------
+-------
+-------
+-------
+:end
+:hold
+2,2 c
+:end
+
