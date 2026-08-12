@@ -81,7 +81,7 @@ test('what cannot keep pace is let go, and the magnet goes on alone', () => {
 test('a magnet will not take hold of something that is already held', () => {
   const s = S(['---------', '-@---FF--', '---------', 'E--------']);
   const cart = toState({ id: 't', grid: ['---------', '-@---FF--', '---------', 'E--------'],
-                         cart: ['---------', '----y----', '---------', '---------'] });
+                         cart: ['---------', '----r----', '---------', '---------'] });
   cart.cells[1][4].lk = 0; cart.cells[1][5].lk = 0; cart.cells[1][6].lk = 0;
   cart.cells[1][2].o = 34;                       // a magnet facing the towing barrow
   const after = push(cart, 'r');

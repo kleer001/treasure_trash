@@ -98,8 +98,9 @@ export function generatedRooms(count, seed) {
                   // the roster added since
                   '$s', 'Cd', '$g', 'oO', '$o', 'UC', 'Y$', 'Uo', 'hC', '$h', 'r$', 'rC',
                   // No lone drawer: it is half of an open cabinet and never stands by itself.
-                  'a$', 'mC', 'eo', 'kU', 'qC', 'f$', 'pU', 'lo', 'q$C', 'yF', 'nU',
-                  'y$', 'zC', 'uF', 'rh$', 'dg', 'sC', 'YU', 'Pq', 'Fy', '$qb'];
+                  'a$', 'mC', 'eo', 'kU', 'qC', 'f$', 'pU', 'q$C', 'rh$', 'dg', 'sC', 'YU', 'Pq',
+                  // the barrow, at every facing, forwards and backwards into things
+                  'rF', 'r$', 'rC', 'lF', 'l$', 'lC', 'uF', 'u$', 'dC', 'd$', 'lo', '$rb'];
   const out = [];
   for (let i = 0; out.length < count && i < count * 40; i++) {
     const [w, h] = [[8, 4], [8, 5], [7, 5], [9, 5]][Math.floor(rnd() * 4)];

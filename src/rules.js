@@ -223,13 +223,22 @@ export const mayEnter = (s, x, y, dx, dy) => {
 // Carts are not interchangeable once they have kinds, and `stateKey` labels them by first
 // appearance — so the kind travels in the key beside the label, or two different boards key
 // alike. `CART` is the two-cell cart every level has today.
-export const CART = 0, BARROW_H = 1, BARROW_V = 2;
-export const CART_KINDS = 4;
+export const CART = 0, BARROW_U = 1, BARROW_D = 2, BARROW_L = 3, BARROW_R = 4;
+export const CART_KINDS = 5;
 export const cartKindOf = c => c.ck ?? CART;
 
-// A barrow is a cart of one cell with an axis it cannot turn. Shoved ALONG that axis it behaves
-// as a cart does and swallows what it meets — that is the scoop. Shoved ACROSS it, it tips.
-export const isBarrow = k => k === BARROW_H || k === BARROW_V;
+// A barrow is a cart of one cell, and it FACES the way its tub points. Three things can happen
+// to it and the facing decides which: shoved the way it faces it swallows what it meets, which
+// is the scoop; shoved the other way along that line it rolls like any cart but picks nothing
+// up, and stops against whatever it meets; shoved ACROSS the line, it tips.
+export const isBarrow = k => k >= BARROW_U && k <= BARROW_R;
+export const barrowFace = k =>
+  ({ [BARROW_U]: 'u', [BARROW_D]: 'd', [BARROW_L]: 'l', [BARROW_R]: 'r' })[k];
+/** Whether it faces this way — the only direction it picks anything up. */
+export const barrowScoops = (k, dx, dy) => {
+  const f = DIRS[barrowFace(k)];
+  return f !== undefined && dx === f[0] && dy === f[1];
+};
 
 // --- the magnet ------------------------------------------------------------------------------
 // One facing, four orientations, and it never turns. Its field is a straight line along that
@@ -262,7 +271,11 @@ export const freeLink = s => {
   for (const row of s.cells) for (const c of row) if (c.lk !== undefined && c.lk > top) top = c.lk;
   return top + 1;
 };
-export const barrowRollsAlong = (k, dx, dy) => (k === BARROW_H ? dx !== 0 : dy !== 0);
+/** Whether this is the line it runs on at all — either way along its facing. */
+export const barrowRollsAlong = (k, dx, dy) => {
+  const f = DIRS[barrowFace(k)];
+  return f !== undefined && (dx !== 0) === (f[0] !== 0);
+};
 
 export const isClearFloor = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).water && !isGlass(cell(s, x, y))
@@ -474,9 +487,12 @@ function tipOut(s, o, at, dx, dy, step) {
 /** What a container reads as once it has landed and shed. */
 const landsAs = o => (sheds(o) ? SLIDES[o].slides : o);
 
-const cartCanEnter = (s, x, y, dx, dy) => {
+/** `swallows` is false for a barrow shoved against its facing: it rolls, but it has no mouth
+ *  that way, so anything at all in the cell ahead is what stops it rather than what it takes. */
+const cartCanEnter = (s, x, y, dx, dy, swallows = true) => {
   if (!inGrid(s, x, y)) return false;
   const c = cell(s, x, y);
+  if (!swallows && c.o !== NONE) return false;
   // A cabinet is not loose cargo: a cart that meets one strikes it and stops, and a shut one is
   // not half of anything, so it has to be named here as well.
   return !c.wall && !c.exit && !isCart(c) && !isHalfOfABody(s, x, y) && !isCabinetClosed(c.o)
@@ -806,6 +822,9 @@ function shoveCabinet(s, body, draw, dx, dy, done) {
 
 function shoveCart(s, cid, entry, dx, dy, trace) {
   const kind = cartKindOf(cell(s, ...entry));
+  // A barrow swallows only the way it faces. Shoved the other way along its line it still
+  // rolls, but with nothing to take things in with — so whatever it meets stops it.
+  const swallows = !isBarrow(kind) || barrowScoops(kind, dx, dy);
   const at = (p, k) => [p[0] + k * dx, p[1] + k * dy];
   const isOwn = (x, y) => inGrid(s, x, y) && cell(s, x, y).cart === cid;
   const files = cartCells(s, cid).filter(([x, y]) => !isOwn(x + dx, y + dy))   // lead cells
@@ -820,7 +839,7 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
   // out by the swallow with nowhere to shed. Past the first beat the same condition just
   // stops the cart, which is an ordinary way for a roll to end rather than a refusal.
   const first = aheadAt(0);
-  const blame = first.filter(([x, y]) => !cartCanEnter(s, x, y, dx, dy));
+  const blame = first.filter(([x, y]) => !cartCanEnter(s, x, y, dx, dy, swallows));
   // A cart rolled up against the back of a shut cabinet knocks it open, and stops there. The
   // blow is the whole of the beat, so nothing else on the cart moves.
   if (blame.length) {
@@ -859,7 +878,7 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
       if (out.o === NONE) return true;
       return tipFits(next, out.o, at(files[i][load.length - 1], n), -dx, -dy);
     };
-    const clear = ahead.every(([x, y]) => cartCanEnter(next, x, y, dx, dy))
+    const clear = ahead.every(([x, y]) => cartCanEnter(next, x, y, dx, dy, swallows))
       && !files.some(f => isTar(cell(next, ...at(f[0], n))));
     const incoming = clear ? ahead.map(([x, y]) => cell(next, x, y).o) : ahead.map(() => NONE);
     const rolling = clear && files.every((f, i) => incoming[i] === NONE || canShed(i));

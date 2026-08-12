@@ -38,7 +38,7 @@ const DOMINOES = new Set(['F', 'P', 'Y', 'U']);
 const POOLS = { F: [...'FGHKMN'], P: [...'PQR'], Y: [...'YZ'], U: [...'UV'] };
 // A barrow is a cart of ONE cell, so it is drawn from the group like any single glyph but
 // written in the `:cart` mask rather than the occupant grid.
-const BARROWS = new Set([...'yznu']);
+const BARROWS = new Set([...'uUdDlLrR']);
 
 // Shapes to draw outlines on. Walls make a bigger board affordable, so the harvest is not
 // stuck at the survey's 8x4.

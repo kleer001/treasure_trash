@@ -48,14 +48,14 @@
 :cart
 ----------
 ----------
----y------
+---r------
 ----------
 ----------
 :end
 
 :level  TG
 :name   The wheelbarrow
-:teach  along its axis it scoops; across it, it tips
+:teach  it swallows the way it faces; the other way it only rolls, and across it, it tips
 :par    17
 :traps  132
 :solves 4
@@ -70,7 +70,7 @@
 :cart
 ----------
 ----------
----y------
+---r------
 ----------
 ----------
 :end
@@ -459,5 +459,27 @@
 #-@w--m--#
 #-------E#
 ##########
+:end
+
+:level  TN
+:name   Backwards, it only rolls
+:teach  it swallows the way it faces; shoved the other way it runs the same alley and takes nothing off it
+:par    7
+:traps  11
+:solves 3
+:solve  drrrrrr
+:grid
+##########
+#--------#
+#-@---c--#
+#-------E#
+##########
+:end
+:cart
+----------
+----------
+---l------
+----------
+----------
 :end
 

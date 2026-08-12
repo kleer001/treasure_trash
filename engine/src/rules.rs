@@ -167,14 +167,23 @@ fn is_metal(c: &Cell) -> bool {
 }
 
 fn is_barrow(k: u8) -> bool {
-    k == BARROW_H || k == BARROW_V
+    (BARROW_U..=BARROW_R).contains(&k)
 }
-fn barrow_rolls_along(k: u8, dx: i32, _dy: i32) -> bool {
-    if k == BARROW_H {
-        dx != 0
-    } else {
-        dx == 0
+fn barrow_face(k: u8) -> u8 {
+    match k {
+        BARROW_U => b'u',
+        BARROW_D => b'd',
+        BARROW_L => b'l',
+        _ => b'r',
     }
+}
+/// Whether this is the line it runs on at all — either way along its facing.
+fn barrow_rolls_along(k: u8, dx: i32, _dy: i32) -> bool {
+    (dx != 0) == (dir_of(barrow_face(k)).0 != 0)
+}
+/// Whether it faces this way — the only direction it picks anything up.
+fn barrow_scoops(k: u8, dx: i32, dy: i32) -> bool {
+    dir_of(barrow_face(k)) == (dx, dy)
 }
 
 // --- terrain ---------------------------------------------------------------------------------
@@ -355,10 +364,13 @@ fn rolls_here(s: &State, x: i32, y: i32, dx: i32, dy: i32) -> bool {
     rolls_along(c, dx, dy)
 }
 
-fn cart_can_enter(s: &State, x: i32, y: i32, dx: i32, dy: i32) -> bool {
+/// `swallows` is false for a barrow shoved against its facing: it rolls, but it has no mouth
+/// that way, so anything at all in the cell ahead is what stops it rather than what it takes.
+fn cart_can_enter(s: &State, x: i32, y: i32, dx: i32, dy: i32, swallows: bool) -> bool {
     s.in_grid(x, y) && {
         let c = s.at(x, y);
-        !c.wall
+        (swallows || c.o == NONE)
+            && !c.wall
             && !c.exit
             && !c.is_cart()
             && !is_half_of_a_body(s, x, y)
@@ -549,6 +561,9 @@ fn apply_into_cart(s: &State, next: &mut State, sh: &Shove, o: u8) {
 /// behind it, and `loads[i][j]` is that file's cargo, lead-first.
 fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
     let kind = s.at(entry.0, entry.1).ck;
+    // A barrow swallows only the way it faces. Shoved the other way along its line it still
+    // rolls, but with nothing to take things in with — so whatever it meets stops it.
+    let swallows = !is_barrow(kind) || barrow_scoops(kind, dx, dy);
     let along = |p: Pt, k: i32| (p.0 + k * dx, p.1 + k * dy);
     let is_own = |x: i32, y: i32| s.in_grid(x, y) && s.at(x, y).cart == cid;
 
@@ -575,7 +590,7 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
     let mut blame: Vec<Pt> = first
         .iter()
         .copied()
-        .filter(|&(x, y)| !cart_can_enter(s, x, y, dx, dy))
+        .filter(|&(x, y)| !cart_can_enter(s, x, y, dx, dy, swallows))
         .collect();
     // A cart rolled up against the back of a shut cabinet knocks it open, and stops there. The
     // blow is the whole of the beat, so nothing else on the cart moves.
@@ -617,7 +632,7 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
         let ahead = ahead_at(n);
         // The cell a swallow pushes the old load back onto is one the cart is vacating this
         // beat, so only the cell that load would shed into has to be free.
-        let clear = ahead.iter().all(|&(x, y)| cart_can_enter(&next, x, y, dx, dy))
+        let clear = ahead.iter().all(|&(x, y)| cart_can_enter(&next, x, y, dx, dy, swallows))
             && !files.iter().any(|f| is_tar(next.at(along(f[0], n).0, along(f[0], n).1)));
         let incoming: Vec<u8> = if clear {
             ahead.iter().map(|&(x, y)| next.at(x, y).o).collect()

@@ -334,22 +334,21 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
     /**
      * A barrow from above: the tub, and the two handles you take hold of.
      *
-     * `horizontal` is the axis it rolls on, and it is the only thing here the rules know about.
-     * Which END the handles sit at they do not: a barrow is shoved either way along its axis and
-     * scoops the same. So the end is fixed by this drawing rather than read off the piece —
-     * left on the side-to-side axis, top on the up-and-down one — and nothing should ever come
-     * to depend on it.
+     * `face` is the way the tub points, and it is the whole of the piece — shoved that way it
+     * swallows what it meets, shoved back along the same line it only rolls, and shoved across
+     * it tips. So the drawing has one job: say which way it is pointing, from a glance, before
+     * anybody shoves it.
      */
-    barrow(x, y, horizontal) {
+    barrow(x, y, face) {
       const cx = px(x) + CS / 2, cy = px(y) + CS / 2;
-      const [ax, ay] = horizontal ? [1, 0] : [0, 1];       // along the axis, toward the tub
-      const [bx, by] = horizontal ? [0, 1] : [1, 0];       // across it
+      const [ax, ay] = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }[face];
+      const [bx, by] = [-ay, ax];                          // across the line it runs on
 
       // The handles first, so the tub sits over the ends of them and they read as bolted under.
       ctx.lineCap = 'round';
       for (const side of [-1, 1]) {
         const ox = bx * side * CS * 0.17, oy = by * side * CS * 0.17;
-        const from = -0.47, to = 0.14;                     // the shaft, back to under the tub
+        const from = -0.47, to = 0.14;                     // from the grip, back under the tub
         ctx.strokeStyle = P.barrowHandle; ctx.lineWidth = CS * 0.075;
         ctx.beginPath();
         ctx.moveTo(cx + ox + ax * CS * from, cy + oy + ay * CS * from);
@@ -363,7 +362,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       }
       ctx.lineCap = 'butt';
 
-      // The tub, over at the far end: a tapered tray seen down into.
+      // The tub, out in front: a tapered tray seen down into, with its mouth the leading edge.
       const tw = CS * 0.56, th = CS * 0.56;
       const mx = cx + ax * CS * 0.19, my = cy + ay * CS * 0.19;
       ctx.fillStyle = P.barrow; ctx.strokeStyle = P.barrowEdge; ctx.lineWidth = 2;
@@ -374,6 +373,12 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.beginPath();
       ctx.roundRect(mx - tw * 0.31, my - th * 0.31, tw * 0.62, th * 0.62, 5);
       ctx.fill();
+      // The lip it scoops over, drawn open: the one edge with no wall across it.
+      ctx.strokeStyle = P.barrowWell; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(mx + ax * tw * 0.5 - bx * tw * 0.34, my + ay * th * 0.5 - by * th * 0.34);
+      ctx.lineTo(mx + ax * tw * 0.5 + bx * tw * 0.34, my + ay * th * 0.5 + by * th * 0.34);
+      ctx.stroke();
     },
 
     // A horseshoe magnet, opening the way its field runs. The gap points down the line it pulls

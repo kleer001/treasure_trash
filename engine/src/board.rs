@@ -54,9 +54,11 @@ pub const COVERED: u8 = 6;
 pub const TERRAINS: u16 = 7;
 
 pub const CART: u8 = 0;
-pub const BARROW_H: u8 = 1;
-pub const BARROW_V: u8 = 2;
-pub const CART_KINDS: u16 = 4;
+pub const BARROW_U: u8 = 1;
+pub const BARROW_D: u8 = 2;
+pub const BARROW_L: u8 = 3;
+pub const BARROW_R: u8 = 4;
+pub const CART_KINDS: u16 = 5;
 
 pub const NO_DIR: u8 = 0;
 
@@ -96,10 +98,14 @@ struct CartKind {
     what: &'static str,
 }
 pub const CART_POOL: &[u8] = b"PQR";
-const CART_KINDS_IN_MASK: [CartKind; 3] = [
+const CART_KINDS_IN_MASK: [CartKind; 5] = [
     CartKind { glyphs: CART_POOL, ck: CART, size: 2, word: "two", what: "cart" },
-    CartKind { glyphs: b"yz", ck: BARROW_H, size: 1, word: "one", what: "barrow (side to side)" },
-    CartKind { glyphs: b"nu", ck: BARROW_V, size: 1, word: "one", what: "barrow (up and down)" },
+    // A barrow faces the way its tub points, and the mask says so outright: the direction it
+    // faces, and its capital for a second one facing the same way.
+    CartKind { glyphs: b"uU", ck: BARROW_U, size: 1, word: "one", what: "barrow (facing up)" },
+    CartKind { glyphs: b"dD", ck: BARROW_D, size: 1, word: "one", what: "barrow (facing down)" },
+    CartKind { glyphs: b"lL", ck: BARROW_L, size: 1, word: "one", what: "barrow (facing left)" },
+    CartKind { glyphs: b"rR", ck: BARROW_R, size: 1, word: "one", what: "barrow (facing right)" },
 ];
 
 /// The `:water` alphabet, which carries every terrain lane and not only the canal. Mutable

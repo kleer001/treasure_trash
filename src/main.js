@@ -8,7 +8,7 @@ import {
   FURNITURE,
   MOVE, DIRS,
   explain, isWon, bagsLeft, trashHeld, fan, inGrid, cell, cloneState, isMultiCell, stateKey,
-  GREASE, TAR, GLASS, COVERED, BARROW_H, BARROW_V, OCCUPANTS as CODES,
+  GREASE, TAR, GLASS, COVERED, isBarrow, barrowFace, OCCUPANTS as CODES,
 } from './rules.js';
 import { parseLevelPack, toState } from './format.js';
 import { deadScan } from './solver.js';
@@ -425,7 +425,7 @@ function drawSprite(sp, f){
     else SP.furniture(sp.cells, sp.x, sp.y);
   }
   else if(sp.kind === CART){
-    if(sp.ck === BARROW_H || sp.ck === BARROW_V) SP.barrow(sp.x, sp.y, sp.ck === BARROW_H);
+    if(isBarrow(sp.ck)) SP.barrow(sp.x, sp.y, barrowFace(sp.ck));
     else SP.cart(sp.cells, sp.x, sp.y);
   }
   else if(sp.kind === SPLASH) SP.splash(sp.x, sp.y);

@@ -2,7 +2,7 @@
 // Text in, data out; data in, byte-identical text out. See FORMATS.md for the spec.
 
 import {
-  CART, BARROW_H, BARROW_V,
+  CART, BARROW_U, BARROW_D, BARROW_L, BARROW_R,
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
   JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
   CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER, cabinetPair,
@@ -93,8 +93,12 @@ export const CART_POOL = [...'PQR'];
 
 const CART_KINDS_IN_MASK = [
   { glyphs: [...'PQR'], ck: CART, size: 2, word: 'two', what: 'cart' },
-  { glyphs: [...'yz'], ck: BARROW_H, size: 1, word: 'one', what: 'barrow (side to side)' },
-  { glyphs: [...'nu'], ck: BARROW_V, size: 1, word: 'one', what: 'barrow (up and down)' },
+  // A barrow faces the way its tub points, and the mask says so outright: the direction it
+  // faces, and its capital for a second one facing the same way.
+  { glyphs: [...'uU'], ck: BARROW_U, size: 1, word: 'one', what: 'barrow (facing up)' },
+  { glyphs: [...'dD'], ck: BARROW_D, size: 1, word: 'one', what: 'barrow (facing down)' },
+  { glyphs: [...'lL'], ck: BARROW_L, size: 1, word: 'one', what: 'barrow (facing left)' },
+  { glyphs: [...'rR'], ck: BARROW_R, size: 1, word: 'one', what: 'barrow (facing right)' },
 ];
 
 export const LEGEND = [
