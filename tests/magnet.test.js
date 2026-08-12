@@ -74,3 +74,19 @@ test('what cannot keep pace is let go, and the magnet goes on alone', () => {
   assert.equal(toGrid(after)[2], '---q#--', 'and the magnet carried on down');
   assert.equal(held(after), 0, 'the chain let go');
 });
+
+// One link per piece. Without this a magnet takes hold of a barrow that is already towing, the
+// second hold overwrites the first, and what it was towing is orphaned — a board that is wrong
+// with nothing thrown and nothing to look at.
+test('a magnet will not take hold of something that is already held', () => {
+  const s = S(['---------', '-@---FF--', '---------', 'E--------']);
+  const cart = toState({ id: 't', grid: ['---------', '-@---FF--', '---------', 'E--------'],
+                         cart: ['---------', '----y----', '---------', '---------'] });
+  cart.cells[1][4].lk = 0; cart.cells[1][5].lk = 0; cart.cells[1][6].lk = 0;
+  cart.cells[1][2].o = 34;                       // a magnet facing the towing barrow
+  const after = push(cart, 'r');
+  const groups = new Set(after.cells.flat().filter(c => c.lk !== undefined).map(c => c.lk));
+  assert.equal(groups.size, 1, 'still one group: the tow, untouched');
+  assert.equal(after.cells.flat().filter(c => c.lk !== undefined).length, 3, 'barrow and both couch cells');
+  assert.ok(s, 'board builds');
+});

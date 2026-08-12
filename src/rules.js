@@ -566,6 +566,9 @@ function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
     const c = cell(next, ...p);
     if (c.o === NONE && !isCart(c)) continue;
     if (!isMetal(c)) continue;
+    // One link per piece. A barrow already towing cannot also be captured — the second hold
+    // would overwrite the first and leave what it was towing orphaned, with nothing to say so.
+    if (c.lk !== undefined) return;
     let moved = 0;
     while (moved < k - 1) {
       const to = [p[0] - f[0] * (moved + 1), p[1] - f[1] * (moved + 1)];
@@ -1133,7 +1136,7 @@ export function explain(s, dir, opts = {}) {
 
     const next = cloneState(s);
     const step = mkStep({ moved: [], gone: [] });
-    for (const [x, y] of line) cell(next, x, y).o = NONE;
+    for (const [x, y] of line) { const c = cell(next, x, y); c.o = NONE; c.lk = undefined; }
     for (const [x, y] of [...line].reverse()) {
       const from = [x, y], to = [x + k * dx, y + k * dy];
       const what = cell(s, x, y).o;
@@ -1148,7 +1151,10 @@ export function explain(s, dir, opts = {}) {
         }
         continue;
       }
-      cell(next, ...to).o = what;
+      // Everything the cell was carrying travels with it, not just the occupant code. A link
+      // left behind belongs to whatever is standing there now, which is a different board.
+      const c = cell(next, ...to);
+      c.o = what; c.lk = cell(s, x, y).lk;
       step.moved.push({ o: what, from, to });
     }
     // Only the head has a free cell beyond it; every other has its neighbour there, so the shed

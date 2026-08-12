@@ -53,3 +53,15 @@ test('a line holding something stuck in tar will not move at all', () => {
   const stuck = push(S(['@rc----E'], ['---T----']), 'r');   // the can slides onto the tar
   assert.equal(refuse(stuck, 'r'), 'tar');
 });
+
+// A cell carries more than its occupant code, and a sweep moves the cell's whole contents. A
+// link left behind belongs to whatever is standing there afterwards, which is a different board
+// — and nothing would have thrown.
+test('a sweep carries what a cell holds, not only what is standing on it', () => {
+  const s = S(['-@rq-----E']);
+  s.cells[0][4].o = 7;                              // a wheelie beside the magnet
+  s.cells[0][3].lk = 0; s.cells[0][4].lk = 0;       // already held
+  const after = push(s, 'r');
+  const held = after.cells[0].map((c, i) => (c.lk !== undefined ? i : null)).filter(i => i !== null);
+  assert.deepEqual(held, [4, 5], 'the link moved with the pair, not stayed on the broom');
+});
