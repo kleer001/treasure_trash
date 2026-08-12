@@ -87,8 +87,9 @@ export function applyStep(stage, step, racTo = null) {
     sp.ax = sp.x; sp.ay = sp.y; sp.tx = sp.x; sp.ty = sp.y; sp.nudge = null;
   }
 
-  if (step.piece) {
-    const { kind, ref, dx, dy } = step.piece;
+  // `piece` is one body or several: a tow moves a barrow and what it is towing in the same
+  // beat, and neither is an occupant sprite the `moved` list could name.
+  for (const { kind, ref, dx, dy } of [step.piece ?? []].flat()) {
     const want = BODY[kind];
     if (!want) throw new Error(`no sprite kind for piece '${kind}'`);
     const body = stage.sprites.find(sp => sp.kind === want && sp.ref === ref);

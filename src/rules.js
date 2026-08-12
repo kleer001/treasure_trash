@@ -621,9 +621,17 @@ function towMove(s, lk, dx, dy, done) {
     c.o = was[i].o; c.pid = was[i].pid; c.cart = was[i].cart; c.ck = was[i].ck; c.lk = was[i].lk;
   });
   next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
-  return done(next, PUSH, mkStep({
-    moved: own.map(([x, y], i) => ({ o: was[i].o, from: [x, y], to: [x + dx, y + dy] })),
-  }));
+  // Both halves are BODIES — a cart and a multi-cell piece — so neither can be named in `moved`,
+  // which holds occupant sprites. A tow moves two of them in one beat.
+  const bodies = [];
+  for (const [x, y] of own) {
+    const c = cell(s, x, y);
+    if (c.cart !== undefined && !bodies.some(b => b.kind === 'cart' && b.ref === c.cart))
+      bodies.push({ kind: 'cart', ref: c.cart, dx, dy });
+    if (c.pid !== undefined && !bodies.some(b => b.kind === 'furniture' && b.ref === c.pid))
+      bodies.push({ kind: 'furniture', ref: c.pid, dx, dy });
+  }
+  return done(next, PUSH, mkStep({ piece: bodies }));
 }
 
 /** An open cabinet shoved anywhere but shut: body and drawer move together, one cell. */
