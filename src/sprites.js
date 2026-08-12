@@ -34,6 +34,7 @@ export const PALETTE = {
   bike: '#3f7fa8', bikeEdge: '#28536d',
   rug: '#a4485c', rugEdge: '#6f2c3c', rugTrim: '#e5c46a',
   chair: '#4a4f57', chairSeat: '#6d7480', castor: '#b9bec6',
+  handle: '#a9793f', bristle: '#d8c07a', bristleEdge: '#8e7433',
   wheelie: '#3f7d4f', wheelieEdge: '#255034', wheelieRidge: '#2f6a40',
   wheelieLid: '#4f9a63', wheel: '#22252a',
   fur: '#9aa0a6', furEar: '#6b7076', mask: '#2b2f34', muzzle: '#eceef0',
@@ -253,6 +254,20 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.beginPath(); ctx.roundRect(x0 + w * 0.12, y0 + h * 0.12, w * 0.76, h * 0.76, 5); ctx.fill();
       ctx.fillStyle = P.chairSeat;
       ctx.beginPath(); ctx.roundRect(x0 + w * 0.24, y0 + h * 0.30, w * 0.52, h * 0.50, 4); ctx.fill();
+    },
+
+    // A broom head-on: bristles wide across the cell, because what it does is take a whole line.
+    broom(x, y) {
+      const cx = px(x) + CS / 2, y0 = px(y) + PAD, h = CS - 2 * PAD;
+      ctx.strokeStyle = P.handle; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx, y0 + 2); ctx.lineTo(cx, y0 + h * 0.52); ctx.stroke();
+      ctx.fillStyle = P.bristle; ctx.strokeStyle = P.bristleEdge; ctx.lineWidth = 2;
+      const bw = CS * 0.62, bh = h * 0.40;
+      ctx.beginPath(); ctx.roundRect(cx - bw / 2, y0 + h * 0.50, bw, bh, 3); ctx.fill(); ctx.stroke();
+      for (let i = 1; i <= 3; i++) {
+        const bx = cx - bw / 2 + (bw * i) / 4;
+        ctx.beginPath(); ctx.moveTo(bx, y0 + h * 0.56); ctx.lineTo(bx, y0 + h * 0.88); ctx.stroke();
+      }
     },
 
     // The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
@@ -604,6 +619,7 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   else if (o === codes.TIRE_H) sprites.tyre(x, y, true);
   else if (o === codes.TIRE_V) sprites.tyre(x, y, false);
   else if (o === codes.CHAIR) sprites.chair(x, y);
+  else if (o === codes.BROOM) sprites.broom(x, y);
   // Not silence. An occupant with no drawing here is invisible on the board, which reads as a
   // rules bug and is found by playing rather than by testing — so it stops the frame instead.
   else if (o !== codes.NONE) throw new Error(`no drawing for occupant ${o}`);

@@ -267,3 +267,47 @@
 ---------
 ---------
 :end
+
+:level  TD
+:name   The broom
+:teach  it takes the whole line, and it is the only thing that moves a bag
+:par    23
+:traps  25748
+:solves 1
+:solve  RdrrULuRRRDL!ruRRddlU!drr
+:grid
+############
+#----------#
+#-@rc$C----#
+#---------E#
+############
+:end
+:water
+------------
+------------
+------------
+------------
+------------
+:end
+
+:level  TE
+:name   Sweeping onto glass
+:teach  a bag at the head of the line bursts where it lands
+:par    16
+:traps  13
+:solves 16
+:solve  urDldRRU!dRRurrdr
+:grid
+###########
+#---------#
+#-@r$-----#
+#--------E#
+###########
+:end
+:water
+-----------
+-----------
+-----*-----
+-----------
+-----------
+:end

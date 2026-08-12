@@ -5,14 +5,14 @@
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
              BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9, FURNITURE = 10,
              BIN_EMPTY = 11, JUG_EMPTY = 12, SPONGE = 13, CARDBOARD = 14, PANE = 15,
-             TIRE_H = 16, TIRE_V = 17, BICYCLE = 18, RUG = 19, CHAIR = 20;
+             TIRE_H = 16, TIRE_V = 17, BICYCLE = 18, RUG = 19, CHAIR = 20, BROOM = 21;
 
 // The occupant codes, as one object. The renderer takes this rather than a hand-listed subset:
 // a code left out of such a list does not throw, it draws NOTHING, and a piece that is simply
 // invisible is a bug you find by playing rather than by testing.
 export const OCCUPANTS = {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
-  BIN_EMPTY, JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR,
+  BIN_EMPTY, JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
 };
 
 // The one code a cell does not fully describe: two adjacent FURNITURE cells may be one couch
@@ -685,6 +685,71 @@ export function explain(s, dir, opts = {}) {
     }
     for (let i = 1; i < frames.length; i++) frames[i].rac = { ...next.rac };
     return { ok: true, kind: PUSH, next, frames, steps };
+  }
+
+  // The broom takes the whole contiguous line ahead of it, of any kinds, one cell — and on
+  // grease it takes the line the length of the slick. It is the ONLY thing that moves a bag
+  // without bursting it, which is what gives broken glass anything to do.
+  if (o === BROOM) {
+    const line = [];
+    for (let p = [tx, ty]; inGrid(s, ...p) && cell(s, ...p).o !== NONE
+         && !isCart(cell(s, ...p)) && !isMultiCell(cell(s, ...p).o); p = [p[0] + dx, p[1] + dy])
+      line.push(p);
+    const head = line[line.length - 1];
+    const beyond = [head[0] + dx, head[1] + dy];
+    if (!travelsInto(s, ...beyond, dx, dy))
+      return { ok: false, reason: reasonFor(s, [beyond], 'canRoom'), blame: [beyond] };
+    if (line.some(([x, y]) => stuckInTar(s, x, y)))
+      return { ok: false, reason: 'tar', blame: line.filter(([x, y]) => isTar(cell(s, x, y))) };
+
+    // How far the line goes. Off grease that is one cell; on it, the broom carries the whole
+    // train to the end of the slick.
+    let k = 1;
+    while (isGrease(cell(s, tx + k * dx, ty + k * dy))
+           && travelsInto(s, head[0] + (k + 1) * dx, head[1] + (k + 1) * dy, dx, dy)) {
+      k++;
+      const c = cell(s, head[0] + k * dx, head[1] + k * dy);
+      if (isTar(c) || isGrate(c)) break;
+    }
+
+    // A bag anywhere but the head refuses to be swept onto glass: it would tear with the rest of
+    // the line packed round it, and there is nowhere for a fan to go.
+    for (let i = 0; i < line.length; i++) {
+      const [x, y] = line[i];
+      if (cell(s, x, y).o !== BAG || i === line.length - 1) continue;
+      const to = cell(s, x + k * dx, y + k * dy);
+      if (isGlass(to)) return { ok: false, reason: 'glass', blame: [[x + k * dx, y + k * dy]] };
+    }
+
+    const next = cloneState(s);
+    const step = mkStep({ moved: [], gone: [] });
+    for (const [x, y] of line) cell(next, x, y).o = NONE;
+    for (const [x, y] of [...line].reverse()) {
+      const from = [x, y], to = [x + k * dx, y + k * dy];
+      const what = cell(s, x, y).o;
+      if (isGrate(cell(next, ...to))) { step.gone.push({ o: what, at: from }); continue; }
+      // A bag swept onto glass bursts where it lands, which only the head of a line can do.
+      if (what === BAG && isGlass(cell(next, ...to))) {
+        step.gone.push({ o: BAG, at: from });
+        for (const [fx, fy] of fan(to[0], to[1], dx, dy)) {
+          if (!isOccupiable(next, fx, fy)) continue;
+          step.spawned.push({ o: TRASH, at: [fx, fy], from: to, effect: effectOf(cell(next, fx, fy), TRASH) });
+          layTrash(cell(next, fx, fy));
+        }
+        continue;
+      }
+      cell(next, ...to).o = what;
+      step.moved.push({ o: what, from, to });
+    }
+    // Only the head has a free cell beyond it; every other has its neighbour there, so the shed
+    // rule needs no statement of its own.
+    const headTo = [head[0] + k * dx, head[1] + k * dy];
+    const headWas = cell(s, ...head).o;
+    if (sheds(headWas) && cell(next, ...headTo).o === headWas) {
+      if (tipFits(next, headWas, headTo, dx, dy)) tipOut(next, headWas, headTo, dx, dy, step);
+    }
+    next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
+    return done(next, PUSH, step);
   }
 
   // One shape of shove for everything in SLIDES, so the clearance test lives in one place.
