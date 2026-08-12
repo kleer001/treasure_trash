@@ -27,7 +27,8 @@
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  explain, cell, cabinetPair, isCabinetOpen, DRAWER, DIR_ORDER,
+  explain, cell, terrainOf, cabinetPair, isCabinetOpen, DRAWER, DIR_ORDER,
+  cartCells, pieceCells,
 } from '../src/rules.js';
 import { toState, toGrid, toWater, toCart } from '../src/format.js';
 import { analyze } from '../src/solver.js';
@@ -51,7 +52,7 @@ export const BODIES = { couch: 'F', bicycle: 'Y', rug: 'U' };
 
 /** Every lane the `:water` mask carries. `-` is the control: the same case on bare floor. */
 export const LANES = {
-  dry: '-', canal: '~', plank: '=', grease: '%', tar: 'T', glass: '*', covered: '_',
+  dry: '-', canal: '~', filled: '=', grease: '%', tar: 'T', glass: '*', covered: '_',
   grate: 'O', onewayU: '^', onewayD: 'v', onewayL: '<', onewayR: '>',
 };
 
@@ -73,7 +74,7 @@ const census = stage => stage.sprites.map(shapeOf).sort();
  *
  * Returns null when the action is refused — a refusal is a legal answer and moves no sprite.
  */
-export function landsWhereTheBoardSays(s, dir) {
+export function landsWhereTheBoardSays(s, dir, bend = null) {
   const r = explain(s, dir, { trace: true });
   if (!r.ok) return null;
   const stage = stageFrom(s);
@@ -81,8 +82,15 @@ export function landsWhereTheBoardSays(s, dir) {
   try {
     // The same sequence `landMv` uses when an input cuts an animation short: every step
     // applied in order, each one settled before the next names anything.
+    //
+    // `bend` is how this check is itself checked: a gate nobody has watched fail is a gate
+    // nobody knows the shape of. It takes a step and hands back a wrong one, so a test can put
+    // the exact mistake this is here to catch in front of it. See `tests/matrix.test.js`.
     for (const seg of timeline(r, 1))
-      for (const it of seg.items) { applyStep(stage, it.step, it.racTo); settle(stage); }
+      for (const it of seg.items) {
+        applyStep(stage, bend ? bend(it.step) : it.step, it.racTo);
+        settle(stage);
+      }
   } catch (e) { threw = e.message; }
   if (threw) return { ok: false, why: `the stage threw: ${threw}`, r };
   const mine = census(stage), theirs = census(stageFrom(r.next));
@@ -95,6 +103,117 @@ export function landsWhereTheBoardSays(s, dir) {
           missing.length ? `never arrived: ${missing.join(' ')}` : null]
       .filter(Boolean).join('; '),
   };
+}
+
+/**
+ * Did the thing under test take any part in what happened?
+ *
+ * A case only proves something when the piece actually MEETS what it was put there to meet, and
+ * a harness that cannot tell a meeting from an empty corridor reports the corridor as a pass.
+ * Three ways it can have mattered, and it needs one of them:
+ *
+ *   it CHANGED — the lane was filled in, covered, dried; the other piece moved or became
+ *     something else; the subject came to rest on the cell;
+ *   it REFUSED — the action was blocked, and the cell under test is among the cells to blame;
+ *   it MATTERED ELSEWHERE — take it away and the rest of the board comes out differently, which
+ *     is how a thing that only STOPS something shows up. That last one is asked the way
+ *     `inertPieces` asks whether a piece earns its cell.
+ *
+ * The third comparison ignores the cells the thing occupied, since those necessarily differ
+ * once it is gone — which is also why it cannot be the only question asked.
+ */
+export function meeting(room, at, dir = 'r') {
+  const holes = at.map(([x, y]) => `${x},${y}`);
+  let s, a;
+  try { s = toState({ ...room, id: 'm' }); a = explain(s, dir, { trace: false }); }
+  catch { return { reached: true, mattered: true }; }   // unreadable is a finding, not an empty case
+
+  // Reached: refused with the cell to blame, or the cell is not what it was afterwards.
+  const same = (p, q) => JSON.stringify(p) === JSON.stringify(q);
+  const blamed = !a.ok && (a.blame ?? []).some(([x, y]) => holes.includes(`${x},${y}`));
+  const changed = a.ok && at.some(([x, y]) => !same(cell(s, x, y), cell(a.next, x, y)));
+  // Or it was CROSSED. A roller travels until something stops it, so it passes over the cell
+  // under test and comes to rest well beyond — and a cell that is empty before and empty after
+  // shows nothing of the thing that went through it.
+  const crossed = a.ok && crossesTest(s, dir, holes);
+  // What the lane's own terrain DID, as a change rather than a value. The value is masked out
+  // of the whole-board comparison below — a lane is different from bare floor by definition, and
+  // saying so proves nothing — but masking it also hides how it changed, which is the only thing
+  // that ever proves a lane took part. So the change is asked for separately, in both runs.
+  // Whether it changed, not what it is. What it is differs between the two runs by definition —
+  // that is the whole of what removing it did — and comparing values would call every lane a
+  // participant.
+  const terrainDelta = (from, to) =>
+    at.map(([x, y]) =>
+      same(terrainOf(cell(from, x, y)), terrainOf(cell(to, x, y))) ? 'kept' : 'changed').join(',');
+  const usedUp = a.ok && at.some(([x, y]) =>
+    !same(terrainOf(cell(s, x, y)), terrainOf(cell(a.next, x, y))));
+
+  // Mattered elsewhere: without it, does the rest of the board come out the same? This is how a
+  // thing that only STOPS something shows up, and it is asked the way `inertPieces` asks
+  // whether a piece earns its cell. The cells it occupied are ignored, since those necessarily
+  // differ once it is gone — which is why it cannot be the only question.
+  const bare = {
+    ...room,
+    grid: room.grid.map((row, y) =>
+      [...row].map((ch, x) => (holes.includes(`${x},${y}`) ? '-' : ch)).join('')),
+    ...(room.water && { water: room.water.map((row, y) =>
+      [...row].map((ch, x) => (holes.includes(`${x},${y}`) ? '-' : ch)).join('')) }),
+  };
+  let b;
+  try { b = explain(toState({ ...bare, id: 'm' }), dir); }
+  catch { return { reached: true, mattered: true }; }
+  if (a.ok !== b.ok) return { reached: true, mattered: true };
+  if (!a.ok) return { reached: blamed, mattered: a.reason !== b.reason };
+  if (a.kind !== b.kind) return { reached: true, mattered: true };
+  // Two kinds of mask, and conflating them is what hides a grate. A removed PIECE leaves a hole
+  // in the grid, so its cells have to be ignored outright. A removed LANE takes nothing off the
+  // grid — only the terrain mask — so the grid there is compared in full, which is the only
+  // place "the grate ate it" and "the can landed on it" can be told apart.
+  const pieceHoles = [], laneHoles = [];
+  room.grid.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (!holes.includes(`${x},${y}`)) return;
+    (ch === bare.grid[y][x] ? laneHoles : pieceHoles).push([x, y]);
+  }));
+  const blank = st => {
+    const rows = toGrid(st).map(r => [...r]);
+    const wet = (toWater(st) ?? rows.map(r => r.map(() => '-'))).map(r => [...r]);
+    const cart = (toCart(st) ?? rows.map(r => r.map(() => '-'))).map(r => [...r]);
+    for (const [x, y] of pieceHoles) { rows[y][x] = '?'; wet[y][x] = '?'; cart[y][x] = '?'; }
+    for (const [x, y] of laneHoles) wet[y][x] = '?';
+    return JSON.stringify([rows, wet, cart, st.rac]);
+  };
+  const bareState = toState({ ...bare, id: 'm' });
+  const mattered = terrainDelta(s, a.next) !== terrainDelta(bareState, b.next)
+    || blank(a.next) !== blank(b.next);
+  return { reached: blamed || changed || crossed || mattered, mattered };
+}
+
+/** Every cell a straight run from `from` to `to` passes through, both ends included. */
+const along = ([fx, fy], [tx, ty]) => {
+  const [dx, dy] = [Math.sign(tx - fx), Math.sign(ty - fy)];
+  const out = [`${fx},${fy}`];
+  for (let [x, y] = [fx, fy]; x !== tx || y !== ty; x += dx, y += dy) out.push(`${x + dx},${y + dy}`);
+  return out;
+};
+
+/** Did anything the action moved travel THROUGH one of these cells? */
+function crossesTest(s, dir, holes) {
+  const r = explain(s, dir, { trace: true });
+  if (!r.ok) return false;
+  for (let i = 0; i < r.steps.length; i++) {
+    const step = r.steps[i], before = r.frames[i];
+    for (const m of step.moved)
+      if (along(m.from, m.to).some(k => holes.includes(k))) return true;
+    // A body reports one translation for a whole footprint, so its path is every cell of it
+    // swept by that translation.
+    for (const { kind, ref, dx, dy } of [step.piece ?? []].flat()) {
+      const own = kind === 'cart' ? cartCells(before, ref) : pieceCells(before, ref);
+      for (const [x, y] of own)
+        if (along([x, y], [x + dx, y + dy]).some(k => holes.includes(k))) return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -137,17 +256,21 @@ export function reachable(s0, cap = 4000) {
 // Room shape. The raccoon stands at the left of a corridor with the piece in front of him, so
 // one shove drives it into whatever is placed further along. Wide enough that a roller has room
 // to travel and a container has room to shed.
-const W = 11, H = 5, ROW = 2;
+const W = 11, H = 5, ROW = 2, AT = 2;
 
 /**
- * A corridor with `left` at x=2 and `right` at x=4, terrain `lane` under x=4, and the raccoon
- * at x=1 facing right. `right` may be null — that is the piece meeting bare lane.
+ * A corridor: the raccoon at x=1, `left` starting at x=`AT`, and the thing under test in the
+ * cell `left`'s LEADING EDGE moves into — one past its own far side, which is x=3 for a single
+ * cell and x=4 for a body lying along the shove.
  *
- * Bodies are written as a run of two cells, which is what makes a rug or a bicycle horizontal;
- * `vertical` writes it up the column instead, which is the case where the same piece is
- * broadside to the same shove.
+ * That cell is the whole point. Put the lane a cell further out and a piece that travels one
+ * cell never reaches it, the case passes having staged nothing, and the harness reports an
+ * empty corridor as a meeting. `right` may be null — that is the piece meeting bare lane.
+ *
+ * Returns the room and `at`: the cells the thing under test occupies, which is what `meets`
+ * takes away to find out whether any of this mattered.
  */
-export function corridor({ left, right = null, lane = '-', vertical = false, laneAt = 4 }) {
+export function corridor({ left, right = null, lane = '-', vertical = false }) {
   const grid = Array.from({ length: H }, () => Array.from({ length: W }, () => '-'));
   const water = Array.from({ length: H }, () => Array.from({ length: W }, () => '-'));
   for (let x = 0; x < W; x++) { grid[0][x] = '#'; grid[H - 1][x] = '#'; }
@@ -155,52 +278,64 @@ export function corridor({ left, right = null, lane = '-', vertical = false, lan
   grid[ROW][1] = '@';
   grid[ROW][W - 2] = 'E';
 
+  const isBody = g => Object.values(BODIES).includes(g);
+  // Where a piece put down at column x reaches to, along the shove.
   const put = (glyph, x) => {
-    if (glyph === null) return true;
-    const body = Object.values(BODIES).includes(glyph);
-    if (!body) { grid[ROW][x] = glyph; return true; }
+    if (!isBody(glyph)) { grid[ROW][x] = glyph; return [[x, ROW]]; }
     if (vertical) {
-      if (ROW - 1 < 1 || ROW + 1 > H - 2) return false;
+      if (ROW - 1 < 1) return null;
       grid[ROW][x] = glyph; grid[ROW - 1][x] = glyph;
-    } else {
-      if (x + 1 > W - 3) return false;
-      grid[ROW][x] = glyph; grid[ROW][x + 1] = glyph;
+      return [[x, ROW], [x, ROW - 1]];
     }
-    return true;
+    if (x + 1 > W - 3) return null;
+    grid[ROW][x] = glyph; grid[ROW][x + 1] = glyph;
+    return [[x, ROW], [x + 1, ROW]];
   };
-  if (!put(left, 2)) return null;
-  if (!put(right, 5)) return null;
-  if (lane !== '-') water[ROW][laneAt] = lane;
+
+  const own = put(left, AT);
+  if (!own) return null;
+  const front = Math.max(...own.map(([x]) => x)) + 1;   // the cell it moves into
+
+  let at = [[front, ROW]];
+  if (right !== null) {
+    const theirs = put(right, front);
+    if (!theirs) return null;
+    at = theirs;
+  }
+  if (lane !== '-') water[ROW][front] = lane;
 
   const room = { id: 'm', grid: grid.map(r => r.join('')) };
   if (water.some(r => r.some(c => c !== '-'))) room.water = water.map(r => r.join(''));
-  return room;
+  return { room, at };
 }
 
 /** Every case the matrix runs: a piece meeting a lane, and a piece meeting a piece. */
 export function cases() {
   const out = [];
   const all = { ...PIECES, ...BODIES };
+  const add = (id, what, built) => { if (built) out.push({ id, what, ...built }); };
   for (const [pn, pg] of Object.entries(all)) {
     for (const [ln, lg] of Object.entries(LANES))
-      out.push({ id: `${pn}-on-${ln}`, what: `${pn} shoved onto ${ln}`,
-                 room: corridor({ left: pg, lane: lg }) });
+      add(`${pn}-on-${ln}`, `${pn} shoved onto ${ln}`, corridor({ left: pg, lane: lg }));
     for (const [qn, qg] of Object.entries(all))
-      out.push({ id: `${pn}-into-${qn}`, what: `${pn} shoved into ${qn}`,
-                 room: corridor({ left: pg, right: qg }) });
+      add(`${pn}-into-${qn}`, `${pn} shoved into ${qn}`, corridor({ left: pg, right: qg }));
     // The same piece broadside: a rug or a bicycle lying across the shove is a different rule
     // from one lying along it, and the two share every other field.
     if (Object.values(BODIES).includes(pg))
       for (const [qn, qg] of Object.entries(all))
-        out.push({ id: `${pn}-broadside-into-${qn}`, what: `${pn} lying across, shoved into ${qn}`,
-                   room: corridor({ left: pg, right: qg, vertical: true }) });
+        add(`${pn}-broadside-into-${qn}`, `${pn} lying across, shoved into ${qn}`,
+            corridor({ left: pg, right: qg, vertical: true }));
   }
-  return out.filter(c => c.room);
+  return out;
 }
 
 // ---------------------------------------------------------------- the run
 
-/** Run every case. A case that will not build a legal board is REPORTED, not skipped quietly. */
+/**
+ * Run every case. Two ways a case can fail to be a case, and both are REPORTED rather than
+ * counted as passes: a board that will not build, and a board where the piece never met what it
+ * was put there to meet. The second is the one that matters — it looks exactly like a pass.
+ */
 export function run(only = null) {
   const rows = [];
   for (const c of cases()) {
@@ -208,9 +343,11 @@ export function run(only = null) {
     let s;
     try { s = toState({ ...c.room, id: c.id }); }
     catch (e) { rows.push({ ...c, verdict: 'unbuildable', why: e.message }); continue; }
+    const met = meeting(c.room, c.at);
+    if (!met.reached) { rows.push({ ...c, verdict: 'NO-MEETING', state: s }); continue; }
     const got = landsWhereTheBoardSays(s, 'r');
-    if (got === null) { rows.push({ ...c, verdict: 'refused' }); continue; }
-    rows.push({ ...c, verdict: got.ok ? 'ok' : 'DISAGREES', why: got.why, state: s });
+    if (got === null) { rows.push({ ...c, verdict: 'refused', ...met, state: s }); continue; }
+    rows.push({ ...c, verdict: got.ok ? 'ok' : 'DISAGREES', why: got.why, ...met, state: s });
   }
   return rows;
 }
@@ -248,13 +385,23 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (process.argv.includes('--list'))
     for (const r of rows) console.log(`${r.verdict.padEnd(12)} ${r.id}${r.why ? ' — ' + r.why : ''}`);
   else
-    for (const r of rows) if (r.verdict !== 'ok') console.log(`  ${r.verdict} ${r.id} — ${r.why ?? ''}`);
+    for (const r of rows) if (r.verdict === 'DISAGREES' || r.verdict === 'NO-MEETING')
+      console.log(`  ${r.verdict} ${r.id}${r.why ? ' — ' + r.why : ''}`);
   if (process.argv.includes('--pack')) {
     const at = resolve(root, 'levels', 'matrix.tt');
     const { text, dropped } = pack(rows);
     writeFileSync(at, text);
     console.log(`\nwrote ${at} — ${dropped} case(s) left out as unfinishable`);
   }
+  // Two numbers, never one. A case where the piece reached the thing under test and the answer
+  // came out the same as bare floor is real coverage — a lane that does nothing to that piece is
+  // a fact worth holding — but it is not an interaction, and reporting the total alone would
+  // claim more than was staged.
+  const mattered = rows.filter(r => r.mattered).length;
   console.log(`\n${rows.length} cases: ` + Object.entries(tally).map(([k, v]) => `${v} ${k}`).join(', '));
-  process.exit(rows.some(r => r.verdict === 'DISAGREES') ? 1 : 0);
+  console.log(`${mattered} of them the thing under test actually changed the answer;`
+    + ` ${rows.length - mattered} came out as they would on bare floor`);
+  // A case that staged nothing is a hole in the gate, not a result — same exit code as a
+  // disagreement, because a matrix that cannot see a piece reports agreement about it either way.
+  process.exit(rows.some(r => r.verdict === 'DISAGREES' || r.verdict === 'NO-MEETING') ? 1 : 0);
 }
