@@ -431,3 +431,33 @@
 ----------
 :end
 
+:level  TL
+:name   Shut against the wall
+:teach  run it drawer-first into something and the drawer goes home as the body carries on
+:par    7
+:traps  0
+:solves 2
+:solve  drrrrrr
+:grid
+##########
+#--------#
+#-@JX#---#
+#-------E#
+##########
+:end
+
+:level  TM
+:name   Knocked open
+:teach  a blow on the back opens it, whoever lands it
+:par    7
+:traps  18
+:solves 3
+:solve  drrrrrr
+:grid
+##########
+#--------#
+#-@w--m--#
+#-------E#
+##########
+:end
+
