@@ -120,3 +120,13 @@ test('a cart slot over a grate still holds what is shoved into it', () => {
   assert.ok(r.ok, `refused: ${r.reason}`);
   assert.deepEqual(toGrid(r.next), ['-------', '--@q---', 'E------'], 'the cart holds it over the grate');
 });
+
+test('a magnet cannot pull anything through the raccoon, or onto him', () => {
+  // He is the one occupant `isOccupiable` cannot see, and on the pull side of the board he can
+  // be anywhere — a shove always has him behind what moves, so no other branch has to ask.
+  const s = S(['#######', '#--C--#', '#--@--#', '#--f--#', '#----E#', '#######']);
+  const r = explain(s, 'd');
+  assert.ok(r.ok, `refused: ${r.reason}`);
+  assert.deepEqual(toGrid(r.next), ['#######', '#--C--#', '#-----#', '#--@--#', '#--f-E#', '#######'],
+    'the can stays on the far side of him; he follows the magnet he shoved');
+});

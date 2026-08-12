@@ -477,7 +477,10 @@ const landsAs = o => (sheds(o) ? SLIDES[o].slides : o);
 const cartCanEnter = (s, x, y, dx, dy) => {
   if (!inGrid(s, x, y)) return false;
   const c = cell(s, x, y);
-  return !c.wall && !c.exit && !isCart(c) && !isHalfOfABody(s, x, y) && mayEnter(s, x, y, dx, dy);
+  // A cabinet is not loose cargo: a cart that meets one strikes it and stops, and a shut one is
+  // not half of anything, so it has to be named here as well.
+  return !c.wall && !c.exit && !isCart(c) && !isHalfOfABody(s, x, y) && !isCabinetClosed(c.o)
+    && mayEnter(s, x, y, dx, dy);
 };
 
 /**
@@ -492,9 +495,10 @@ const cartCanEnter = (s, x, y, dx, dy) => {
  * motion carries on into it, and into whatever THAT stops against. Every hand-off goes strictly
  * forward, so a cascade is a straight run on a finite board and cannot fail to end.
  */
-function handOff(next, from, dx, dy) {
+function handOff(next, from, dx, dy, step) {
   const moved = [], bodies = [];
-  for (let p = from; inGrid(next, ...p) && rollsHere(next, ...p, dx, dy);) {
+  let p = from;
+  for (; inGrid(next, ...p) && rollsHere(next, ...p, dx, dy);) {
     const c = cell(next, ...p);
     const multi = isMultiCell(c.o), pid = c.pid;
     const own = multi ? pieceCells(next, c.pid) : [[...p]];
@@ -507,7 +511,7 @@ function handOff(next, from, dx, dy) {
       if (own.some(([x, y]) => isTar(cell(next, x + j * dx, y + j * dy))
                             || isGrate(cell(next, x + j * dx, y + j * dy)))) break;
     }
-    if (j === 0) break;
+    if (j === 0) break;                       // it stopped here, against whatever is beyond it
     const was = own.map(([x, y]) => ({ o: cell(next, x, y).o, pid: cell(next, x, y).pid }));
     for (const [x, y] of own) { const t = cell(next, x, y); t.o = NONE; t.pid = undefined; }
     own.forEach(([x, y], i) => {
@@ -523,6 +527,8 @@ function handOff(next, from, dx, dy) {
     const lead = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
     p = [lead[0] + (j + 1) * dx, lead[1] + (j + 1) * dy];
   }
+  // Whatever the run finally came up against wears the blow.
+  strikeBack(next, p, dx, dy, step);
   return { moved, bodies };
 }
 
@@ -543,12 +549,20 @@ export const isHalfOfABody = (s, x, y) => {
   return isMultiCell(c.o) || isCart(c) || cabinetPair(s, [x, y]) !== null;
 };
 
-/** Whether a whole body can travel `k` cells that way, testing against the cells it is vacating
- *  — the same question `clearAt` asks of a couch. */
+/**
+ * Whether a whole body can travel that far, testing against the cells it is vacating — the same
+ * question `clearAt` asks of a couch, and with the one occupant `isOccupiable` cannot see put
+ * back in. This is the PULL side of the board, where he can be anywhere: a shove has him behind
+ * what moves, so no other branch has to ask.
+ */
 const bodyTravels = (s, own, dx, dy) => {
   const set = new Set(own.map(([x, y]) => `${x},${y}`));
-  return own.every(([x, y]) =>
-    set.has(`${x + dx},${y + dy}`) || travelsInto(s, x + dx, y + dy, dx, dy));
+  return own.every(([x, y]) => {
+    const [nx, ny] = [x + dx, y + dy];
+    if (set.has(`${nx},${ny}`)) return true;
+    if (s.rac.x === nx && s.rac.y === ny) return false;
+    return travelsInto(s, nx, ny, dx, dy);
+  });
 };
 
 /**
@@ -697,21 +711,97 @@ function towMove(s, lk, dx, dy, done) {
   return done(next, PUSH, mkStep({ piece: bodies }));
 }
 
-/** An open cabinet shoved anywhere but shut: body and drawer move together, one cell. */
-function shoveCabinet(s, body, draw, dx, dy, done) {
-  const pair = [body, draw];
-  const own = new Set(pair.map(([x, y]) => `${x},${y}`));
-  const blame = pair.map(([x, y]) => [x + dx, y + dy])
-    .filter(([x, y]) => !own.has(`${x},${y}`) && !travelsInto(s, x, y, dx, dy));
-  if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
+/**
+ * The blow that opens a cabinet: struck on the back, the drawer shoots out the front. It is
+ * spent opening — the cabinet does not slide, and whatever struck it stops there, because a
+ * cabinet is not a thing that rolls.
+ *
+ * The drawer comes out along the same line the blow travelled, so it is an ordinary push: it
+ * shoves what is in the way one cell on, and is refused when that cell will not take it.
+ */
+function openCabinet(s, at, done) {
+  const o = cell(s, ...at).o;
+  const f = DIRS[cabinetFace(o)];
+  const draw = [at[0] + f[0], at[1] + f[1]];
   const next = cloneState(s);
-  const was = pair.map(([x, y]) => cell(s, x, y).o);
+  const step = mkStep();
+  if (!travelsInto(next, ...draw, f[0], f[1])) {
+    const past = [draw[0] + f[0], draw[1] + f[1]];
+    const inWay = inGrid(next, ...draw) ? cell(next, ...draw) : null;
+    if (!inWay || inWay.o === NONE || isHalfOfABody(next, ...draw)
+        || !travelsInto(next, ...past, f[0], f[1]))
+      return { ok: false, reason: reasonFor(s, [draw], 'canRoom'), blame: [draw] };
+    const shoved = inWay.o;
+    cell(next, ...draw).o = NONE;
+    drop(cell(next, ...past), shoved);
+    step.moved.push({ o: shoved, from: draw, to: past });
+  }
+  cell(next, ...at).o = CAB_OPENS[o];
+  cell(next, ...draw).o = DRAWER;
+  step.moved.push({ o, from: at, to: at, becomes: CAB_OPENS[o] });
+  step.spawned.push({ o: DRAWER, at: draw, from: at });
+  return done(next, PUSH, step);
+}
+
+/**
+ * A travelling thing has come to rest against `at`. If what is standing there is a shut cabinet
+ * taking the blow on its BACK, the drawer shoots out — the raccoon's own shove is not special,
+ * a rolling tyre and a swept line knock it open the same way.
+ *
+ * Nothing else happens: the cabinet does not move and the thing that struck it stops, because a
+ * cabinet is not a thing that rolls. And the drawer needs somewhere to go — with no room it
+ * stays shut, so an impact can never do what a shove would have been refused for.
+ */
+function strikeBack(next, at, dx, dy, step) {
+  if (!inGrid(next, ...at)) return;
+  const o = cell(next, ...at).o;
+  if (!isCabinetClosed(o)) return;
+  const f = DIRS[cabinetFace(o)];
+  if (dx !== f[0] || dy !== f[1]) return;
+  const draw = [at[0] + f[0], at[1] + f[1]];
+  if (!travelsInto(next, ...draw, f[0], f[1])) return;
+  cell(next, ...at).o = CAB_OPENS[o];
+  cell(next, ...draw).o = DRAWER;
+  step?.moved.push({ o, from: at, to: at, becomes: CAB_OPENS[o] });
+  step?.spawned.push({ o: DRAWER, at: draw, from: at });
+}
+
+/**
+ * A cabinet shoved: body and drawer travel together, one cell. `draw` is null when it is shut.
+ *
+ * Driven drawer-first into something it cannot enter, the drawer FOLDS IN rather than the shove
+ * being refused: it slides home while the body carries on into the cell the drawer was filling,
+ * which leaves the cabinet closed and standing against whatever stopped it.
+ */
+function shoveCabinet(s, body, draw, dx, dy, done) {
+  const f = DIRS[cabinetFace(cell(s, ...body).o)];
+  const pair = draw ? [body, draw] : [body];
+  const own = new Set(pair.map(([x, y]) => `${x},${y}`));
+  const ahead = ([x, y]) => [x + dx, y + dy];
+  const blocked = pair.map(ahead)
+    .filter(([x, y]) => !own.has(`${x},${y}`) && !travelsInto(s, x, y, dx, dy));
+
+  // Only the drawer's own way forward can be closed away, and only when it is what leads.
+  const shutting = draw && blocked.length && dx === f[0] && dy === f[1]
+    && blocked.every(([x, y]) => x === draw[0] + dx && y === draw[1] + dy);
+  if (blocked.length && !shutting)
+    return { ok: false, reason: reasonFor(s, blocked, 'canRoom'), blame: blocked };
+
+  const next = cloneState(s);
+  const step = mkStep();
+  const bodyWas = cell(s, ...body).o;
   for (const [x, y] of pair) cell(next, x, y).o = NONE;
-  pair.forEach(([x, y], i) => { cell(next, x + dx, y + dy).o = was[i]; });
+  if (shutting) {
+    cell(next, ...draw).o = CAB_SHUTS[bodyWas];
+    step.moved.push({ o: bodyWas, from: body, to: draw, becomes: CAB_SHUTS[bodyWas] });
+    step.gone.push({ o: DRAWER, at: draw });
+  } else {
+    pair.forEach(([x, y], i) => { cell(next, ...ahead([x, y])).o = i ? DRAWER : bodyWas; });
+    step.moved.push(...pair.map(([x, y], i) =>
+      ({ o: i ? DRAWER : bodyWas, from: [x, y], to: ahead([x, y]) })));
+  }
   next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
-  return done(next, PUSH, mkStep({
-    moved: pair.map(([x, y], i) => ({ o: was[i], from: [x, y], to: [x + dx, y + dy] })),
-  }));
+  return done(next, PUSH, step);
 }
 
 function shoveCart(s, cid, entry, dx, dy, trace) {
@@ -730,7 +820,18 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
   // out by the swallow with nowhere to shed. Past the first beat the same condition just
   // stops the cart, which is an ordinary way for a roll to end rather than a refusal.
   const first = aheadAt(0);
-  const blame = first.filter(([x, y]) => !cartCanEnter(s, x, y, dx, dy));
+  let blame = first.filter(([x, y]) => !cartCanEnter(s, x, y, dx, dy));
+  // A cart rolled up against the back of a shut cabinet knocks it open, and stops there. The
+  // blow is the whole of the beat, so nothing else on the cart moves.
+  if (blame.length) {
+    const knocked = cloneState(s);
+    const step = mkStep();
+    for (const at of blame) strikeBack(knocked, at, dx, dy, step);
+    if (step.moved.length) {
+      blame = blame.filter(([x, y]) => !cartCanEnter(knocked, x, y, dx, dy));
+      return { ok: true, kind: PUSH, next: knocked, ...(trace && { frames: [cloneState(s), knocked], steps: [step] }) };
+    }
+  }
   if (!blame.length) files.forEach((f, i) => {
     const back = f[f.length - 1], out = cell(s, ...back).o;
     if (out === NONE || cell(s, ...first[i]).o === NONE) return;
@@ -749,7 +850,7 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
     const d = cell(next, ...at(p, k)); d.cart = cid; d.ck = kind; d.o = loads[i][j].o;
   }));
 
-  let n = 0, lastRoll = -1;
+  let n = 0, lastRoll = -1, stoppedAt = null;
   for (;;) {
     const ahead = aheadAt(n);
     // The cell a swallow pushes the old load back onto is one the cart is vacating this beat,
@@ -806,9 +907,14 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
       frames.push(cloneState(next)); steps.push(step);
       if (rolling) lastRoll = steps.length - 1;
     }
-    if (!rolling) break;
+    if (!rolling) { stoppedAt = ahead; break; }
   }
   if (trace && lastRoll >= 0) steps[lastRoll].impact = true;
+
+  // What the roll finally came up against wears the blow, wherever along the run it stopped.
+  const blow = mkStep();
+  for (const at of stoppedAt ?? []) strikeBack(next, at, dx, dy, blow);
+  if (trace && blow.moved.length) { frames.push(cloneState(next)); steps.push(blow); }
 
   next.rac = isClearFloor(next, entry[0], entry[1]) ? { x: entry[0], y: entry[1] } : { ...s.rac };
   if (trace) for (let k = 1; k < frames.length; k++) frames[k].rac = { ...next.rac };
@@ -1017,6 +1123,7 @@ export function explain(s, dir, opts = {}) {
     }
 
     const next = cloneState(s);
+    const step = mkStep();
     // `= undefined`, not `delete`: deleting a property drops the cell into dictionary mode and
     // every clone and key of every state descended from this one pays for it.
     for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; c.pid = undefined; }
@@ -1031,14 +1138,13 @@ export function explain(s, dir, opts = {}) {
     // it going, and one lying across it is simply what the rug stops against.
     const lead = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
     const passed = ROLLS_LONGWAYS.has(o)
-      ? handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy)
+      ? handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy, step)
       : { moved: [], bodies: [] };
     next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
-    return done(next, PUSH, mkStep({
-      // The whole roll in one beat, so the body's own entry carries the whole distance.
-      piece: [{ kind: 'furniture', ref: target.pid, dx: k * dx, dy: k * dy }, ...passed.bodies],
-      moved: passed.moved,
-    }));
+    // The whole roll in one beat, so the body's own entry carries the whole distance.
+    step.piece = [{ kind: 'furniture', ref: target.pid, dx: k * dx, dy: k * dy }, ...passed.bodies];
+    step.moved.push(...passed.moved);
+    return done(next, PUSH, step);
   }
 
   if (rollsAlong(target, dx, dy)) {
@@ -1090,7 +1196,8 @@ export function explain(s, dir, opts = {}) {
     // IMPACT. The train stopped; if what stopped it rolls, the motion carries on into it and
     // the train stays put. One rule, applied until nothing is left rolling — every hand-off
     // goes strictly forward, so a cascade is a straight run and cannot fail to end.
-    const passedTo = handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy);
+    const strike = mkStep();
+    const passedTo = handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy, strike);
 
     next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
     if (!opts.trace) return { ok: true, kind: PUSH, next };
@@ -1104,17 +1211,20 @@ export function explain(s, dir, opts = {}) {
       gone: swallowed.map(([at, o2]) => ({ o: o2, at })),
       impact: true,
     })];
-    if (shedAt || passedTo.moved.length || passedTo.bodies.length) {
+    if (shedAt || passedTo.moved.length || passedTo.bodies.length || strike.moved.length) {
       frames.push(next);
       steps.push(mkStep({
         piece: passedTo.bodies.length ? passedTo.bodies : null,
+        spawned: strike.spawned,
         moved: [
+          ...strike.moved,
           ...(shedAt ? [{ o: WHEELIE, from: [rear[0] + k * dx, rear[1] + k * dy],
                           to: [rear[0] + k * dx, rear[1] + k * dy], becomes: WHEELIE_EMPTY }] : []),
           ...passedTo.moved,
         ],
-        spawned: shedAt ? [{ o: BAG, at: shedAt, from: [rear[0] + k * dx, rear[1] + k * dy] }] : [],
       }));
+      if (shedAt) steps.at(-1).spawned.push(
+        { o: BAG, at: shedAt, from: [rear[0] + k * dx, rear[1] + k * dy] });
     }
     for (let i = 1; i < frames.length; i++) frames[i].rac = { ...next.rac };
     return { ok: true, kind: PUSH, next, frames, steps };
@@ -1123,37 +1233,13 @@ export function explain(s, dir, opts = {}) {
   // A closed cabinet moves, and the same shove slides its drawer out. The drawer opening is
   // itself a PUSH — it shoves whatever is in the way one further cell — which is what makes the
   // cabinet a second aimed action: you shove north, and something goes east.
+  // A closed cabinet opens when it is struck on the BACK — the face opposite the drawer — and
+  // the blow is spent opening it. The cabinet does not slide: it is not a rolling thing, and
+  // whatever hit it stops there. Struck on any other face it is an ordinary one-cell shove.
   if (isCabinetClosed(o)) {
     const f = DIRS[cabinetFace(o)];
-    const body = [tx + dx, ty + dy];
-    const draw = [body[0] + f[0], body[1] + f[1]];
-    if (!travelsInto(s, ...body, dx, dy))
-      return { ok: false, reason: reasonFor(s, [body], 'canRoom'), blame: [body] };
-    // It cannot open onto the cell he is standing in, and he is the one occupant `isOccupiable`
-    // cannot see.
-    if (draw[0] === tx && draw[1] === ty)
-      return { ok: false, reason: 'canRoom', blame: [draw] };
-
-    const next = cloneState(s);
-    const step = mkStep();
-    if (!travelsInto(next, ...draw, f[0], f[1])) {
-      const past = [draw[0] + f[0], draw[1] + f[1]];
-      const inWay = inGrid(next, ...draw) ? cell(next, ...draw) : null;
-      if (!inWay || inWay.o === NONE || isHalfOfABody(next, ...draw)
-          || !travelsInto(next, ...past, f[0], f[1]))
-        return { ok: false, reason: reasonFor(s, [draw], 'canRoom'), blame: [draw] };
-      const shoved = inWay.o;
-      cell(next, ...draw).o = NONE;
-      drop(cell(next, ...past), shoved);
-      step.moved.push({ o: shoved, from: draw, to: past });
-    }
-    cell(next, tx, ty).o = NONE;
-    cell(next, ...body).o = CAB_OPENS[o];
-    cell(next, ...draw).o = DRAWER;
-    step.moved.push({ o, from: [tx, ty], to: body, becomes: CAB_OPENS[o] });
-    step.spawned.push({ o: DRAWER, at: draw, from: body });
-    next.rac = { x: tx, y: ty };
-    return done(next, PUSH, step);
+    if (dx !== f[0] || dy !== f[1]) return shoveCabinet(s, [tx, ty], null, dx, dy, done);
+    return openCabinet(s, [tx, ty], done);
   }
 
   // Shoved on the drawer toward the body, the shove is spent closing it: the cabinet does not
@@ -1178,18 +1264,27 @@ export function explain(s, dir, opts = {}) {
 
   if (isCabinetOpen(o)) return shoveCabinet(s, [tx, ty], drawerOf(s, [tx, ty]), dx, dy, done);
 
+
   // The broom takes the whole contiguous line ahead of it, of any kinds, one cell — and on
   // grease it takes the line the length of the slick. It is the ONLY thing that moves a bag
   // without bursting it, which is what gives broken glass anything to do.
   if (o === BROOM) {
     const line = [];
     for (let p = [tx, ty]; inGrid(s, ...p) && cell(s, ...p).o !== NONE
-         && !isHalfOfABody(s, ...p); p = [p[0] + dx, p[1] + dy])
+         && !isHalfOfABody(s, ...p) && !isCabinetClosed(cell(s, ...p).o); p = [p[0] + dx, p[1] + dy])
       line.push(p);
     const head = line[line.length - 1];
     const beyond = [head[0] + dx, head[1] + dy];
-    if (!travelsInto(s, ...beyond, dx, dy))
-      return { ok: false, reason: reasonFor(s, [beyond], 'canRoom'), blame: [beyond] };
+    if (!travelsInto(s, ...beyond, dx, dy)) {
+      // Unless what is in the way is a shut cabinet taking the blow on its back. The line has
+      // nowhere to go, so the sweep is spent knocking the drawer out.
+      const knocked = cloneState(s);
+      const step = mkStep();
+      strikeBack(knocked, beyond, dx, dy, step);
+      if (!step.moved.length)
+        return { ok: false, reason: reasonFor(s, [beyond], 'canRoom'), blame: [beyond] };
+      return done(knocked, PUSH, step);
+    }
     if (line.some(([x, y]) => stuckInTar(s, x, y)))
       return { ok: false, reason: 'tar', blame: line.filter(([x, y]) => isTar(cell(s, x, y))) };
 
