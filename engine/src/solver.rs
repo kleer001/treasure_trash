@@ -65,8 +65,10 @@ struct KeyBuf {
     key: Vec<u8>,
     pids: Vec<u8>,
     carts: Vec<u8>,
+    links: Vec<u8>,
     pid_seen: Vec<u16>,
     cart_seen: Vec<u16>,
+    link_seen: Vec<u16>,
 }
 
 impl KeyBuf {
@@ -79,12 +81,12 @@ impl KeyBuf {
 }
 
 /// Position of `id`'s first appearance, adding it if this is that appearance.
-fn label(seen: &mut Vec<u16>, id: u16) -> u8 {
+fn label(seen: &mut Vec<u16>, id: u16) -> u16 {
     match seen.iter().position(|&k| k == id) {
-        Some(i) => i as u8,
+        Some(i) => i as u16,
         None => {
             seen.push(id);
-            (seen.len() - 1) as u8
+            (seen.len() - 1) as u16
         }
     }
 }
@@ -99,33 +101,47 @@ fn label(seen: &mut Vec<u16>, id: u16) -> u8 {
 ///
 /// What it does NOT carry is `stateKey`'s separators, and the difference is deliberate. This key
 /// is the engine's own index and never crosses the wire, so what it owes the JS is injectivity
-/// over the same boards, not the same spelling. Within one enumeration the grid's size is fixed
-/// and pieces are neither created nor destroyed, so every key has identical length and identical
-/// section offsets — position alone says which section a byte belongs to, and a delimiter would
-/// only be telling us what we already know.
+/// over the same boards, not the same spelling. The sections are still unambiguous without a
+/// delimiter, and the reason is worth stating because a link is not like the lanes before it:
+/// the cell section has one fixed-width entry per live cell, and it says which cells carry a
+/// pid (their occupant code is a multi-cell one) and which belong to a cart (its own bit). So
+/// reading the cell section fixes the length of the pid section and of the cart section. Links
+/// are made and broken as the room plays, so THAT section's length varies — which is why it is
+/// last, where the remainder of the key is all it can be.
 fn state_key_into(s: &State, b: &mut KeyBuf) {
-    let KeyBuf { live, key, pids, carts, pid_seen, cart_seen } = b;
+    let KeyBuf { live, key, pids, carts, links, pid_seen, cart_seen, link_seen } = b;
     key.clear();
     pids.clear();
     carts.clear();
+    links.clear();
     pid_seen.clear();
     cart_seen.clear();
+    link_seen.clear();
     for &i in live.iter() {
         let c = &s.cells[i as usize];
-        let terrain: u16 = if c.water { 1 } else if c.bridge { 2 } else { 0 };
+        // Two bytes a cell, not one. The roster's codes times the mutable terrains times cart
+        // membership passed 256, and a lane that wraps keys two different boards alike — which
+        // is the quiet failure this whole key exists to avoid.
         let cart = u16::from(c.is_cart());
-        key.push((65 + (c.o as u16 * 3 + terrain) * 2 + cart) as u8);
+        key.extend_from_slice(&((c.o as u16 * TERRAINS + c.terrain() as u16) * 2 + cart).to_le_bytes());
         if c.pid != NO_ID {
             let n = label(pid_seen, c.pid);
-            pids.push(65 + n);
+            pids.extend_from_slice(&n.to_le_bytes());
         }
         if c.cart != NO_ID {
+            // The cart's KIND rides with its label: a barrow and an ordinary cart in the same
+            // cells play differently, and nothing else in the key would say so.
             let n = label(cart_seen, c.cart);
-            carts.push(65 + n);
+            carts.extend_from_slice(&(n * CART_KINDS + c.ck as u16).to_le_bytes());
+        }
+        if c.lk != NO_ID {
+            let n = label(link_seen, c.lk);
+            links.extend_from_slice(&n.to_le_bytes());
         }
     }
     key.extend_from_slice(pids);
     key.extend_from_slice(carts);
+    key.extend_from_slice(links);
     // Raw bytes rather than decimal text: `format!` drags the whole formatting machinery in for
     // two small integers, and it measured at five percent of the binary doing so.
     key.extend_from_slice(&s.rac.0.to_le_bytes());

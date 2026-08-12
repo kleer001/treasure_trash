@@ -120,6 +120,25 @@ which is where the hours go — and **the game never touches it.** Nothing in `s
 the traced frames are out of the protocol on purpose, so it could not drive the renderer even if
 somebody tried, and the served game must stay a no-build-step page that runs from `src/` alone.
 
+**The port follows; it never leads.** A rule is decided in `src/rules.js`, approved by the owner,
+and played in the real game before any of it is written in Rust. Two gates, in that order, and
+the second one is not optional:
+
+- **An owner-approved ruleset.** The Rust side implements a rule that is already settled on the
+  JS side. It never introduces one, never guesses at one the JS has not answered, and never
+  resolves an ambiguity by picking whichever reading is cheaper to write in Rust. A branch the
+  JS does not have is not a port, it is a second design.
+- **A playtest, in the browser, of the JS behaviour being ported.** Before a branch goes into
+  `rules.rs`, the behaviour it copies is played on a real board in the served game. That is what
+  makes `src/rules.js` the arbiter in fact rather than by assertion: when `tools/conform.mjs`
+  reports the two engines parting company, the question is which one is *right*, and only the
+  played board answers it. A conformance failure resolved by reading two listings side by side
+  has picked a winner without consulting the game.
+
+So a disagreement is worked in this order: play the board, confirm what the game does is what
+was intended, then make the port agree. When the played board shows the JS is the one that is
+wrong, the JS is fixed first and the port copies the fix — never the reverse.
+
 Agents: this being here does not widen the rule above by one inch. It was the owner's call, it
 is in `SANCTIONED`, and a second one is the same conversation again.
 
@@ -143,6 +162,10 @@ These govern how code is written. They are not design arguments.
 - Validate at boundaries; trust internal functions; fail loudly — one path, no silent
   fallbacks.
 - New behavior gets a test that fails before the change and passes after.
+- New behavior is also PLAYED, in a browser, on the served page, before it is called done. A
+  passing spec says the rule fires; only the played board says the piece is on screen where the
+  rule put it. Bench rooms for a piece under construction live in `levels/scratch.tt`, reached
+  with `index.html?acts=scratch.tt` — a dev affordance, inert in the built artifact.
 - Comments carry what the code cannot — see [`CLEAN_PROSE.md`](./CLEAN_PROSE.md). A comment that
   restates the line below it, or the signature above it, is deleted rather than reworded.
 - Atomic conventional commits: `feat:`, `fix:`, `docs:`, `test:`, `chore:`.

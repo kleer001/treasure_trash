@@ -18,6 +18,47 @@ pub const JUG: u8 = 9;
 pub const FURNITURE: u8 = 10;
 pub const BIN_EMPTY: u8 = 11;
 pub const JUG_EMPTY: u8 = 12;
+pub const SPONGE: u8 = 13;
+pub const CARDBOARD: u8 = 14;
+pub const PANE: u8 = 15;
+pub const TIRE_H: u8 = 16;
+pub const TIRE_V: u8 = 17;
+pub const BICYCLE: u8 = 18;
+pub const RUG: u8 = 19;
+pub const CHAIR: u8 = 20;
+pub const BROOM: u8 = 21;
+pub const CABC_U: u8 = 22;
+pub const CABC_D: u8 = 23;
+pub const CABC_L: u8 = 24;
+pub const CABC_R: u8 = 25;
+pub const CABO_U: u8 = 26;
+pub const CABO_D: u8 = 27;
+pub const CABO_L: u8 = 28;
+pub const CABO_R: u8 = 29;
+pub const DRAWER: u8 = 30;
+pub const MAG_U: u8 = 31;
+pub const MAG_D: u8 = 32;
+pub const MAG_L: u8 = 33;
+pub const MAG_R: u8 = 34;
+
+/// Terrain, as `terrainOf` reads it: the MUTABLE lanes, and the two that a cell carries as
+/// flags of their own. `TERRAINS` is the radix the key packs a cell with, so it is the count of
+/// mutable values and not of lanes.
+pub const DRY: u8 = 0;
+pub const WATER: u8 = 1;
+pub const BRIDGE: u8 = 2;
+pub const GREASE: u8 = 3;
+pub const TAR: u8 = 4;
+pub const GLASS: u8 = 5;
+pub const COVERED: u8 = 6;
+pub const TERRAINS: u16 = 7;
+
+pub const CART: u8 = 0;
+pub const BARROW_H: u8 = 1;
+pub const BARROW_V: u8 = 2;
+pub const CART_KINDS: u16 = 4;
+
+pub const NO_DIR: u8 = 0;
 
 /// `pid`/`cart` are ids, and most cells have neither. A sentinel keeps `Cell` `Copy` and keeps
 /// the absent case one comparison rather than a branch on an `Option` in every predicate.
@@ -34,23 +75,51 @@ pub struct Cell {
     pub exit: bool,
     pub water: bool,
     pub bridge: bool,
+    /// A STATIC lane, and out of the key for the reason `wall` is: it cannot differ between two
+    /// states of one room.
+    pub grate: bool,
+    /// The other static lane. `NO_DIR`, or the direction byte it admits.
+    pub oneway: u8,
+    /// The mutable lanes past water and bridge, one exclusive value.
+    pub ter: u8,
     pub o: u8,
+    /// Which KIND of cart this cell belongs to. Beside the label in the key rather than in the
+    /// cell's own byte, because it is a property of the cart and not of the cell.
+    pub ck: u8,
     pub pid: u16,
     pub cart: u16,
+    /// What this cell is hooked to. One link per piece, and the tow and the magnet's chain
+    /// share the lane — they differ in behaviour, not in how they are recorded.
+    pub lk: u16,
 }
 
 impl Cell {
-    const FLOOR: Cell = Cell {
+    pub const FLOOR: Cell = Cell {
         wall: false,
         exit: false,
         water: false,
         bridge: false,
+        grate: false,
+        oneway: NO_DIR,
+        ter: DRY,
         o: NONE,
+        ck: CART,
         pid: NO_ID,
         cart: NO_ID,
+        lk: NO_ID,
     };
     pub fn is_cart(&self) -> bool {
         self.cart != NO_ID
+    }
+    /// What `terrainOf` answers: the flags win over the `ter` lane, in that order.
+    pub fn terrain(&self) -> u8 {
+        if self.water {
+            WATER
+        } else if self.bridge {
+            BRIDGE
+        } else {
+            self.ter
+        }
     }
 }
 
