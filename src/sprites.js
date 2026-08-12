@@ -751,6 +751,9 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   else if (o === codes.BROOM) sprites.broom(x, y);
   else if (o === codes.DRAWER) sprites.drawer(x, y, face);
   else if (codes.magnetFace(o)) sprites.magnet(x, y, codes.magnetFace(o));
+  // A barrow riding in something is drawn as the barrow it is — being carried is a fact about
+  // where it is, not about what it looks like.
+  else if (codes.carriedFace(o)) sprites.barrow(x, y, codes.carriedFace(o));
   else if (codes.cabinetFace(o)) sprites.cabinet(x, y, codes.cabinetFace(o), codes.isCabinetOpen(o));
   // Not silence. An occupant with no drawing here is invisible on the board, which reads as a
   // rules bug and is found by playing rather than by testing — so it stops the frame instead.

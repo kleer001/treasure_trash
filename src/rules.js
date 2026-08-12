@@ -12,7 +12,12 @@ export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
              // kind, and a closed one is not.
              CABC_U = 22, CABC_D = 23, CABC_L = 24, CABC_R = 25,
              CABO_U = 26, CABO_D = 27, CABO_L = 28, CABO_R = 29, DRAWER = 30,
-             MAG_U = 31, MAG_D = 32, MAG_L = 33, MAG_R = 34;
+             MAG_U = 31, MAG_D = 32, MAG_L = 33, MAG_R = 34,
+             // A barrow being CARRIED. One cell holds one cart, so a barrow riding in something
+             // cannot still be a cart — it is cargo, like everything else that rides, and turns
+             // back into a cart wherever cargo is put down. It only ever exists inside a cart:
+             // the moment it is set on the floor it is a barrow again.
+             BAR_U = 35, BAR_D = 36, BAR_L = 37, BAR_R = 38;
 
 // The one code a cell does not fully describe: two adjacent FURNITURE cells may be one couch
 // or two, and only `pid` says which. `stateKey` encodes the partition as well as the codes.
@@ -27,6 +32,14 @@ export const isCabinetOpen = o => o >= CABO_U && o <= CABO_R;
 // The occupant codes, as one object. The renderer takes this rather than a hand-listed subset:
 // a code left out of such a list does not throw, it draws NOTHING, and a piece that is simply
 // invisible is a bug you find by playing rather than by testing.
+/** A barrow riding as cargo, and which way it is still facing. */
+export const isCarriedBarrow = o => o >= BAR_U && o <= BAR_R;
+/** The two directions of the same fact: a cart kind, and the cargo code it rides as. */
+export const carriedAs = k => BAR_U + (k - BARROW_U);
+export const carriedKind = o => BARROW_U + (o - BAR_U);
+/** Which way a carried barrow is still pointing — the renderer draws it as the barrow it is. */
+export const carriedFace = o => (isCarriedBarrow(o) ? barrowFace(carriedKind(o)) : undefined);
+
 export const MAGNET_REACH = 3;
 export const magnetFace = o =>
   ({ [MAG_U]: 'u', [MAG_D]: 'd', [MAG_L]: 'l', [MAG_R]: 'r' })[o];
@@ -36,7 +49,7 @@ export const OCCUPANTS = {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
   BIN_EMPTY, JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
   CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER,
-  MAG_U, MAG_D, MAG_L, MAG_R,
+  MAG_U, MAG_D, MAG_L, MAG_R, BAR_U, BAR_D, BAR_L, BAR_R, carriedFace,
   // The cabinet is the one kind whose drawing needs more than its code, so the questions the
   // renderer has to ask travel with the codes rather than being re-derived over there.
   cabinetFace, isCabinetOpen, magnetFace,
@@ -357,12 +370,14 @@ function applyIntoCart(s, next, cid, { file, beyond, out, dx, dy }, o, step) {
   }
   cell(next, ...file[0]).o = o;
   if (out !== NONE) {
-    if (step) step.moved.push({
+    const m = {
       o: out, from: file[file.length - 1], to: beyond, parent: null,
       effect: effectOf(cell(next, ...beyond), out),
       ...(landsAs(out) !== out && { becomes: landsAs(out) }),
-    });
-    drop(cell(next, ...beyond), out);
+    };
+    if (step) step.moved.push(m);
+    const born = drop(next, beyond, out);
+    if (born !== undefined) m.toCart = born;
     tipOut(next, out, beyond, dx, dy, step);
   }
 }
@@ -424,8 +439,32 @@ const reasonFor = (s, blockers, fallback) => {
   return fallback;
 };
 
-/** The one place cargo is put down. A grate takes what lands in it, and takes it for good. */
-const drop = (c, o) => { if (isGrate(c)) return; if (o === TRASH) layTrash(c); else c.o = o; };
+/** A cart id no cart on this board is using. */
+export const freeCart = s => {
+  let top = -1;
+  for (const row of s.cells) for (const c of row) if (c.cart !== undefined && c.cart > top) top = c.cart;
+  return top + 1;
+};
+
+/**
+ * The one place cargo is put down. A grate takes what lands in it, and takes it for good.
+ *
+ * And the one place a carried barrow stops being cargo. It rode as an occupant because a cell
+ * holds one cart and it was in somebody else's; set down, it is a barrow again, facing the way
+ * it always was. Here rather than at each of the places cargo leaves a cart, so no one of them
+ * can forget and leave a barrow lying about as a code nothing can shove.
+ */
+const drop = (s, at, o) => {
+  const c = cell(s, ...at);
+  if (isGrate(c)) return undefined;
+  if (o === TRASH) { layTrash(c); return undefined; }
+  if (isCarriedBarrow(o)) {
+    c.cart = freeCart(s); c.ck = carriedKind(o); c.o = NONE;
+    return c.cart;                       // the caller has a step entry to tell about this
+  }
+  c.o = o;
+  return undefined;
+};
 
 // --- the motion account -------------------------------------------------------------------
 // A board says what is where, not what moved where, so a traced action carries a step. The
@@ -479,7 +518,7 @@ function tipOut(s, o, at, dx, dy, step) {
     pour(target);
   } else {
     if (step) step.spawned.push({ o: t.drops, at: c, from: at, effect: effectOf(target, t.drops) });
-    drop(target, t.drops);
+    drop(s, c, t.drops);
   }
   if (t.slides !== o) cell(s, ...at).o = t.slides;
 }
@@ -487,15 +526,35 @@ function tipOut(s, o, at, dx, dy, step) {
 /** What a container reads as once it has landed and shed. */
 const landsAs = o => (sheds(o) ? SLIDES[o].slides : o);
 
+/**
+ * A barrow that something else can take aboard: one cell, nothing in it, and not held. Carrying
+ * one is the only way a cart ever enters another cart's cell.
+ *
+ * Empty, because a cell holds one occupant and a loaded barrow would have to bring its load in
+ * with it. Unheld, because a hooked one is already spoken for, and a hold that outlived the
+ * thing holding it is a link pointing at nothing.
+ */
+export const isScoopable = (s, x, y) => {
+  const c = cell(s, x, y);
+  return isCart(c) && isBarrow(cartKindOf(c)) && c.o === NONE && c.lk === undefined
+    && cartCells(s, c.cart).length === 1;
+};
+
+/** What a cart takes in when it swallows this cell — a barrow rides as cargo, everything else
+ *  is already the occupant it will be. */
+export const cargoAt = (s, x, y) =>
+  (isScoopable(s, x, y) ? carriedAs(cartKindOf(cell(s, x, y))) : cell(s, x, y).o);
+
 /** `swallows` is false for a barrow shoved against its facing: it rolls, but it has no mouth
  *  that way, so anything at all in the cell ahead is what stops it rather than what it takes. */
 const cartCanEnter = (s, x, y, dx, dy, swallows = true) => {
   if (!inGrid(s, x, y)) return false;
   const c = cell(s, x, y);
+  if (isCart(c)) return swallows && isScoopable(s, x, y) && mayEnter(s, x, y, dx, dy);
   if (!swallows && c.o !== NONE) return false;
   // A cabinet is not loose cargo: a cart that meets one strikes it and stops, and a shut one is
   // not half of anything, so it has to be named here as well.
-  return !c.wall && !c.exit && !isCart(c) && !isHalfOfABody(s, x, y) && !isCabinetClosed(c.o)
+  return !c.wall && !c.exit && !isHalfOfABody(s, x, y) && !isCabinetClosed(c.o)
     && mayEnter(s, x, y, dx, dy);
 };
 
@@ -749,7 +808,7 @@ function openCabinet(s, at, done) {
       return { ok: false, reason: reasonFor(s, [draw], 'canRoom'), blame: [draw] };
     const shoved = inWay.o;
     cell(next, ...draw).o = NONE;
-    drop(cell(next, ...past), shoved);
+    drop(next, past, shoved);
     step.moved.push({ o: shoved, from: draw, to: past });
   }
   cell(next, ...at).o = CAB_OPENS[o];
@@ -880,7 +939,11 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
     };
     const clear = ahead.every(([x, y]) => cartCanEnter(next, x, y, dx, dy, swallows))
       && !files.some(f => isTar(cell(next, ...at(f[0], n))));
-    const incoming = clear ? ahead.map(([x, y]) => cell(next, x, y).o) : ahead.map(() => NONE);
+    const incoming = clear ? ahead.map(([x, y]) => cargoAt(next, x, y)) : ahead.map(() => NONE);
+    // Which of them were CARTS before they were cargo. The stage holds a cart sprite for those,
+    // so the step has to say which one turned into what rather than naming an occupant sprite
+    // that does not exist yet.
+    const wasCart = ahead.map(([x, y]) => (clear && isScoopable(next, x, y) ? cell(next, x, y).cart : undefined));
     const rolling = clear && files.every((f, i) => incoming[i] === NONE || canShed(i));
     const taken = rolling ? incoming : ahead.map(() => NONE);
     const end = rolling ? n + 1 : n;              // where the cart stands once this step is over
@@ -904,7 +967,8 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
       }
       load[0] = { o: taken[i] };
       if (step && taken[i] !== NONE)
-        step.moved.push({ o: taken[i], from: ahead[i], to: at(f[0], end), parent: cid });
+        step.moved.push({ o: taken[i], from: ahead[i], to: at(f[0], end), parent: cid,
+                          ...(wasCart[i] !== undefined && { fromCart: wasCart[i] }) });
       if (out.o !== NONE) {
         if (step) step.moved.push({
           o: out.o, from: at(f[depth - 1], n), to: behind, parent: null,
@@ -918,7 +982,11 @@ function shoveCart(s, cid, entry, dx, dy, trace) {
     repaint(end, n);
     n = end;
     for (const [[x, y], o] of spill) {
-      drop(cell(next, x, y), o);
+      const born = drop(next, [x, y], o);
+      if (born !== undefined && step) {
+        const m = step.moved.find(e => e.o === o && e.to[0] === x && e.to[1] === y);
+        if (m) m.toCart = born;
+      }
       tipOut(next, o, [x, y], -dx, -dy, step);
     }
     if (trace && (rolling || step.moved.length)) {
@@ -1013,10 +1081,12 @@ export function explain(s, dir, opts = {}) {
       // the stage does not hold and cannot animate.
       step.piece = { kind: 'cart', ref: target.cart, dx, dy };
       if (load !== NONE) {
-        step.moved.push({ o: load, from: [tx, ty], to: out, parent: null,
+        const m = { o: load, from: [tx, ty], to: out, parent: null,
           effect: effectOf(cell(next, ...out), load),
-          ...(landsAs(load) !== load && { becomes: landsAs(load) }) });
-        drop(cell(next, ...out), load);
+          ...(landsAs(load) !== load && { becomes: landsAs(load) }) };
+        step.moved.push(m);
+        const born = drop(next, out, load);
+        if (born !== undefined) m.toCart = born;
         tipOut(next, load, out, dx, dy, step);
       }
       next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
@@ -1208,7 +1278,7 @@ export function explain(s, dir, opts = {}) {
     const shedAt = back && !swallowed.length ? back : null;
     if (shedAt) {
       cell(next, rear[0] + k * dx, rear[1] + k * dy).o = WHEELIE_EMPTY;
-      drop(cell(next, ...shedAt), BAG);
+      drop(next, shedAt, BAG);
     }
 
     // IMPACT. The train stopped; if what stopped it rolls, the motion carries on into it and
@@ -1410,15 +1480,15 @@ export function explain(s, dir, opts = {}) {
     } else if (tips) {
       step.spawned.push({ o: drops, at: c2, from: [tx, ty],
         effect: effectOf(cell(next, c2[0], c2[1]), drops) });
-      drop(cell(next, c2[0], c2[1]), drops);
+      drop(next, c2, drops);
     }
     if (shove) applyIntoCart(s, next, into, shove, lands, step);
-    else if (SLIDES[o].soaks) { soak(cell(next, ...at)); drop(cell(next, ...at), lands); }
+    else if (SLIDES[o].soaks) { soak(cell(next, ...at)); drop(next, at, lands); }
     // Spent making the cell walkable. It still MOVES — the sheet slides onto the hazard and goes
     // down with it — so the step keeps the move and names the sprite where the stage holds it,
     // which is the cell it started from.
     else if (SLIDES[o].covers && cover(cell(next, ...at))) step.gone = [{ o, at: [tx, ty] }];
-    else drop(cell(next, at[0], at[1]), lands);
+    else drop(next, at, lands);
     const lk = cell(next, tx, ty).lk;
     cell(next, tx, ty).o = NONE;
     cell(next, tx, ty).lk = undefined;

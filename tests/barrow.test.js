@@ -138,3 +138,42 @@ test('a tipping barrow is a BODY, not an occupant that moved', () => {
   assert.deepEqual([step.piece].flat(), [{ kind: 'cart', ref: 0, dx: 0, dy: 1 }]);
   assert.ok(!step.moved.some(m => m.o === NONE), 'nothing of code NONE is an occupant sprite');
 });
+
+// --- a barrow in a barrow -------------------------------------------------------------------
+// One cell holds one cart, so a barrow riding in something cannot still BE a cart: it is cargo
+// like everything else that rides, and it is a barrow again wherever cargo is put down.
+
+test('a barrow scoops an empty barrow and carries it off', () => {
+  const after = push(S(['@----E', '------'], ['-r-r--', '------']), 'r');
+  assert.equal(toGrid(after)[0], '-@-->E', 'the one it took is riding, still facing right');
+  assert.equal(toCart(after)[0], '----r-', 'and only one cart is left on the board');
+});
+
+test('tipped out, it is a barrow again', () => {
+  const s = S(['------', '-@----', '->----', '------', 'E-----'],
+              ['------', '------', '-r----', '------', '------']);
+  const after = push(s, 'd');
+  assert.equal(toCart(after)[3], '-r----', 'the one that carried it');
+  assert.equal(toCart(after)[4], '-s----', 'and the one it tipped out, a cart once more');
+  assert.equal(toGrid(after)[4], 'E-----', 'nothing riding anywhere');
+});
+
+test('a loaded barrow is too full to be picked up', () => {
+  // A cell holds one occupant, so a barrow with something in it cannot bring it aboard.
+  const s = S(['@--c-E', '------'], ['-r-r--', '------']);
+  const loaded = push(s, 'r');                       // the far barrow now holds the can
+  assert.ok(toGrid(loaded)[0].includes('c'), 'it scooped the can');
+  const again = S(['-@---E', '------'], ['--r-r-', '------']);
+  again.cells[0][4].o = 2;                           // a full can riding in the far barrow
+  const r = explain(again, 'r');
+  assert.ok(r.ok, `refused: ${r.reason}`);
+  assert.equal(toCart(r.next)[0], '---rs-', 'it rolled up and stopped against it');
+});
+
+test('a hooked barrow is spoken for, and cannot be picked up', () => {
+  const s = S(['@---FF-E', '--------'], ['-r-r----', '--------']);
+  s.cells[0][3].lk = 0; s.cells[0][4].lk = 0; s.cells[0][5].lk = 0;   // the far one is towing
+  const r = explain(s, 'r');
+  assert.ok(r.ok, `refused: ${r.reason}`);
+  assert.equal(toCart(r.next)[0], '--rs----', 'it stopped against it rather than taking it');
+});

@@ -5,7 +5,8 @@ import {
   CART, BARROW_U, BARROW_D, BARROW_L, BARROW_R,
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
   JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
-  CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER, cabinetPair,
+  CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER,
+  BAR_U, BAR_D, BAR_L, BAR_R, cabinetPair,
   MAG_U, MAG_D, MAG_L, MAG_R,
   GREASE, TAR, GLASS, COVERED,
   FURNITURE, DIRS, MOVE, PUSH, TEAR, isMultiCell,
@@ -45,6 +46,9 @@ const READ = {
   'X': { o: DRAWER },        // the drawer; which cabinet it belongs to is read off its facing
   // The magnet, by the way its field points. It never turns, so the glyph is the whole of it.
   'f': { o: MAG_U }, 'l': { o: MAG_D }, 'p': { o: MAG_L }, 'q': { o: MAG_R },
+  // A barrow riding in something, still facing the way it faces. Only ever found in a cart
+  // cell — set down anywhere it is a barrow again, and written in the `:cart` mask instead.
+  '^': { o: BAR_U }, 'v': { o: BAR_D }, '<': { o: BAR_L }, '>': { o: BAR_R },
   'E': { exit: true },
   // Furniture glyphs name a PIECE, not a kind of thing: a 4-connected blob of one letter is
   // one couch, so two flush couches need two letters. Hence a pool — see FURN_POOL.
@@ -94,11 +98,12 @@ export const CART_POOL = [...'PQR'];
 const CART_KINDS_IN_MASK = [
   { glyphs: [...'PQR'], ck: CART, size: 2, word: 'two', what: 'cart' },
   // A barrow faces the way its tub points, and the mask says so outright: the direction it
-  // faces, and its capital for a second one facing the same way.
-  { glyphs: [...'uU'], ck: BARROW_U, size: 1, word: 'one', what: 'barrow (facing up)' },
-  { glyphs: [...'dD'], ck: BARROW_D, size: 1, word: 'one', what: 'barrow (facing down)' },
-  { glyphs: [...'lL'], ck: BARROW_L, size: 1, word: 'one', what: 'barrow (facing left)' },
-  { glyphs: [...'rR'], ck: BARROW_R, size: 1, word: 'one', what: 'barrow (facing right)' },
+  // faces, and the NEXT LETTER ALONG for a second one facing the same way. Not its capital,
+  // which would want `R` — and `R` is a two-cell cart, which the reader would match first.
+  { glyphs: [...'uv'], ck: BARROW_U, size: 1, word: 'one', what: 'barrow (facing up)' },
+  { glyphs: [...'de'], ck: BARROW_D, size: 1, word: 'one', what: 'barrow (facing down)' },
+  { glyphs: [...'lm'], ck: BARROW_L, size: 1, word: 'one', what: 'barrow (facing left)' },
+  { glyphs: [...'rs'], ck: BARROW_R, size: 1, word: 'one', what: 'barrow (facing right)' },
 ];
 
 export const LEGEND = [
@@ -185,7 +190,11 @@ function glyphFor(c, isRac, letters) {
              [CABC_U]: 'a', [CABC_D]: 'e', [CABC_L]: 'k', [CABC_R]: 'm',
              [CABO_U]: 'A', [CABO_D]: 'D', [CABO_L]: 'I', [CABO_R]: 'J',
              [DRAWER]: 'X',
-             [MAG_U]: 'f', [MAG_D]: 'l', [MAG_L]: 'p', [MAG_R]: 'q' }[c.o];
+             [MAG_U]: 'f', [MAG_D]: 'l', [MAG_L]: 'p', [MAG_R]: 'q',
+             [BAR_U]: '^', [BAR_D]: 'v', [BAR_L]: '<', [BAR_R]: '>' }[c.o]
+      // A code with no glyph writes NOTHING and shortens the row, which reads downstream as a
+      // board of a different shape rather than as a piece nobody taught the writer about.
+      ?? (() => { throw new Error(`no glyph for occupant ${c.o}`); })();
   }
   if (isRac) return '+';
   if (c.o === NONE) return 'E';

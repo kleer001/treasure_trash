@@ -40,6 +40,12 @@ pub const MAG_U: u8 = 31;
 pub const MAG_D: u8 = 32;
 pub const MAG_L: u8 = 33;
 pub const MAG_R: u8 = 34;
+// A barrow being CARRIED. One cell holds one cart, so a barrow riding in something cannot still
+// be a cart — it is cargo, and turns back into a cart wherever cargo is put down.
+pub const BAR_U: u8 = 35;
+pub const BAR_D: u8 = 36;
+pub const BAR_L: u8 = 37;
+pub const BAR_R: u8 = 38;
 
 /// Terrain, as `terrainOf` reads it: the MUTABLE lanes, and the two that a cell carries as
 /// flags of their own. `TERRAINS` is the radix the key packs a cell with, so it is the count of
@@ -102,10 +108,10 @@ const CART_KINDS_IN_MASK: [CartKind; 5] = [
     CartKind { glyphs: CART_POOL, ck: CART, size: 2, word: "two", what: "cart" },
     // A barrow faces the way its tub points, and the mask says so outright: the direction it
     // faces, and its capital for a second one facing the same way.
-    CartKind { glyphs: b"uU", ck: BARROW_U, size: 1, word: "one", what: "barrow (facing up)" },
-    CartKind { glyphs: b"dD", ck: BARROW_D, size: 1, word: "one", what: "barrow (facing down)" },
-    CartKind { glyphs: b"lL", ck: BARROW_L, size: 1, word: "one", what: "barrow (facing left)" },
-    CartKind { glyphs: b"rR", ck: BARROW_R, size: 1, word: "one", what: "barrow (facing right)" },
+    CartKind { glyphs: b"uv", ck: BARROW_U, size: 1, word: "one", what: "barrow (facing up)" },
+    CartKind { glyphs: b"de", ck: BARROW_D, size: 1, word: "one", what: "barrow (facing down)" },
+    CartKind { glyphs: b"lm", ck: BARROW_L, size: 1, word: "one", what: "barrow (facing left)" },
+    CartKind { glyphs: b"rs", ck: BARROW_R, size: 1, word: "one", what: "barrow (facing right)" },
 ];
 
 /// The `:water` alphabet, which carries every terrain lane and not only the canal. Mutable
@@ -279,6 +285,10 @@ fn read_glyph(ch: u8) -> Option<(Cell, bool)> {
         b'l' => c.o = MAG_D,
         b'p' => c.o = MAG_L,
         b'q' => c.o = MAG_R,
+        b'^' => c.o = BAR_U,
+        b'v' => c.o = BAR_D,
+        b'<' => c.o = BAR_L,
+        b'>' => c.o = BAR_R,
         b'E' => c.exit = true,
         b'+' => {
             c.exit = true;
@@ -657,6 +667,10 @@ pub fn to_grid(s: &State) -> Result<Vec<String>, String> {
                         MAG_D => b'l',
                         MAG_L => b'p',
                         MAG_R => b'q',
+                        BAR_U => b'^',
+                        BAR_D => b'v',
+                        BAR_L => b'<',
+                        BAR_R => b'>',
                         other => return Err(format!("no glyph for occupant {other}")),
                     }
                 }

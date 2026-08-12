@@ -7,7 +7,8 @@
 // separate states, which the solver would pay for. A sprite persists across an action, owns a
 // fractional position, and can be parented to a cart rather than standing on a square.
 
-import { NONE, DRAWER, cell, cartCells, pieceCells, isCart, isMultiCell, bodyOfDrawer } from './rules.js';
+import { NONE, DRAWER, cell, cartCells, pieceCells, isCart, isMultiCell, bodyOfDrawer,
+         carriedKind } from './rules.js';
 import { mulberry32 } from './rng.js';
 
 /** Multi-cell kinds are their own sprites; every other sprite is keyed by occupant code. */
@@ -115,8 +116,20 @@ export function applyStep(stage, step, racTo = null) {
   for (const m of step.moved) {
     // A step naming a sprite the stage does not hold means the rules and the stage disagree
     // about the board. Nothing downstream would notice: the piece would simply not animate.
-    const sp = find(stage, m.o, m.from);
+    //
+    // `fromCart` is the one thing that is not a disagreement: a barrow scooped up stops being a
+    // cart and becomes cargo, so the sprite standing there is a CART and no occupant of that
+    // code exists yet. It is the same object either way, so the sprite is converted rather than
+    // swapped — which is what keeps its draw seed and stops it popping.
+    const sp = m.fromCart !== undefined
+      ? stage.sprites.find(s => s.kind === CART && s.ref === m.fromCart && !s.dying)
+      : find(stage, m.o, m.from);
     if (!sp) throw new Error(`no ${m.o} sprite at ${m.from} to move to ${m.to}`);
+    if (m.fromCart !== undefined) { sp.kind = m.o; sp.ref = undefined; sp.cells = undefined; }
+    // And the way back: set down, it is a barrow again.
+    if (m.toCart !== undefined) {
+      sp.kind = CART; sp.ref = m.toCart; sp.ck = carriedKind(m.o); sp.cells = [[0, 0]];
+    }
     // Only what was ALREADY riding gets nudged: a slot shift is a true no-op on the board and
     // would otherwise read as nothing at all. Something being scooped up is not hit by
     // anything, so it does not lurch.

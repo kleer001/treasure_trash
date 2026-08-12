@@ -186,6 +186,47 @@ fn barrow_scoops(k: u8, dx: i32, dy: i32) -> bool {
     dir_of(barrow_face(k)) == (dx, dy)
 }
 
+fn is_carried_barrow(o: u8) -> bool {
+    (BAR_U..=BAR_R).contains(&o)
+}
+fn carried_as(k: u8) -> u8 {
+    BAR_U + (k - BARROW_U)
+}
+fn carried_kind(o: u8) -> u8 {
+    BARROW_U + (o - BAR_U)
+}
+
+/// A barrow that something else can take aboard: one cell, nothing in it, and not held. Carrying
+/// one is the only way a cart ever enters another cart's cell.
+fn is_scoopable(s: &State, x: i32, y: i32) -> bool {
+    let c = s.at(x, y);
+    c.is_cart()
+        && is_barrow(c.ck)
+        && c.o == NONE
+        && c.lk == NO_ID
+        && s.cart_cells(c.cart).len() == 1
+}
+
+/// What a cart takes in when it swallows this cell.
+fn cargo_at(s: &State, x: i32, y: i32) -> u8 {
+    if is_scoopable(s, x, y) {
+        carried_as(s.at(x, y).ck)
+    } else {
+        s.at(x, y).o
+    }
+}
+
+/// A cart id no cart on this board is using.
+fn free_cart(s: &State) -> u16 {
+    let mut top: i32 = -1;
+    for c in s.cells.iter() {
+        if c.cart != NO_ID && c.cart as i32 > top {
+            top = c.cart as i32;
+        }
+    }
+    (top + 1) as u16
+}
+
 // --- terrain ---------------------------------------------------------------------------------
 
 fn is_tar(c: &Cell) -> bool {
@@ -369,10 +410,12 @@ fn rolls_here(s: &State, x: i32, y: i32, dx: i32, dy: i32) -> bool {
 fn cart_can_enter(s: &State, x: i32, y: i32, dx: i32, dy: i32, swallows: bool) -> bool {
     s.in_grid(x, y) && {
         let c = s.at(x, y);
+        if c.is_cart() {
+            return swallows && is_scoopable(s, x, y) && may_enter(s, x, y, dx, dy);
+        }
         (swallows || c.o == NONE)
             && !c.wall
             && !c.exit
-            && !c.is_cart()
             && !is_half_of_a_body(s, x, y)
             && !is_cabinet_closed(c.o)
             && may_enter(s, x, y, dx, dy)
@@ -393,15 +436,26 @@ fn lay_trash(c: &mut Cell) {
 }
 
 /// The one place cargo is put down. A grate takes what lands in it, and takes it for good.
-fn drop_o(c: &mut Cell, o: u8) {
-    if is_grate(c) {
+///
+/// And the one place a carried barrow stops being cargo: set down, it is a barrow again, facing
+/// the way it always was.
+fn drop_at(s: &mut State, at: Pt, o: u8) {
+    if is_grate(s.at(at.0, at.1)) {
         return;
     }
     if o == TRASH {
-        lay_trash(c);
-    } else {
-        c.o = o;
+        lay_trash(s.at_mut(at.0, at.1));
+        return;
     }
+    if is_carried_barrow(o) {
+        let id = free_cart(s);
+        let c = s.at_mut(at.0, at.1);
+        c.cart = id;
+        c.ck = carried_kind(o);
+        c.o = NONE;
+        return;
+    }
+    s.at_mut(at.0, at.1).o = o;
 }
 
 /// The exit and open water each get their own refusal reason rather than the generic one.
@@ -506,7 +560,7 @@ fn tip_out(s: &mut State, o: u8, at: Pt, dx: i32, dy: i32) {
     let (cx, cy) = (at.0 + dx, at.1 + dy);
     match t.drops {
         None => s.at_mut(cx, cy).water = true, // pours
-        Some(drops) => drop_o(s.at_mut(cx, cy), drops),
+        Some(drops) => drop_at(s, (cx, cy), drops),
     }
     if t.slides != o {
         s.at_mut(at.0, at.1).o = t.slides;
@@ -550,7 +604,7 @@ fn apply_into_cart(s: &State, next: &mut State, sh: &Shove, o: u8) {
     }
     next.at_mut(sh.file[0].0, sh.file[0].1).o = o;
     if sh.out != NONE {
-        drop_o(next.at_mut(sh.beyond.0, sh.beyond.1), sh.out);
+        drop_at(next, sh.beyond, sh.out);
         tip_out(next, sh.out, sh.beyond, sh.dx, sh.dy);
     }
 }
@@ -635,7 +689,7 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
         let clear = ahead.iter().all(|&(x, y)| cart_can_enter(&next, x, y, dx, dy, swallows))
             && !files.iter().any(|f| is_tar(next.at(along(f[0], n).0, along(f[0], n).1)));
         let incoming: Vec<u8> = if clear {
-            ahead.iter().map(|&(x, y)| next.at(x, y).o).collect()
+            ahead.iter().map(|&(x, y)| cargo_at(&next, x, y)).collect()
         } else {
             vec![NONE; files.len()]
         };
@@ -700,7 +754,7 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
         }
         n = end;
         for (p, o) in spill {
-            drop_o(next.at_mut(p.0, p.1), o);
+            drop_at(&mut next, p, o);
             tip_out(&mut next, o, p, -dx, -dy);
         }
         if !rolling {
@@ -1047,7 +1101,7 @@ fn open_cabinet(s: &State, at: Pt) -> Outcome {
         }
         let shoved = in_way.expect("checked").o;
         next.at_mut(draw.0, draw.1).o = NONE;
-        drop_o(next.at_mut(past.0, past.1), shoved);
+        drop_at(&mut next, past, shoved);
     }
     next.at_mut(at.0, at.1).o = cab_opens(o);
     next.at_mut(draw.0, draw.1).o = DRAWER;
@@ -1192,7 +1246,7 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
             landed.ck = kind;
             landed.o = NONE;
             if load != NONE {
-                drop_o(next.at_mut(out.0, out.1), load);
+                drop_at(&mut next, out, load);
                 tip_out(&mut next, load, out, dx, dy);
             }
             next.rac = if is_clear_floor(&next, tx, ty) { (tx, ty) } else { s.rac };
@@ -1408,7 +1462,7 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
         if let Some(b) = back {
             if swallowed == 0 {
                 next.at_mut(rear.0 + k * dx, rear.1 + k * dy).o = WHEELIE_EMPTY;
-                drop_o(next.at_mut(b.0, b.1), BAG);
+                drop_at(&mut next, b, BAG);
             }
         }
 
@@ -1593,19 +1647,19 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
         if tips {
             match t.drops {
                 None => pour(next.at_mut(c2.0, c2.1)),
-                Some(drops) => drop_o(next.at_mut(c2.0, c2.1), drops),
+                Some(drops) => drop_at(&mut next, c2, drops),
             }
         }
         match &shove {
             Some(sh) => apply_into_cart(s, &mut next, sh, lands),
             None if t.soaks => {
                 soak(next.at_mut(at.0, at.1));
-                drop_o(next.at_mut(at.0, at.1), lands);
+                drop_at(&mut next, at, lands);
             }
             // Spent making the cell walkable. It still MOVES — the sheet slides onto the hazard
             // and goes down with it.
             None if t.covers && cover(next.at_mut(at.0, at.1)) => {}
-            None => drop_o(next.at_mut(at.0, at.1), lands),
+            None => drop_at(&mut next, at, lands),
         }
         let lk = next.at(tx, ty).lk;
         next.at_mut(tx, ty).o = NONE;

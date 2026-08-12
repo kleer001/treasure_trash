@@ -100,7 +100,9 @@ export function generatedRooms(count, seed) {
                   // No lone drawer: it is half of an open cabinet and never stands by itself.
                   'a$', 'mC', 'eo', 'kU', 'qC', 'f$', 'pU', 'q$C', 'rh$', 'dg', 'sC', 'YU', 'Pq',
                   // the barrow, at every facing, forwards and backwards into things
-                  'rF', 'r$', 'rC', 'lF', 'l$', 'lC', 'uF', 'u$', 'dC', 'd$', 'lo', '$rb'];
+                  'rF', 'r$', 'rC', 'lF', 'l$', 'lC', 'uF', 'u$', 'dC', 'd$', 'lo', '$rb',
+                  // and a barrow meeting a barrow, which is a barrow being carried
+                  'rr', 'rl', 'ru', 'dd', 'rrC', 'rr$', 'Prr', 'rlC'];
   const out = [];
   for (let i = 0; out.length < count && i < count * 40; i++) {
     const [w, h] = [[8, 4], [8, 5], [7, 5], [9, 5]][Math.floor(rnd() * 4)];
