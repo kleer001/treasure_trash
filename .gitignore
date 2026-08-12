@@ -16,3 +16,8 @@ levels/act*.md
 
 # Build output of the sanctioned Rust port. Cargo.lock is committed — it is a binary.
 engine/target/
+
+# Written by tools/matrix.mjs --pack, so a case can be poked by hand in the real game. Its pars
+# are computed from the rules that were in force when it ran, so a tracked copy goes stale on
+# the next rules change and reads as a claim about rules nobody checked. Regenerate it.
+levels/matrix.tt
