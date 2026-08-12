@@ -77,6 +77,14 @@ the gate, and it gets deleted when Stage K lands.
       a transfer, it moves without capturing and without its chain keeping pace. Consistent with
       "nothing moves unbidden", inconsistent with "the field moved". A design call, not a bug.
 
+- [ ] #41 **Play every new piece in the real game, and do it again after Stage K.** All 19 bench
+      rooms in `levels/scratch.tt` currently pass, one per piece. This is a GATE, not a chore:
+      six of the bugs this session were invisible to `npm test` and showed only on screen —
+      a refusal reading `✕ undefined`, an empty jug drawing as nothing, a consumed sheet leaving
+      its sprite, a magnet pulling a can whose sprite stayed put, a rug getting two sprites per
+      cell, and a tow naming two bodies where the step allowed one. The port changing what a
+      board does is exactly the kind of thing that would show here first.
+
 - [ ] #40 **The stack (`S`) is still undecided.** Last in the fertility survey by an order of
       magnitude, in no shipped room. It was to be decided with Act 3 or cut, and Act 3 has not
       been designed since the roster grew.
@@ -105,6 +113,8 @@ than name a kind, and to carry the whole cell rather than one field of it.
   somewhere else. Cost two bugs: the consumed cardboard, and the magnet's pull.
 - A consumed piece names itself in `gone` by the cell **the stage holds it at**, which is where
   it started, not where it was going.
+- **`moved` names OCCUPANT sprites only.** A cart and a multi-cell piece are BODIES and belong in
+  `step.piece`, which now takes one or several — a tow moves two of them in a beat.
 
 ### Decisions that are settled and should not be re-opened
 
@@ -135,7 +145,7 @@ Do the port last on purpose: a rules change costs double while both engines are 
 `cargo build --release --manifest-path engine/Cargo.toml && node tools/conform.mjs --engine
 engine/target/release/tt-engine`
 
-Play the new pieces: serve the root, then `index.html?acts=scratch.tt` — 17 bench rooms, one
+Play the new pieces: serve the root, then `index.html?acts=scratch.tt` — 19 bench rooms, one
 per piece. The `?acts=` override is a dev affordance and is inert in the built artifact.
 
 ## Next Step
