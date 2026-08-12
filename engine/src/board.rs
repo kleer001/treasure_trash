@@ -67,7 +67,62 @@ pub const NO_ID: u16 = u16::MAX;
 use std::rc::Rc;
 
 pub const FURN_POOL: &[u8] = b"FGHKMN";
+pub const BIKE_POOL: &[u8] = b"YZ";
+pub const RUG_POOL: &[u8] = b"UV";
+
+/// The multi-cell kinds, each with the pool it is written from and the sizes it accepts. One
+/// pool per KIND for the reason furniture has one: a 4-connected run of one letter is one
+/// piece, so two flush bicycles need two letters between them.
+struct MultiPool {
+    pool: &'static [u8],
+    o: u8,
+    what: &'static str,
+    min: usize,
+    max: usize,
+}
+const MULTI_POOLS: [MultiPool; 3] = [
+    MultiPool { pool: FURN_POOL, o: FURNITURE, what: "furniture", min: 2, max: usize::MAX },
+    MultiPool { pool: BIKE_POOL, o: BICYCLE, what: "bicycle", min: 2, max: 2 },
+    MultiPool { pool: RUG_POOL, o: RUG, what: "rug", min: 2, max: usize::MAX },
+];
+
+/// A cart is two cells; a barrow is one, and its axis is in the glyph because nothing else
+/// carries it.
+struct CartKind {
+    glyphs: &'static [u8],
+    ck: u8,
+    size: usize,
+    word: &'static str,
+    what: &'static str,
+}
 pub const CART_POOL: &[u8] = b"PQR";
+const CART_KINDS_IN_MASK: [CartKind; 3] = [
+    CartKind { glyphs: CART_POOL, ck: CART, size: 2, word: "two", what: "cart" },
+    CartKind { glyphs: b"yz", ck: BARROW_H, size: 1, word: "one", what: "barrow (side to side)" },
+    CartKind { glyphs: b"nu", ck: BARROW_V, size: 1, word: "one", what: "barrow (up and down)" },
+];
+
+/// The `:water` alphabet, which carries every terrain lane and not only the canal. Mutable
+/// lanes land in `ter`; the static ones are flags of their own.
+fn read_terrain(ch: u8, c: &mut Cell) -> bool {
+    match ch {
+        b'~' => c.water = true,
+        b'=' => c.bridge = true,
+        b'%' => c.ter = GREASE,
+        b'T' => c.ter = TAR,
+        b'*' => c.ter = GLASS,
+        b'_' => c.ter = COVERED,
+        b'O' => c.grate = true,
+        b'^' => c.oneway = b'u',
+        b'v' => c.oneway = b'd',
+        b'<' => c.oneway = b'l',
+        b'>' => c.oneway = b'r',
+        _ => return false,
+    }
+    true
+}
+
+const TERRAIN_ALPHABET: &str = "~=%T*_O^v<>";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Cell {
@@ -196,12 +251,36 @@ fn read_glyph(ch: u8) -> Option<(Cell, bool)> {
         b'b' => c.o = BIN_EMPTY,
         b'j' => c.o = JUG,
         b'i' => c.o = JUG_EMPTY,
+        b's' => c.o = SPONGE,
+        b'd' => c.o = CARDBOARD,
+        b'g' => c.o = PANE,
+        b'o' => c.o = TIRE_H,
+        b'O' => c.o = TIRE_V,
+        b'h' => c.o = CHAIR,
+        b'r' => c.o = BROOM,
+        // The cabinet's facing is in the glyph because nothing else carries it. Lower case is
+        // closed and one cell; upper case is open, the drawer lying in the facing direction.
+        b'a' => c.o = CABC_U,
+        b'e' => c.o = CABC_D,
+        b'k' => c.o = CABC_L,
+        b'm' => c.o = CABC_R,
+        b'A' => c.o = CABO_U,
+        b'D' => c.o = CABO_D,
+        b'I' => c.o = CABO_L,
+        b'J' => c.o = CABO_R,
+        b'X' => c.o = DRAWER,
+        b'f' => c.o = MAG_U,
+        b'l' => c.o = MAG_D,
+        b'p' => c.o = MAG_L,
+        b'q' => c.o = MAG_R,
         b'E' => c.exit = true,
         b'+' => {
             c.exit = true;
             rac = true;
         }
         _ if FURN_POOL.contains(&ch) => c.o = FURNITURE,
+        _ if BIKE_POOL.contains(&ch) => c.o = BICYCLE,
+        _ if RUG_POOL.contains(&ch) => c.o = RUG,
         _ => return None,
     }
     Some((c, rac))
@@ -217,8 +296,9 @@ fn label_blobs(
     field: fn(&mut Cell) -> &mut u16,
     what: &str,
     wrong_size: impl Fn(usize) -> Option<String>,
-) -> Result<(), String> {
-    let mut next: u16 = 0;
+    first: u16,
+) -> Result<u16, String> {
+    let mut next: u16 = first;
     for y in 0..rows {
         for x in 0..cols {
             let i = (y * cols + x) as usize;
@@ -251,7 +331,7 @@ fn label_blobs(
             }
         }
     }
-    Ok(())
+    Ok(next)
 }
 
 /// Byte `x` of row `y`, or floor — short rows pad, exactly as the reader does.
@@ -292,8 +372,8 @@ pub fn to_state(
             if c.exit {
                 exits += 1;
             }
-            // Which letter wrote this cell, so two flush couches stay two couches.
-            furn_marks.push(if c.o == FURNITURE { ch } else { 0 });
+            // Which letter wrote this cell, so two flush pieces of one kind stay two pieces.
+            furn_marks.push(if MULTI_POOLS.iter().any(|m| m.o == c.o) { ch } else { 0 });
             cells.push(c);
         }
     }
@@ -301,15 +381,41 @@ pub fn to_state(
     if exits != 1 {
         return Err(format!("needs exactly one exit, found {exits}"));
     }
-    label_blobs(
-        &mut cells,
-        &furn_marks,
-        cols,
-        rows,
-        |c| &mut c.pid,
-        "furniture",
-        |n| (n < 2).then(|| "is a single cell; use a can, or give it a second cell".to_string()),
-    )?;
+    // One counter across every kind. A piece is found by id alone, so a couch and a rug that
+    // shared one would be read as a single piece and shoved as one.
+    let mut next_pid: u16 = 0;
+    for m in MULTI_POOLS.iter() {
+        let marks: Vec<u8> = furn_marks
+            .iter()
+            .zip(cells.iter())
+            .map(|(&ch, c)| if c.o == m.o { ch } else { 0 })
+            .collect();
+        next_pid = label_blobs(
+            &mut cells,
+            &marks,
+            cols,
+            rows,
+            |c| &mut c.pid,
+            m.what,
+            |n| {
+                if n >= m.min && n <= m.max {
+                    None
+                } else if m.min == m.max {
+                    Some(format!(
+                        "covers {n} cell{}; a {} is exactly {}",
+                        if n == 1 { "" } else { "s" },
+                        m.what,
+                        m.min
+                    ))
+                } else if m.o == FURNITURE {
+                    Some("is a single cell; use a can, or give it a second cell".to_string())
+                } else {
+                    Some(format!("is a single cell; a {} is at least {}", m.what, m.min))
+                }
+            },
+            next_pid,
+        )?;
+    }
 
     if let Some(water) = water {
         if water.len() as i32 > rows {
@@ -321,35 +427,41 @@ pub fn to_state(
         for y in 0..rows {
             for x in 0..cols {
                 let ch = byte_at(water, y, x);
-                let wet = ch == b'~';
-                if !wet && ch != b'=' {
-                    if !matches!(ch, b'-' | b' ' | b'.') {
-                        return Err(format!(
-                            ":water takes '~', '=' or floor, got {:?} at ({},{})",
-                            ch as char,
-                            x + 1,
-                            y + 1
-                        ));
-                    }
+                if matches!(ch, b'-' | b' ' | b'.') {
                     continue;
                 }
-                let c = &mut cells[(y * cols + x) as usize];
-                if c.wall {
-                    return Err(format!("({},{}) is both wall and water", x + 1, y + 1));
+                let i = (y * cols + x) as usize;
+                if cells[i].wall {
+                    return Err(format!("({},{}) is both wall and terrain", x + 1, y + 1));
                 }
-                if c.exit {
-                    return Err(format!("the exit cannot be water at ({},{})", x + 1, y + 1));
+                if cells[i].exit {
+                    return Err(format!(
+                        "the exit cannot carry terrain at ({},{})",
+                        x + 1,
+                        y + 1
+                    ));
                 }
-                if wet {
-                    c.water = true;
-                } else {
-                    c.bridge = true;
+                if !read_terrain(ch, &mut cells[i]) {
+                    return Err(format!(
+                        ":water takes one of '{TERRAIN_ALPHABET}' or floor, got {:?} at ({},{})",
+                        ch as char,
+                        x + 1,
+                        y + 1
+                    ));
                 }
             }
         }
-        if cells[(rac.1 * cols + rac.0) as usize].water {
+        let start = &cells[(rac.1 * cols + rac.0) as usize];
+        if start.water {
             return Err(format!(
                 "the raccoon starts in open water at ({},{})",
+                rac.0 + 1,
+                rac.1 + 1
+            ));
+        }
+        if start.ter == GLASS {
+            return Err(format!(
+                "the raccoon starts on broken glass at ({},{})",
                 rac.0 + 1,
                 rac.1 + 1
             ));
@@ -367,14 +479,19 @@ pub fn to_state(
                 if matches!(ch, b'-' | b' ' | b'.') {
                     continue;
                 }
-                if !CART_POOL.contains(&ch) {
+                let Some(k) = CART_KINDS_IN_MASK.iter().find(|k| k.glyphs.contains(&ch)) else {
+                    let all: String = CART_KINDS_IN_MASK
+                        .iter()
+                        .flat_map(|k| k.glyphs.iter().map(|&b| b as char))
+                        .collect();
                     return Err(format!(
-                        ":cart takes PQR or floor, got {:?} at ({},{})",
+                        ":cart takes {all} or floor, got {:?} at ({},{})",
                         ch as char,
                         x + 1,
                         y + 1
                     ));
-                }
+                };
+                cells[(y * cols + x) as usize].ck = k.ck;
                 let c = &cells[(y * cols + x) as usize];
                 if c.wall {
                     return Err(format!("({},{}) is both wall and cart", x + 1, y + 1));
@@ -403,11 +520,34 @@ pub fn to_state(
                 marks[(y * cols + x) as usize] = ch;
             }
         }
-        label_blobs(&mut cells, &marks, cols, rows, |c| &mut c.cart, "cart", |n| {
-            (n != 2).then(|| {
-                format!("covers {n} cell{}; a cart is exactly two", if n == 1 { "" } else { "s" })
-            })
-        })?;
+        // One counter across the kinds, and a size rule per kind: a cart is two cells and a
+        // barrow is one, so the two cannot share a single check.
+        let mut next_cid: u16 = 0;
+        for k in CART_KINDS_IN_MASK.iter() {
+            let own: Vec<u8> = marks
+                .iter()
+                .map(|&ch| if k.glyphs.contains(&ch) { ch } else { 0 })
+                .collect();
+            next_cid = label_blobs(
+                &mut cells,
+                &own,
+                cols,
+                rows,
+                |c| &mut c.cart,
+                k.what,
+                |n| {
+                    (n != k.size).then(|| {
+                        format!(
+                            "covers {n} cell{}; a {} is exactly {}",
+                            if n == 1 { "" } else { "s" },
+                            k.what,
+                            k.word
+                        )
+                    })
+                },
+                next_cid,
+            )?;
+        }
     }
 
     Ok(State { cols, rows, cells: Rc::new(cells), rac })
@@ -416,21 +556,36 @@ pub fn to_state(
 // ---------------------------------------------------------------- writing
 
 /// Letters handed out by first appearance in raster order, so a board's lettering is canonical.
-fn pool_letters(s: &State, of: fn(&Cell) -> u16, pool: &[u8], what: &str) -> Result<Vec<(u16, u8)>, String> {
+/// Each KIND draws from its own pool and keeps its own count, which is what lets a couch and a
+/// rug stand flush and still be spelled apart.
+fn pool_letters(
+    s: &State,
+    of: fn(&Cell) -> u16,
+    pool_for: impl Fn(&Cell) -> Option<(&'static [u8], &'static str)>,
+) -> Result<Vec<(u16, u8)>, String> {
     let mut out: Vec<(u16, u8)> = Vec::new();
+    let mut used: Vec<(&'static str, usize)> = Vec::new();
     for cell in s.cells.iter() {
         let id = of(cell);
         if id == NO_ID || out.iter().any(|(k, _)| *k == id) {
             continue;
         }
-        if out.len() >= pool.len() {
+        let Some((pool, what)) = pool_for(cell) else {
+            return Err(format!("occupant {} carries an id but has no glyph pool", cell.o));
+        };
+        let n = used.iter().find(|(w, _)| *w == what).map(|(_, n)| *n).unwrap_or(0);
+        if n >= pool.len() {
             return Err(format!(
                 "more than {} {what}: the glyph pool is {}",
                 pool.len(),
                 String::from_utf8_lossy(pool)
             ));
         }
-        out.push((id, pool[out.len()]));
+        out.push((id, pool[n]));
+        match used.iter_mut().find(|(w, _)| *w == what) {
+            Some(slot) => slot.1 = n + 1,
+            None => used.push((what, n + 1)),
+        }
     }
     Ok(out)
 }
@@ -439,8 +594,16 @@ fn letter_of(table: &[(u16, u8)], id: u16) -> u8 {
     table.iter().find(|(k, _)| *k == id).map(|(_, v)| *v).unwrap_or(b'?')
 }
 
+/// Whether a code is one whose cells are partitioned by `pid`: the codes alone do not say
+/// whether four such cells are one piece or two.
+pub fn is_multi_cell(o: u8) -> bool {
+    o == FURNITURE || o == BICYCLE || o == RUG
+}
+
 pub fn to_grid(s: &State) -> Result<Vec<String>, String> {
-    let letters = pool_letters(s, |c| c.pid, FURN_POOL, "furniture pieces")?;
+    let letters = pool_letters(s, |c| c.pid, |c| {
+        MULTI_POOLS.iter().find(|m| m.o == c.o).map(|m| (m.pool, m.what))
+    })?;
     let mut out = Vec::with_capacity(s.rows as usize);
     for y in 0..s.rows {
         let mut row = Vec::with_capacity(s.cols as usize);
@@ -452,7 +615,7 @@ pub fn to_grid(s: &State) -> Result<Vec<String>, String> {
             } else if !c.exit {
                 if is_rac {
                     b'@'
-                } else if c.o == FURNITURE {
+                } else if is_multi_cell(c.o) {
                     letter_of(&letters, c.pid)
                 } else {
                     match c.o {
@@ -468,6 +631,26 @@ pub fn to_grid(s: &State) -> Result<Vec<String>, String> {
                         BIN_EMPTY => b'b',
                         JUG => b'j',
                         JUG_EMPTY => b'i',
+                        SPONGE => b's',
+                        CARDBOARD => b'd',
+                        PANE => b'g',
+                        TIRE_H => b'o',
+                        TIRE_V => b'O',
+                        CHAIR => b'h',
+                        BROOM => b'r',
+                        CABC_U => b'a',
+                        CABC_D => b'e',
+                        CABC_L => b'k',
+                        CABC_R => b'm',
+                        CABO_U => b'A',
+                        CABO_D => b'D',
+                        CABO_L => b'I',
+                        CABO_R => b'J',
+                        DRAWER => b'X',
+                        MAG_U => b'f',
+                        MAG_D => b'l',
+                        MAG_L => b'p',
+                        MAG_R => b'q',
                         other => return Err(format!("no glyph for occupant {other}")),
                     }
                 }
@@ -492,7 +675,9 @@ pub fn to_cart(s: &State) -> Result<Option<Vec<String>>, String> {
     if !s.cells.iter().any(|c| c.cart != NO_ID) {
         return Ok(None);
     }
-    let letters = pool_letters(s, |c| c.cart, CART_POOL, "carts")?;
+    let letters = pool_letters(s, |c| c.cart, |c| {
+        CART_KINDS_IN_MASK.iter().find(|k| k.ck == c.ck).map(|k| (k.glyphs, k.what))
+    })?;
     Ok(Some(mask(s, |c| {
         if c.cart == NO_ID {
             b'-'
@@ -502,20 +687,37 @@ pub fn to_cart(s: &State) -> Result<Option<Vec<String>>, String> {
     })))
 }
 
-/// Null only when the board never had a canal — a fully filled one still gets a mask.
+fn ter_glyph(c: &Cell) -> u8 {
+    if c.water {
+        b'~'
+    } else if c.bridge {
+        b'='
+    } else if c.grate {
+        b'O'
+    } else if c.oneway != NO_DIR {
+        match c.oneway {
+            b'u' => b'^',
+            b'd' => b'v',
+            b'l' => b'<',
+            _ => b'>',
+        }
+    } else {
+        match c.ter {
+            GREASE => b'%',
+            TAR => b'T',
+            GLASS => b'*',
+            COVERED => b'_',
+            _ => b'-',
+        }
+    }
+}
+
+/// Null only when the board carries no terrain at all — a fully filled canal still gets a mask.
 pub fn to_water(s: &State) -> Option<Vec<String>> {
-    if !s.cells.iter().any(|c| c.water || c.bridge) {
+    if !s.cells.iter().any(|c| ter_glyph(c) != b'-') {
         return None;
     }
-    Some(mask(s, |c| {
-        if c.water {
-            b'~'
-        } else if c.bridge {
-            b'='
-        } else {
-            b'-'
-        }
-    }))
+    Some(mask(s, ter_glyph))
 }
 
 fn mask(s: &State, of: impl Fn(&Cell) -> u8) -> Vec<String> {
