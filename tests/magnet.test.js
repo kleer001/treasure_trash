@@ -53,3 +53,24 @@ test('what is held drags its holder when it is pushed', () => {
   for (const d of ['u', 'r', 'r', 'r', 'd']) s = push(s, d);
   assert.equal(toGrid(push(s, 'l'))[1], '--qc@--', 'the magnet came along');
 });
+
+// Across the field the two travel together; along it the gap closes. A shove that carries the
+// magnet sideways carries its load sideways, or the pair simply comes apart — which is the
+// difference between holding something and having merely once touched it.
+test('a shove across the field carries what is held along with it', () => {
+  let s = push(S(['-------', '-@q-w--', '-------', '-------', 'E------']), 'r');
+  assert.equal(toGrid(s)[1], '--@qw--', 'captured, alongside');
+  for (const d of ['u', 'r']) s = push(s, d);
+  const after = push(s, 'd');
+  assert.equal(toGrid(after)[2], '---qw--', 'both went down, still side by side');
+  assert.equal(held(after), 2, 'and it is still held');
+});
+
+test('what cannot keep pace is let go, and the magnet goes on alone', () => {
+  let s = push(S(['-------', '-@q-w--', '----#--', '-------', 'E------']), 'r');
+  for (const d of ['u', 'r']) s = push(s, d);
+  const after = push(s, 'd');
+  assert.equal(toGrid(after)[1], '---@w--', 'the bin stayed where the wall left it');
+  assert.equal(toGrid(after)[2], '---q#--', 'and the magnet carried on down');
+  assert.equal(held(after), 0, 'the chain let go');
+});

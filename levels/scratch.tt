@@ -1,12 +1,28 @@
 :pack   Treasure Trash — Scratch (bench pack, never shipped)
 
+:level  TJ
+:name   Magnet, sideways
+:teach  across the field the two travel together
+:par    8
+:traps  15
+:solves 13
+:solve  ddrrrrrr
+:grid
+##########
+#--------#
+#-@q--w--#
+#--------#
+#-------E#
+##########
+:end
+
 :level  TH
 :name   The magnet
 :teach  its field runs one way; the nearest metal within three comes to it
-:par    17
-:traps  809
-:solves 3
-:solve  RurDRurDurrddlU!dr
+:par    21
+:traps  195
+:solves 105
+:solve  urDrdLrrrruLulDL!rrdrr
 :grid
 ##########
 #--------#

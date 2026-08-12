@@ -504,7 +504,7 @@ function handOff(next, from, dx, dy) {
  * unbidden. First the chain it already has follows or lets go, then it takes hold of whatever
  * is now in reach.
  */
-function magnetResolve(next, mx, my, step) {
+function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
   const o = cell(next, mx, my).o;
   const f = DIRS[magnetFace(o)];
   const lk = cell(next, mx, my).lk;
@@ -512,7 +512,24 @@ function magnetResolve(next, mx, my, step) {
   // The chain is strictly along the facing. Anything that has fallen off that line, or drifted
   // past the reach, is simply let go — which is why the piece needs no distance metric.
   if (lk !== undefined) {
-    const held = linkCells(next, lk).filter(([x, y]) => !(x === mx && y === my));
+    let held = linkCells(next, lk).filter(([x, y]) => !(x === mx && y === my));
+
+    // ACROSS the field, what is held keeps pace: it moves the way the magnet moved, or the two
+    // simply come apart. ALONG the field there is nothing to keep pace with — the gap closes
+    // instead, further down. A shove that carries the magnet sideways carries its load sideways.
+    if (held.length && (dx || dy) && dx * f[0] + dy * f[1] === 0) {
+      const [hx, hy] = held[0];
+      const to = [hx + dx, hy + dy];
+      if (travelsInto(next, ...to, dx, dy)) {
+        const was = { ...cell(next, hx, hy) };
+        const c0 = cell(next, hx, hy);
+        c0.o = NONE; c0.pid = undefined; c0.cart = undefined; c0.ck = undefined; c0.lk = undefined;
+        const c1 = cell(next, ...to);
+        c1.o = was.o; c1.pid = was.pid; c1.cart = was.cart; c1.ck = was.ck; c1.lk = was.lk;
+        step?.moved.push({ o: was.o, from: [hx, hy], to });
+        held = [to];
+      }
+    }
     const onLine = held.length && held.every(([x, y]) => {
       const k = (x - mx) * f[0] + (y - my) * f[1];
       return k >= 1 && k <= MAGNET_REACH && x - mx === f[0] * k && y - my === f[1] * k;
@@ -1196,7 +1213,7 @@ export function explain(s, dir, opts = {}) {
       cell(next, tx, ty).o = NONE;
       cell(next, at[0], at[1]).lk = cell(next, tx, ty).lk;
       cell(next, tx, ty).lk = undefined;
-      magnetResolve(next, at[0], at[1], step);
+      magnetResolve(next, at[0], at[1], step, dx, dy);
       next.rac = { x: tx, y: ty };
       return done(next, PUSH, step);
     }
