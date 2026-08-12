@@ -35,6 +35,13 @@ around it — art, audio, progression, and the solvability indicator.
 - `cargo build --release --manifest-path engine/Cargo.toml` — the sanctioned Rust port, checked
   by `conform.mjs --engine engine/target/release/tt-engine`. Build it before a long discovery
   run: `survey` and `harvest` pick it up automatically. See **One engine**.
+- `node tools/matrix.mjs [--pack|--list]` — the interaction matrix: every piece forced to meet
+  every terrain lane and every other piece, one shove each. What it checks is not the board —
+  `conform.mjs` does that — but the ACCOUNT of the move: landing an action on the stage must
+  leave the same sprites as building a stage from the board the action produced. That is the one
+  invariant behind a body named as an occupant, a container that sheds without saying what it
+  becomes, and a piece consumed by a name that finds nothing, none of which a board comparison
+  can see. `--pack` writes `levels/matrix.tt`, playable at `index.html?acts=matrix.tt`.
 - `node tools/survey.mjs` — samples every legal group of four pieces and writes which ones
   make rooms at all to `levels/fertility.jsonl`. Findings are read in `SPEC-SHEET.md`.
 - `node tools/harvest.mjs` — samples the fertile groups deeply, on outlines rather than open
@@ -166,6 +173,11 @@ These govern how code is written. They are not design arguments.
   passing spec says the rule fires; only the played board says the piece is on screen where the
   rule put it. Bench rooms for a piece under construction live in `levels/scratch.tt`, reached
   with `index.html?acts=scratch.tt` — a dev affordance, inert in the built artifact.
+- A new piece is not finished when its own room plays. It is finished when it has been made to
+  MEET the others: every terrain lane, and every other piece. A room's declared `:solve` is its
+  shortest path, and the shortest path walks past the piece more often than not — so a pack of
+  one-piece rooms replayed to a win says the exit still opens and nothing about the piece.
+  `tools/matrix.mjs` is where that pairing is done and where a new piece is added to it.
 - Comments carry what the code cannot — see [`CLEAN_PROSE.md`](./CLEAN_PROSE.md). A comment that
   restates the line below it, or the signature above it, is deleted rather than reworded.
 - Atomic conventional commits: `feat:`, `fix:`, `docs:`, `test:`, `chore:`.

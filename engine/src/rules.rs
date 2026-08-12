@@ -358,7 +358,12 @@ fn rolls_here(s: &State, x: i32, y: i32, dx: i32, dy: i32) -> bool {
 fn cart_can_enter(s: &State, x: i32, y: i32, dx: i32, dy: i32) -> bool {
     s.in_grid(x, y) && {
         let c = s.at(x, y);
-        !c.wall && !c.exit && !c.is_cart() && !is_half_of_a_body(s, x, y) && may_enter(s, x, y, dx, dy)
+        !c.wall
+            && !c.exit
+            && !c.is_cart()
+            && !is_half_of_a_body(s, x, y)
+            && !is_cabinet_closed(c.o)
+            && may_enter(s, x, y, dx, dy)
     }
 }
 
@@ -572,6 +577,18 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
         .copied()
         .filter(|&(x, y)| !cart_can_enter(s, x, y, dx, dy))
         .collect();
+    // A cart rolled up against the back of a shut cabinet knocks it open, and stops there. The
+    // blow is the whole of the beat, so nothing else on the cart moves.
+    if !blame.is_empty() {
+        let mut knocked = s.clone();
+        let mut struck = false;
+        for &at in &blame {
+            struck |= strike_back(&mut knocked, at, dx, dy);
+        }
+        if struck {
+            return Outcome::Ok { kind: Kind::Push, next: knocked };
+        }
+    }
     if blame.is_empty() {
         for (i, f) in files.iter().enumerate() {
             let back = *f.last().expect("a file has a trail");
@@ -595,6 +612,7 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
         .collect();
 
     let mut n = 0i32;
+    let mut stopped_at: Option<Vec<Pt>> = None;
     loop {
         let ahead = ahead_at(n);
         // The cell a swallow pushes the old load back onto is one the cart is vacating this
@@ -671,8 +689,13 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
             tip_out(&mut next, o, p, -dx, -dy);
         }
         if !rolling {
+            stopped_at = Some(ahead);
             break;
         }
+    }
+    // What the roll finally came up against wears the blow, wherever along the run it stopped.
+    for at in stopped_at.unwrap_or_default() {
+        strike_back(&mut next, at, dx, dy);
     }
 
     next.rac = if is_clear_floor(&next, entry.0, entry.1) {
@@ -741,6 +764,8 @@ fn hand_off(next: &mut State, from: Pt, dx: i32, dy: i32) {
         let lead = lead_of(&own, dx, dy);
         p = (lead.0 + (j + 1) * dx, lead.1 + (j + 1) * dy);
     }
+    // Whatever the run finally came up against wears the blow.
+    strike_back(next, p, dx, dy);
 }
 
 /// An open cabinet is a BODY and a DRAWER in two ordinary cells, and it is ONE thing: the two
@@ -780,11 +805,12 @@ fn body_cells(s: &State, at: Pt) -> Vec<Pt> {
 }
 
 /// Whether a whole body can travel that far, testing against the cells it is vacating — the
-/// same question `clear_at` asks of a couch.
+/// same question `clear_at` asks of a couch, and with the one occupant `is_occupiable` cannot
+/// see put back in. This is the PULL side of the board, where he can be anywhere.
 fn body_travels(s: &State, own: &[Pt], dx: i32, dy: i32) -> bool {
     own.iter().all(|&(x, y)| {
         let q = (x + dx, y + dy);
-        own.contains(&q) || travels_into(s, q.0, q.1, dx, dy)
+        own.contains(&q) || (s.rac != q && travels_into(s, q.0, q.1, dx, dy))
     })
 }
 
@@ -953,23 +979,104 @@ fn tow_move(s: &State, lk: u16, dx: i32, dy: i32) -> Outcome {
 }
 
 /// An open cabinet shoved anywhere but shut: body and drawer move together, one cell.
-fn shove_cabinet(s: &State, body: Pt, draw: Pt, dx: i32, dy: i32) -> Outcome {
-    let pair = [body, draw];
-    let blame: Vec<Pt> = pair
+/// A travelling thing has come to rest against `at`. If what is standing there is a shut cabinet
+/// taking the blow on its BACK, the drawer shoots out — the raccoon's own shove is not special.
+///
+/// Nothing else happens: the cabinet does not move and the thing that struck it stops, because a
+/// cabinet is not a thing that rolls. And the drawer needs somewhere to go — with no room it
+/// stays shut, so an impact can never do what a shove would have been refused for.
+fn strike_back(next: &mut State, at: Pt, dx: i32, dy: i32) -> bool {
+    if !next.in_grid(at.0, at.1) {
+        return false;
+    }
+    let o = next.at(at.0, at.1).o;
+    if !is_cabinet_closed(o) {
+        return false;
+    }
+    let f = dir_of(cabinet_face(o));
+    if (dx, dy) != f {
+        return false;
+    }
+    let draw = (at.0 + f.0, at.1 + f.1);
+    if !travels_into(next, draw.0, draw.1, f.0, f.1) {
+        return false;
+    }
+    next.at_mut(at.0, at.1).o = cab_opens(o);
+    next.at_mut(draw.0, draw.1).o = DRAWER;
+    true
+}
+
+/// The blow that opens a cabinet: struck on the back, the drawer shoots out the front. It is
+/// spent opening — the cabinet does not slide.
+///
+/// The drawer comes out along the same line the blow travelled, so it is an ordinary push: it
+/// shoves what is in the way one cell on, and is refused when that cell will not take it.
+fn open_cabinet(s: &State, at: Pt) -> Outcome {
+    let o = s.at(at.0, at.1).o;
+    let f = dir_of(cabinet_face(o));
+    let draw = (at.0 + f.0, at.1 + f.1);
+    let mut next = s.clone();
+    if !travels_into(&next, draw.0, draw.1, f.0, f.1) {
+        let past = (draw.0 + f.0, draw.1 + f.1);
+        let in_way = next.in_grid(draw.0, draw.1).then(|| *next.at(draw.0, draw.1));
+        let refuse = match in_way {
+            None => true,
+            Some(c) => {
+                c.o == NONE
+                    || is_half_of_a_body(&next, draw.0, draw.1)
+                    || !travels_into(&next, past.0, past.1, f.0, f.1)
+            }
+        };
+        if refuse {
+            return Outcome::No { reason: reason_for(s, &[draw], "canRoom") };
+        }
+        let shoved = in_way.expect("checked").o;
+        next.at_mut(draw.0, draw.1).o = NONE;
+        drop_o(next.at_mut(past.0, past.1), shoved);
+    }
+    next.at_mut(at.0, at.1).o = cab_opens(o);
+    next.at_mut(draw.0, draw.1).o = DRAWER;
+    Outcome::Ok { kind: Kind::Push, next }
+}
+
+/// A cabinet shoved: body and drawer travel together, one cell. `draw` is None when it is shut.
+///
+/// Driven drawer-first into something it cannot enter, the drawer FOLDS IN rather than the shove
+/// being refused: it slides home while the body carries on into the cell the drawer was filling,
+/// which leaves the cabinet closed and standing against whatever stopped it.
+fn shove_cabinet(s: &State, body: Pt, draw: Option<Pt>, dx: i32, dy: i32) -> Outcome {
+    let f = dir_of(cabinet_face(s.at(body.0, body.1).o));
+    let pair: Vec<Pt> = match draw {
+        Some(d) => vec![body, d],
+        None => vec![body],
+    };
+    let blocked: Vec<Pt> = pair
         .iter()
         .map(|&(x, y)| (x + dx, y + dy))
         .filter(|q| !pair.contains(q) && !travels_into(s, q.0, q.1, dx, dy))
         .collect();
-    if !blame.is_empty() {
-        return Outcome::No { reason: reason_for(s, &blame, "canRoom") };
+
+    // Only the drawer's own way forward can be closed away, and only when it is what leads.
+    let shutting = draw.is_some()
+        && !blocked.is_empty()
+        && (dx, dy) == f
+        && blocked.iter().all(|&q| q == (draw.unwrap().0 + dx, draw.unwrap().1 + dy));
+    if !blocked.is_empty() && !shutting {
+        return Outcome::No { reason: reason_for(s, &blocked, "canRoom") };
     }
+
     let mut next = s.clone();
-    let was: Vec<u8> = pair.iter().map(|&(x, y)| s.at(x, y).o).collect();
+    let body_was = s.at(body.0, body.1).o;
     for &(x, y) in &pair {
         next.at_mut(x, y).o = NONE;
     }
-    for (i, &(x, y)) in pair.iter().enumerate() {
-        next.at_mut(x + dx, y + dy).o = was[i];
+    if shutting {
+        let d = draw.expect("shutting has a drawer");
+        next.at_mut(d.0, d.1).o = cab_shuts(body_was);
+    } else {
+        for (i, &(x, y)) in pair.iter().enumerate() {
+            next.at_mut(x + dx, y + dy).o = if i == 0 { body_was } else { DRAWER };
+        }
     }
     next.rac = (s.rac.0 + dx, s.rac.1 + dy);
     Outcome::Ok { kind: Kind::Push, next }
@@ -1298,42 +1405,14 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
     // A closed cabinet moves, and the same shove slides its drawer out. The drawer opening is
     // itself a PUSH — it shoves whatever is in the way one further cell — which is what makes
     // the cabinet a second aimed action: you shove north, and something goes east.
+    // A closed cabinet opens when it is struck on the BACK — the face opposite the drawer — and
+    // the blow is spent opening it. Struck on any other face it is an ordinary one-cell shove.
     if is_cabinet_closed(o) {
         let f = dir_of(cabinet_face(o));
-        let body = (tx + dx, ty + dy);
-        let draw = (body.0 + f.0, body.1 + f.1);
-        if !travels_into(s, body.0, body.1, dx, dy) {
-            return no(reason_for(s, &[body], "canRoom"));
+        if (dx, dy) != f {
+            return Ok(shove_cabinet(s, (tx, ty), None, dx, dy));
         }
-        // It cannot open onto the cell he is standing in, and he is the one occupant
-        // `is_occupiable` cannot see.
-        if draw == (tx, ty) {
-            return no("canRoom");
-        }
-        let mut next = s.clone();
-        if !travels_into(&next, draw.0, draw.1, f.0, f.1) {
-            let past = (draw.0 + f.0, draw.1 + f.1);
-            let in_way = next.in_grid(draw.0, draw.1).then(|| *next.at(draw.0, draw.1));
-            let refuse = match in_way {
-                None => true,
-                Some(c) => {
-                    c.o == NONE
-                        || is_half_of_a_body(&next, draw.0, draw.1)
-                        || !travels_into(&next, past.0, past.1, f.0, f.1)
-                }
-            };
-            if refuse {
-                return no(reason_for(s, &[draw], "canRoom"));
-            }
-            let shoved = in_way.expect("checked").o;
-            next.at_mut(draw.0, draw.1).o = NONE;
-            drop_o(next.at_mut(past.0, past.1), shoved);
-        }
-        next.at_mut(tx, ty).o = NONE;
-        next.at_mut(body.0, body.1).o = cab_opens(o);
-        next.at_mut(draw.0, draw.1).o = DRAWER;
-        next.rac = (tx, ty);
-        return Ok(Outcome::Ok { kind: Kind::Push, next });
+        return Ok(open_cabinet(s, (tx, ty)));
     }
 
     // Shoved on the drawer toward the body, the shove is spent closing it: the cabinet does not
@@ -1349,11 +1428,11 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
             next.rac = (tx, ty);
             return Ok(Outcome::Ok { kind: Kind::Push, next });
         }
-        return Ok(shove_cabinet(s, body, (tx, ty), dx, dy));
+        return Ok(shove_cabinet(s, body, Some((tx, ty)), dx, dy));
     }
 
     if is_cabinet_open(o) {
-        return Ok(shove_cabinet(s, (tx, ty), drawer_of(s, (tx, ty)), dx, dy));
+        return Ok(shove_cabinet(s, (tx, ty), Some(drawer_of(s, (tx, ty))), dx, dy));
     }
 
     // The broom takes the whole contiguous line ahead of it, of any kinds, one cell — and on
@@ -1362,7 +1441,11 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
     if o == BROOM {
         let mut line: Vec<Pt> = Vec::new();
         let (mut px, mut py) = (tx, ty);
-        while s.in_grid(px, py) && s.at(px, py).o != NONE && !is_half_of_a_body(s, px, py) {
+        while s.in_grid(px, py)
+            && s.at(px, py).o != NONE
+            && !is_half_of_a_body(s, px, py)
+            && !is_cabinet_closed(s.at(px, py).o)
+        {
             line.push((px, py));
             px += dx;
             py += dy;
@@ -1370,6 +1453,12 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
         let head = *line.last().expect("the broom is on the line");
         let beyond = (head.0 + dx, head.1 + dy);
         if !travels_into(s, beyond.0, beyond.1, dx, dy) {
+            // Unless what is in the way is a shut cabinet taking the blow on its back. The line
+            // has nowhere to go, so the sweep is spent knocking the drawer out.
+            let mut knocked = s.clone();
+            if strike_back(&mut knocked, beyond, dx, dy) {
+                return Ok(Outcome::Ok { kind: Kind::Push, next: knocked });
+            }
             return no(reason_for(s, &[beyond], "canRoom"));
         }
         if line.iter().any(|&(lx, ly)| stuck_in_tar(s, lx, ly)) {
