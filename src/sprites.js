@@ -33,6 +33,7 @@ export const PALETTE = {
   tyre: '#2f3238', tyreTread: '#585d66', hub: '#9aa1ab',
   bike: '#3f7fa8', bikeEdge: '#28536d',
   rug: '#a4485c', rugEdge: '#6f2c3c', rugTrim: '#e5c46a',
+  chair: '#4a4f57', chairSeat: '#6d7480', castor: '#b9bec6',
   wheelie: '#3f7d4f', wheelieEdge: '#255034', wheelieRidge: '#2f6a40',
   wheelieLid: '#4f9a63', wheel: '#22252a',
   fur: '#9aa0a6', furEar: '#6b7076', mask: '#2b2f34', muzzle: '#eceef0',
@@ -238,6 +239,20 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       api.furniture(cells, x, y, { fill: P.rug, edge: P.rugEdge });
       ctx.strokeStyle = P.rugTrim; ctx.lineWidth = 2;
       ctx.strokeRect(px(x) + PAD + 3.5, px(y) + PAD + 3.5, CS - 2 * PAD - 7, CS - 2 * PAD - 7);
+    },
+
+    // An office chair from above: seat, back, and castors showing at the corners — the castors
+    // are the tell that it rolls, which is a promise the rules keep.
+    chair(x, y) {
+      const x0 = px(x) + PAD, y0 = px(y) + PAD, w = CS - 2 * PAD, h = CS - 2 * PAD;
+      ctx.fillStyle = P.castor;
+      for (const [ox, oy] of [[0.22, 0.22], [0.78, 0.22], [0.22, 0.78], [0.78, 0.78]]) {
+        ctx.beginPath(); ctx.arc(px(x) + CS * ox, px(y) + CS * oy, CS * 0.075, 0, 7); ctx.fill();
+      }
+      ctx.fillStyle = P.chair;
+      ctx.beginPath(); ctx.roundRect(x0 + w * 0.12, y0 + h * 0.12, w * 0.76, h * 0.76, 5); ctx.fill();
+      ctx.fillStyle = P.chairSeat;
+      ctx.beginPath(); ctx.roundRect(x0 + w * 0.24, y0 + h * 0.30, w * 0.52, h * 0.50, 4); ctx.fill();
     },
 
     // The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
@@ -588,6 +603,7 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   else if (o === codes.PANE) sprites.pane(x, y);
   else if (o === codes.TIRE_H) sprites.tyre(x, y, true);
   else if (o === codes.TIRE_V) sprites.tyre(x, y, false);
+  else if (o === codes.CHAIR) sprites.chair(x, y);
   // Not silence. An occupant with no drawing here is invisible on the board, which reads as a
   // rules bug and is found by playing rather than by testing — so it stops the frame instead.
   else if (o !== codes.NONE) throw new Error(`no drawing for occupant ${o}`);

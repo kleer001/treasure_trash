@@ -5,14 +5,14 @@
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
              BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9, FURNITURE = 10,
              BIN_EMPTY = 11, JUG_EMPTY = 12, SPONGE = 13, CARDBOARD = 14, PANE = 15,
-             TIRE_H = 16, TIRE_V = 17, BICYCLE = 18, RUG = 19;
+             TIRE_H = 16, TIRE_V = 17, BICYCLE = 18, RUG = 19, CHAIR = 20;
 
 // The occupant codes, as one object. The renderer takes this rather than a hand-listed subset:
 // a code left out of such a list does not throw, it draws NOTHING, and a piece that is simply
 // invisible is a bug you find by playing rather than by testing.
 export const OCCUPANTS = {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
-  BIN_EMPTY, JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG,
+  BIN_EMPTY, JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR,
 };
 
 // The one code a cell does not fully describe: two adjacent FURNITURE cells may be one couch
@@ -56,7 +56,8 @@ export function cartCells(s, cid) {
 // `!isCart` is load-bearing: a cart cell reports its cargo's code, so without it a cart
 // carrying a wheelie bin reads as a roller.
 export const isRoller = c =>
-  !isCart(c) && (c.o === WHEELIE || c.o === WHEELIE_EMPTY || c.o === TIRE_H || c.o === TIRE_V);
+  !isCart(c) && (c.o === WHEELIE || c.o === WHEELIE_EMPTY || c.o === TIRE_H || c.o === TIRE_V
+                 || c.o === CHAIR);
 
 // Whether a rolling KIND rolls THIS way. A bin is round from every side and rolls wherever it is
 // shoved; a tire has an axis and, shoved across it, is just a thing being pushed one cell. So
@@ -247,8 +248,38 @@ export function fan(bx, by, dx, dy) {
   ];
 }
 
-export const fanBlockers = (s, bx, by, dx, dy) =>
-  fan(bx, by, dx, dy).filter(([x, y]) => !isOccupiable(s, x, y));
+// Which way a chair goes when the burst reaches it: directly away from the bag. Every `spawned`
+// entry the tear makes carries the bag's own cell, so a five-cell spray still yields one ray per
+// chair — and a ray that comes out diagonal takes the direction the burst itself is travelling,
+// because a grid has nowhere else to put it.
+export const fleeFrom = (bx, by, dx, dy, fx, fy) => {
+  const rx = Math.sign(fx - bx), ry = Math.sign(fy - by);
+  return rx !== 0 && ry !== 0 ? [dx, dy] : [rx, ry];
+};
+
+/** A chair in the fan is not a wall — it is something the burst MOVES, provided it has anywhere
+ *  to go. So the fan's legality turns on a cell beyond the fan, and when that cell is the one at
+ *  fault the refusal names it as well as the chair. */
+const chairFlees = (s, bx, by, dx, dy, fx, fy) => {
+  const [ax, ay] = fleeFrom(bx, by, dx, dy, fx, fy);
+  return isOccupiable(s, fx + ax, fy + ay) && mayEnter(s, fx + ax, fy + ay, ax, ay)
+    ? [fx + ax, fy + ay] : null;
+};
+
+export const fanBlockers = (s, bx, by, dx, dy) => {
+  const blame = [];
+  for (const [x, y] of fan(bx, by, dx, dy)) {
+    if (isOccupiable(s, x, y)) continue;
+    if (inGrid(s, x, y) && cell(s, x, y).o === CHAIR) {
+      const to = chairFlees(s, bx, by, dx, dy, x, y);
+      if (to) continue;
+      blame.push([x, y], [x + fleeFrom(bx, by, dx, dy, x, y)[0], y + fleeFrom(bx, by, dx, dy, x, y)[1]]);
+      continue;
+    }
+    blame.push([x, y]);
+  }
+  return blame;
+};
 
 // A lane that can refuse gets its own reason rather than the generic one, so the UI can name
 // what is in the way instead of just saying "blocked". Order is most-specific first: a one-way
@@ -491,6 +522,16 @@ export function explain(s, dir, opts = {}) {
     if (blockers.length) return { ok: false, reason: reasonFor(s, blockers, 'fan'), blame: blockers };
     const next = cloneState(s);
     const step = mkStep({ gone: [{ o: BAG, at: [tx, ty] }] });
+    // Chairs clear out before anything is laid down, so the trash lands on the cells they left.
+    // This is the whole of what the chair changes: the fan stops being only a cost and becomes
+    // something you can aim.
+    for (const [fx, fy] of fan(tx, ty, dx, dy)) {
+      if (!inGrid(s, fx, fy) || cell(s, fx, fy).o !== CHAIR) continue;
+      const to = chairFlees(s, tx, ty, dx, dy, fx, fy);
+      cell(next, fx, fy).o = NONE;
+      if (!isGrate(cell(next, ...to))) cell(next, ...to).o = CHAIR;
+      step.moved.push({ o: CHAIR, from: [fx, fy], to });
+    }
     for (const [fx, fy] of fan(tx, ty, dx, dy)) {
       const c = cell(next, fx, fy);
       // one origin for the whole fan

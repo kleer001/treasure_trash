@@ -241,3 +241,29 @@
 ------------
 ------------
 :end
+
+:level  TC
+:name   The chair
+:teach  burst trash knocks it one cell; a shove rolls it
+:par    6
+:traps  0
+:solves 4
+:solve  U!ddrrr
+:grid
+#########
+#-------#
+#---h---#
+#---$---#
+#---@---#
+#------E#
+#########
+:end
+:water
+---------
+---------
+---------
+---------
+---------
+---------
+---------
+:end
