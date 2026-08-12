@@ -4,6 +4,7 @@
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
   JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
+  CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER,
   GREASE, TAR, GLASS, COVERED,
   FURNITURE, DIRS, MOVE, PUSH, TEAR, isMultiCell,
 } from './rules.js';
@@ -35,6 +36,11 @@ const READ = {
   'O': { o: TIRE_V },
   'h': { o: CHAIR },
   'r': { o: BROOM },
+  // A filing cabinet: the glyph carries the facing, because nothing else does. Lower case is
+  // closed and one cell; upper case is open and two, the drawer lying in the facing direction.
+  'a': { o: CABC_U }, 'e': { o: CABC_D }, 'k': { o: CABC_L }, 'm': { o: CABC_R },
+  'A': { o: CABO_U }, 'D': { o: CABO_D }, 'I': { o: CABO_L }, 'J': { o: CABO_R },
+  'X': { o: DRAWER },        // the drawer; which cabinet it belongs to is read off its facing
   'E': { exit: true },
   // Furniture glyphs name a PIECE, not a kind of thing: a 4-connected blob of one letter is
   // one couch, so two flush couches need two letters. Hence a pool — see FURN_POOL.
@@ -86,6 +92,9 @@ export const LEGEND = [
   'S bag-on-can stack', 'W wheelie bin (full)', 'w wheelie bin (empty)',
   'B recycle bin (full)', 'b recycle bin (empty)', 'j water jug', 'i empty jug', 's sponge', 'd flattened cardboard', 'g pane of glass',
   'o tyre lying across the alley — rolls left and right', 'O tyre rolls up and down', 'h office chair on castors', 'r broom',
+  'a/e/k/m filing cabinet, closed — drawer faces up/down/left/right',
+  'A/D/I/J the same cabinet open — its drawer is the X beside it',
+  'X a cabinet drawer, out',
   `${FURN_POOL.join('/')} furniture — one letter per piece, a touching same-letter blob is one couch`,
   'terrain lives in its own :water block — ~ open canal, = filled in (floor), - dry',
   `carts live in their own :cart block — ${CART_POOL.join('/')}, two cells each, cargo reads from :grid`,
@@ -155,7 +164,10 @@ function glyphFor(c, isRac, letters) {
              [STACK]: 'S', [WHEELIE]: 'W', [WHEELIE_EMPTY]: 'w', [BIN]: 'B', [BIN_EMPTY]: 'b',
              [JUG]: 'j', [JUG_EMPTY]: 'i', [SPONGE]: 's', [CARDBOARD]: 'd',
              [PANE]: 'g', [TIRE_H]: 'o', [TIRE_V]: 'O',
-             [CHAIR]: 'h', [BROOM]: 'r' }[c.o];
+             [CHAIR]: 'h', [BROOM]: 'r',
+             [CABC_U]: 'a', [CABC_D]: 'e', [CABC_L]: 'k', [CABC_R]: 'm',
+             [CABO_U]: 'A', [CABO_D]: 'D', [CABO_L]: 'I', [CABO_R]: 'J',
+             [DRAWER]: 'X' }[c.o];
   }
   if (isRac) return '+';
   if (c.o === NONE) return 'E';

@@ -5,19 +5,58 @@
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
              BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9, FURNITURE = 10,
              BIN_EMPTY = 11, JUG_EMPTY = 12, SPONGE = 13, CARDBOARD = 14, PANE = 15,
-             TIRE_H = 16, TIRE_V = 17, BICYCLE = 18, RUG = 19, CHAIR = 20, BROOM = 21;
+             TIRE_H = 16, TIRE_V = 17, BICYCLE = 18, RUG = 19, CHAIR = 20, BROOM = 21,
+             // The cabinet is four facings times two states, and OPEN and CLOSED are separate
+             // codes rather than one code with a flag. That is what keeps `isMultiCell` the flat
+             // predicate on a code it has always been: an open cabinet is simply a multi-cell
+             // kind, and a closed one is not.
+             CABC_U = 22, CABC_D = 23, CABC_L = 24, CABC_R = 25,
+             CABO_U = 26, CABO_D = 27, CABO_L = 28, CABO_R = 29, DRAWER = 30;
 
+// The one code a cell does not fully describe: two adjacent FURNITURE cells may be one couch
+// or two, and only `pid` says which. `stateKey` encodes the partition as well as the codes.
+export const isMultiCell = o => o === FURNITURE || o === BICYCLE || o === RUG;
+
+// A cabinet's facing is baked into its code, so nothing stores it and nothing can rotate it.
+export const cabinetFace = o =>
+  ({ [CABC_U]: 'u', [CABC_D]: 'd', [CABC_L]: 'l', [CABC_R]: 'r',
+     [CABO_U]: 'u', [CABO_D]: 'd', [CABO_L]: 'l', [CABO_R]: 'r' })[o];
+export const isCabinetClosed = o => o >= CABC_U && o <= CABC_R;
+export const isCabinetOpen = o => o >= CABO_U && o <= CABO_R;
 // The occupant codes, as one object. The renderer takes this rather than a hand-listed subset:
 // a code left out of such a list does not throw, it draws NOTHING, and a piece that is simply
 // invisible is a bug you find by playing rather than by testing.
 export const OCCUPANTS = {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
   BIN_EMPTY, JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
+  CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER,
+  // The cabinet is the one kind whose drawing needs more than its code, so the questions the
+  // renderer has to ask travel with the codes rather than being re-derived over there.
+  cabinetFace, isCabinetOpen,
 };
 
-// The one code a cell does not fully describe: two adjacent FURNITURE cells may be one couch
-// or two, and only `pid` says which. `stateKey` encodes the partition as well as the codes.
-export const isMultiCell = o => o === FURNITURE || o === BICYCLE || o === RUG;
+const CAB_OPENS = { [CABC_U]: CABO_U, [CABC_D]: CABO_D, [CABC_L]: CABO_L, [CABC_R]: CABO_R };
+const CAB_SHUTS = { [CABO_U]: CABC_U, [CABO_D]: CABC_D, [CABO_L]: CABC_L, [CABO_R]: CABC_R };
+
+// An open cabinet is a BODY and a DRAWER in two ordinary cells, not one multi-cell piece. The
+// drawer is always one step along the body's facing, so the pair is found from either end
+// without an id — and, unlike a piece that grows a second cell mid-game, both halves are things
+// the board already knows how to hold and the stage already knows how to draw.
+export const drawerOf = (s, [x, y]) => {
+  const f = DIRS[cabinetFace(cell(s, x, y).o)];
+  return [x + f[0], y + f[1]];
+};
+
+/** The body a drawer belongs to: the one neighbour whose facing points at it. */
+export const bodyOfDrawer = (s, [x, y]) => {
+  for (const d of DIR_ORDER) {
+    const [bx, by] = [x - DIRS[d][0], y - DIRS[d][1]];
+    if (!inGrid(s, bx, by)) continue;
+    const c = cell(s, bx, by);
+    if (isCabinetOpen(c.o) && cabinetFace(c.o) === d) return [bx, by];
+  }
+  return null;
+};
 
 // The multi-cell pieces that roll. A couch is shoved; these two travel — and they take their
 // axis from the cells they already occupy, so anisotropy costs no field of its own and nothing
@@ -367,6 +406,23 @@ const cartCanEnter = (s, x, y, dx, dy) => {
  * `entry` is the cart cell the raccoon shoved. `trace` collects a frame per transition; off
  * by default, since the clones cost and `analyze()` wants only the last board.
  */
+/** An open cabinet shoved anywhere but shut: body and drawer move together, one cell. */
+function shoveCabinet(s, body, draw, dx, dy, done) {
+  const pair = [body, draw];
+  const own = new Set(pair.map(([x, y]) => `${x},${y}`));
+  const blame = pair.map(([x, y]) => [x + dx, y + dy])
+    .filter(([x, y]) => !own.has(`${x},${y}`) && !travelsInto(s, x, y, dx, dy));
+  if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
+  const next = cloneState(s);
+  const was = pair.map(([x, y]) => cell(s, x, y).o);
+  for (const [x, y] of pair) cell(next, x, y).o = NONE;
+  pair.forEach(([x, y], i) => { cell(next, x + dx, y + dy).o = was[i]; });
+  next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
+  return done(next, PUSH, mkStep({
+    moved: pair.map(([x, y], i) => ({ o: was[i], from: [x, y], to: [x + dx, y + dy] })),
+  }));
+}
+
 function shoveCart(s, cid, entry, dx, dy, trace) {
   const at = (p, k) => [p[0] + k * dx, p[1] + k * dy];
   const isOwn = (x, y) => inGrid(s, x, y) && cell(s, x, y).cart === cid;
@@ -561,6 +617,25 @@ export function explain(s, dir, opts = {}) {
     }));
   }
 
+  // Shoved on the drawer, toward the body, the shove is spent closing it — the cabinet does not
+  // move, and the next shove moves the whole thing.
+  if (isCabinetOpen(o)) {
+    const f = DIRS[cabinetFace(o)];
+    const own = pieceCells(s, target.pid);
+    const body = own.find(([x, y]) => !(x === tx + f[0] && y === ty + f[1])
+      && own.some(([bx, by]) => bx === x + f[0] && by === y + f[1]));
+    const isDrawerCell = body && (tx !== body[0] || ty !== body[1]);
+    if (isDrawerCell && dx === -f[0] && dy === -f[1]) {
+      const next = cloneState(s);
+      for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; c.pid = undefined; }
+      cell(next, ...body).o = CAB_SHUTS[o];
+      next.rac = { x: tx, y: ty };
+      return done(next, PUSH, mkStep({
+        moved: [{ o, from: [tx, ty], to: body, becomes: CAB_SHUTS[o] }],
+      }));
+    }
+  }
+
   if (isMultiCell(o)) {
     const own = pieceCells(s, target.pid);
     const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
@@ -686,6 +761,64 @@ export function explain(s, dir, opts = {}) {
     for (let i = 1; i < frames.length; i++) frames[i].rac = { ...next.rac };
     return { ok: true, kind: PUSH, next, frames, steps };
   }
+
+  // A closed cabinet moves, and the same shove slides its drawer out. The drawer opening is
+  // itself a PUSH — it shoves whatever is in the way one further cell — which is what makes the
+  // cabinet a second aimed action: you shove north, and something goes east.
+  if (isCabinetClosed(o)) {
+    const f = DIRS[cabinetFace(o)];
+    const body = [tx + dx, ty + dy];
+    const draw = [body[0] + f[0], body[1] + f[1]];
+    if (!travelsInto(s, ...body, dx, dy))
+      return { ok: false, reason: reasonFor(s, [body], 'canRoom'), blame: [body] };
+    // It cannot open onto the cell he is standing in, and he is the one occupant `isOccupiable`
+    // cannot see.
+    if (draw[0] === tx && draw[1] === ty)
+      return { ok: false, reason: 'canRoom', blame: [draw] };
+
+    const next = cloneState(s);
+    const step = mkStep();
+    if (!travelsInto(next, ...draw, f[0], f[1])) {
+      const past = [draw[0] + f[0], draw[1] + f[1]];
+      const inWay = inGrid(next, ...draw) ? cell(next, ...draw) : null;
+      if (!inWay || inWay.o === NONE || isCart(inWay) || isMultiCell(inWay.o)
+          || !travelsInto(next, ...past, f[0], f[1]))
+        return { ok: false, reason: reasonFor(s, [draw], 'canRoom'), blame: [draw] };
+      const shoved = inWay.o;
+      cell(next, ...draw).o = NONE;
+      drop(cell(next, ...past), shoved);
+      step.moved.push({ o: shoved, from: draw, to: past });
+    }
+    cell(next, tx, ty).o = NONE;
+    cell(next, ...body).o = CAB_OPENS[o];
+    cell(next, ...draw).o = DRAWER;
+    step.moved.push({ o, from: [tx, ty], to: body, becomes: CAB_OPENS[o] });
+    step.spawned.push({ o: DRAWER, at: draw, from: body });
+    next.rac = { x: tx, y: ty };
+    return done(next, PUSH, step);
+  }
+
+  // Shoved on the drawer toward the body, the shove is spent closing it: the cabinet does not
+  // move, and the next shove moves the whole thing.
+  if (o === DRAWER) {
+    const body = bodyOfDrawer(s, [tx, ty]);
+    if (!body) throw new Error(`a drawer at ${tx},${ty} with no cabinet behind it`);
+    const f = DIRS[cabinetFace(cell(s, ...body).o)];
+    if (dx === -f[0] && dy === -f[1]) {
+      const next = cloneState(s);
+      cell(next, tx, ty).o = NONE;
+      cell(next, ...body).o = CAB_SHUTS[cell(s, ...body).o];
+      next.rac = { x: tx, y: ty };
+      return done(next, PUSH, mkStep({
+        gone: [{ o: DRAWER, at: [tx, ty] }],
+        moved: [{ o: cell(s, ...body).o, from: body, to: body,
+                  becomes: CAB_SHUTS[cell(s, ...body).o] }],
+      }));
+    }
+    return shoveCabinet(s, body, [tx, ty], dx, dy, done);
+  }
+
+  if (isCabinetOpen(o)) return shoveCabinet(s, [tx, ty], drawerOf(s, [tx, ty]), dx, dy, done);
 
   // The broom takes the whole contiguous line ahead of it, of any kinds, one cell — and on
   // grease it takes the line the length of the slick. It is the ONLY thing that moves a bag

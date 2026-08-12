@@ -35,6 +35,7 @@ export const PALETTE = {
   rug: '#a4485c', rugEdge: '#6f2c3c', rugTrim: '#e5c46a',
   chair: '#4a4f57', chairSeat: '#6d7480', castor: '#b9bec6',
   handle: '#a9793f', bristle: '#d8c07a', bristleEdge: '#8e7433',
+  cab: '#7b8794', cabEdge: '#4a5560', cabPull: '#d7dce2',
   wheelie: '#3f7d4f', wheelieEdge: '#255034', wheelieRidge: '#2f6a40',
   wheelieLid: '#4f9a63', wheel: '#22252a',
   fur: '#9aa0a6', furEar: '#6b7076', mask: '#2b2f34', muzzle: '#eceef0',
@@ -268,6 +269,36 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
         const bx = cx - bw / 2 + (bw * i) / 4;
         ctx.beginPath(); ctx.moveTo(bx, y0 + h * 0.56); ctx.lineTo(bx, y0 + h * 0.88); ctx.stroke();
       }
+    },
+
+    // A filing cabinet from above. The drawer's facing is the whole tell — the pull sits on the
+    // side it slides out of, so the board says which way it will go before you shove it.
+    cabinet(x, y, face, open) {
+      const x0 = px(x) + PAD, y0 = px(y) + PAD, w = CS - 2 * PAD, h = CS - 2 * PAD;
+      ctx.fillStyle = P.cab; ctx.strokeStyle = P.cabEdge; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.roundRect(x0, y0, w, h, 3); ctx.fill(); ctx.stroke();
+      const [fx, fy] = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }[face];
+      ctx.fillStyle = P.cabPull;
+      const cx = px(x) + CS / 2 + fx * CS * 0.30, cy = px(y) + CS / 2 + fy * CS * 0.30;
+      const pw = fx ? CS * 0.08 : CS * 0.34, ph = fx ? CS * 0.34 : CS * 0.08;
+      ctx.fillRect(cx - pw / 2, cy - ph / 2, pw, ph);
+      if (open) {                                  // a seam where the drawer has come away
+        ctx.strokeStyle = P.cabEdge; ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (fx) { ctx.moveTo(px(x) + CS / 2, y0 + 2); ctx.lineTo(px(x) + CS / 2, y0 + h - 2); }
+        else { ctx.moveTo(x0 + 2, px(y) + CS / 2); ctx.lineTo(x0 + w - 2, px(y) + CS / 2); }
+        ctx.stroke();
+      }
+    },
+
+    // The drawer, out. Shallower than the body it came from, so the pair reads as one object in
+    // two parts rather than two cabinets.
+    drawer(x, y) {
+      const x0 = px(x) + PAD + 2, y0 = px(y) + PAD + 2, w = CS - 2 * PAD - 4, h = CS - 2 * PAD - 4;
+      ctx.fillStyle = P.cab; ctx.strokeStyle = P.cabEdge; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.roundRect(x0, y0, w, h, 3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = P.cabPull;
+      ctx.fillRect(px(x) + CS / 2 - CS * 0.17, px(y) + CS / 2 - CS * 0.04, CS * 0.34, CS * 0.08);
     },
 
     // The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
@@ -620,6 +651,8 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   else if (o === codes.TIRE_V) sprites.tyre(x, y, false);
   else if (o === codes.CHAIR) sprites.chair(x, y);
   else if (o === codes.BROOM) sprites.broom(x, y);
+  else if (o === codes.DRAWER) sprites.drawer(x, y);
+  else if (codes.cabinetFace(o)) sprites.cabinet(x, y, codes.cabinetFace(o), codes.isCabinetOpen(o));
   // Not silence. An occupant with no drawing here is invisible on the board, which reads as a
   // rules bug and is found by playing rather than by testing — so it stops the frame instead.
   else if (o !== codes.NONE) throw new Error(`no drawing for occupant ${o}`);

@@ -311,3 +311,25 @@
 -----------
 -----------
 :end
+
+:level  TF
+:name   The filing cabinet
+:teach  the shove that moves it opens the drawer, and the drawer is itself a push
+:par    7
+:traps  10
+:solves 2
+:solve  drrrrrr
+:grid
+##########
+#--------#
+#-@m--c--#
+#-------E#
+##########
+:end
+:water
+----------
+----------
+----------
+----------
+----------
+:end
