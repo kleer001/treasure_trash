@@ -104,9 +104,12 @@ Nothing here needs a new system. Order is by how little they touch.
   consumed. Slides over grease. Falls into a grate.
 - **E3 Pane of glass** — set in motion by anything, it shatters into the next cell and leaves
   broken glass; rides intact when the cell beyond is occupied; cannot shatter onto water.
-- **E4 Car tire, bicycle, rolled rug** — anisotropic: along the axis they roll until blocked,
-  across it they move one cell. The two-cell and multi-cell ones take their axis from `pid`; the
-  car tire pays a code per orientation.
+- **E4 Car tire, bicycle, rolled rug** — anisotropic, and NOT all on the same axis, which is the
+  part that catches people. A tire and a bicycle run on their wheels, so they roll along their
+  own length. A rolled rug is a cylinder lying on the floor: shoved end-on it only slides, and it
+  is the shove against its side that sets it rolling. Either way, the axis a piece does not roll
+  on moves it one cell. The two-cell and multi-cell ones take their axis from `pid`; the car tire
+  pays a code per orientation.
 
 **Tests.** E1: sponge onto grease dries one cell and does not travel; sponge into tar is lost.
 E2: each of the three coverings, and the grate. E3: shatters with room, rides without, refuses at
