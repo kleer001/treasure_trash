@@ -676,6 +676,9 @@ addEventListener('keydown',e=>{
   if(e.key in KEY){ e.preventDefault(); act(KEY[e.key]); }
   else if(e.key==='u'||e.key==='U'){ undo(); }
   else if(e.key==='r'||e.key==='R'){ restart(); }
+  // Same wrap-around the Prev/Next buttons get, since `load` takes the index modulo the pack.
+  else if(e.key==='<'){ load(cur-1); }
+  else if(e.key==='>'){ load(cur+1); }
 });
 // One delegated listener for every button under the board, so the layout is markup-only.
 const MOVEACT={up:'u',down:'d',left:'l',right:'r'};
