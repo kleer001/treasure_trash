@@ -425,6 +425,21 @@ function drawSprite(sp, f){
 // slab with no seam, cargo is carried rather than redrawn, and a bin's bag leaves the bin.
 function paintSprite(sp, f){
   const { state:s, ph, fx } = f;
+  // Struck and too heavy to shift: it leans about its own bottom edge and comes back. Wrapped
+  // round the whole draw rather than pushed into one sprite, so it costs the drawings nothing.
+  if(sp.tilt){
+    // The carrier's bottom edge when it has one, so cargo swings with the cart rather than
+    // spinning on its own middle; its own otherwise.
+    const [pvx, pvy] = sp.pivot ?? [sp.x + 0.5, sp.y + 1];
+    const px = pvx * CS, py = pvy * CS;
+    ctx.save();
+    ctx.translate(px, py); ctx.rotate((sp.tilt * Math.PI) / 180); ctx.translate(-px, -py);
+    const t = sp.tilt; sp.tilt = 0;
+    paintSprite(sp, f);
+    sp.tilt = t;
+    ctx.restore();
+    return;
+  }
   if(sp.kind === RACCOON){
     // A refusal is a lunge from where he stands, not travel — the stage knows nothing of it.
     if(ph){ const k = ph.lunge*0.42; SP.raccoon(s.rac.x+fx.dx*k, s.rac.y+fx.dy*k); }

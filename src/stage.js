@@ -113,12 +113,28 @@ export function applyStep(stage, step, racTo = null) {
 
   // `piece` is one body or several: a tow moves a barrow and what it is towing in the same
   // beat, and neither is an occupant sprite the `moved` list could name.
-  for (const { kind, ref, dx, dy } of [step.piece ?? []].flat()) {
+  for (const { kind, ref, dx, dy, effect, blow } of [step.piece ?? []].flat()) {
     const want = BODY[kind];
     if (!want) throw new Error(`no sprite kind for piece '${kind}'`);
     const body = stage.sprites.find(sp => sp.kind === want && sp.ref === ref);
     if (!body) throw new Error(`no ${want} sprite for piece ${ref}`);
     body.tx = body.ax + dx; body.ty = body.ay + dy;
+    // A body has no occupant code, so `gone` cannot name it and this is where it is consumed.
+    if (CONSUMES.has(effect)) body.spent = true;
+    if (effect === 'falls') body.falls = true;
+    // Struck and too heavy to shift. It goes nowhere, so the only thing to play is the wobble —
+    // and what it is CARRYING wobbles with it. About the cart's own bottom edge, not each
+    // sprite's: pivot the cargo on itself and it spins in place while the cart leans out from
+    // under it, which is the load and its carrier disagreeing about being one thing.
+    if (effect === 'rattles') {
+      const cells = body.cells ?? [[0, 0]];
+      const xs = cells.map(([cx]) => cx), ys = cells.map(([, cy]) => cy);
+      const pivot = [body.ax + (Math.min(...xs) + Math.max(...xs)) / 2 + 0.5,
+                     body.ay + Math.max(...ys) + 1];
+      for (const sp of [body, ...stage.sprites.filter(s => s.parent === ref)]) {
+        sp.rattle = blow; sp.pivot = pivot;
+      }
+    }
     if (kind === 'cart')
       for (const sp of stage.sprites)
         if (sp.parent === ref) { sp.tx = sp.ax + dx; sp.ty = sp.ay + dy; }
@@ -226,6 +242,7 @@ export function advance(stage, u, cells = 0) {
     sp.x = sp.ax + (sp.tx - sp.ax) * su;
     sp.y = sp.ay + (sp.ty - sp.ay) * su;
     if (sp.nudge) { sp.x += sp.nudge[0] * NUDGE * bump(u); sp.y += sp.nudge[1] * NUDGE * bump(u); }
+    if (sp.rattle) sp.tilt = wobble(u) * (sp.rattle[0] || sp.rattle[1]);
     if (sp.dying) sp.deflate = 1 - u;
     // Down a grate is two things in one beat and the order is the whole of what makes it read:
     // it ARRIVES over the grate, and only then goes down it. Shrinking on the way would say it
@@ -239,6 +256,16 @@ export function advance(stage, u, cells = 0) {
   }
 }
 
+/**
+ * The wobble of a thing too heavy to shift, in degrees, over one beat: out to ten away from the
+ * blow, back through five toward it, then at rest. Multiplied by the blow's direction, so it
+ * always leans away first. Pivoted at the sprite's bottom-middle by whoever draws it.
+ */
+export const wobble = u =>
+  (u < 0.35 ? 10 * (u / 0.35)
+    : u < 0.7 ? 10 - 15 * ((u - 0.35) / 0.35)
+      : -5 * (1 - (u - 0.7) / 0.3));
+
 /** How far a nudged sprite gets before it is stopped, as a fraction of a cell. */
 export const NUDGE = 0.25;
 const HIT = 0.62;
@@ -251,6 +278,7 @@ export function settle(stage) {
   stage.sprites = stage.sprites.filter(sp => !sp.dying && !sp.spent);
   for (const sp of stage.sprites) {
     sp.nudge = null;                       // it landed; the next beat starts from the board
+    sp.rattle = null; sp.tilt = 0; sp.pivot = null;
     sp.x = sp.tx; sp.y = sp.ty;
     sp.ax = sp.x; sp.ay = sp.y;
   }
@@ -299,7 +327,8 @@ const dist = st => Math.max(1,
  *  travelling is done. Crammed into the same beat it is three frames, which reads as the sprite
  *  being cut rather than as something dropping through. */
 const drops = st =>
-  st.spawned.some(sp => sp.effect === 'falls') || st.moved.some(m => m.effect === 'falls');
+  st.spawned.some(sp => sp.effect === 'falls') || st.moved.some(m => m.effect === 'falls')
+  || [st.piece ?? []].flat().some(p => p.effect === 'falls');
 
 /**
  * A traced action, cut into the segments a clock can play. One action can be several cells of
