@@ -389,17 +389,32 @@ fn long_axis_is_x(cells: &[Pt]) -> bool {
     maxx - minx >= maxy - miny
 }
 
-fn rolls_longways(o: u8) -> bool {
+fn rolls_as_body(o: u8) -> bool {
     o == BICYCLE || o == RUG
+}
+
+/// Whether a shove this way is the one that sets this body rolling, read off its footprint. The
+/// two roll on OPPOSITE axes: a bicycle runs on its wheels, along its own length, and a rolled
+/// rug is a cylinder that slides when shoved end-on and rolls when shoved against its side.
+fn rolls_body(o: u8, cells: &[Pt], dx: i32, _dy: i32) -> bool {
+    if !rolls_as_body(o) {
+        return false;
+    }
+    let pushed_long = long_axis_is_x(cells) == (dx != 0);
+    if o == BICYCLE {
+        pushed_long
+    } else {
+        !pushed_long
+    }
 }
 
 /// Whether the thing standing here rolls THIS way — one cell or many, the same question. A
 /// multi-cell piece asks it of its own footprint; that is what lets a rug hand its motion to a
-/// bicycle, and what stops it when the two lie across each other.
+/// bicycle, and what stops it when the two lie the same way.
 fn rolls_here(s: &State, x: i32, y: i32, dx: i32, dy: i32) -> bool {
     let c = s.at(x, y);
     if is_multi_cell_o(c.o) {
-        return rolls_longways(c.o) && long_axis_is_x(&s.piece_cells(c.pid)) == (dx != 0);
+        return rolls_body(c.o, &s.piece_cells(c.pid), dx, dy);
     }
     rolls_along(c, dx, dy)
 }
@@ -823,14 +838,16 @@ fn hand_off(next: &mut State, from: Pt, dx: i32, dy: i32) {
             t.o = NONE;
             t.pid = NO_ID;
         }
-        for (i, &(x, y)) in own.iter().enumerate() {
-            let to = (x + j * dx, y + j * dy);
-            if is_grate(next.at(to.0, to.1)) {
-                continue;
+        // A grate takes what rolls in only when the WHOLE of it fits inside one; a longer thing
+        // spans the hole and comes to rest across it. One cell of a body is not a smaller body.
+        let landed: Vec<Pt> = own.iter().map(|&(x, y)| (x + j * dx, y + j * dy)).collect();
+        let swallowed = landed.iter().all(|&(x, y)| is_grate(next.at(x, y)));
+        if !swallowed {
+            for (i, &(x, y)) in landed.iter().enumerate() {
+                let t = next.at_mut(x, y);
+                t.o = was[i].0;
+                t.pid = was[i].1;
             }
-            let t = next.at_mut(to.0, to.1);
-            t.o = was[i].0;
-            t.pid = was[i].1;
         }
         // Ties keep the FIRST cell in raster order, which is what `reduce` does on the JS side.
         // A piece lying ACROSS the shove has every cell tied, and which one is called the lead
@@ -1373,7 +1390,7 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
         // Shoved along its length a rug rolls; shoved broadside it shifts one cell, like the
         // couch it otherwise is. Nothing stores the axis — it is whatever the footprint says.
         let mut k = 1i32;
-        if rolls_longways(o) && long_axis_is_x(&own) == (dx != 0) {
+        if rolls_body(o, &own, dx, dy) {
             while clear_at(k + 1).is_empty() {
                 k += 1;
                 if own.iter().any(|&(ox, oy)| {
@@ -1404,7 +1421,7 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
         }
         // The same hand-off every roller gets: a rug that reaches a bicycle lying the same way
         // sets it going, and one lying across it is simply what the rug stops against.
-        if rolls_longways(o) {
+        if rolls_as_body(o) {
             let lead = lead_of(&own, dx, dy);
             hand_off(&mut next, (lead.0 + (k + 1) * dx, lead.1 + (k + 1) * dy), dx, dy);
         }
