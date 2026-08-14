@@ -31,8 +31,9 @@ export const PALETTE = {
   card: '#c08a55', cardEdge: '#8a5f33',
   pane: 'rgba(190,225,235,.75)', paneEdge: '#7fb0bd',
   tyre: '#2f3238', tyreTread: '#585d66', hub: '#9aa1ab',
-  bike: '#3f7fa8', bikeEdge: '#28536d',
-  rug: '#a4485c', rugEdge: '#6f2c3c', rugTrim: '#e5c46a',
+  bike: '#3f7fa8', bikeEdge: '#28536d', spoke: '#dfe9f2',
+  rug: '#d2d3ce', rugEdge: '#82847d', rugWeave: 'rgba(120,122,112,.30)',
+  rugTie: '#1b1b1b', rugCore: '#c8453f', rugCoreEdge: '#8a2a26',
   chair: '#4a4f57', chairSeat: '#6d7480', castor: '#b9bec6',
   handle: '#a9793f', bristle: '#d8c07a', bristleEdge: '#8e7433',
   cab: '#7b8794', cabEdge: '#4a5560', cabPull: '#d7dce2',
@@ -233,17 +234,160 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
 
     // Multi-cell pieces are drawn over their whole footprint, so these take the cell list the
     // couch does and read their own long axis off it, exactly as the rules do.
-    bicycle(cells, x, y) {
-      api.furniture(cells, x, y, { fill: P.bike, edge: P.bikeEdge });
-      const cx = px(x) + CS / 2, cy = px(y) + CS / 2;
-      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx, cy, CS * 0.26, 0, 7); ctx.stroke();
+    // A bicycle lying on the floor, seen from above — which is its side profile. Drawn across
+    // the whole footprint in (u, v): u runs the long axis and v across it, so one drawing
+    // serves either orientation, read off the footprint the way the rules read it.
+    bicycle(cells, ox = 0, oy = 0) {
+      let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
+      for (const [cx, cy] of cells) {
+        if (cx < minx) minx = cx; if (cx > maxx) maxx = cx;
+        if (cy < miny) miny = cy; if (cy > maxy) maxy = cy;
+      }
+      const along = maxx - minx >= maxy - miny;
+      const L = px((along ? maxx - minx : maxy - miny) + 1);
+      const W = px((along ? maxy - miny : maxx - minx) + 1);
+      const x0 = px(ox + minx), y0 = px(oy + miny);
+      const pt = (u, v) => (along ? [x0 + u * L, y0 + v * W] : [x0 + v * W, y0 + u * L]);
+
+      // The wheels sit low in the cell so the saddle and bars have somewhere to stand.
+      const r = Math.min(W * 0.33, L * 0.24), AXLE = 0.60;
+      const A = [0.21, AXLE], B = [0.79, AXLE];       // rear hub, front hub
+      const C = [0.47, 0.66], S = [0.36, 0.16], H = [0.71, 0.14];  // crank, saddle, bars
+
+      ctx.save();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (const hub of [A, B]) {
+        const [cx, cy] = pt(...hub);
+        ctx.strokeStyle = P.spoke; ctx.lineWidth = Math.max(1, r * 0.08);
+        ctx.beginPath();
+        for (let i = 0; i < 12; i++) {                // radial, and the tyre covers their ends
+          const a = (i / 12) * Math.PI * 2;
+          ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * r * 0.86, cy + Math.sin(a) * r * 0.86);
+        }
+        ctx.stroke();
+        ctx.strokeStyle = P.tyre; ctx.lineWidth = Math.max(2, r * 0.26);
+        ctx.beginPath(); ctx.arc(cx, cy, r * 0.87, 0, 7); ctx.stroke();
+        ctx.fillStyle = P.hub;
+        ctx.beginPath(); ctx.arc(cx, cy, Math.max(1.5, r * 0.15), 0, 7); ctx.fill();
+      }
+
+      // The two triangles a diamond frame is, stroked twice: the darker pass is its outline.
+      const TUBES = [[A, C], [A, S], [S, C], [S, H], [C, H], [H, B]];
+      const frame = () => {
+        ctx.beginPath();
+        for (const [p, q] of TUBES) {
+          const [ax, ay] = pt(...p), [bx, by] = pt(...q);
+          ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+        }
+        ctx.stroke();
+      };
+      ctx.strokeStyle = P.bikeEdge; ctx.lineWidth = Math.max(3, W * 0.135); frame();
+      ctx.strokeStyle = P.bike; ctx.lineWidth = Math.max(2, W * 0.085); frame();
+
+      // Saddle along the frame, bars across it — on a side view the grips point at the viewer.
+      ctx.fillStyle = P.tyre;
+      const blob = (at, lu, lv) => {
+        const [cx, cy] = pt(...at);
+        const [rx, ry] = along ? [lu * L, lv * W] : [lv * W, lu * L];
+        ctx.beginPath(); ctx.ellipse(cx, cy, rx / 2, ry / 2, 0, 0, 7); ctx.fill();
+      };
+      blob(S, 0.17, 0.10);
+      blob(H, 0.055, 0.30);
+      blob(C, 0.09, 0.18);                            // the chainring, where the pedals are
+      ctx.restore();
     },
 
-    rug(cells, x, y) {
-      api.furniture(cells, x, y, { fill: P.rug, edge: P.rugEdge });
-      ctx.strokeStyle = P.rugTrim; ctx.lineWidth = 2;
-      ctx.strokeRect(px(x) + PAD + 3.5, px(y) + PAD + 3.5, CS - 2 * PAD - 7, CS - 2 * PAD - 7);
+    // A rolled rug: a grey bolt lying on the floor, tied with string, the spiral of its own roll
+    // showing at the end. Drawn across the whole footprint in (u, v) the way the bicycle is —
+    // u along the long axis, v across it — so one drawing serves either way it lies. The spiral
+    // is the tell that it is ROLLED, which is the promise the rules keep: shoved against its
+    // side it rolls, and end-on it only slides.
+    rug(cells, ox = 0, oy = 0) {
+      let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
+      for (const [cx, cy] of cells) {
+        if (cx < minx) minx = cx; if (cx > maxx) maxx = cx;
+        if (cy < miny) miny = cy; if (cy > maxy) maxy = cy;
+      }
+      const along = maxx - minx >= maxy - miny;
+      const L = px((along ? maxx - minx : maxy - miny) + 1);
+      const W = px((along ? maxy - miny : maxx - minx) + 1);
+      const x0 = px(ox + minx), y0 = px(oy + miny);
+      const pt = (u, v) => (along ? [x0 + u * L, y0 + v * W] : [x0 + v * W, y0 + u * L]);
+      const box = (u0, v0, u1, v1) => {
+        const [ax, ay] = pt(u0, v0), [bx, by] = pt(u1, v1);
+        return [Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay)];
+      };
+      const line = (u0, v0, u1, v1) => {
+        ctx.moveTo(...pt(u0, v0)); ctx.lineTo(...pt(u1, v1));
+      };
+
+      // The rolled end is as wide as the bolt and no wider — one radius, taken off the body's own
+      // half-width, so the tube's edges and the circle's cannot drift apart. The body stops at
+      // the circle's waist and the circle carries the silhouette from there.
+      const TOP = 0.17, BOT = 0.83;
+      const rr = ((BOT - TOP) / 2) * W;
+      const end = 0.97 - rr / L;
+
+      const mid = (TOP + BOT) / 2, capU = 0.05 + rr / L;
+      // The two axes as pixel vectors, so the far cap can be walked as a true semicircle. Swept
+      // in (u, v) it would come out an ellipse wherever the footprint is longer than it is wide.
+      const LONG = along ? [1, 0] : [0, 1], CROSS = along ? [0, 1] : [1, 0];
+      const [ccx, ccy] = pt(capU, mid);
+
+      // ONE outline: straight sides, a round cap at the far end, and a square end under the roll
+      // whose corners sit exactly on the circle. Both are stroked at the same width, so the two
+      // silhouettes meet rather than one standing proud of the other.
+      ctx.save();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(...pt(capU, TOP));
+      ctx.lineTo(...pt(end, TOP));
+      ctx.lineTo(...pt(end, BOT));
+      ctx.lineTo(...pt(capU, BOT));
+      for (let i = 1; i <= 24; i++) {
+        const a = (i / 24) * Math.PI;
+        ctx.lineTo(ccx + CROSS[0] * rr * Math.cos(a) - LONG[0] * rr * Math.sin(a),
+                   ccy + CROSS[1] * rr * Math.cos(a) - LONG[1] * rr * Math.sin(a));
+      }
+      ctx.closePath();
+      ctx.fillStyle = P.rug; ctx.strokeStyle = P.rugEdge;
+      ctx.fill(); ctx.stroke();
+
+      // The weave, along the roll — a couple of slack lines, not a texture.
+      ctx.strokeStyle = P.rugWeave; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      line(capU, 0.34, end - 0.04, 0.34); line(capU, 0.66, end - 0.04, 0.66);
+      ctx.stroke();
+
+      // The end you see the roll from, and the spiral wound into it.
+      const [scx, scy] = pt(end, mid);
+      ctx.fillStyle = P.rugCore; ctx.strokeStyle = P.rugCoreEdge; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(scx, scy, rr, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.lineWidth = Math.max(1.2, rr * 0.16);
+      ctx.beginPath();
+      for (let i = 0; i <= 48; i++) {
+        const s = i / 48, a = s * Math.PI * 3.6, rad = rr * (0.10 + 0.78 * s);
+        const [sx, sy] = [scx + Math.cos(a) * rad, scy + Math.sin(a) * rad];
+        i ? ctx.lineTo(sx, sy) : ctx.moveTo(sx, sy);
+      }
+      ctx.stroke();
+
+      // The string: a plain band round the bolt, and the bow tied over it. The bow is strands
+      // crossing at a few degrees, not an X — the angle is taken in PIXELS and converted back,
+      // so a long footprint does not shear it flat.
+      const lean = (u, deg) => {
+        const s = Math.tan((deg * Math.PI) / 180) * ((BOT - TOP) * W) / L / 2;
+        line(u - s, TOP - 0.02, u + s, BOT + 0.02);
+      };
+      ctx.strokeStyle = P.rugTie; ctx.lineWidth = Math.max(1.5, W * 0.045);
+      ctx.beginPath();
+      line(0.58, TOP - 0.02, 0.58, BOT + 0.02);
+      lean(0.33, 5); lean(0.33, -5); lean(0.33, 10); lean(0.33, -10);   // the bow
+      lean(0.50, 10);                                  // and the same string carried on down
+      lean(0.63, -5);
+      ctx.stroke();
+      ctx.restore();
     },
 
     // An office chair from above: seat, back, and castors showing at the corners — the castors
