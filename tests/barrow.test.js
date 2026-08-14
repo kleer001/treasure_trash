@@ -15,10 +15,13 @@ const S = (grid, cart) => toState({ id: 't', grid, cart });
 const push = (s, dir) => { const r = explain(s, dir); assert.ok(r.ok, `refused: ${r.reason}`); return r.next; };
 const refuse = (s, dir) => { const r = explain(s, dir); assert.ok(!r.ok, 'expected a refusal'); return r.reason; };
 
-test('shoved the way it faces, a barrow scoops what it meets and keeps it', () => {
-  const after = push(S(['@--c-E', '------'], ['-r----', '------']), 'r');
-  assert.equal(toGrid(after)[0], '-@--cE', 'the can is riding, not left behind');
-  assert.equal(toCart(after)[0], '----r-', 'and it is riding in the barrow');
+test('shoved the way it faces, a barrow scoops what it is TOUCHING', () => {
+  // What it was already touching when the shove began, and nothing further. It is aimed, not
+  // open-mouthed: a barrow that took things in for as far as it rolled would empty a corridor
+  // in one press, and no one could read the board it left.
+  const after = push(S(['@-c--E', '------'], ['-r----', '------']), 'r');
+  assert.equal(toGrid(after)[0], '-@c--E', 'the can is riding, not left behind');
+  assert.equal(toCart(after)[0], '--r---', 'and it is riding in the barrow');
 });
 
 // A cart pushes its load out the back when it stops rolling. A barrow does not — what it
@@ -69,11 +72,11 @@ test('backwards down a clear alley it rolls to the end, still empty', () => {
   assert.equal(toGrid(after)[0], 'E-@---', 'and he took the cell it left');
 });
 
-test('the same barrow, the same alley, the other way: it scoops', () => {
+test('the same barrow turned round, the other way: it scoops', () => {
   // The one difference the facing makes, put beside itself.
-  const after = push(S(['c---@E', '------'], ['---l--', '------']), 'l');
-  assert.equal(toCart(after)[0], 'l-----', 'it ran the same alley to the same wall');
-  assert.equal(toGrid(after)[0], 'c--@-E', 'and the can went with it, aboard');
+  const after = push(S(['c-@--E', '------'], ['-l----', '------']), 'l');
+  assert.equal(toCart(after)[0], 'l-----', 'it took the cell the can was in');
+  assert.equal(toGrid(after)[0], 'c@---E', 'and the can went with it, aboard');
 });
 
 test('a barrow keeps its kind when it moves, or two boards would key alike', () => {
@@ -144,9 +147,9 @@ test('a tipping barrow is a BODY, not an occupant that moved', () => {
 // like everything else that rides, and it is a barrow again wherever cargo is put down.
 
 test('a barrow scoops an empty barrow and carries it off', () => {
-  const after = push(S(['@----E', '------'], ['-r-r--', '------']), 'r');
-  assert.equal(toGrid(after)[0], '-@-->E', 'the one it took is riding, still facing right');
-  assert.equal(toCart(after)[0], '----r-', 'and only one cart is left on the board');
+  const after = push(S(['@----E', '------'], ['-rs---', '------']), 'r');
+  assert.equal(toGrid(after)[0], '-@>--E', 'the one it took is riding, still facing right');
+  assert.equal(toCart(after)[0], '--r---', 'and only one cart is left on the board');
 });
 
 test('tipped out, it is a barrow again', () => {
@@ -159,32 +162,38 @@ test('tipped out, it is a barrow again', () => {
 });
 
 test('a loaded barrow is picked up with its load still in it', () => {
-  const s = S(['-@---E', '------'], ['--r-r-', '------']);
-  s.cells[0][4].o = CAN_FULL;                        // a full can riding in the far barrow
+  const s = S(['-@---E', '------'], ['--rs--', '------']);
+  s.cells[0][3].o = CAN_FULL;                        // a full can riding in the far barrow
   const r = explain(s, 'r');
   assert.ok(r.ok, `refused: ${r.reason}`);
-  assert.equal(toCart(r.next)[0], '----r-', 'one barrow left, holding the other');
-  assert.deepEqual(chainOf(cell(r.next, 4, 0)), [BAR_R, CAN_FULL],
+  assert.equal(toCart(r.next)[0], '---r--', 'one barrow left, holding the other');
+  assert.deepEqual(chainOf(cell(r.next, 3, 0)), [BAR_R, CAN_FULL],
     'a barrow facing right, with the can still in it');
-  assert.deepEqual(toHold(r.next), ['4,0 C'], 'and the load is written down');
+  assert.deepEqual(toHold(r.next), ['3,0 C'], 'and the load is written down');
 });
 
 test('a barrow carries a barrow carrying a barrow, and every load comes back', () => {
   // Nothing bounds the stack: what a barrow holds is a chain, and a chain is as long as it is.
-  const s = S(['-@-----E', '--------'], ['--r-r-s-', '--------']);
-  s.cells[0][6].o = CAN_FULL;
+  //
+  // But only an EMPTY barrow scoops, so depth costs one barrow per level and the stack is built
+  // from the INSIDE OUT — B takes C, and only then can A take B. Do it the other way round and A
+  // is full after the first bite, with nothing left that can pick anything up.
+  const s = toState({ id: 't',
+    grid: ['-----C--', '---@----', 'E-------'],
+    cart: ['-r--st--', '--------', '--------'] });
   let at = s;
-  for (const dir of [...'rrrr']) {
+  for (const dir of [...'urdllllurrrr']) {
     const r = explain(at, dir);
     assert.ok(r.ok, `${dir} refused: ${r.reason}`);
     at = r.next;
   }
-  assert.deepEqual(chainOf(cell(at, 6, 0)), [BAR_R, BAR_R, CAN_FULL], 'three deep');
+  assert.equal(toCart(at)[0], '-----r--', 'one barrow left on the board');
+  assert.deepEqual(chainOf(cell(at, 5, 0)), [BAR_R, BAR_R, CAN_FULL], 'three deep');
   assert.equal(bagsLeft(at), 1, 'the can is still a can the exit is waiting on');
 
   // And it all comes out again: tipped across its axis, the barrow turns the stack out whole.
   const back = toState({ id: 'rt', grid: toGrid(at), cart: toCart(at), hold: toHold(at) });
-  assert.deepEqual(chainOf(cell(back, 6, 0)), [BAR_R, BAR_R, CAN_FULL], 'and it round-trips');
+  assert.deepEqual(chainOf(cell(back, 5, 0)), [BAR_R, BAR_R, CAN_FULL], 'and it round-trips');
 });
 
 test('a hooked barrow is spoken for, and cannot be picked up', () => {

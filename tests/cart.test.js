@@ -23,32 +23,35 @@ test('the raccoon follows the cart in, exactly as he follows a can', () => {
   assert.deepEqual(toCart(next), ['--PP-', '-----']);
 });
 
-test('...but what leaves the trail slot claims the cell behind, and he takes what is left', () => {
-  // The can rides the trail slot, so the stop puts it straight out into the cell behind. That
-  // is the cell he would have followed into, so he has nowhere to go and stays on the bank.
-  // The occupant grid reads the same before and after — only `toCart` says it is off the cart.
-  const next = act(['@c--#', 'E----'], ['-PP--', '-----'], 'r');
-  assert.deepEqual(toGrid(next), ['@c--#', 'E----']);
-  assert.deepEqual(toCart(next), ['--PP-', '-----'], 'the cart is empty');
-  assert.deepEqual(next.rac, { x: 0, y: 0 });
+test('shoved with nowhere to go, a loaded cart sheds out the back', () => {
+  // A cart carrying anything is HEAVY: one cell a shove, and no roll to be stopped at the end
+  // of. So the shed has one occasion left — a shove it cannot take — and one place to go, which
+  // is the cell behind. Never the cell behind the file he is pushing: he is standing in it.
+  //
+  // That makes a loaded cart end-on in a one-wide corridor a thing you cannot empty by shoving,
+  // which is a dead end the room is allowed to have.
+  const next = act(['-c#', '@c#', 'E--'], ['-P-', '-P-', '---'], 'r');
+  assert.deepEqual(toGrid(next), ['c-#', '@c#', 'E--'], 'the far file put its can down behind it');
+  assert.deepEqual(toCart(next), ['-P-', '-P-', '---'], 'and the cart itself has not moved');
+  assert.equal(refused(['@cc#', 'E---'], ['-PP-', '----'], 'r'), 'canRoom',
+    'end-on there is no file he is not behind, so nothing can come off');
 });
 
-test('end-on, a third pile pushes the first out the back: two in, the old one behind', () => {
-  // The cart holds one can in its LEAD slot. The first can it swallows shoves that one to the
-  // trail; the second shoves it out. A couch stops the roll and the load slides back out into
-  // the run — until the can shed mid-roll blocks it, so the last one keeps its slot.
-  const next = act(['@-ccc-F-', '------F-', 'E-------'],
-                   ['-PP-----', '--------', '--------'], 'r');
-  assert.deepEqual(toGrid(next), ['-@ccc-F-', '------F-', 'E-------']);
-  assert.deepEqual(toCart(next), ['----PP--', '--------', '--------']);
+test('a heavy cart swallows what it is flush with, and the old load comes out the back', () => {
+  // Carrying something makes it heavy, so it takes one cell — but the mouth still works, and
+  // taking a new thing in is what pushes the old one out. That is the cart's other way of being
+  // emptied, and the only one that needs no wall.
+  const next = act(['@ccc--#', 'E------'], ['-PP----', '-------'], 'r');
+  assert.deepEqual(toGrid(next), ['@ccc--#', 'E------'], 'one shed behind, two aboard');
+  assert.deepEqual(toCart(next), ['--PP---', '-------'], 'one cell on');
 });
 
-test('broadside, the cart is one slot deep, so both new cans displace the old one at once', () => {
-  // Two cells of travel and one slot per file: what it picks up on the first cell is set back
-  // down on the second, so the cart comes to rest empty a cell past the cans.
-  const next = act(['@cc-FE', '--c-F-'], ['-P----', '-P----'], 'r');
-  assert.deepEqual(toGrid(next), ['@cc-FE', '--c-F-']);
-  assert.deepEqual(toCart(next), ['---P--', '---P--']);
+test('broadside, each file swallows its own and displaces its own', () => {
+  // Two files one slot deep, so what each takes in turns out what each was holding. The axis
+  // asymmetry, not an exception: the rule is per FILE everywhere it is counted.
+  const next = act(['-cc#', '@cc#', 'E---'], ['-P--', '-P--', '----'], 'r');
+  assert.deepEqual(toGrid(next), ['-cc#', '@cc#', 'E---'], 'each file set one down and took one up');
+  assert.deepEqual(toCart(next), ['--P-', '--P-', '----'], 'and the cart is one cell on');
 });
 
 test('broadside swallows two things in one shove, and sets both down again behind it', () => {
@@ -67,21 +70,13 @@ test('a pile shed mid-roll lands on the cell it was picked up from', () => {
   assert.equal(trashHeld(next), 1, 'one of the three piles drove off aboard');
 });
 
-test('what it swallowed on the way leaves by the same rule as what it was carrying', () => {
-  // Where a thing came from does not follow it aboard. Here the run behind is blocked by the
-  // can shed mid-roll, so the pile it took on keeps its slot — by the geometry, not by a
-  // clause about newcomers.
-  const next = act(['@cc-x-#', 'E------'], ['-PP----', '-------'], 'r');
-  assert.deepEqual(toGrid(next), ['-@ccx-#', 'E------']);
-  assert.deepEqual(toCart(next), ['----PP-', '-------']);
-  assert.equal(trashHeld(next), 1, 'the pile it took aboard is still aboard');
-
-  // Same rule from the other end: only the trail slot sheds. A newcomer enters at the LEAD, so
-  // one stop nudges it to the trail and no further — it is aboard until something moves it on.
-  const only = act(['@--$#', 'E----'], ['-PP--', '-----'], 'r');
-  assert.equal(bagsLeft(only), 1);
-  assert.deepEqual(toGrid(only), ['-@$-#', 'E----'], 'one slot back, still aboard');
-  assert.deepEqual(toCart(only), ['--PP-', '-----']);
+test('an EMPTY cart is light, so it rolls the run and hoovers as it goes', () => {
+  // Weight is read once, when the shove begins. That is what keeps the cart a cart: it starts
+  // empty, takes the whole run, and is heavy only from the NEXT shove. Read it per cell instead
+  // and it would fill on the first thing it passed and stop, which is the barrow's rule.
+  const next = act(['@---c-c-#', 'E--------'], ['-PP------', '---------'], 'r');
+  assert.deepEqual(toGrid(next), ['-@---cc-#', 'E--------'], 'one aboard, the one before it shed');
+  assert.deepEqual(toCart(next), ['------PP-', '---------'], 'and it ran to the wall');
 });
 
 test('a cart against a wall is not a sealed box', () => {
@@ -98,39 +93,17 @@ test('a cart against a wall is not a sealed box', () => {
   assert.equal(bagsLeft(next), 1, 'still unopened — but reachable again');
 });
 
-test('a file tips exactly one, however far the cart rolled', () => {
-  // Two cans aboard, end-on, so one file two slots deep. How far it travels picks the cell
-  // the tipped can lands in; it does not pick how many land.
-  const one = act(['@cc-#', 'E----'], ['-PP--', '-----'], 'r');
-  assert.deepEqual(toGrid(one), ['@cc-#', 'E----'], 'one out at cell 1, one riding at cell 2');
-  assert.deepEqual(toCart(one), ['--PP-', '-----']);
-
-  const far = act(['@cc---#', 'E------'], ['-PP----', '-------'], 'r');
-  assert.deepEqual(toGrid(far), ['-@-cc-#', 'E------'], 'still one — three cells of travel, one out');
-  assert.deepEqual(toCart(far), ['----PP-', '-------']);
-  assert.deepEqual(far.rac, { x: 1, y: 0 }, 'and he follows into the cell it left');
-});
-
-test('one per FILE, so a broadside cart sets down two at once', () => {
-  // The same two cans, turned ninety degrees: broadside the cart is two files one slot deep,
-  // and each tips its own. This is the axis asymmetry, not an exception to the rule.
-  const next = act(['@c--#', '-c--#', 'E----'], ['-P---', '-P---', '-----'], 'r');
-  assert.deepEqual(toGrid(next), ['-@c-#', '--c-#', 'E----'], 'both files tipped');
-  assert.deepEqual(toCart(next), ['---P-', '---P-', '-----'], 'and the cart is empty');
-});
-
 test('what stopped it does not change whether it unloads', () => {
   // The wheelie bin never asks what stopped it, and neither does this. A cart that only spilled
   // against walls would make furniture and the exit into silent, unexplained parking spots.
   for (const [what, grid, cart] of [
-    ['a wall',      ['@cc-#', 'E----'], ['-PP--', '-----']],
-    ['a couch',     ['@cc-F', '----F', 'E----'], ['-PP--', '-----', '-----']],
-    ['the exit',    ['@cc-E', '-----'], ['-PP--', '-----']],
-    ['another cart', ['@cc-----', 'E-------'], ['-PP-QQ--', '--------']],
+    ['a wall',  ['-c#', '@c#', 'E--'], ['-P-', '-P-', '---']],
+    ['a couch', ['-cF', '@cF', 'E--'], ['-P-', '-P-', '---']],
+    ['the exit', ['-cE', '@c-', '---'], ['-P-', '-P-', '---']],
   ]) {
     const next = act(grid, cart, 'r');
-    assert.equal(toCart(next)[0].slice(2, 4), 'PP', `${what} should stop it at cells 2-3`);
-    assert.equal(toGrid(next)[0][1], 'c', `${what} should still put one down`);
+    assert.equal(toGrid(next)[0][0], 'c', `${what} should still put one down`);
+    assert.equal(toCart(next)[0], '-P-', `${what} should leave the cart where it stands`);
   }
 });
 
@@ -153,26 +126,11 @@ test('a cart takes in anything single-cell — bag, can, bin, jug, wheelie, stac
 });
 
 test('trash tipped into the canal fills it, exactly as a fan or a bin drop does', () => {
-  // The pile starts in the cart's trail slot, rides forward, and the wall throws it back one
-  // slot — past the trail and into open water. The cell stops being canal and becomes a
-  // crossing, and the pile is spent doing it.
-  const next = act(['@x---#', 'E-----'], ['-PP---', '------'], 'r', ['--~---', '------']);
-  assert.deepEqual(toGrid(next), ['-@---#', 'E-----'], 'the pile is gone from the occupant grid');
-  assert.deepEqual(toWater(next), ['--=---', '------'], 'it became a crossing');
-});
-
-test('only the trail slot sheds, so where a thing rides decides whether it lands', () => {
-  // One shove is one nudge. A thing in the trail slot is one nudge from the ground; a thing in
-  // the lead slot is two, so it finishes the shove aboard. The two carts come to rest in the
-  // same place and the difference is on the board — which cell the bag is drawn in — rather
-  // than in a slot the player has to have been told about.
-  const trail = act(['@$-----#', 'E-------'], ['-PP-----', '--------'], 'r');
-  assert.deepEqual(toGrid(trail), ['-@--$--#', 'E-------'], 'out, one cell behind the cart');
-  assert.deepEqual(toCart(trail), ['-----PP-', '--------'], 'and the cart is empty');
-
-  const lead = act(['@-$----#', 'E-------'], ['-PP-----', '--------'], 'r');
-  assert.deepEqual(toGrid(lead), ['-@---$-#', 'E-------'], 'nudged to the trail slot, still aboard');
-  assert.deepEqual(toCart(lead), toCart(trail), 'the carts stop in the same place either way');
+  // The pile comes off the back of the file he is not behind, and the cell behind that one is
+  // open water. The cell stops being canal and becomes a crossing, and the pile is spent.
+  const next = act(['-x#', '@x#', 'E--'], ['-P-', '-P-', '---'], 'r', ['~--', '---', '---']);
+  assert.deepEqual(toGrid(next)[0], '--#', 'the pile is gone from the occupant grid');
+  assert.deepEqual(toWater(next)[0], '=--', 'it became a crossing');
 });
 
 test('a cart out in the canal is out of reach — he would have to stand in the water', () => {

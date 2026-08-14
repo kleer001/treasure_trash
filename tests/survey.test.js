@@ -71,9 +71,15 @@ test('the pre-filter never discards a board that can be won', () => {
       let s;
       try { s = toState(room); } catch { continue; }
       if (!staticallyDead(s)) continue;
+      // Bounded, at the cap the survey itself uses. A loaded cart shuffles a cell at a time
+      // rather than rolling to the wall, so a cart on an open board can out-grow the heap — and
+      // a board too big to enumerate proves nothing either way, so it is not a sample at all.
+      let shortest;
+      try { shortest = analyze(s, { maxStates: 50_000 }).minMoves; }
+      catch (e) { if (e instanceof TooManyStates) continue; throw e; }
       rejected++;
       checked++;
-      assert.equal(analyze(s).minMoves, null,
+      assert.equal(shortest, null,
         `pre-filter rejected a solvable board:\n${room.grid.join('\n')}`);
     }
   }

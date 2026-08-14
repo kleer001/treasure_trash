@@ -74,20 +74,24 @@ test('a tyre takes a hand-off along its axis, and refuses one across it', () => 
   assert.deepEqual(toGrid(push(S(['@w--O-E']), 'r')), ['-@-wO-E'], 'across: it blocks instead');
 });
 
-// One hand-off rule, whatever shape the receiver is. A multi-cell piece asks the question of its
-// own footprint, so a rug sets a bicycle going only when the two lie the same way — and a
-// bicycle lying across the lane is simply what the rug stops against.
-test('a rolling rug hands its motion to a bicycle whose axis lines up', () => {
-  const after = toGrid(push(S(['@UUU-YY---', 'E---------']), 'r'));
-  assert.equal(after[0], '-@UUU---YY', 'the rug stopped against it and the bicycle went on');
+// One hand-off rule, whatever shape the receiver is: each piece asks it of its own footprint,
+// so what can take a roll is whatever rolls THIS way. A rug and a bicycle roll on opposite
+// axes, which is why the pair that hands off is the pair lying across each other.
+test('a rolling rug hands its motion to a bicycle pointing down the lane', () => {
+  const after = toGrid(push(S(['-@--------', '-UUU------', '----------', '-Y--------', '-Y--------',
+                               '----------', '----------', 'E---------']), 'd'));
+  assert.equal(after[2], '-UUU------', 'the rug stopped against it');
+  assert.equal(after[7], 'EY--------', 'and the bicycle went on to the wall');
 });
 
 test('and stops dead against one lying across the lane', () => {
-  const after = toGrid(push(S(['@UUU-Y----', '-----Y----', 'E---------']), 'r'));
-  assert.equal(after[0], '-@UUUY----', 'no hand-off: it cannot roll that way');
-  assert.equal(after[1], '-----Y----', 'so it has not moved');
+  const after = toGrid(push(S(['-@--------', '-UUU------', '----------', '-YY-------', 'E---------']), 'd'));
+  assert.equal(after[2], '-UUU------', 'the rug rolled up to it');
+  assert.equal(after[3], '-YY-------', 'no hand-off: the bicycle cannot roll that way');
 });
 
 test('a single-cell roller and a multi-cell one hand off to each other', () => {
-  assert.equal(toGrid(push(S(['@w--UUU---', 'E---------']), 'r'))[0], '-@-w---UUU');
+  const after = toGrid(push(S(['@w--U-----', '----U-----', '----U-----', 'E---------']), 'r'));
+  assert.equal(after[0], '-@-w-----U', 'the bin stopped against the rug, which rolled on');
+  assert.equal(after[1], '---------U');
 });

@@ -74,6 +74,20 @@ test('a bin rolled into a grate goes down holding its bag, and sheds nothing', (
   assert.ok(!toGrid(after).join('').includes('$'), 'nothing was shed on the way down');
 });
 
+test('a grate takes a body only when the whole of it fits in one', () => {
+  // Rolled onto grates its whole footprint reaches, a rug goes down. Reaching one grate and one
+  // floor cell it spans the hole — taking only the half over the grate would leave a one-cell
+  // rug, which is not a smaller rug but a board nothing can read.
+  const room = ['#####', '#@---', '#UU--', '#----', '#----', '#---E', '#####'];
+  const both = S(room, ['-----', '-----', '-----', '-----', '-OO--', '-----', '-----']);
+  assert.deepEqual(toGrid(push(both, 'd')),
+                   ['#####', '#----', '#@---', '#----', '#----', '#---E', '#####']);
+
+  const one = S(room, ['-----', '-----', '-----', '-----', '-O---', '-----', '-----']);
+  assert.deepEqual(toGrid(push(one, 'd')),
+                   ['#####', '#----', '#@---', '#----', '#UU--', '#---E', '#####']);
+});
+
 test('the raccoon crosses a grate that swallows objects', () => {
   assert.ok(explain(S(['@--E'], ['-O--']), 'r').ok);
 });

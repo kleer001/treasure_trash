@@ -98,7 +98,9 @@ test('the nudge goes out and comes back, harder on the way back', () => {
 test('riding cargo travels with the cart, cell for cell', () => {
   // While the cart TRAVELS, cargo holds its place in the basket exactly. The tip is the one
   // beat where it deliberately moves within the cart, so it is not part of the claim.
-  const s = S(['@-x---#', 'E------'], ['-PP----', '-------']);
+  // Empty at the start, so it is light and takes the whole run — it swallows the pile on the
+  // way and then carries it, which is what gives this more than one beat of travel to check.
+  const s = S(['@--x--#', 'E------'], ['-PP----', '-------']);
   const r = explain(s, 'r', { trace: true });
   const stage = stageFrom(s, 1);
   const seen = [];
@@ -110,9 +112,12 @@ test('riding cargo travels with the cart, cell for cell', () => {
       seen.push([+(pile.x - cart.x).toFixed(3), pile.y - cart.y]);
     settle(stage);
   });
-  assert.ok(seen.length > 1, 'the pile rode for more than one beat');
-  const [first] = seen;
-  for (const off of seen) assert.deepEqual(off, first, 'the offset from the cart never drifts');
+  // The beat it is SWALLOWED on is not a ride — it is arriving, and mid-beat it is still
+  // crossing into the basket. Excluded for the same reason the tip is.
+  const riding = seen.slice(1);
+  assert.ok(riding.length > 1, 'the pile rode for more than one beat');
+  const [first] = riding;
+  for (const off of riding) assert.deepEqual(off, first, 'the offset from the cart never drifts');
 });
 
 test('a shed pile stops dead once the cart has rolled on', () => {
@@ -209,8 +214,10 @@ test('a wheelie bin carries its bag the whole way, then drops it out of the BIN'
 });
 
 test('trash spent filling the canal leaves the stage', () => {
-  const { stage } = play(['@x---#', 'E-----'], 'r',
-    { cart: ['-PP---', '------'], water: ['--~---', '------'] });
+  // The pile rides the file he is NOT behind, so that is the one that comes off — into the
+  // canal cell behind it.
+  const { stage } = play(['-x#', '@-#', 'E--'], 'r',
+    { cart: ['-P-', '-P-', '---'], water: ['~--', '---', '---'] });
   assert.equal(of(stage, TRASH).length, 0, 'the pile became a crossing');
 });
 

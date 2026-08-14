@@ -79,10 +79,14 @@ test('a pane with nowhere to break rides intact, and against water it will not b
 // A rug takes its axis from the cells it already occupies, so anisotropy costs no field of its
 // own and nothing in the state key. That is the whole reason it is cheaper than a turnstile.
 
-test('a rug rolls along its length and shifts one cell broadside', () => {
-  assert.deepEqual(toGrid(push(S(['@UUU---E']), 'r')), ['-@--UUUE'], 'along: to the far end');
-  const broadside = toGrid(push(S(['--------', '-@------', '-UUU----', '--------', 'E-------']), 'd'));
-  assert.deepEqual(broadside, ['--------', '--------', '-@------', '-UUU----', 'E-------']);
+test('a rug rolls broadside and shifts one cell along its length', () => {
+  // It is a rolled rug — a cylinder lying on the floor. Shoved end-on it only slides; the shove
+  // against its side is the one that sets it rolling.
+  assert.deepEqual(toGrid(push(S(['@UUU---E']), 'r')), ['-@UUU--E'], 'end-on: one cell');
+  const broadside = toGrid(push(S(['--------', '-@------', '-UUU----', '--------', '--------', 'E-------']), 'd'));
+  assert.deepEqual(broadside,
+    ['--------', '--------', '-@------', '--------', '--------', 'EUUU----'],
+    'broadside: it travels to the far wall, like every other roller');
 });
 
 test('a bicycle is the same rule at two cells, and takes its axis the same way', () => {

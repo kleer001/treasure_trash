@@ -157,9 +157,11 @@ test('a cart reports one translation per cell of travel', () => {
   assert.equal(travel.at(-1).impact, true, 'the last cell of travel is the collision');
   assert.equal(r.steps.length, 5, 'four advances and the tip that follows them');
 
-  // and a cart that ate nothing does end on a tip, which does not travel
-  const tip = audit('cart-tip', ['@cc--#', 'E-----'], 'r', { cart: ['-PP---', '------'] });
-  assert.equal(tip.steps.at(-1).piece, null, 'the tip does not travel');
+  // A LOADED cart is heavy: one translation, and no roll to be stopped at the end of, so there
+  // is no tip to report either.
+  const heavy = audit('cart-heavy', ['@cc--#', 'E-----'], 'r', { cart: ['-PP---', '------'] });
+  assert.equal(heavy.steps.length, 1, 'one cell, one step');
+  assert.deepEqual(heavy.steps[0].moved, [], 'its load went with it, so nothing is named');
 });
 
 test('swallowing and shedding are changes of parent, not of position', () => {
@@ -176,19 +178,17 @@ test('swallowing and shedding are changes of parent, not of position', () => {
   assert.ok(rides.some(m => m.parent === null), 'something was shed');
 });
 
-test('the tip is the one time cart cargo genuinely travels', () => {
-  // Two cells of travel, two cans, and one comes out — into the cell the cart left on its LAST
-  // step, not the far end of what it crossed. Each report names the cell the can stood in when
-  // the cart stopped, so a renderer can fly it from there.
-  const r = audit('cart-tip', ['@cc--#', 'E-----'], 'r', { cart: ['-PP---', '------'] });
+test('a shed names the cell the load rode in and the cell it lands on', () => {
+  // The cart is blocked, so nothing about it moves — only what comes off it. It leaves the file
+  // the raccoon is NOT behind, into the cell behind that file, and the report has to name both
+  // or a renderer has nowhere to fly it from.
+  const r = audit('cart-shed', ['-c#', '@c#', 'E--'], 'r', { cart: ['-P-', '-P-', '---'] });
   const tip = r.steps.at(-1);
-  assert.equal(tip.piece, null, 'the cart has already stopped; only the load moves');
+  assert.equal(tip.piece, null, 'the cart itself is going nowhere');
   const out = tip.moved.filter(m => m.parent === null);
-  assert.deepEqual(out.map(m => m.from), [[3, 0]], 'from the slot it rode in');
-  assert.deepEqual(out.map(m => m.to), [[2, 0]], 'the cell just vacated, not cell 1');
-  assert.deepEqual(tip.moved.filter(m => m.parent !== null).map(m => m.to), [[3, 0]],
-    'the other settles into the slot that freed up, still aboard');
-  for (const m of tip.moved) assert.notDeepEqual(m.from, m.to, 'everything in a tip moves');
+  assert.deepEqual(out.map(m => m.from), [[1, 0]], 'from the slot it rode in');
+  assert.deepEqual(out.map(m => m.to), [[0, 0]], 'to the cell behind that file');
+  for (const m of tip.moved) assert.notDeepEqual(m.from, m.to, 'everything in a shed moves');
 });
 
 test('nothing a cart reports ever crosses more than one cell', () => {
@@ -207,13 +207,6 @@ test('nothing a cart reports ever crosses more than one cell', () => {
       assert.ok(d <= 1, `${grid[0]}: ${JSON.stringify(m)} crossed ${d} cells`);
     }
   }
-});
-
-test('the shortest roll there is still tips one, into the trail slot’s own start cell', () => {
-  const r = audit('cart-part', ['@cc-#', 'E----'], 'r', { cart: ['-PP--', '-----'] });
-  const tip = r.steps.at(-1);
-  assert.deepEqual(tip.moved.filter(m => m.parent === null).map(m => m.to), [[1, 0]]);
-  assert.equal(tip.moved.filter(m => m.parent !== null).length, 1, 'the other settled back a slot');
 });
 
 test('a tip lands contiguously behind the cart, never skipping a taken cell', () => {
@@ -245,12 +238,12 @@ test('a tip lands contiguously behind the cart, never skipping a taken cell', ()
 });
 
 test('cargo tipped into the canal reports that it fills', () => {
-  const r = audit('cart-canal', ['@x---#', 'E-----'], 'r',
-    { cart: ['-PP---', '------'], water: ['--~---', '------'] });
+  const r = audit('cart-canal', ['-x#', '@x#', 'E--'], 'r',
+    { cart: ['-P-', '-P-', '---'], water: ['~--', '---', '---'] });
   const tip = r.steps.at(-1);
   assert.equal(tip.moved[0].effect, 'fills');
   assert.equal(tip.moved[0].o, TRASH);
-  assert.deepEqual(tip.moved[0].to, [2, 0]);
+  assert.deepEqual(tip.moved[0].to, [0, 0]);
 });
 
 test('a tip only ever moves cargo backward, and never past the run the cart came through', () => {
@@ -276,7 +269,8 @@ test('a tip only ever moves cargo backward, and never past the run the cart came
 });
 
 test('a broadside cart reports both files in one step', () => {
-  const r = audit('cart-wide', ['@c-c-FE', '---c-F-'], 'r', { cart: ['-P-----', '-P-----'] });
+  // Empty, so it is light and takes the whole run — and both files swallow on the same beat.
+  const r = audit('cart-wide', ['@--c-FE', '---c-F-'], 'r', { cart: ['-P-----', '-P-----'] });
   const swallows = r.steps.flatMap(st => st.moved).filter(m => m.parent !== undefined && m.parent !== null);
   assert.equal(swallows.length, 2, 'two lead cells, two things aboard');
   assert.deepEqual(r.steps[0].piece.ref, r.steps[1].piece.ref, 'the same cart both steps');
@@ -293,12 +287,16 @@ test('a rug that sets a bicycle going reports the bicycle as a BODY', () => {
   // Both are multi-cell, so both have one sprite for a whole footprint. Naming the bicycle's
   // cells in `moved` names sprites the stage does not hold, and `applyStep` throws — which is
   // invisible to a board comparison and shows only on screen.
-  const r = audit('rug', ['----------', '-@UUU--YY-', 'E---------'], 'r');
+  //
+  // The two lie ACROSS each other, because each rolls on the axis the other does not: the rug
+  // is shoved against its side, and what it sets going is a bicycle pointing down the lane.
+  const r = audit('rug', ['-@--------', '-UUU------', '----------', '-Y--------', '-Y--------',
+                          '----------', '----------', 'E---------'], 'd');
   const [step] = r.steps;
   assert.deepEqual(step.moved, [], 'a body is never an occupant sprite');
   assert.deepEqual(step.piece, [
-    { kind: 'furniture', ref: 1, dx: 2, dy: 0 },     // the rug, the whole of its roll
-    { kind: 'furniture', ref: 0, dx: 1, dy: 0 },     // the bicycle it handed off to
+    { kind: 'furniture', ref: 1, dx: 0, dy: 1 },     // the rug, stopped against the bicycle
+    { kind: 'furniture', ref: 0, dx: 0, dy: 3 },     // the bicycle it handed off to
   ]);
 });
 
@@ -310,6 +308,26 @@ test('a swept container reports what it becomes as it sheds', () => {
   const head = r.steps[0].moved.find(m => m.o === CAN_FULL);
   assert.equal(head.becomes, CAN_EMPTY, 'the can that sheds says so');
   assert.equal(r.steps[0].spawned.filter(sp => sp.o === BAG).length, 1);
+});
+
+test('a grate that takes a BODY says so on the piece entry', () => {
+  // A body has no occupant code, so `gone` — which names a sprite by its code and cell — cannot
+  // express one. Without a word from the piece entry nothing is emitted at all: the board is
+  // right, the step is silent, and the stage slides the sprite onto the grate and leaves it
+  // drawn there. It ARRIVES and is then gone, which is what `falls` says everywhere else.
+  const rolled = audit('grate body', ['#####', '#@---', '#UU--', '#----', '#----', '#---E', '#####'],
+                       'd', { water: ['-----', '-----', '-----', '-----', '-OO--', '-----', '-----'] });
+  assert.deepEqual(rolled.steps[0].piece,
+                   [{ kind: 'furniture', ref: 0, dx: 0, dy: 2, effect: 'falls' }]);
+
+  // And what a hand-off passes to a grate, body or not: the same word, on whichever entry can
+  // carry it. A tyre is an occupant, so it is `moved` that has to say it.
+  const passed = audit('grate handoff',
+                       ['######', '#@----', '#UU---', '#-----', '#O----', '#-----', '#----E', '######'],
+                       'd', { water: ['------', '------', '------', '------', '------', '-O----',
+                                      '------', '------'] });
+  const tyre = passed.steps[0].moved.find(m => m.to[1] === 5);
+  assert.equal(tyre.effect, 'falls', 'the tyre it handed off to went down the grate');
 });
 
 test('a grate names what it swallows by the cell the stage holds it at', () => {
