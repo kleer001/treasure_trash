@@ -893,7 +893,6 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   else if (o === codes.TIRE_V) sprites.tyre(x, y, false);
   else if (o === codes.CHAIR) sprites.chair(x, y);
   else if (o === codes.BROOM) sprites.broom(x, y);
-  else if (o === codes.DRAWER) sprites.drawer(x, y, face);
   else if (codes.magnetFace(o)) sprites.magnet(x, y, codes.magnetFace(o));
   // A barrow riding in something is drawn as the barrow it is — being carried is a fact about
   // where it is, not about what it looks like.

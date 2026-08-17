@@ -3,7 +3,7 @@
 import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
   JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
-  CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER,
+  CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R,
   MAG_U, MAG_D, MAG_L, MAG_R,
   FURNITURE,
   MOVE, DIRS,
@@ -55,7 +55,7 @@ const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"
   [CABC_U]:"the filing cabinet", [CABC_D]:"the filing cabinet",
   [CABC_L]:"the filing cabinet", [CABC_R]:"the filing cabinet",
   [CABO_U]:"the open cabinet", [CABO_D]:"the open cabinet",
-  [CABO_L]:"the open cabinet", [CABO_R]:"the open cabinet", [DRAWER]:"the open drawer",
+  [CABO_L]:"the open cabinet", [CABO_R]:"the open cabinet",
   [MAG_U]:"the magnet", [MAG_D]:"the magnet", [MAG_L]:"the magnet", [MAG_R]:"the magnet",
   [FURNITURE]:"the couch" };
 function whyText(b){
@@ -458,6 +458,17 @@ function paintSprite(sp, f){
   else if(sp.kind === COUCH){
     if(sp.o === BICYCLE) SP.bicycle(sp.cells, sp.x, sp.y);
     else if(sp.o === RUG) SP.rug(sp.cells, sp.x, sp.y);
+    // An open cabinet is one piece and two drawings: the cabinet, and the drawer standing out of
+    // it. Which end is which is the facing, and the anchor is whichever of the two the stage
+    // reached first, so it is asked rather than assumed.
+    else if(CODES.cabinetFace(sp.o)){
+      const f = DIRS[CODES.cabinetFace(sp.o)];
+      const other = sp.cells.find(([ox,oy]) => ox || oy);
+      const lead = other[0] === f[0] && other[1] === f[1];
+      const bx = lead ? sp.x : sp.x + other[0], by = lead ? sp.y : sp.y + other[1];
+      SP.cabinet(bx, by, CODES.cabinetFace(sp.o), true);
+      SP.drawer(bx + f[0], by + f[1], f);
+    }
     else SP.furniture(sp.cells, sp.x, sp.y);
   }
   else if(sp.kind === CART){

@@ -27,7 +27,7 @@
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  explain, cell, terrainOf, cabinetPair, isCabinetOpen, DRAWER, DIR_ORDER,
+  explain, cell, terrainOf, DIR_ORDER,
   cartCells, pieceCells,
 } from '../src/rules.js';
 import { toState, toGrid, toWater, toCart } from '../src/format.js';
@@ -50,8 +50,14 @@ export const PIECES = {
 /** The multi-cell pieces, written as a run of one letter — and the letter a SECOND one of the
  *  same kind is written with. A 4-connected run of one letter is one piece, so two of a kind
  *  standing flush merge into a single illegal blob unless they are spelled apart. */
-export const BODIES = { couch: 'F', bicycle: 'Y', rug: 'U' };
-const SECOND = { F: 'G', Y: 'Z', U: 'V' };
+export const BODIES = { couch: 'F', bicycle: 'Y', rug: 'U',
+                        cabinetOpenR: 'J', cabinetOpenD: 'D' };
+const SECOND = { F: 'G', Y: 'Z', U: 'V', J: 'Q', D: 'T' };
+// A body free to lie either way is built along whichever axis the case wants. An open cabinet is
+// not: its two cells lie along its facing, so the right-facing one is only buildable head-on and
+// the down-facing one only broadside. The other two facings are those two mirrored, and the
+// engine reads a facing off the code, so nothing is left uncovered by leaving them out.
+const BODY_AXIS = { J: 'h', D: 'v' };
 
 /**
  * The wheeled pieces. These do not live in the grid at all — a cart cell holds its CARGO in the
@@ -248,27 +254,24 @@ function crossesTest(s, dir, holes) {
   return false;
 }
 
-/**
- * A cabinet is a BODY and a DRAWER, and it is one thing: half of one is a board nothing can
- * write down and every branch that reads a cabinet will then read it wrong. Cheap enough to ask
- * of every board a case reaches, which is what makes it a gate rather than a spec about the one
- * piece that happened to separate them.
- */
-export function halfCabinets(s) {
-  const bad = [];
-  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) {
-    const o = cell(s, x, y).o;
-    if ((isCabinetOpen(o) || o === DRAWER) && !cabinetPair(s, [x, y])) bad.push([x, y]);
-  }
-  return bad;
-}
-
 /** Every board a room can reach, bounded — the invariants are asked of all of them. */
 export function reachable(s0, cap = 4000) {
   const seen = new Map(), stack = [s0];
-  const key = st => JSON.stringify([st.cells.map(r => r.map(c =>
-    [c.o, c.hold ?? null, c.pid ?? -1, c.cart ?? -1, c.ck ?? -1, c.lk ?? -1,
-     c.water, c.bridge, c.ter ?? 0])), st.rac]);
+  // Piece, cart and link ids are relabelled by first appearance, the way `stateKey` does. Raw,
+  // a board reached by opening two cabinets in the other order keys as a board never seen, and
+  // the walk spends its cap on the same positions written with different numbers.
+  const key = st => {
+    const label = new Map();
+    const tag = (v, kind) => {
+      if (v === undefined) return -1;
+      const k = `${kind}:${v}`;
+      if (!label.has(k)) label.set(k, label.size);
+      return label.get(k);
+    };
+    return JSON.stringify([st.cells.map(r => r.map(c =>
+      [c.o, c.hold ?? null, tag(c.pid, 'p'), tag(c.cart, 'c'), c.ck ?? -1, tag(c.lk, 'l'),
+       c.water, c.bridge, c.ter ?? 0])), st.rac]);
+  };
   seen.set(key(s0), s0);
   while (stack.length && seen.size < cap) {
     const st = stack.pop();
@@ -325,6 +328,8 @@ export function corridor({ left, right = null, lane = '-', vertical = false }) {
       return cells;
     }
     if (!isBody(glyph)) { grid[ROW][x] = glyph; return [[x, ROW]]; }
+    const axis = BODY_AXIS[glyph] ?? BODY_AXIS[Object.keys(SECOND).find(k => SECOND[k] === glyph)];
+    if (axis && axis !== (vertical ? 'v' : 'h')) return null;
     if (vertical) {
       if (ROW - 1 < 1) return null;
       grid[ROW][x] = glyph; grid[ROW - 1][x] = glyph;

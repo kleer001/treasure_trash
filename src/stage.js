@@ -7,7 +7,7 @@
 // separate states, which the solver would pay for. A sprite persists across an action, owns a
 // fractional position, and can be parented to a cart rather than standing on a square.
 
-import { NONE, DRAWER, cell, cartCells, pieceCells, isCart, isMultiCell, bodyOfDrawer,
+import { NONE, cell, cartCells, pieceCells, isCart, isMultiCell,
          carriedKind, chainOf } from './rules.js';
 import { mulberry32 } from './rng.js';
 
@@ -62,13 +62,7 @@ export function stageFrom(state, seed = 1) {
     // a second sprite per cell on top of it. `isMultiCell` rather than the couch by name, so a
     // kind added later cannot be missed.
     if (c.o === NONE || isMultiCell(c.o)) continue;
-    // A drawer is drawn joined to the body it slid out of, so which way that body lies is part
-    // of its appearance rather than something the renderer can work out from one cell.
     const extra = { parent: isCart(c) ? c.cart : null };
-    if (c.o === DRAWER) {
-      const b = bodyOfDrawer(state, [x, y]);
-      if (b) extra.face = [x - b[0], y - b[1]];
-    }
     // One sprite per thing in the cell, not one per cell: a barrow riding in a cart may be
     // carrying something itself, and that something is drawn over it rather than hidden by it.
     // `depth` is how far down the stack it is, and it is also what tells two sprites of the
@@ -83,8 +77,9 @@ const offsets = (cells, ox, oy) => cells.map(([x, y]) => [x - ox, y - oy]);
 
 /** Effects that consume the sprite in the beat they happen: it plays where it arrives, and is
  *  then gone. What they have in common is that the BOARD does not hold what arrived — the water
- *  took it, the grate took it, or there was never an occupant to hold. */
-const CONSUMES = new Set(['fills', 'pours', 'shatters', 'falls']);
+ *  took it, the grate took it, there was never an occupant to hold, or the step put something
+ *  else in its place. */
+const CONSUMES = new Set(['fills', 'pours', 'shatters', 'falls', 'swaps']);
 
 const atCell = (sp, x, y) => sp.ax === x && sp.ay === y;
 // `parent` narrows the match when kind and cell are not enough: a barrow riding in a barrow is
@@ -211,6 +206,21 @@ export function applyStep(stage, step, racTo = null) {
                    seed: (stage.nextId * 2654435761) >>> 0, parent: sp.parent ?? null, dying: false,
                    spent: CONSUMES.has(sp.effect), falls: sp.effect === 'falls' };
     stage.sprites.push(born);
+  }
+
+  // A body that was not on the stage before this step. Nothing else can make one: `spawned`
+  // mints an occupant sprite, and a `piece` entry can only move a body that is already here.
+  for (const b of step.born) {
+    const want = BODY[b.kind];
+    if (!want) throw new Error(`no sprite kind for piece '${b.kind}'`);
+    // Loud, for the reason every other lookup here is: two sprites answering to one ref is the
+    // rules and the stage disagreeing about how many pieces the board has.
+    if (stage.sprites.some(sp => sp.kind === want && sp.ref === b.ref && !sp.spent))
+      throw new Error(`a ${b.kind} sprite already answers to ${b.ref}`);
+    const [x, y] = b.cells[0];
+    stage.sprites.push({ id: stage.nextId++, kind: want, x, y, ax: x, ay: y, tx: x, ty: y,
+                         depth: 0, seed: (stage.nextId * 2654435761) >>> 0, parent: null,
+                         dying: false, ref: b.ref, o: b.o, cells: offsets(b.cells, x, y) });
   }
 
   if (racTo) {

@@ -12,9 +12,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { run, cases, reachable, halfCabinets, meeting, corridor,
+import { run, cases, reachable, meeting, corridor,
          landsWhereTheBoardSays } from '../tools/matrix.mjs';
 import { toState } from '../src/format.js';
+import { cell, pieceCells, isCabinetOpen, cabinetFace, DIRS } from '../src/rules.js';
 
 test('every piece meeting every lane and every other piece lands where it says it does', () => {
   const rows = run();
@@ -44,17 +45,27 @@ test('every case gets a verdict, and staging nothing is one of them', () => {
     `odd verdict ${r.verdict}`);
 });
 
-test('nothing on the board can take half a cabinet', () => {
-  // The two halves are one thing. Anything that shifts a single cell could take one of them —
-  // a broom sweeping the drawer out, a magnet pulling the body away, a cart swallowing either —
-  // and what is left is a board that cannot be written down and that every branch reading a
-  // cabinet then reads wrong. Asked of every board these rooms can reach, not of one shove.
+test('an open cabinet is one piece wherever a room can get to', () => {
+  // The two cells are one piece and nothing may take one of them — a broom sweeping the drawer
+  // out, a magnet pulling the body away, a cart swallowing either. A piece id is what says so,
+  // so the question is whether every cabinet cell a room reaches still belongs to a piece of
+  // exactly two cells lying along its facing. Asked of every board these rooms reach, not of
+  // one shove.
   for (const c of cases()) {
-    if (!/cabinet|drawer/.test(c.id)) continue;
+    if (!/cabinet/.test(c.id)) continue;
     let s;
     try { s = toState({ ...c.room, id: c.id }); } catch { continue; }
     for (const st of reachable(s, 400))
-      assert.deepEqual(halfCabinets(st), [], `${c.id} reached a board with half a cabinet`);
+      for (let y = 0; y < st.rows; y++) for (let x = 0; x < st.cols; x++) {
+        const cc = cell(st, x, y);
+        if (!isCabinetOpen(cc.o)) continue;
+        const own = pieceCells(st, cc.pid);
+        assert.equal(own.length, 2, `${c.id}: an open cabinet of ${own.length} cells at ${x},${y}`);
+        const f = DIRS[cabinetFace(cc.o)];
+        const [a, b] = [...own].sort((p, q) => p[1] - q[1] || p[0] - q[0]);
+        assert.ok(b[0] - a[0] === Math.abs(f[0]) && b[1] - a[1] === Math.abs(f[1]),
+          `${c.id}: an open cabinet lying across its facing at ${x},${y}`);
+      }
   }
 });
 

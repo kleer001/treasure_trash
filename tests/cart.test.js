@@ -237,7 +237,7 @@ test('a cart is exactly two cells; anything else is a file error', () => {
 test('the reader refuses a cart on a wall, on the exit, holding furniture, or under him', () => {
   assert.throws(() => S(['@#-E', '----'], ['-PP-', '----']), /both wall and cart/);
   assert.throws(() => S(['@--E', '----'], ['--PP', '----']), /exit cannot hold a cart/);
-  assert.throws(() => S(['@FF-E', '-FF--'], ['-PP--', '-----']), /cannot hold furniture/);
+  assert.throws(() => S(['@FF-E', '-FF--'], ['-PP--', '-----']), /cannot hold a multi-cell piece/);
   assert.throws(() => S(['@--E'], ['PP--']), /raccoon cannot start in a cart/);
 });
 

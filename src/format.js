@@ -5,8 +5,8 @@ import {
   CART, BARROW_U, BARROW_D, BARROW_L, BARROW_R,
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
   JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
-  CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R, DRAWER,
-  BAR_U, BAR_D, BAR_L, BAR_R, cabinetPair, isCarriedBarrow,
+  CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R,
+  BAR_U, BAR_D, BAR_L, BAR_R, isCarriedBarrow,
   MAG_U, MAG_D, MAG_L, MAG_R,
   GREASE, TAR, GLASS, COVERED,
   FURNITURE, DIRS, MOVE, PUSH, TEAR, isMultiCell,
@@ -40,10 +40,14 @@ const READ = {
   'h': { o: CHAIR },
   'r': { o: BROOM },
   // A filing cabinet: the glyph carries the facing, because nothing else does. Lower case is
-  // closed and one cell; upper case is open and two, the drawer lying in the facing direction.
+  // closed and one cell. Upper case is open and names a PIECE of two cells lying along that
+  // facing — the drawer is the end the facing points at — so, like the couch, each facing needs
+  // a pool of letters and a blob of one letter is one cabinet.
   'a': { o: CABC_U }, 'e': { o: CABC_D }, 'k': { o: CABC_L }, 'm': { o: CABC_R },
-  'A': { o: CABO_U }, 'D': { o: CABO_D }, 'I': { o: CABO_L }, 'J': { o: CABO_R },
-  'X': { o: DRAWER },        // the drawer; which cabinet it belongs to is read off its facing
+  ...Object.fromEntries([...'AL'].map(ch => [ch, { o: CABO_U }])),
+  ...Object.fromEntries([...'DT'].map(ch => [ch, { o: CABO_D }])),
+  ...Object.fromEntries([...'IP'].map(ch => [ch, { o: CABO_L }])),
+  ...Object.fromEntries([...'JQ'].map(ch => [ch, { o: CABO_R }])),
   // The magnet, by the way its field points. It never turns, so the glyph is the whole of it.
   'f': { o: MAG_U }, 'l': { o: MAG_D }, 'p': { o: MAG_L }, 'q': { o: MAG_R },
   // A barrow riding in something, still facing the way it faces. Only ever found in a cart
@@ -84,10 +88,25 @@ export const FURN_POOL = [...'FGHKMN'];
 // letter is one piece, so two flush bicycles need two letters between them.
 export const BIKE_POOL = [...'YZ'];
 export const RUG_POOL = [...'UV'];
+export const CAB_POOLS = { [CABO_U]: [...'AL'], [CABO_D]: [...'DT'],
+                           [CABO_L]: [...'IP'], [CABO_R]: [...'JQ'] };
+// An open cabinet is two cells lying along its facing, and only the count is free: a vertical
+// blob written with a left-facing letter parses as a piece and is then read wrong by everything
+// that asks which end the drawer is. So the shape is checked where the complaint can name a cell.
+const cabinetShape = axis => (n, cells) => {
+  if (n !== 2) return `covers ${n} cell${n === 1 ? '' : 's'}; an open cabinet is exactly two`;
+  const [a, b] = [...cells].sort((p, q) => p[1] - q[1] || p[0] - q[0]);
+  const along = axis === 'v' ? b[0] === a[0] && b[1] === a[1] + 1 : b[1] === a[1] && b[0] === a[0] + 1;
+  return along ? null : 'lies across its own facing; its drawer is the cell the facing points at';
+};
 const MULTI_POOLS = [
   { pool: FURN_POOL, o: FURNITURE, what: 'furniture', bad: n => (n < 2 ? 'is a single cell; use a can, or give it a second cell' : null) },
   { pool: BIKE_POOL, o: BICYCLE, what: 'bicycle', bad: n => (n !== 2 ? `covers ${n} cell${n === 1 ? '' : 's'}; a bicycle is exactly two` : null) },
   { pool: RUG_POOL, o: RUG, what: 'rug', bad: n => (n < 2 ? 'is a single cell; a rug is at least two' : null) },
+  { pool: CAB_POOLS[CABO_U], o: CABO_U, what: 'open cabinet', bad: cabinetShape('v') },
+  { pool: CAB_POOLS[CABO_D], o: CABO_D, what: 'open cabinet', bad: cabinetShape('v') },
+  { pool: CAB_POOLS[CABO_L], o: CABO_L, what: 'open cabinet', bad: cabinetShape('h') },
+  { pool: CAB_POOLS[CABO_R], o: CABO_R, what: 'open cabinet', bad: cabinetShape('h') },
 ];
 // Carts are written in their own aligned `:cart` block rather than the occupant grid, for the
 // same reason water is: a cart cell holds cargo, and one character cannot say "empty cart
@@ -113,8 +132,7 @@ export const LEGEND = [
   'B recycle bin (full)', 'b recycle bin (empty)', 'j water jug', 'i empty jug', 's sponge', 'd flattened cardboard', 'g pane of glass',
   'o tyre lying across the alley — rolls left and right', 'O tyre rolls up and down', 'h office chair on castors', 'r broom',
   'a/e/k/m filing cabinet, closed — drawer faces up/down/left/right',
-  'A/D/I/J the same cabinet open — its drawer is the X beside it',
-  'X a cabinet drawer, out',
+  'A/L, D/T, I/P, J/Q the same cabinet open — two cells along that facing, one letter per piece',
   'f/l/p/q magnet — its field runs up/down/left/right',
   `${FURN_POOL.join('/')} furniture — one letter per piece, a touching same-letter blob is one couch`,
   'terrain lives in its own :water block — ~ open canal, = filled in (floor), - dry',
@@ -144,7 +162,7 @@ function labelBlobs(cells, glyphs, id, field, what, wrongSize, first = 0) {
       cells[cy][cx][field] = pid; size.push([cx, cy]);
       stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
     }
-    const bad = wrongSize(size.length);
+    const bad = wrongSize(size.length, size);
     if (bad) throw new Error(`${id}: ${what} '${ch}' at (${x + 1},${y + 1}) ${bad}`);
   }
   return next;
@@ -158,11 +176,11 @@ function pieceLetters(s) {
     if (c.pid === undefined || letters.has(c.pid)) continue;
     const spec = MULTI_POOLS.find(m => m.o === c.o);
     if (!spec) throw new Error(`occupant ${c.o} carries a piece id but has no glyph pool`);
-    const n = used.get(spec.what) ?? 0;
+    const n = used.get(spec.o) ?? 0;
     if (n >= spec.pool.length)
       throw new Error(`more than ${spec.pool.length} ${spec.what} pieces: the glyph pool is ${spec.pool.join('')}`);
     letters.set(c.pid, spec.pool[n]);
-    used.set(spec.what, n + 1);
+    used.set(spec.o, n + 1);
   }
   return letters;
 }
@@ -186,8 +204,6 @@ const WRITE = { [NONE]: '-', [BAG]: '$', [CAN_FULL]: 'C', [CAN_EMPTY]: 'c', [TRA
                 [PANE]: 'g', [TIRE_H]: 'o', [TIRE_V]: 'O',
                 [CHAIR]: 'h', [BROOM]: 'r',
                 [CABC_U]: 'a', [CABC_D]: 'e', [CABC_L]: 'k', [CABC_R]: 'm',
-                [CABO_U]: 'A', [CABO_D]: 'D', [CABO_L]: 'I', [CABO_R]: 'J',
-                [DRAWER]: 'X',
                 [MAG_U]: 'f', [MAG_D]: 'l', [MAG_L]: 'p', [MAG_R]: 'q',
                 [BAR_U]: '^', [BAR_D]: 'v', [BAR_L]: '<', [BAR_R]: '>' };
 
@@ -372,17 +388,6 @@ export function toState(level) {
     if (start.ter === GLASS) throw new Error(`${level.id}: the raccoon starts on broken glass at (${rac.x + 1},${rac.y + 1})`);
   }
 
-  // An open cabinet is a BODY and a DRAWER, and it is one thing. Nothing in play can separate
-  // the halves; a file can write one down, and every branch that reads a cabinet would then read
-  // it wrong — so it is refused here, where the complaint can name the cell.
-  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
-    const o = cells[y][x].o;
-    if (o !== DRAWER && !(o >= CABO_U && o <= CABO_R)) continue;
-    if (cabinetPair({ cols, rows, cells, rac }, [x, y])) continue;
-    throw new Error(`${level.id}: ${o === DRAWER ? 'a drawer with no cabinet behind it'
-      : 'an open cabinet with no drawer'} at (${x + 1},${y + 1})`);
-  }
-
   // The cart mask, laid over the occupant grid the same way. A cart cell's occupant IS the
   // cargo in that slot, so the mask is the only thing that says which cells are cart cells —
   // and, when two carts stand flush, which cart each cell belongs to.
@@ -404,7 +409,7 @@ export function toState(level) {
         const c = cells[y][x];
         if (c.wall) throw new Error(`${level.id}: (${x + 1},${y + 1}) is both wall and cart`);
         if (c.exit) throw new Error(`${level.id}: the exit cannot hold a cart at (${x + 1},${y + 1})`);
-        if (c.o === FURNITURE) throw new Error(`${level.id}: a cart cannot hold furniture at (${x + 1},${y + 1})`);
+        if (isMultiCell(c.o)) throw new Error(`${level.id}: a cart cannot hold a multi-cell piece at (${x + 1},${y + 1})`);
         if (rac.x === x && rac.y === y)
           throw new Error(`${level.id}: the raccoon cannot start in a cart at (${x + 1},${y + 1})`);
         row.push(ch);

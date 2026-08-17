@@ -44,6 +44,27 @@ test('on grease the broom carries its whole train to the end of the slick', () =
   assert.deepEqual(toGrid(push(S(['@rc----E']), 'r')), ['-@rc---E'], 'and one cell off it');
 });
 
+// The pane keeps the rule it has under a shove: room in front is what breaks it, and something
+// in front is what saves it. In a contiguous line only the head has room, so a sweep breaks the
+// pane it leads with and carries every other one whole.
+test('a swept pane shatters into the space in front of it', () => {
+  const broken = push(S(['@rg--E']), 'r');
+  assert.equal(toGrid(broken)[0], '-@r--E', 'the pane is gone');
+  assert.equal(toWater(broken)[0][3], '*', 'and what it left in front of it is a hazard');
+});
+
+test('a swept pane with something in front of it rides whole', () => {
+  assert.equal(toGrid(push(S(['@rgc-E']), 'r'))[0], '-@rgcE');
+});
+
+// There is no floor to leave glass on, so nothing breaks and the pane goes in intact — the same
+// answer a shove gives when it is aimed at the canal.
+test('a swept pane over the canal does not break', () => {
+  const s = push(S(['@rg--E'], ['---~--']), 'r');
+  assert.equal(toGrid(s)[0], '-@rg-E', 'still a pane');
+  assert.equal(toWater(s)[0][3], '~', 'and still the canal');
+});
+
 test('what the line sweeps into a grate is gone', () => {
   const s = push(S(['@rC---E'], ['---O---']), 'r');
   assert.equal(toGrid(s)[0], '-@r---E');

@@ -38,6 +38,7 @@ function named(prev, step) {
   step.moved.forEach(m => { t.add(key(m.from)); t.add(key(m.to)); });
   // One body or several — a tow moves a barrow and its load in one beat, and a rug that sets a
   // bicycle going moves two pieces. Same shape `applyStep` reads.
+  for (const b of step.born) for (const [x, y] of b.cells) t.add(`${x},${y}`);
   for (const { kind, ref, dx, dy } of [step.piece ?? []].flat()) {
     const cells = kind === 'cart' ? cartCells(prev, ref) : pieceCells(prev, ref);
     assert.ok(cells.length, `piece ${kind}:${ref} has no cells on the board it moves from`);
@@ -79,7 +80,7 @@ function audit(label, grid, dir, { cart, water } = {}) {
 
 test('a plain step reports no motion but the raccoon', () => {
   const r = audit('walk', ['@--E'], 'r');
-  assert.deepEqual(r.steps, [{ moved: [], spawned: [], gone: [], piece: null, impact: false }]);
+  assert.deepEqual(r.steps, [{ moved: [], spawned: [], gone: [], born: [], piece: null, impact: false }]);
   assert.equal(r.frames[1].rac.x, 1);
 });
 
@@ -330,14 +331,23 @@ test('a grate that takes a BODY says so on the piece entry', () => {
   assert.equal(tyre.effect, 'falls', 'the tyre it handed off to went down the grate');
 });
 
-test('a grate names what it swallows by the cell the stage holds it at', () => {
-  // `gone` is matched against a sprite's ANCHOR — where it stood before the step. Naming the
-  // grate it fell into finds nothing, and the sprite is left drawn on the cell the raccoon
-  // walks onto.
+test('a grate takes what travelled into it, and the step says it fell', () => {
+  // It ARRIVES over the grate and only then goes down, which is the same two-part account the
+  // body and the hand-off get. `gone` alone is right about the board and silent about the
+  // travel: matched against a sprite's ANCHOR it deflates the piece on the cell it started
+  // from, and a piece that shrinks where it stood reads as forgotten rather than dropped.
   const slid = audit('grate slide', ['-----', '-@C--', 'E----'], 'r', { water: ['-----', '---O-', '-----'] });
-  assert.deepEqual(slid.steps[0].gone, [{ o: CAN_FULL, at: [2, 1] }]);
+  assert.deepEqual(slid.steps[0].moved, [{ o: CAN_FULL, from: [2, 1], to: [3, 1], effect: 'falls' }]);
+  assert.deepEqual(slid.steps[0].gone, []);
 
   const rolled = audit('grate roll', ['------', '-@W---', 'E-----'], 'r', { water: ['------', '----O-', '------'] });
-  const gone = rolled.steps.flatMap(st => st.gone);
-  assert.deepEqual(gone, [{ o: WHEELIE, at: [2, 1] }]);
+  assert.deepEqual(rolled.steps.flatMap(st => st.moved),
+                   [{ o: WHEELIE, from: [2, 1], to: [4, 1], effect: 'falls' }]);
+  assert.deepEqual(rolled.steps.flatMap(st => st.gone), []);
+
+  // And what a broom sweeps in, which travels as a line and loses only its head to the hole.
+  const swept = audit('grate sweep', ['------', '@rC---', 'E-----'], 'r', { water: ['------', '---O--', '------'] });
+  assert.deepEqual(swept.steps[0].moved.find(m => m.o === CAN_FULL),
+                   { o: CAN_FULL, from: [2, 1], to: [3, 1], effect: 'falls' });
+  assert.deepEqual(swept.steps[0].gone, []);
 });

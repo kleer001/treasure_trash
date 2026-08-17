@@ -19,14 +19,14 @@
 :level  TH
 :name   The magnet
 :teach  its field runs one way; the nearest metal within three comes to it
-:par    21
-:traps  195
-:solves 105
-:solve  urDrdLrrrruLulDL!rrdrr
+:par    19
+:traps  225
+:solves 37
+:solve  urDurrrrrdLdlUL!rdrr
 :grid
 ##########
 #--------#
-#-@q--C--#
+#-@q---C-#
 #-------E#
 ##########
 :end
@@ -441,7 +441,7 @@
 :grid
 ##########
 #--------#
-#-@JX#---#
+#-@JJ#---#
 #-------E#
 ##########
 :end

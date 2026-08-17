@@ -122,11 +122,12 @@ test('a cart slot over a grate still holds what is shoved into it', () => {
 });
 
 test('a magnet cannot pull anything through the raccoon, or onto him', () => {
-  // He is the one occupant `isOccupiable` cannot see, and on the pull side of the board he can
-  // be anywhere — a shove always has him behind what moves, so no other branch has to ask.
+  // He is the one occupant `isOccupiable` cannot see, and on the pull side of the board he can be
+  // anywhere at all: the field settles after every action, so the cell it wants to draw into is
+  // as likely to hold him as not.
   const s = S(['#######', '#--C--#', '#--@--#', '#--f--#', '#----E#', '#######']);
   const r = explain(s, 'd');
   assert.ok(r.ok, `refused: ${r.reason}`);
-  assert.deepEqual(toGrid(r.next), ['#######', '#--C--#', '#-----#', '#--@--#', '#--f-E#', '#######'],
-    'the can stays on the far side of him; he follows the magnet he shoved');
+  assert.deepEqual(toGrid(r.next), ['#######', '#-----#', '#--C--#', '#--@--#', '#--f-E#', '#######'],
+    'it closes as far as the cell above him and stops; he is not stood on and not passed');
 });

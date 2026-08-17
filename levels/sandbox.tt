@@ -4,7 +4,7 @@
 :name   Everything at once
 :teach  every piece the rules know, and every lane they play on
 :par    84
-:solve  rrrrrrDurrrrrDDuurrrrrDrrrrRlllllllllllllllllllL!rdddrddrrddddddddrrrrrrrrrrrdrrrrrrr
+:solve  rrrrrrDurrrrrDDuurrrrrDrrrrRlllllllllllllllllllL!rdddrddrrddddddDDrrrrrrrrrrrdrrrrrrr
 :note   A sandbox: its par is a solution that was walked and checked action by action, not a proven minimum — a board of thirty movable pieces has a state graph nothing enumerates. The yard along the top is what the exit waits on, and the grated row under it drains so bursting things does not silt the place up. Everything below is there to be poked.
 :grid
 ##########################
@@ -18,7 +18,7 @@
 #--j-i-x-#--o-O-h---FF-G-#
 #--------#-------------G-#
 #------------------------#
-#--a-e-k-m--JX----#-YY---#
+#--a-e-k-m--JJ----#-YY---#
 #-----------------#------#
 #-----------------#------#
 #--f-l-p-q--####----UUU--#

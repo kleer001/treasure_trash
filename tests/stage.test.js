@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, CAN_EMPTY, TRASH, BAG, WHEELIE, WHEELIE_EMPTY } from '../src/rules.js';
+import { explain, CAN_EMPTY, TRASH, BAG, WHEELIE, WHEELIE_EMPTY, FURNITURE } from '../src/rules.js';
 import { toState } from '../src/format.js';
 import {
   stageFrom, applyStep, advance, settle, rollEase, easeOut, pileLook, bump, NUDGE,
@@ -342,7 +342,7 @@ test('what goes down a grate arrives first, then drops', () => {
   // say it was disappearing rather than dropping, and would not say which cell took it.
   const stage = { sprites: [], nextId: 0 };
   applyStep(stage, {
-    moved: [], gone: [], piece: null, impact: false,
+    moved: [], gone: [], born: [], piece: null, impact: false,
     spawned: [{ o: BAG, at: [3, 1], from: [1, 1], effect: 'falls' }],
   });
   const [bag] = stage.sprites;
@@ -361,4 +361,42 @@ test('what goes down a grate arrives first, then drops', () => {
   assert.equal(bag.deflate, 0, 'gone by the end of the beat');
   settle(stage);
   assert.deepEqual(stage.sprites, [], 'and off the stage');
+});
+
+// A piece that opens into two cells has to be able to APPEAR: nothing in the game mints a body
+// mid-action, so the account had no way to say one exists that did not a moment ago. The mirror
+// is a piece consumed by a step that put something else in its place.
+test('a body can be born mid-action, and lands where a rebuilt stage would put it', () => {
+  const stage = stageFrom(S(['@---E', '-----']), 1);
+  applyStep(stage, {
+    moved: [], spawned: [], gone: [], piece: null, impact: false,
+    born: [{ kind: 'furniture', ref: 0, o: FURNITURE, cells: [[1, 1], [2, 1]] }],
+  });
+  settle(stage);
+  const born = one(stage, COUCH);
+  const rebuilt = one(stageFrom(S(['@---E', '-FF--']), 1), COUCH);
+  for (const k of ['kind', 'ref', 'o', 'tx', 'ty', 'depth'])
+    assert.deepEqual(born[k], rebuilt[k], `born ${k}`);
+  assert.deepEqual(born.cells, rebuilt.cells, 'and the same footprint, in offsets');
+});
+
+test('a second sprite for one body ref is loud rather than quietly doubled', () => {
+  const stage = stageFrom(S(['@---E', '-FF--']), 1);
+  const ref = one(stage, COUCH).ref;
+  assert.throws(() => applyStep(stage, {
+    moved: [], spawned: [], gone: [], piece: null, impact: false,
+    born: [{ kind: 'furniture', ref, o: FURNITURE, cells: [[1, 1], [2, 1]] }],
+  }), /already answers/);
+});
+
+test('a body swapped for something else leaves the stage', () => {
+  const stage = stageFrom(S(['@---E', '-FF--']), 1);
+  const ref = one(stage, COUCH).ref;
+  applyStep(stage, {
+    moved: [], spawned: [{ o: BAG, at: [1, 1], from: [1, 1] }], gone: [], born: [], impact: false,
+    piece: [{ kind: 'furniture', ref, dx: 0, dy: 0, effect: 'swaps' }],
+  });
+  settle(stage);
+  assert.equal(of(stage, COUCH).length, 0, 'the body is gone');
+  assert.equal(of(stage, BAG).length, 1, 'and what replaced it is on the stage');
 });
