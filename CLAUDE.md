@@ -225,6 +225,13 @@ These govern how code is written. They are not design arguments.
   The Pages deploy withholds the whole directory until the release-gate checkbox in
   `RELEASE-CHECKLIST.md` is ticked, then serves `promo.html` and nothing else.
 
+**NOTHING IS SHIPPED.** The game is pre-alpha. No room, no par, no pack and no artifact has
+been released to anyone, and no player has ever seen one. "Shipped" is not a category that
+applies to anything in this repo, so it is never a reason to keep a design, and it never makes
+a change expensive. A room that has to be re-solved costs one run of `tools/verify.mjs`; a
+piece that has to be redesigned costs the afternoon it takes. Weigh a change by whether it
+makes the game better, not by what it disturbs.
+
 **Where the game is: prototype → alpha → beta → release.** Labels, not gates — nothing is
 signed off and you move between them by noticing you already have. Prototype is the vertical
 slice (one loop, placeholder art, only you play it); alpha is content going in while the
