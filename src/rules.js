@@ -955,17 +955,24 @@ function towMove(s, lk, dx, dy, done) {
     c.cart = was[i].cart; c.ck = was[i].ck; c.lk = was[i].lk;
   });
   next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
-  // Both halves are BODIES — a cart and a multi-cell piece — so neither can be named in `moved`,
-  // which holds occupant sprites. A tow moves two of them in one beat.
-  const bodies = [];
+  // A link holds whatever the field caught, and the account names it the way the rest of the game
+  // does: a cart or a multi-cell piece by its id, and everything else — the magnet itself, a can,
+  // a wheelie, a shut cabinet — as the occupant it is. Named by neither, a tow is a beat in which
+  // the board moves and nothing on screen does.
+  const bodies = [], moved = [];
   for (const [x, y] of own) {
     const c = cell(s, x, y);
-    if (c.cart !== undefined && !bodies.some(b => b.kind === 'cart' && b.ref === c.cart))
-      bodies.push({ kind: 'cart', ref: c.cart, dx, dy });
-    if (c.pid !== undefined && !bodies.some(b => b.kind === 'furniture' && b.ref === c.pid))
-      bodies.push({ kind: 'furniture', ref: c.pid, dx, dy });
+    if (c.cart !== undefined) {
+      if (!bodies.some(b => b.kind === 'cart' && b.ref === c.cart))
+        bodies.push({ kind: 'cart', ref: c.cart, dx, dy });
+    } else if (c.pid !== undefined) {
+      if (!bodies.some(b => b.kind === 'furniture' && b.ref === c.pid))
+        bodies.push({ kind: 'furniture', ref: c.pid, dx, dy });
+    } else {
+      moved.push({ o: c.o, from: [x, y], to: [x + dx, y + dy] });
+    }
   }
-  return done(next, PUSH, mkStep({ piece: bodies }));
+  return done(next, PUSH, mkStep({ piece: bodies.length ? bodies : null, moved }));
 }
 
 /**

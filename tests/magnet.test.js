@@ -131,3 +131,18 @@ test('a magnet cannot pull anything through the raccoon, or onto him', () => {
   assert.deepEqual(toGrid(r.next), ['#######', '#-----#', '#--C--#', '#--@--#', '#--f-E#', '#######'],
     'it closes as far as the cell above him and stops; he is not stood on and not passed');
 });
+
+// A tow moves the magnet and its load in one beat, and the account has to name both. Shoving the
+// magnet is the well-worn path; shoving the HELD thing is the one that reaches `towMove`, and a
+// link made of plain occupants has neither a cart id nor a piece id to be named by. Nothing
+// downstream can read the board, so a step that names nothing is a beat where nothing moves.
+test('a tow of plain occupants says what moved', () => {
+  let s = S(['@----', '-q-c-', '-----', '----E']);
+  for (const d of ['r', 'r']) s = push(s, d);
+  assert.deepEqual(toGrid(s), ['--@--', '-qc--', '-----', '----E'], 'held, and he is above the can');
+  const r = explain(s, 'd', { trace: true });
+  assert.ok(r.ok, `refused: ${r.reason}`);
+  const moved = r.steps.flatMap(st => st.moved);
+  assert.deepEqual(moved.map(m => [m.from, m.to]).sort(),
+    [[[1, 1], [1, 2]], [[2, 1], [2, 2]]].sort(), 'the magnet and the can both travelled');
+});
