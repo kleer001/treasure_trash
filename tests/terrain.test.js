@@ -25,16 +25,24 @@ test('grease changes nothing for a roller, which already travelled', () => {
 });
 
 // A body is the heaviest thing on the board and grease is what beats weight, so the lane carries
-// a couch exactly as it carries a can. It runs while the WHOLE of it is on the slick: one cell
-// still on dry floor grips, the same way one cell still on solid floor spans a grate.
+// a couch exactly as it carries a can. What decides is the LEADING cell: the end taking the shove
+// is the end that skates, and a rug asked for its whole footprint would need a lane longer than
+// itself before the slick did anything at all.
 test('a body runs the slick like anything else', () => {
   assert.deepEqual(toGrid(push(S(['@FF---E'], ['--%%%--']), 'r')), ['-@--FFE'], 'the couch');
   assert.deepEqual(toGrid(push(S(['@JJ---E'], ['--%%%--']), 'r')), ['-@--JJE'], 'the open cabinet');
 });
 
-test('a body only half on the slick grips and goes one cell', () => {
-  assert.deepEqual(toGrid(push(S(['@FF----E'], ['---%%%--']), 'r')), ['-@FF---E'],
-    'its rear cell is still on dry floor');
+test('a body skates on its leading cell, not its whole footprint', () => {
+  assert.deepEqual(toGrid(push(S(['@FF----E'], ['---%%%--']), 'r')), ['-@---FFE'],
+    'its rear is still on dry floor and it runs anyway');
+  assert.deepEqual(toGrid(push(S(['@FF----E'], ['--%-----']), 'r')), ['-@FF---E'],
+    'and grease only under the rear does nothing — that end is not the one going first');
+});
+
+test('a long body needs no lane longer than itself', () => {
+  assert.deepEqual(toGrid(push(S(['@UUU---E'], ['----%---']), 'r')), ['-@-UUU-E'],
+    'one greased cell ahead of the rug carries it');
 });
 
 test('a body stops where the slick turns to tar', () => {

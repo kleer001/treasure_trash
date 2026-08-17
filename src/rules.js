@@ -1486,17 +1486,21 @@ function decide(s, dir, opts) {
     const blame = clearAt(1);
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
 
+    // The end that goes first, and the only cell either kind of travel asks about: what the roll
+    // hands off to, and what the slick is under. Read off the footprint against the shove, so a
+    // body has a leading end without storing which end that is.
+    const lead = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
+
     // Shoved the way it rolls a body travels; shoved the other way it shifts one cell, like the
     // couch it otherwise is. Nothing stores the axis — it is whatever the footprint already says.
     //
     // Grease is the other way it travels, and it is not about rolling: the lane beats weight, and
-    // a body is the heaviest thing there is. It runs while the WHOLE of it is on the slick — one
-    // cell still on dry floor is enough to grip, the same way one cell still on solid floor is
-    // enough to span a grate.
+    // a body is the heaviest thing there is. What decides is the LEADING cell — the end taking
+    // the shove is the end that skates, and asking the whole footprint would mean a long body
+    // needs a lane longer than itself before the slick did anything for it.
     let k = 1;
     const rolls = rollsBody(o, own, dx, dy);
-    const travels = () => rolls
-      || own.every(([x, y]) => isGrease(cell(s, x + k * dx, y + k * dy)));
+    const travels = () => rolls || isGrease(cell(s, lead[0] + k * dx, lead[1] + k * dy));
     while (travels() && !clearAt(k + 1).length) {
       k++;
       const front = own.map(([x, y]) => cell(s, x + k * dx, y + k * dy));
@@ -1519,7 +1523,6 @@ function decide(s, dir, opts) {
     // the roll is whatever rolls THIS way, and what does not is simply what the roller stops
     // against. A rug and a bicycle roll on opposite axes, so the pair that hands off is the pair
     // lying across each other.
-    const lead = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
     const passed = ROLL_AXIS.has(o)
       ? handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy, step)
       : { moved: [], bodies: [] };
