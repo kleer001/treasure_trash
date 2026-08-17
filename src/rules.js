@@ -1023,11 +1023,14 @@ function shutCabinet(s, own, at, shut, [px, py], dx, dy, done) {
   const next = cloneState(s);
   const pid = cell(s, ...own[0]).pid;
   for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; c.pid = undefined; }
-  cell(next, ...at).o = shut;
+  // Through `drop`, not straight into the cell: a body spans a hole and one cell does not, so
+  // folding back to one cell over a grate is a cabinet standing on nothing.
+  const effect = effectOf(cell(next, ...at), shut);
+  drop(next, at, [shut]);
   next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
   return done(next, PUSH, mkStep({
     piece: [{ kind: 'furniture', ref: pid, dx: px, dy: py, effect: 'swaps' }],
-    spawned: [{ o: shut, at, from: own[0] }],
+    spawned: [{ o: shut, at, from: own[0], effect }],
   }));
 }
 

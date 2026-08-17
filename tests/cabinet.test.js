@@ -153,6 +153,19 @@ test('shut it goes down a grate; open it spans one', () => {
   assert.equal(toGrid(open)[1], '--@JJ---', 'and a body simply travels');
 });
 
+// A body spans a hole and one cell does not, so the moment a cabinet folds back to one cell over
+// a grate it is standing on nothing. Both ways of shutting it land the same occupant on the same
+// cell, so both owe the grate the same answer.
+test('folded in over a grate it goes down it', () => {
+  const folded = push(S(['---------', '-@JJ#----', '---------', 'E--------'],
+                        ['---------', '---O-----', '---------', '---------']), 'r');
+  assert.equal(toGrid(folded)[1], '--@-#----', 'the drawer went home and the cabinet fell');
+
+  const closed = push(S(['---------', '--JJ@----', '---------', 'E--------'],
+                        ['---------', '--O------', '---------', '---------']), 'l');
+  assert.equal(toGrid(closed)[1], '---@-----', 'and closing in place over one is the same fall');
+});
+
 test('shut it runs a slick', () => {
   const after = push(S(['-------', '--@----', '--m----', '-------', '-------', 'E------'],
                        ['-------', '-------', '-------', '--%----', '--%----', '-------']), 'd');
