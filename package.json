@@ -6,6 +6,7 @@
   "license": "MIT",
   "scripts": {
     "test": "node --test",
+    "test_rules": "node --test $(grep -L 'node:fs' tests/*.test.js)",
     "start": "./run.sh"
   }
 }
