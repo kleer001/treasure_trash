@@ -17,7 +17,7 @@
  * Nothing here decides a rule; it asks, and it asks the same module the game asks.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { explain, cell, isCart, inGrid, DIRS, DIR_ORDER, PUSH, stateKey } from '../src/rules.js';
 import { parseLevelPack, toState, toGrid, toWater, toCart } from '../src/format.js';
@@ -196,7 +196,9 @@ export function sweepRoom(level, { maxStates = MAX_STATES } = {}) {
 const packOf = name => parseLevelPack(readFileSync(resolve(root, 'levels', name), 'utf8')).levels;
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const [pack = 'scratch.tt', ...only] = process.argv.slice(2);
+  const argv = process.argv.slice(2);
+  const write = argv.includes('--write');
+  const [pack = 'scratch.tt', ...only] = argv.filter(a => a !== '--write');
   const levels = packOf(pack).filter(l => !only.length || only.includes(l.id));
   const out = [];
   for (const l of levels) {
@@ -207,6 +209,18 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`${r.id}  ${String(r.covered).padStart(3)}/${String(r.affords).padEnd(3)} meetings`
       + `  ${r.runs.length} run(s), ${runs} keys`
       + (r.stranded.length ? `  UNREACHABLE: ${r.stranded.join(', ')}` : ''));
+  }
+  const planned = out.filter(r => !r.tooBig);
+  console.log(`\n${planned.length}/${out.length} rooms planned, `
+    + `${planned.reduce((n, r) => n + r.covered, 0)} meetings, `
+    + `${planned.reduce((n, r) => n + r.runs.length, 0)} runs`
+    + (out.length - planned.length ? `; ${out.length - planned.length} over the board bound` : ''));
+  // Written where the dev server can reach it: the page fetches the plan rather than being handed
+  // it, so a sweep of a whole pack is one call and not a wall of pasted keys.
+  if (write) {
+    const to = resolve(root, 'levels', `sweep-${pack.replace(/\.tt$/, '')}.json`);
+    writeFileSync(to, JSON.stringify(planned.map(r => ({ id: r.id, runs: r.runs }))));
+    console.log(`wrote ${to}`);
   }
   if (process.env.SWEEP_JSON) console.log(JSON.stringify(out));
 }

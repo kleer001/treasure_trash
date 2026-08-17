@@ -21,3 +21,8 @@ engine/target/
 # are computed from the rules that were in force when it ran, so a tracked copy goes stale on
 # the next rules change and reads as a claim about rules nobody checked. Regenerate it.
 levels/matrix.tt
+
+# Written by tools/sweep.mjs --write for the page to fetch. Planned against the rules that were
+# in force when it ran, so a tracked copy goes stale on the next rules change and would send a
+# driver down keys that no longer cause what they claim. Regenerate it.
+levels/sweep-*.json

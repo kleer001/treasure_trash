@@ -46,6 +46,13 @@ around it — art, audio, progression, and the solvability indicator.
   invariant behind a body named as an occupant, a container that sheds without saying what it
   becomes, and a piece consumed by a name that finds nothing, none of which a board comparison
   can see. `--pack` writes `levels/matrix.tt`, playable at `index.html?acts=matrix.tt`.
+- `node tools/sweep.mjs [pack] [roomId...] [--write]` — the interaction sweep. A declared `:solve`
+  is the shortest path to the exit and is under no obligation to touch anything, so replaying a
+  pack to a win says the exit still opens and nothing about the pieces. This enumerates what a
+  room AFFORDS instead — every meeting a shove can cause, piece against piece and piece onto
+  terrain lane — keeps the ones the room can be driven to, and orders them greedily into as few
+  runs as it can. `--write` puts the plan where the dev server can serve it, and the page drives
+  it with `__tt.sweep`. See **Driving the page** below.
 - `node tools/survey.mjs` — samples every legal group of four pieces and writes which ones
   make rooms at all to `levels/fertility.jsonl`. Findings are read in `SPEC-SHEET.md`.
 - `node tools/harvest.mjs` — samples the fertile groups deeply, on outlines rather than open
@@ -182,6 +189,15 @@ These govern how code is written. They are not design arguments.
   shortest path, and the shortest path walks past the piece more often than not — so a pack of
   one-piece rooms replayed to a win says the exit still opens and nothing about the piece.
   `tools/matrix.mjs` is where that pairing is done and where a new piece is added to it.
+- **Driving the page.** `?debug` puts a play-by-play panel on screen and a probe on
+  `window.__tt`. The probe is how a page is CHECKED: `__tt.walk(keys)` presses keys through the
+  game's own input handler and, after each beat settles, compares the stage's sprites against a
+  stage built fresh from the board — the invariant `tools/matrix.mjs` asks, put to the real input
+  → timeline → animation-frame path instead of to a direct `applyStep`. `__tt.sweep(plan)` runs a
+  whole `tools/sweep.mjs` plan and reports the meetings each run caused. A disagreement comes back
+  naming the sprite drawn that the board has not got and the one the board has that was never
+  built. Screenshots are the artifact for a human to look at once something has already failed,
+  not the check.
 - Comments carry what the code cannot — see [`CLEAN_PROSE.md`](./CLEAN_PROSE.md). A comment that
   restates the line below it, or the signature above it, is deleted rather than reworded.
 - Atomic conventional commits: `feat:`, `fix:`, `docs:`, `test:`, `chore:`.
