@@ -13,6 +13,7 @@ import {
 import { parseLevelPack, toState } from './format.js';
 import { deadScan } from './solver.js';
 import { createProgress } from './progress.js';
+import { createDebugLog } from './debug.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
 import { createCompositor } from './compositor.js';
 // stage owns the objects, their motion and its envelopes
@@ -80,6 +81,12 @@ let LEVELS = [], cur=0, state=null, start=null, history=[], moves=0, won=false;
 // One entry per act: { label, from, to } as indices into LEVELS. The picker folds on it.
 const ACT_OF = [], CELLS = [];
 const progress = createProgress(window.localStorage);
+// The play-by-play, on `?debug` and nowhere else: the artifact has no query string, so the
+// panel it ships is a hidden element nothing ever fills. Null when it is off, and every call
+// site is optional — the log is downstream of the game and may not be there at all.
+const dbg = new URLSearchParams(location.search).has('debug')
+  ? createDebugLog(document.getElementById('dbglog')) : null;
+if(dbg){ document.getElementById('dbg').hidden = false; document.body.classList.add('debugging'); }
 let beat = false;      // this run set a new record for the room, and the win screen says so
 let blocked = null;   // { cells, reason, dir } — cleared by the next legal action
 // Set when the player shoves during a move and cleared the instant that move lands, so the
@@ -311,6 +318,7 @@ function act(dir){
   }
 
   if(!r.ok){                       // refused — play the whole no, then rewind it
+    dbg?.refused(dir, r);
     blocked = { cells:r.blame, reason:r.reason, dir };
     armed = null; startFx(dir, r); render(); return;
   }
@@ -320,15 +328,16 @@ function act(dir){
   }
   const prev = state;
   history.push(cloneState(state)); state = r.next; moves++;
+  dbg?.action(moves, dir, prev.rac, r);
   blocked = null; armed = null;
   startMv(prev, r);
-  if(isWon(state)){ won = true; beat = progress.record(LEVELS[cur].id, moves); startParty(); }
+  if(isWon(state)){ won = true; beat = progress.record(LEVELS[cur].id, moves); startParty(); dbg?.note(`won in ${moves}`); }
   readLost();
   render();
 }
 function undo(){
   cancelAnim(); busy = false;
-  if(history.length){ state=history.pop(); moves--; won=false; blocked=null; armed=null; rest(); readLost(); render(); }
+  if(history.length){ state=history.pop(); moves--; won=false; blocked=null; armed=null; rest(); readLost(); render(); dbg?.note(`undo -> ${moves}`); }
 }
 function restart(){ load(cur); }
 function load(i){
@@ -337,6 +346,7 @@ function load(i){
   state=toState(LEVELS[cur]); start=state; history=[]; moves=0; won=false;
   blocked=null; armed=null; beat=false;
   startScan();
+  dbg?.note(`-- ${pad(LEVELS[cur].id)} ${LEVELS[cur].name ?? ''} --`);
   rest(); render();
 }
 
