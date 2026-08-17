@@ -24,6 +24,29 @@ test('grease changes nothing for a roller, which already travelled', () => {
   assert.deepEqual(toGrid(step(dry, 'r')), toGrid(step(slick, 'r')));
 });
 
+// A body is the heaviest thing on the board and grease is what beats weight, so the lane carries
+// a couch exactly as it carries a can. It runs while the WHOLE of it is on the slick: one cell
+// still on dry floor grips, the same way one cell still on solid floor spans a grate.
+test('a body runs the slick like anything else', () => {
+  assert.deepEqual(toGrid(push(S(['@FF---E'], ['--%%%--']), 'r')), ['-@--FFE'], 'the couch');
+  assert.deepEqual(toGrid(push(S(['@JJ---E'], ['--%%%--']), 'r')), ['-@--JJE'], 'the open cabinet');
+});
+
+test('a body only half on the slick grips and goes one cell', () => {
+  assert.deepEqual(toGrid(push(S(['@FF----E'], ['---%%%--']), 'r')), ['-@FF---E'],
+    'its rear cell is still on dry floor');
+});
+
+test('a body stops where the slick turns to tar', () => {
+  assert.deepEqual(toGrid(push(S(['@FF----E'], ['--%%T---']), 'r')), ['-@-FF--E'],
+    'it runs the grease and comes to rest in the tar');
+});
+
+test('grease does not lengthen a roll that already ran its course', () => {
+  const dry = S(['@YY---E']), slick = S(['@YY---E'], ['--%%%--']);
+  assert.deepEqual(toGrid(push(dry, 'r')), toGrid(push(slick, 'r')), 'the bicycle rolls the same');
+});
+
 test('a container settles its bill where it stops, not where it was shoved', () => {
   // The can sheds one cell past its resting place — off the end of the slick, not at its head.
   const s = S(['@C-----', 'E------'], ['--%%%--', '-------']);

@@ -694,3 +694,25 @@
 --------------
 --------------
 :end
+
+:level  TV
+:name   The slick carries a body
+:teach  grease beats weight, and a body is the heaviest thing there is
+:par    7
+:traps  0
+:solves 6
+:solve  drrrrrr
+:grid
+##########
+#--------#
+#-@JJ----#
+#-------E#
+##########
+:end
+:water
+----------
+----------
+----%%%---
+----------
+----------
+:end

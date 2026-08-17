@@ -1488,13 +1488,19 @@ function decide(s, dir, opts) {
 
     // Shoved the way it rolls a body travels; shoved the other way it shifts one cell, like the
     // couch it otherwise is. Nothing stores the axis — it is whatever the footprint already says.
+    //
+    // Grease is the other way it travels, and it is not about rolling: the lane beats weight, and
+    // a body is the heaviest thing there is. It runs while the WHOLE of it is on the slick — one
+    // cell still on dry floor is enough to grip, the same way one cell still on solid floor is
+    // enough to span a grate.
     let k = 1;
-    if (rollsBody(o, own, dx, dy)) {
-      while (!clearAt(k + 1).length) {
-        k++;
-        const front = own.map(([x, y]) => cell(s, x + k * dx, y + k * dy));
-        if (front.some(c => isTar(c) || isGrate(c))) break;
-      }
+    const rolls = rollsBody(o, own, dx, dy);
+    const travels = () => rolls
+      || own.every(([x, y]) => isGrease(cell(s, x + k * dx, y + k * dy)));
+    while (travels() && !clearAt(k + 1).length) {
+      k++;
+      const front = own.map(([x, y]) => cell(s, x + k * dx, y + k * dy));
+      if (front.some(c => isTar(c) || isGrate(c))) break;
     }
 
     const next = cloneState(s);
