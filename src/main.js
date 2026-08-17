@@ -1,7 +1,7 @@
 // Presentation and input only — the rules live in src/rules.js.
 // ES modules need http://, so run ./run.sh rather than opening the file.
 import {
-  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
+  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMPTY, JUG,
   JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
   CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R,
   MAG_U, MAG_D, MAG_L, MAG_R,
@@ -48,7 +48,7 @@ const WHY = {
 // Name the thing in the way rather than saying "blocked": the red cell already carries that.
 const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"your own trash",
   [BIN]:"a full recycle bin", [BIN_EMPTY]:"an empty recycle bin",
-  [STACK]:"a bag on a can", [WHEELIE]:"a wheelie bin",
+  [WHEELIE]:"a wheelie bin",
   [WHEELIE_EMPTY]:"an empty wheelie bin", [JUG]:"the water jug", [JUG_EMPTY]:"the empty jug",
   [SPONGE]:"the sponge", [CARDBOARD]:"the cardboard", [PANE]:"the pane of glass",
   [TIRE_H]:"the tyre", [TIRE_V]:"the tyre", [BICYCLE]:"the bicycle", [RUG]:"the rolled rug", [CHAIR]:"the office chair", [BROOM]:"the broom",

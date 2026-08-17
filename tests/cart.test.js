@@ -111,8 +111,8 @@ test('a cart that cannot roll at all is refused: it vacated nothing to unload in
   assert.equal(refused(['@cc#', 'E---'], ['-PP-', '----'], 'r'), 'canRoom');
 });
 
-test('a cart takes in anything single-cell — bag, can, bin, jug, wheelie, stack, trash', () => {
-  for (const g of ['$', 'C', 'c', 'x', 'B', 'b', 'j', 'W', 'w', 'S']) {
+test('a cart takes in anything single-cell — bag, can, bin, jug, wheelie, trash', () => {
+  for (const g of ['$', 'C', 'c', 'x', 'B', 'b', 'j', 'W', 'w']) {
     const r = explain(S([`@--${g}-F`, '-----F', 'E-----'], ['-PP---', '------', '------']), 'r',
                       { trace: true });
     assert.ok(r.ok, `${g} should load`);
@@ -163,7 +163,6 @@ test('junk that was never the mess rides out with him', () => {
 test('a bag in a cart still counts as a bag, wherever it is riding', () => {
   assert.equal(bagsLeft(S(['@-$-E'], ['--PP-'])), 1);
   assert.equal(bagsLeft(S(['@-W-E'], ['--PP-'])), 1);   // a full wheelie bin, in a cart
-  assert.equal(bagsLeft(S(['@-S-E'], ['--PP-'])), 2);   // a stack is two, in a cart or out
 });
 
 test('a can riding in a cart is not the same board as a can lying on the floor', () => {
@@ -264,7 +263,7 @@ test('a full cart with nowhere to put the overflow refuses the shove', () => {
 });
 
 test('every shovable piece can go in, and rides in whatever state it went in as', () => {
-  for (const g of ['C', 'S', 'B', 'j']) {
+  for (const g of ['C', 'B', 'j']) {
     const next = act([`@${g}---E`, '------'], ['--P---', '--P---'], 'r');
     assert.equal(cell(next, 2, 0).cart !== undefined, true, `${g} should ride`);
     assert.deepEqual(toGrid(next), [`-@${g}--E`, '------'], `${g} should be aboard unchanged`);
@@ -297,7 +296,7 @@ test('a cart sets its load down on the floor, and the landing is where it sheds'
 test('he stops a container emptying onto the square he is standing on', () => {
   // Every container the cart could set down here would shed backwards onto him, so none of
   // them is set down at all — each keeps its slot, and he follows the cart in.
-  for (const g of ['j', 'C', 'B', 'S']) {
+  for (const g of ['j', 'C', 'B']) {
     const next = act([`-${g}#--`, '--E$-', '-@---', '---##'],
                      ['-----', 'PP---', '-----', '-----'], 'u');
     assert.equal(cell(next, 1, 0).cart !== undefined, true, `${g} should still be aboard`);

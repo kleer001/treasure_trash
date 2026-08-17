@@ -76,7 +76,6 @@ viewer renders roughly right. `.` is floor here, not a goal square.
 | `E` | the exit |
 | `$` | garbage bag |
 | `C` / `c` | full can / empty can |
-| `S` | bag-on-can stack |
 | `W` / `w` | wheelie bin, full / empty |
 | `B` / `b` | recycle bin, full / empty |
 | `j` | water jug |

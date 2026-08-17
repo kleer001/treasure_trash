@@ -3,7 +3,7 @@
 
 import {
   CART, BARROW_U, BARROW_D, BARROW_L, BARROW_R,
-  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, STACK, WHEELIE, WHEELIE_EMPTY, JUG,
+  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMPTY, JUG,
   JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
   CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R,
   BAR_U, BAR_D, BAR_L, BAR_R, isCarriedBarrow,
@@ -25,7 +25,6 @@ const READ = {
   'C': { o: CAN_FULL },
   'c': { o: CAN_EMPTY },
   'x': { o: TRASH },
-  'S': { o: STACK },
   'W': { o: WHEELIE },
   'w': { o: WHEELIE_EMPTY },
   'B': { o: BIN },
@@ -128,7 +127,7 @@ const CART_KINDS_IN_MASK = [
 export const LEGEND = [
   '# wall', '- floor', '@ raccoon', '$ bag', 'C full can', 'c empty can',
   'x spilled trash', 'E exit', '+ raccoon on exit',
-  'S bag-on-can stack', 'W wheelie bin (full)', 'w wheelie bin (empty)',
+  'W wheelie bin (full)', 'w wheelie bin (empty)',
   'B recycle bin (full)', 'b recycle bin (empty)', 'j water jug', 'i empty jug', 's sponge', 'd flattened cardboard', 'g pane of glass',
   'o tyre lying across the alley — rolls left and right', 'O tyre rolls up and down', 'h office chair on castors', 'r broom',
   'a/e/k/m filing cabinet, closed — drawer faces up/down/left/right',
@@ -199,7 +198,7 @@ function poolLetters(s, field, pool, what) {
 // One occupant code, one character. Out here rather than inside `glyphFor` because `:hold`
 // writes bare codes with no cell around them, and two tables would drift.
 const WRITE = { [NONE]: '-', [BAG]: '$', [CAN_FULL]: 'C', [CAN_EMPTY]: 'c', [TRASH]: 'x',
-                [STACK]: 'S', [WHEELIE]: 'W', [WHEELIE_EMPTY]: 'w', [BIN]: 'B', [BIN_EMPTY]: 'b',
+                [WHEELIE]: 'W', [WHEELIE_EMPTY]: 'w', [BIN]: 'B', [BIN_EMPTY]: 'b',
                 [JUG]: 'j', [JUG_EMPTY]: 'i', [SPONGE]: 's', [CARDBOARD]: 'd',
                 [PANE]: 'g', [TIRE_H]: 'o', [TIRE_V]: 'O',
                 [CHAIR]: 'h', [BROOM]: 'r',

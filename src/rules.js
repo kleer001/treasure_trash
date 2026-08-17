@@ -3,7 +3,10 @@
 
 // Occupant codes. `stateKey` encodes each as one printable character, so the list can grow.
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
-             BIN = 5, STACK = 6, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9, FURNITURE = 10,
+             // 6 was the bag-on-can stack: a full can with one more shove in front of it. It
+             // taught what the full can already teaches, a move later, and made rooms at a
+             // twelfth the rate of every other piece.
+             BIN = 5, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9, FURNITURE = 10,
              BIN_EMPTY = 11, JUG_EMPTY = 12, SPONGE = 13, CARDBOARD = 14, PANE = 15,
              TIRE_H = 16, TIRE_V = 17, BICYCLE = 18, RUG = 19, CHAIR = 20, BROOM = 21,
              // The cabinet is four facings times two states, and OPEN and CLOSED are separate
@@ -78,7 +81,7 @@ export const magnetFace = o =>
 export const isMagnet = o => o >= MAG_U && o <= MAG_R;
 
 export const OCCUPANTS = {
-  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, STACK, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
+  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, WHEELIE, WHEELIE_EMPTY, JUG, FURNITURE,
   BIN_EMPTY, JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
   CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R,
   MAG_U, MAG_D, MAG_L, MAG_R, BAR_U, BAR_D, BAR_L, BAR_R, carriedFace,
@@ -185,7 +188,6 @@ export const rollsAlong = (c, dx, dy) =>
 // One shove table for the single-cell pushables. Read the entries, not a paraphrase.
 const SLIDES = {
   [CAN_FULL]:  { slides: CAN_EMPTY, drops: BAG },
-  [STACK]:     { slides: CAN_FULL,  drops: BAG },
   [BIN]:       { slides: BIN_EMPTY, drops: TRASH },
   [JUG]:       { slides: JUG_EMPTY,  pours: true },
   [JUG_EMPTY]: { slides: JUG_EMPTY },
@@ -1828,7 +1830,7 @@ export function applyAction(s, { dir, kind }) {
   return r.next;
 }
 
-const BAGS_IN = { [BAG]: 1, [CAN_FULL]: 1, [WHEELIE]: 1, [STACK]: 2, [BIN]: 1 };
+const BAGS_IN = { [BAG]: 1, [CAN_FULL]: 1, [WHEELIE]: 1, [BIN]: 1 };
 // Both walk the whole chain. A bag stowed inside a barrow that is itself riding in a cart is
 // still a bag the exit is waiting on, and a room that let it out of sight would open its door
 // on a yard that is not clear.

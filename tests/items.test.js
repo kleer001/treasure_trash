@@ -48,16 +48,6 @@ test('an emptied bin is not refused by the exit — there is no drop to land on 
                           ['--E--', '--b--', '--@--', '-----', '-----']);
 });
 
-test('bag-on-can stack launches the bag two and slides the can one, still full', () => {
-  assert.deepEqual(after(['-----', '-----', '--S--', '--@--', 'E----'], 'u'),
-                          ['--$--', '--C--', '--@--', '-----', 'E----']);
-});
-
-test('a stack is worth two bags — the loose one and the one still in the can', () => {
-  assert.equal(bagsLeft(S(['--S--', '--@--', 'E----'])), 2);
-  assert.equal(bagsLeft(S(['--$--', '--C--', '--@--', 'E----'])), 2);
-});
-
 test('wheelie bin rolls until stopped, dumps out the back, and he takes the cell it left', () => {
   assert.deepEqual(after(['-----', '-----', '-----', '--W--', 'E-@--'], 'u'),
                           ['--w--', '--$--', '-----', '--@--', 'E----']);
@@ -289,7 +279,7 @@ test('furniture blocks a fan, like anything else standing in one', () => {
 });
 
 test('glyphs round-trip through the serialiser, water layer and all', () => {
-  const g = ['Sb---', '-Wwj-', '--@--', 'E--x-', 'FFGGc'];
+  const g = ['Cb---', '-Wwj-', '--@--', 'E--x-', 'FFGGc'];
   const w = ['-----', '-----', '-----', '---~-', '----~'];   // a bridge, and a can afloat
   assert.deepEqual(toGrid(S(g, w)), g);
   assert.deepEqual(toWater(S(g, w)), w);

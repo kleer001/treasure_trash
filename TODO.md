@@ -45,7 +45,7 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
 - Levels are data: `levels/*.tt` + `*.sol`, one rules module shared by the player, the
   solver and the tests, and a verifier that proves par minimal rather than trusting it.
 - Objects built and unit-tested: bag, metal can, spilled trash, recycle bin, wheelie bin,
-  water jug, furniture, the bag-on-can stack and the shopping cart.
+  water jug, furniture and the shopping cart.
 - The stand-in art lives in `src/sprites.js`, bound to a canvas and a cell size at the
   boundary, so the game and the mechanic bench draw the same raccoon.
 - **The solvability indicator is in.** A dead board announces itself in the HUD, without
@@ -146,12 +146,12 @@ the pitch. **None of them say what the pieces do — `src/rules.js` does.**
   the room goes in.
 - **A room that pins a loaded cart in a dead end keeps what is in it.** Either give it a lane
   to shed along, or design the room not to want the cargo back.
-- **The bag-on-can stack has no room, and now there is a number on it.** Every solvable room
-  built around it came out long, with many optimal lines and heavy soft-locking. The
-  fertility survey puts it last in the roster by an order of magnitude — 5.1 solvable rooms
-  per 1000 placements against 62.5 for every group without it, at the same enumeration-cap
-  rate, so it is the piece and not the measurement. Cut it or accept it as an expert-act
-  piece; there is no third reading left.
+- **The bag-on-can stack is cut.** It was a full can with one more shove in front of it: it
+  taught what the can already taught, a move later, and lengthened a solution without adding a
+  decision. The fertility survey had it last in the roster by an order of magnitude — 5.1
+  solvable rooms per 1000 placements against 62.5 for every group without it, at the same
+  enumeration-cap rate, so it was the piece and not the measurement. Occupant code 6 is retired
+  rather than reissued.
 - **The cart is worth its state graph.** Second most fertile piece in the survey. The open
   question about whether it belongs in the real act is answered on the evidence side; what
   is left is taste.

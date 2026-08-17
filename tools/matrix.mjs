@@ -40,7 +40,7 @@ import { root } from './packs.mjs';
 
 /** Every loose piece, by the glyph a grid writes it with. */
 export const PIECES = {
-  bag: '$', canFull: 'C', canEmpty: 'c', stack: 'S', wheelie: 'W', wheelieEmpty: 'w',
+  bag: '$', canFull: 'C', canEmpty: 'c', wheelie: 'W', wheelieEmpty: 'w',
   bin: 'B', binEmpty: 'b', jug: 'j', jugEmpty: 'i',
   sponge: 's', cardboard: 'd', pane: 'g', tyreH: 'o', tyreV: 'O', chair: 'h', broom: 'r',
   cabinetU: 'a', cabinetD: 'e', cabinetL: 'k', cabinetR: 'm',

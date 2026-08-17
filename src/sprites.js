@@ -780,20 +780,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.restore();
     },
 
-    // A loose bag riding a still-full can: the can sits low, the bag perches on top.
-    stack(x, y) {
-      const cx = px(x) + CS / 2, w = CS - 2 * PAD - 14, top = px(y) + CS * 0.46, h = CS * 0.36;
-      ctx.save();
-      ctx.fillStyle = P.metal; ctx.strokeStyle = P.metalEdge; ctx.lineWidth = 2;
-      ctx.fillRect(cx - w / 2, top, w, h); ctx.strokeRect(cx - w / 2, top, w, h);
-      ctx.fillStyle = P.metalRim;
-      ctx.beginPath(); ctx.ellipse(cx, top, w / 2, 5, 0, 0, 7); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = P.bagBody;
-      ctx.beginPath(); ctx.ellipse(cx, top - 11, w / 2 + 3, 11, 0, 0, 7); ctx.fill();
-      ctx.fillStyle = P.yel; star(cx + 6, top - 13, 4);
-      ctx.restore();
-    },
-
     // Taller than the can, on wheels. Full = lid propped open by the bag inside.
     wheelie(x, y, full) {
       const cx = px(x) + CS / 2, w = CS - 2 * PAD - 10, top = px(y) + PAD + 9, h = CS - 2 * PAD - 16;
@@ -881,7 +867,6 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   else if (o === codes.CAN_EMPTY) sprites.can(x, y, false);
   else if (o === codes.BIN) sprites.recycleBin(x, y, true);
   else if (o === codes.BIN_EMPTY) sprites.recycleBin(x, y, false);
-  else if (o === codes.STACK) sprites.stack(x, y);
   else if (o === codes.WHEELIE) sprites.wheelie(x, y, true);
   else if (o === codes.WHEELIE_EMPTY) sprites.wheelie(x, y, false);
   else if (o === codes.JUG) sprites.jug(x, y, true);
