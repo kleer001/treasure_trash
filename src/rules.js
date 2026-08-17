@@ -1592,11 +1592,17 @@ function decide(s, dir, opts) {
       impact: true,
     })];
     const struck = [...passedTo.bodies, ...(strike.piece ?? [])];
-    if (shedAt || passedTo.moved.length || struck.length || strike.moved.length) {
+    // `born` and `gone` are asked for the same reason the rest of `strike` is: an impact that
+    // only opened a cabinet moves nothing and names nothing, and the body it minted is then a
+    // piece the stage was never told to build. The next step to reference it cannot find it.
+    if (shedAt || passedTo.moved.length || struck.length
+        || strike.moved.length || strike.born.length || strike.gone.length) {
       frames.push(next);
       steps.push(mkStep({
         piece: struck.length ? struck : null,
         spawned: strike.spawned,
+        born: strike.born,
+        gone: strike.gone,
         moved: [
           ...strike.moved,
           ...(shedAt ? [{ o: WHEELIE, from: [rear[0] + k * dx, rear[1] + k * dy],

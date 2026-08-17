@@ -32,6 +32,17 @@ test('the step says the shut one is gone and a piece was born', () => {
   assert.equal(step.born[0].kind, 'furniture');
 });
 
+// A blow is a blow whoever lands it, and the account owes the same thing either way: the stage
+// mints the body from `born`, so an impact that opens a cabinet and says nothing leaves a piece
+// on the board that nothing on screen is drawing.
+test('an impact that opens a cabinet says so too', () => {
+  const r = explain(S(['--------', '-@w--m--', '--------', 'E-------']), 'r', { trace: true });
+  assert.ok(r.ok, `refused: ${r.reason}`);
+  const gone = r.steps.flatMap(st => st.gone), born = r.steps.flatMap(st => st.born);
+  assert.equal(gone.length, 1, 'the shut cabinet leaves the stage');
+  assert.deepEqual(born.map(b => b.cells), [[[5, 1], [6, 1]]], 'and the two-cell piece arrives');
+});
+
 test('struck on any other face it is an ordinary shove, and stays shut', () => {
   assert.equal(toGrid(push(S(['-------', '--@----', '--m----', '-------', 'E------']), 'd'))[3],
     '--m----', 'it went one cell, still shut');
