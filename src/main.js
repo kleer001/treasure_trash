@@ -10,10 +10,10 @@ import {
   explain, isWon, bagsLeft, trashHeld, fan, inGrid, cell, cloneState, isMultiCell, stateKey,
   GREASE, TAR, GLASS, COVERED, isBarrow, barrowFace, OCCUPANTS as CODES,
 } from './rules.js';
-import { parseLevelPack, toState } from './format.js';
+import { parseLevelPack, toState, toGrid } from './format.js';
 import { deadScan } from './solver.js';
 import { createProgress } from './progress.js';
-import { createDebugLog } from './debug.js';
+import { createDebugLog, createProbe } from './debug.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
 import { createCompositor } from './compositor.js';
 // stage owns the objects, their motion and its envelopes
@@ -86,7 +86,22 @@ const progress = createProgress(window.localStorage);
 // site is optional — the log is downstream of the game and may not be there at all.
 const dbg = new URLSearchParams(location.search).has('debug')
   ? createDebugLog(document.getElementById('dbglog')) : null;
-if(dbg){ document.getElementById('dbg').hidden = false; document.body.classList.add('debugging'); }
+if(dbg){
+  document.getElementById('dbg').hidden = false; document.body.classList.add('debugging');
+  // The probe reaches the game through questions, not variables: it must not be able to build a
+  // reference stage on a seed the game did not use, or read a board mid-animation and call the
+  // difference a fault.
+  window.__tt = createProbe({
+    stage: () => stage,
+    refStage: () => stageFrom(state, cur + 1),
+    grid: () => toGrid(state),
+    idle: () => !anim && !busy && !fx && !party,
+    level: () => LEVELS[cur].id,
+    moves: () => moves,
+    won: () => won,
+    mute: v => { muted = v; },
+  });
+}
 let beat = false;      // this run set a new record for the room, and the win screen says so
 let blocked = null;   // { cells, reason, dir } — cleared by the next legal action
 // Set when the player shoves during a move and cleared the instant that move lands, so the
@@ -257,6 +272,9 @@ const cancelAnim = () => {
 
 // ---- audio: a procedural two-tone "no" for a refused input.
 let ac = null;
+// A driver walks thousands of beats and every refusal in them buzzes. Muting is the harness's
+// business rather than the audio's, so the flag lives here and the probe is what sets it.
+let muted = false;
 /** The context, created on first input — browsers refuse to start one before a gesture. */
 function audio(){
   ac ??= new (window.AudioContext || window.webkitAudioContext)();
@@ -264,6 +282,7 @@ function audio(){
   return ac;
 }
 function beep(ok){
+  if(muted) return;
   try {
     audio();
     const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
@@ -288,7 +307,7 @@ function primeWinChime(){
   audio().decodeAudioData(bytes).then(b => { winBuf = b; });
 }
 function playWinChime(){
-  if(!winBuf) return;                          // not decoded yet: the room still hands over
+  if(muted || !winBuf) return;                          // not decoded yet: the room still hands over
   const src = audio().createBufferSource(), g = audio().createGain();
   src.buffer = winBuf;
   g.gain.value = WIN_GAIN;
