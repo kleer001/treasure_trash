@@ -33,7 +33,7 @@ import {
 import { toState, toGrid, toWater, toCart } from '../src/format.js';
 import { analyze } from '../src/solver.js';
 import { MAX_STATES } from './metrics.mjs';
-import { stageFrom, applyStep, settle, timeline } from '../src/stage.js';
+import { stageFrom, applyStep, settle, timeline, census } from '../src/stage.js';
 import { root } from './packs.mjs';
 
 // ---------------------------------------------------------------- what there is to meet
@@ -89,16 +89,6 @@ export const LANES = {
 };
 
 // ---------------------------------------------------------------- the invariant
-
-/** What identifies a sprite for comparison. Ids and draw seeds are not in it: they are the
- *  stage's own bookkeeping, and a rebuilt stage hands out fresh ones. Where it ENDS UP is,
- *  along with everything the renderer reads to decide what to draw there. */
-const shapeOf = sp => JSON.stringify([
-  sp.kind, sp.tx, sp.ty, sp.parent ?? null, sp.ref ?? null, sp.o ?? null, sp.ck ?? null,
-  sp.cells ?? null, sp.depth ?? 0,
-]);
-
-const census = stage => stage.sprites.map(shapeOf).sort();
 
 /**
  * Land one action on a stage the way the game lands it, and say whether the sprites agree with

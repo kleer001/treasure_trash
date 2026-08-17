@@ -14,6 +14,23 @@ import { mulberry32 } from './rng.js';
 /** Multi-cell kinds are their own sprites; every other sprite is keyed by occupant code. */
 export const CART = 'cart', COUCH = 'couch', RACCOON = 'raccoon', SPLASH = 'splash';
 
+/**
+ * What identifies a sprite for comparison, and the sorted roll of every one on a stage. Ids and
+ * draw seeds are not in it: they are the stage's own bookkeeping, and a rebuilt stage hands out
+ * fresh ones. Where it ENDS UP is, along with everything the renderer reads to decide what to
+ * draw there.
+ *
+ * Two censuses are the whole of the invariant every checker asks: landing an action's steps on a
+ * stage must leave the same sprites as building a stage from the board that action produced. It
+ * lives here, with the sprites, so no checker can hold its own idea of what a sprite is.
+ */
+export const shapeOf = sp => JSON.stringify([
+  sp.kind, sp.tx, sp.ty, sp.parent ?? null, sp.ref ?? null, sp.o ?? null, sp.ck ?? null,
+  sp.cells ?? null, sp.depth ?? 0,
+]);
+
+export const census = stage => stage.sprites.map(shapeOf).sort();
+
 /** `step.piece.kind` from the rules → the sprite that is that piece's body. */
 const BODY = { cart: CART, furniture: COUCH };
 
