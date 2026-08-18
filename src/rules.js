@@ -290,9 +290,7 @@ export const barrowScoops = (k, dx, dy) => {
 };
 
 // --- the magnet ------------------------------------------------------------------------------
-// One facing, four orientations, and it never turns. Its field is a straight line along that
-// facing, like a rook's — walls stop it, objects do not. Reach is three cells, which is also
-// where a chain lets go, so the piece is one sentence long.
+// `MAGNET_REACH`, `METAL`, `magnetResolve` and `settleAtRest` are the whole of it.
 
 // What a magnet takes hold of. The chair is in and the sponge is not, which is a design
 // statement rather than an oversight: the chair is only ever moved by being hit, and the one
@@ -953,13 +951,14 @@ function hookTow(next, cid, dx, dy) {
 
 /** A tow is rigid: barrow and load move together, or the shove is refused. */
 /**
- * A tow, or the hold breaking, and WHICH depends on what is doing the holding. A barrow's hook is
- * mechanical: it has taken the couch and the pair is one rigid thing, so blocked it refuses. A
- * magnet's hold is not — blocked, the field is what gives, and what the raccoon is pushing goes on
- * without its holder.
+ * A tow, or the hold breaking. The board is re-asked with the link cut rather than the shove
+ * being written a second time, so what follows is an ordinary shove and every branch that
+ * handles one already handles this.
  *
- * The board is re-asked with the link cut rather than the shove being written a second time, so
- * what follows is an ordinary shove and every branch that handles one already handles this.
+ * Only a FIELD is cut. Cutting a barrow's is a move it undoes itself: a barrow shoved at
+ * something too big to scoop takes hold, so the re-asked board hands it the same couch back on
+ * the same beat and nothing has happened. Whether a blocked hook should let go and stay let go is
+ * a question about the barrow, and it is open.
  */
 function towOrBreak(s, lk, dir, dx, dy, done, opts) {
   const towed = towMove(s, lk, dx, dy, done);

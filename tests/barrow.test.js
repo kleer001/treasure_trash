@@ -107,9 +107,9 @@ test('a hooked pair moves as one rigid thing', () => {
   assert.equal(toGrid(s)[0], '--@-FF-E', 'the couch came along');
 });
 
-test('a tow that cannot move refuses rather than tearing itself apart', () => {
+test('a blocked tow refuses; a barrow shoved again would only take the same hold back', () => {
   let s = push(S(['------', '@-FF#-', '------', 'E-----'], ['------', '-r----', '------', '------']), 'r');
-  assert.equal(refuse(s, 'r'), 'canRoom', 'the couch is against the wall, so nothing moves');
+  assert.equal(refuse(s, 'r'), 'canRoom', 'the couch is against the wall, so the shove has nowhere to go');
 });
 
 // Shoved from the far side the load drags its barrow behind it. That is the board pulling, not
