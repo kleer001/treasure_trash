@@ -68,6 +68,50 @@ tears. Procedural WebAudio — a dry step, a paper-and-plastic burst on the tear
 clunk when a can won't budge, a short buzz when the alley refuses you — of which only the
 win chime is built so far.
 
+## The design answers
+
+Five questions, answered from the running game rather than the pitch. An answer that cannot name
+a mechanic is recorded as thin rather than written up to sound finished.
+
+**1. What does the player learn by repeating the loop?** That a torn bag sprays trash in a fan
+and that trash never comes up again, so the ORDER things are burst in decides whether the exit is
+still reachable. By the second hour the room is read backwards from the door, and the question is
+which bag to spend where — the same knowledge applied to a board that keeps producing new
+geometry for it. Mechanic: `fan()` plus `layTrash`, which has no inverse.
+
+**2. Which uncertainty is this game selling?** Not randomness — the game is deterministic and its
+seeded RNG is cosmetic. It sells whether the board you have made is still winnable: every
+irreversible piece (a grate that swallows, tar that holds, glass you cannot cross) shrinks the
+space while you work, and the dead-board scan is what tells you it has closed. **Thin:** the scan
+reports that a room is dead, which is a state, and a game selling uncertainty wants the player
+guessing before it resolves rather than being informed after.
+
+**3. Does a mechanic produce the aesthetic the pitch promises?** Yes, and it is one line: every
+piece degrades one way only — a full can sheds its bag and becomes an empty one, a bin sheds
+trash, a pane shatters into glass that stays — so the alley is measurably worse when you leave
+than when you arrived, which is what "trashy alley" has to mean if it means anything.
+
+**4. What does the action feel like, and where is the latency?** One press is one shove, and the
+board commits the instant the shove is legal: `explain` decides, the stage animates afterwards,
+and cutting an animation short still lands it. A shove arriving mid-animation is refused with "he
+only has the two paws" rather than queued — a deliberate choice that the raccoon has one pair of
+hands, felt in play rather than reasoned about.
+
+**5. What is the failure state, and does losing teach anything?** There is no lose state: the game
+is untimed and the only failure is a board that can no longer be won. **Thin, and this is the
+finding.** The HUD says the board is dead; it does not say which shove killed it. A player cannot
+name what they would do differently from that, which is exactly the bad answer the standard
+describes — punished by something they cannot attribute. Naming the move is the work this points
+at.
+
+## Where this comes from
+
+Sokoban (Thinking Rabbit, 1982) for the push-only grid and the irreversible-state puzzle; its
+descendants for the convention that a level is data and the rules are one module. The departure
+is that a Sokoban board is restored by undo alone, and this one is not: trash, glass and tar are
+one-way, so the room degrades along the solution rather than only permuting. `.tt`/`.sol` is this
+game's own format and answers to `FORMATS.md`.
+
 ## Open naming question
 
 The title promises treasure. The game has none — collecting was cut, and winning means

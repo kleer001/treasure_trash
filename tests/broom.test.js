@@ -12,8 +12,6 @@ const push = (s, dir) => { const r = explain(s, dir); assert.ok(r.ok, `refused: 
 const refuse = (s, dir) => { const r = explain(s, dir); assert.ok(!r.ok, 'expected a refusal'); return r.reason; };
 
 test('a line of mixed kinds goes one cell, and only the head sheds', () => {
-  // Every interior item has its neighbour in the cell beyond, so it cannot shed even if it
-  // wanted to. The rule falls out of the geometry rather than being stated.
   assert.deepEqual(toGrid(push(S(['@rcbC--E']), 'r')), ['-@rcbc$E']);
 });
 

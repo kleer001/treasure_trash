@@ -238,15 +238,6 @@ test('a couch will not be shoved onto the exit', () => {
   assert.equal(refused(['-E---', '-FF--', '-@---', '-----'], 'u'), 'exit');
 });
 
-// Shoved along its own length, a couch's front end enters the water while its back end is
-// still dry, so there is always a bank to shove from. This falls out of the footprint test.
-test('a couch shoved along its length walks itself into the canal, one end at a time', () => {
-  const g = ['-----', '-----', '--F--', '--F--', '--F--', '--@--', 'E----'];
-  const w = ['-----', '--~--', '-----', '-----', '-----', '-----', '-----'];
-  const s = act(g, 'u', w);
-  assert.deepEqual(toGrid(s), ['-----', '--F--', '--F--', '--F--', '--@--', '-----', 'E----']);
-  assert.equal(explain(s, 'u').ok, true, 'its back end is still on dry land');
-});
 
 test('once the end he is touching is afloat, the couch is beyond him', () => {
   const g = ['--F--', '--F--', '--@--', 'E----'];

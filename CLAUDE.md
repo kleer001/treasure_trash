@@ -115,6 +115,17 @@ So it is never a reason to refuse, narrow, defer or second-guess a change:
   not found a reason, you have found a sentence. Say that instead of dressing it up.
 - Prose that turns out to be false is deleted on sight, not preserved and worked around.
 
+**An observation is not a decision.** Anything a session NOTICED rather than was told is written
+as an observation with its author attached, never in the register of a rule. Left unmarked, it
+reads back identically to a specification on the next turn — including to the session that wrote
+it — which is how a project's own notes start billing its owner for changing his mind. It becomes
+canon when the owner says so, and not before.
+
+**Raise a concern once, then build.** A sentence or two, then do what was asked. The stops worth
+taking are mechanical and checkable: the build breaks, declared data is invalidated, CI turns red.
+Name which one, show the failure, keep going. A block of clarifying questions manufactures
+complexity that was not in the request.
+
 The one thing prose may do is point at where the answer lives — `rules.js` decides, the tests
 pin, `verify.mjs` proves it against the level data. Go read those and answer from them.
 

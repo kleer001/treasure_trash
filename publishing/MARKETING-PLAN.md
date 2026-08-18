@@ -45,7 +45,14 @@ Don't spray every platform.
   (List the real ones here. Read each community's self-promotion rules first.)
 - **Fediverse / Bluesky** — `#gamedev`, `#screenshotsaturday`, genre tags; post the GIF.
 - **Short video** — a 10–20s loop clip where the hook is legible in the first 3s.
-- **Curators / streamers** — a shortlist who cover this genre; a short honest pitch.
+- **Curators / streamers** — a shortlist, and genre is not what puts a name on it. Each entry
+  carries three dated figures before it is worth pitching: when the outlet last published,
+  its audience and median engagement over its last ten or so items, and the recurring FORMAT
+  its last twenty posts imply — endings to collect, a build to optimise, a character to react
+  to — and whether this game supplies it. A dormant site keeps its front page and its inbox,
+  and a site with a dead comment section can front a channel with six figures of subscribers,
+  so read the feed rather than the front page and check where the audience actually lives.
+  Rank by reach × format fit and pitch in that order.
 
 ## Launch beats
 
