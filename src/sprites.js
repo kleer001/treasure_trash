@@ -42,6 +42,8 @@ export const PALETTE = {
   magBody: '#c2352f', magTip: '#dfe3e8', magEdge: '#7d1f1b',
   wheelie: '#3f7d4f', wheelieEdge: '#255034', wheelieRidge: '#2f6a40',
   wheelieLid: '#4f9a63', wheel: '#22252a',
+  ply: '#c9a273', plyEdge: '#9c7647', grip: '#ffffff', bolt: '#333a44',
+  wheelFace: '#e9e3d3', wheelRim: '#a89e8c', wheelEdge: '#8d8578',
   fur: '#9aa0a6', furEar: '#6b7076', mask: '#2b2f34', muzzle: '#eceef0',
   eye: '#fff', pupil: '#111', tail: '#8b8f95', tailTip: '#4a4e54',
 };
@@ -619,35 +621,98 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.restore();
     },
 
-    // The cart draws UNDER its load: a basket outline and a pair of wheels, with whatever it
-    // is carrying at full size on top. Nothing shrinks to fit — being carried is a
-    // relationship between two objects, not a smaller object. ox/oy offset the roll.
-    cart(cells, ox = 0, oy = 0) {
+    // The skateboard draws UNDER its load, with whatever it is carrying at full size on top.
+    // Nothing shrinks to fit — being carried is a relationship between two objects, not a
+    // smaller object. ox/oy offset the roll. Cells give the long axis, so one drawing serves
+    // both lies of the board.
+    skateboard(cells, ox = 0, oy = 0) {
       const xs = cells.map(c => c[0]), ys = cells.map(c => c[1]);
       const x0 = px(Math.min(...xs) + ox), y0 = px(Math.min(...ys) + oy);
       const w = (Math.max(...xs) - Math.min(...xs) + 1) * CS;
       const h = (Math.max(...ys) - Math.min(...ys) + 1) * CS;
-      const M = Math.max(3, Math.round(CS * 0.055)), R = CS * 0.1;
+      const upright = h > w;
+      const cx = x0 + w / 2, cy = y0 + h / 2;
+      const L = (upright ? h : w) - CS * 0.18;   // along the board
+      const W = (upright ? w : h) * 0.60;        // across it
+      const waist = W * 0.86;
+      const trucks = [-L * 0.29, L * 0.29];
+
+      // A waisted pill: round flared ends, a slightly narrower middle.
+      const outline = (l, ww, wa) => {
+        const hx = l / 2, hw = ww / 2, hwa = wa / 2, e = hw * 0.95;
+        ctx.beginPath();
+        ctx.moveTo(cx - hx + e, cy - hw);
+        ctx.quadraticCurveTo(cx, cy - hwa, cx + hx - e, cy - hw);
+        ctx.quadraticCurveTo(cx + hx, cy - hw, cx + hx, cy);
+        ctx.quadraticCurveTo(cx + hx, cy + hw, cx + hx - e, cy + hw);
+        ctx.quadraticCurveTo(cx, cy + hwa, cx - hx + e, cy + hw);
+        ctx.quadraticCurveTo(cx - hx, cy + hw, cx - hx, cy);
+        ctx.quadraticCurveTo(cx - hx, cy - hw, cx - hx + e, cy - hw);
+        ctx.closePath();
+      };
+
       ctx.save();
-      ctx.fillStyle = P.floor;
-      roundRect(x0 + M, y0 + M, w - 2 * M, h - 2 * M, R); ctx.fill();
-      ctx.strokeStyle = P.pnk; ctx.lineWidth = Math.max(2, CS * 0.04);
-      roundRect(x0 + M, y0 + M, w - 2 * M, h - 2 * M, R); ctx.stroke();
-      ctx.globalAlpha = 0.35; ctx.lineWidth = Math.max(1, CS * 0.02);
-      for (const [cx, cy] of cells) {                 // the mesh, one X per cell
-        const a = px(cx + ox), b = px(cy + oy), q = CS * 0.13;
-        ctx.beginPath();
-        ctx.moveTo(a + q, b + CS - q); ctx.lineTo(a + CS - q, b + q);
-        ctx.moveTo(a + q, b + q); ctx.lineTo(a + CS - q, b + CS - q);
-        ctx.stroke();
+      ctx.translate(cx, cy);
+      if (upright) ctx.rotate(Math.PI / 2);
+      ctx.translate(-cx, -cy);
+
+      const rx = CS * 0.099, ry = CS * 0.068;
+      for (const t of trucks) for (const side of [-1, 1]) {
+        const wx = cx + t, wy = cy + side * (W / 2 + CS * 0.02);
+        ctx.fillStyle = P.wheelEdge;
+        ctx.beginPath(); ctx.ellipse(wx, wy + 1.5, rx, ry, 0, 0, 7); ctx.fill();
+        ctx.fillStyle = P.wheelFace;
+        ctx.beginPath(); ctx.ellipse(wx, wy, rx, ry, 0, 0, 7); ctx.fill();
+        ctx.strokeStyle = P.wheelRim; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.ellipse(wx, wy, rx, ry, 0, 0, 7); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,.75)';
+        ctx.beginPath(); ctx.ellipse(wx, wy - ry * 0.32, rx * 0.55, ry * 0.3, 0, 0, 7); ctx.fill();
       }
-      ctx.globalAlpha = 1; ctx.fillStyle = P.pnk;
-      for (const [cx, cy] of cells) {
-        const a = px(cx + ox), b = px(cy + oy), r = Math.max(2.5, CS * 0.05);
-        ctx.beginPath();
-        ctx.arc(a + CS * 0.28, b + CS - r - 1, r, 0, 7);
-        ctx.arc(a + CS * 0.72, b + CS - r - 1, r, 0, 7);
-        ctx.fill();
+
+      ctx.fillStyle = P.ply; outline(L, W, waist); ctx.fill();
+      ctx.strokeStyle = P.plyEdge; ctx.lineWidth = 1.2; outline(L, W, waist); ctx.stroke();
+
+      // The grip surface, inset so the ply reads as the thickness of the board.
+      const in_ = CS * 0.066;
+      ctx.save();
+      outline(L - in_, W - in_, waist - in_); ctx.clip();
+      ctx.fillStyle = P.grip; ctx.fillRect(cx - L, cy - W, L * 2, W * 2);
+      const band = (vertical, col, step, thick, off) => {
+        ctx.fillStyle = col;
+        if (vertical) for (let x = cx - L / 2 + off; x < cx + L / 2; x += step)
+          ctx.fillRect(x, cy - W, thick, W * 2);
+        else for (let y = cy - W / 2 + off; y < cy + W / 2; y += step)
+          ctx.fillRect(cx - L, y, L * 2, thick);
+      };
+      ctx.globalAlpha = .55; band(true,  P.blu, CS * 0.171, CS * 0.092, 0);
+      ctx.globalAlpha = .45; band(false, P.tea, CS * 0.145, CS * 0.079, 0);
+      ctx.globalAlpha = .30; band(true,  P.tea, CS * 0.171, CS * 0.026, CS * 0.105);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = P.red;
+      ctx.beginPath(); ctx.arc(cx, cy, W * 0.50, 0, 7); ctx.fill();
+      // Set down and to the right in solid black, no falloff — a screenprint drop, not a glow.
+      const size = W * 0.26, lead = size * 1.02, dx = size * 0.07, dy = size * 0.08;
+      ctx.save();
+      ctx.translate(cx, cy); ctx.rotate(-Math.PI / 6); ctx.translate(-cx, -cy);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `900 ${size}px -apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif`;
+      for (const [ex, ey, col] of [[dx, dy, P.ink], [0, 0, P.yel]]) {
+        ctx.fillStyle = col;
+        ['TRASH', 'PANDA'].forEach((t, i) => ctx.fillText(t, cx + ex, cy + ey + (i - 0.5) * lead));
+      }
+      ctx.restore();
+      ctx.restore();
+
+      // Opaque heads, lit top-left: a translucent bolt reads as a hole the grip shows through.
+      const bs = W * 0.17, br = Math.max(1.6, CS * 0.032);
+      for (const t of trucks) for (const bx of [-bs, bs]) for (const by of [-bs, bs]) {
+        const a = cx + t + bx, b = cy + by;
+        ctx.fillStyle = 'rgba(0,0,0,.35)';
+        ctx.beginPath(); ctx.arc(a, b + 0.7, br * 1.05, 0, 7); ctx.fill();
+        ctx.fillStyle = P.bolt;
+        ctx.beginPath(); ctx.arc(a, b, br, 0, 7); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.55)';
+        ctx.beginPath(); ctx.arc(a - br * 0.3, b - br * 0.33, br * 0.42, 0, 7); ctx.fill();
       }
       ctx.restore();
     },

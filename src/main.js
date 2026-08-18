@@ -493,7 +493,7 @@ function paintSprite(sp, f){
   }
   else if(sp.kind === CART){
     if(isBarrow(sp.ck)) SP.barrow(sp.x, sp.y, barrowFace(sp.ck));
-    else SP.cart(sp.cells, sp.x, sp.y);
+    else SP.skateboard(sp.cells, sp.x, sp.y);
   }
   else if(sp.kind === SPLASH) SP.splash(sp.x, sp.y);
   else drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {

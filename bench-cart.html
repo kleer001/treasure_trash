@@ -589,7 +589,7 @@ function draw() {
 
   for (const sp of [...stage.sprites].sort((a, b) => LAYER(a) - LAYER(b))) {
     if (sp.kind === COUCH) art.furniture(sp.cells, sp.x, sp.y);
-    else if (sp.kind === CART) art.cart(sp.cells, sp.x, sp.y);
+    else if (sp.kind === CART) art.skateboard(sp.cells, sp.x, sp.y);
     else if (sp.kind === RACCOON) art.raccoon(sp.x, sp.y);
     else if (sp.kind === SPLASH) art.splash(sp.x, sp.y);
     else drawOccupant(art, CODES, sp.kind, sp.x, sp.y,
