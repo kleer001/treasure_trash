@@ -166,14 +166,14 @@
 :level  T5
 :name   One-way
 :teach  a one-way admits its own direction and no other
-:par    7
+:par    13
 :traps  0
 :solves 1
-:solve  drrrrrr
+:solve  drrrruLLdrrrr
 :grid
 ##########
 #--------#
-#-@------#
+#-@--c---#
 #-------E#
 ##########
 :end
