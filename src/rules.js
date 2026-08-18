@@ -917,6 +917,20 @@ function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
  * it only if the sweep reaches it later in the order; a board settled to closure would need a
  * loop, and a loop is a rule nobody can read off the board.
  */
+/**
+ * A board as it is once its fields have taken hold — what a room LOOKS like before anyone has
+ * touched it. A magnet holds whatever is in its field, and a field that waited for the first
+ * action would appear to fire in answer to a step that had nothing to do with it.
+ *
+ * Every board enters the game through `toState`, so this is asked once, there, and no caller has
+ * to remember it. The step it bills is thrown away: nothing has happened yet, and the stage is
+ * built from the board this leaves rather than played into.
+ */
+export function settleAtRest(s) {
+  settleMagnets(s, mkStep());
+  return s;
+}
+
 function settleMagnets(next, step) {
   let wrote = false;
   for (let y = 0; y < next.rows; y++) for (let x = 0; x < next.cols; x++)

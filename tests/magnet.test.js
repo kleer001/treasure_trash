@@ -14,16 +14,19 @@ const push = (s, dir) => { const r = explain(s, dir); assert.ok(r.ok, `refused: 
 const refuse = (s, dir) => { const r = explain(s, dir); assert.ok(!r.ok, 'expected a refusal'); return r.reason; };
 const held = s => s.cells.flat().filter(c => c.lk !== undefined).length;
 
-test('the nearest metal within reach closes to alongside, and is held', () => {
-  const s = push(S(['@q-c---E']), 'r');
-  assert.equal(toGrid(s)[0], '-@qc---E', 'the can came to it');
+// A field holds whatever is in it, and it does not wait to be asked. A room OPENS with its
+// magnets already holding — a field that waited for the first action would appear to fire in
+// answer to a step that had nothing to do with it.
+test('the nearest metal within reach is alongside before anyone has moved', () => {
+  const s = S(['@q-c---E']);
+  assert.equal(toGrid(s)[0], '@qc----E', 'the can came to it as the room opened');
   assert.equal(held(s), 2, 'magnet and can are one group');
 });
 
 test('reach is exactly three, and nothing beyond it is taken', () => {
   assert.equal(MAGNET_REACH, 3);
-  assert.equal(held(push(S(['@q--c--E']), 'r')), 2, 'three: taken');
-  assert.equal(held(push(S(['@q----c-E']), 'r')), 0, 'four: not taken');
+  assert.equal(held(S(['@q--c--E'])), 2, 'three: taken');
+  assert.equal(held(S(['@q---c--E'])), 0, 'four: not taken');
 });
 
 // Walls stop the field and objects do not, which is what lets a magnet reach past something
@@ -36,42 +39,42 @@ test('a wall stops the field; a thing standing in the way does not', () => {
 });
 
 test('what is not metal is never taken', () => {
-  assert.equal(held(push(S(['@q-s---E']), 'r')), 0, 'a sponge is not metal');
-  assert.equal(held(push(S(['@q-d---E']), 'r')), 0, 'nor is cardboard');
-  assert.equal(held(push(S(['@q-h---E']), 'r')), 2, 'the chair is');
+  assert.equal(held(S(['@q-s---E'])), 0, 'a sponge is not metal');
+  assert.equal(held(S(['@q-d---E'])), 0, 'nor is cardboard');
+  assert.equal(held(S(['@q-h---E'])), 2, 'the chair is');
 });
 
 // Nothing on this board moves unbidden: the magnet resolves on the shove it is given and never
 // closes a gap of its own accord.
 test('a shove into what it holds is refused, as any slider into an object is', () => {
-  const s = push(S(['@q-c---E']), 'r');
-  assert.equal(refuse(s, 'r'), 'canRoom', 'the chain makes it no special case');
+  assert.equal(refuse(S(['@q-c---E']), 'r'), 'canRoom', 'the chain makes it no special case');
 });
 
 test('what is held drags its holder when it is pushed', () => {
-  let s = push(S(['-------', '-@q-c--', '-------', 'E------']), 'r');
-  for (const d of ['u', 'r', 'r', 'r', 'd']) s = push(s, d);
-  assert.equal(toGrid(push(s, 'l'))[1], '--qc@--', 'the magnet came along');
+  // Over the top of the can and down on it: the magnet is not touched, and comes anyway.
+  let s = S(['-------', '-@qc---', '-------', 'E------']);
+  for (const d of ['u', 'r', 'r']) s = push(s, d);
+  assert.equal(toGrid(push(s, 'd'))[2], '--qc---', 'the magnet came along');
 });
 
 // Across the field the two travel together; along it the gap closes. A shove that carries the
 // magnet sideways carries its load sideways, or the pair simply comes apart — which is the
 // difference between holding something and having merely once touched it.
 test('a shove across the field carries what is held along with it', () => {
-  let s = push(S(['-------', '-@q-w--', '-------', '-------', 'E------']), 'r');
-  assert.equal(toGrid(s)[1], '--@qw--', 'captured, alongside');
+  let s = S(['-------', '-@qw---', '-------', '-------', 'E------']);
+  assert.equal(held(s), 2, 'holding from the off');
   for (const d of ['u', 'r']) s = push(s, d);
   const after = push(s, 'd');
-  assert.equal(toGrid(after)[2], '---qw--', 'both went down, still side by side');
+  assert.equal(toGrid(after)[2], '--qw---', 'both went down, still side by side');
   assert.equal(held(after), 2, 'and it is still held');
 });
 
 test('what cannot keep pace is let go, and the magnet goes on alone', () => {
-  let s = push(S(['-------', '-@q-w--', '----#--', '-------', 'E------']), 'r');
+  let s = S(['-------', '-@qw---', '---#---', '-------', 'E------']);
   for (const d of ['u', 'r']) s = push(s, d);
   const after = push(s, 'd');
-  assert.equal(toGrid(after)[1], '---@w--', 'the bin stayed where the wall left it');
-  assert.equal(toGrid(after)[2], '---q#--', 'and the magnet carried on down');
+  assert.equal(toGrid(after)[1], '--@w---', 'the bin stayed where the wall left it');
+  assert.equal(toGrid(after)[2], '--q#---', 'and the magnet carried on down');
   assert.equal(held(after), 0, 'the chain let go');
 });
 
@@ -94,10 +97,15 @@ test('a magnet will not take hold of something that is already held', () => {
 test('a grate takes a magnet, and there is no field left to resolve', () => {
   // It never lands, so nothing resolves — and whatever it was holding is let go, because the
   // thing that held it is gone.
-  const s = S(['-------', '-@q-C-E', '-------'], ['-------', '---O---', '-------']);
-  const r = explain(s, 'r');
+  // Sideways, which is the only way a magnet ever leaves its load: shoved along its own facing
+  // it would be shoved into what it holds, and that is refused like any slider into an object.
+  const s = S(['--@----', '--qc---', '-------', 'E------'],
+              ['-------', '-------', '--O----', '-------']);
+  const r = explain(s, 'd');
   assert.ok(r.ok, `refused: ${r.reason}`);
-  assert.deepEqual(toGrid(r.next), ['-------', '--@-C-E', '-------'], 'the magnet is gone, the can stayed');
+  assert.deepEqual(toGrid(r.next), ['-------', '--@c---', '-------', 'E------'],
+    'the magnet went down the grate and the can stayed');
+  assert.equal(held(r.next), 0, 'and what it held is let go');
 });
 
 test('a magnet shoved into a cart rides in it, and its field resolves from there', () => {

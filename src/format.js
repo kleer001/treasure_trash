@@ -9,7 +9,7 @@ import {
   BAR_U, BAR_D, BAR_L, BAR_R, isCarriedBarrow,
   MAG_U, MAG_D, MAG_L, MAG_R,
   GREASE, TAR, GLASS, COVERED,
-  FURNITURE, DIRS, MOVE, PUSH, TEAR, isMultiCell,
+  FURNITURE, DIRS, MOVE, PUSH, TEAR, isMultiCell, settleAtRest,
 } from './rules.js';
 
 // --- glyphs -----------------------------------------------------------------
@@ -470,7 +470,10 @@ export function toState(level) {
       cells[y][x].hold = codes;
     }
   }
-  return { cols, rows, cells, rac };
+  // A room opens with its fields already holding. Here rather than at each caller: the game, the
+  // solver and every tool build their start board through this function, and a board that reached
+  // one of them unsettled would be a different room from the one the others were reading.
+  return settleAtRest({ cols, rows, cells, rac });
 }
 
 /** The `:hold` lines for a board, or null when nothing on it is carrying a loaded barrow. */

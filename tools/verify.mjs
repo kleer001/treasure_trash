@@ -13,7 +13,7 @@ import {
   parseLurd, formatLurd, toState, toGrid, toWater, toCart,
 } from '../src/format.js';
 import { analyze, replay } from '../src/solver.js';
-import { isWon, bagsLeft } from '../src/rules.js';
+import { isWon, bagsLeft, isMagnet } from '../src/rules.js';
 import { deadTravel, isOneRoom, inertPieces, shortestDag, WALK_MAX } from './metrics.mjs';
 import { actPacks, root } from './packs.mjs';
 
@@ -79,6 +79,13 @@ for (const { levelPath, solPath } of PACKS) {
     // away — it walls AROUND it, and what is left is a cart in a sealed pocket: drawn, part of
     // the room to look at, and reachable from nowhere in it.
     check('every open cell is in one region', isOneRoom(start));
+    // A board opens with its fields already holding, so the `:grid` an author writes is only the
+    // room if a magnet had nothing left to pull. Asked before the round-trip because it fails the
+    // same comparison for a different reason, and the round-trip's name would hide it.
+    if (start.cells.flat().some(c => isMagnet(c.o)))
+      check('the board is authored at rest',
+        toGrid(start).join('\n') === level.grid.join('\n'),
+        'a magnet draws something in before the player has moved — write it where the field leaves it');
     check('grid round-trips through the serialiser', toGrid(start).join('\n') === level.grid.join('\n'));
     check('water mask round-trips through the serialiser',
       (toWater(start) ?? []).join('\n') === (level.water ?? []).join('\n'),
