@@ -716,3 +716,18 @@
 ----------
 ----------
 :end
+
+:level  TW
+:name   The hold that gives
+:teach  a magnet keeps nothing it cannot follow — walled in, the field lets go
+:par    4
+:traps  0
+:solves 3
+:solve  dlll
+:grid
+######
+##l--#
+#-c-@#
+#E---#
+######
+:end

@@ -154,3 +154,22 @@ test('a tow of plain occupants says what moved', () => {
   assert.deepEqual(moved.map(m => [m.from, m.to]).sort(),
     [[[1, 1], [1, 2]], [[2, 1], [2, 2]]].sort(), 'the magnet and the can both travelled');
 });
+
+// A hold is not a weld. If the group cannot travel, what the raccoon is pushing goes on without
+// its holder and the field lets go — a magnet pinned by a wall keeps nothing it cannot follow.
+test('a hold breaks when the group cannot travel, and what is pushed goes on alone', () => {
+  const s = S(['#####', '##l-#', '#-c@#', '#E--#', '#####']);
+  assert.equal(held(s), 2, 'the magnet holds the can below it from the off');
+  const after = push(s, 'l');
+  assert.equal(toGrid(after)[2], '#c@-#', 'the can went on');
+  assert.equal(toGrid(after)[1], '##l-#', 'the magnet is walled in and could not follow');
+  assert.equal(held(after), 0, 'so the hold broke');
+});
+
+test('a hold that CAN travel still travels, and is not broken by the chance to break', () => {
+  const s = S(['#####', '#-l-#', '#-c@#', '#E--#', '#####']);
+  const after = push(s, 'l');
+  assert.equal(toGrid(after)[1], '#l--#', 'the magnet came along');
+  assert.equal(toGrid(after)[2], '#c@-#', 'above what it holds');
+  assert.equal(held(after), 2, 'still one group');
+});

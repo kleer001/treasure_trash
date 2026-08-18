@@ -952,6 +952,24 @@ function hookTow(next, cid, dx, dy) {
 }
 
 /** A tow is rigid: barrow and load move together, or the shove is refused. */
+/**
+ * A tow, or the hold breaking, and WHICH depends on what is doing the holding. A barrow's hook is
+ * mechanical: it has taken the couch and the pair is one rigid thing, so blocked it refuses. A
+ * magnet's hold is not — blocked, the field is what gives, and what the raccoon is pushing goes on
+ * without its holder.
+ *
+ * The board is re-asked with the link cut rather than the shove being written a second time, so
+ * what follows is an ordinary shove and every branch that handles one already handles this.
+ */
+function towOrBreak(s, lk, dir, dx, dy, done, opts) {
+  const towed = towMove(s, lk, dx, dy, done);
+  if (towed.ok) return towed;
+  if (!linkCells(s, lk).some(([x, y]) => isMagnet(cell(s, x, y).o))) return towed;
+  const freed = cloneState(s);
+  for (const [x, y] of linkCells(freed, lk)) cell(freed, x, y).lk = undefined;
+  return decide(freed, dir, opts);
+}
+
 function towMove(s, lk, dx, dy, done) {
   const own = linkCells(s, lk);
   const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
@@ -1399,8 +1417,8 @@ function decide(s, dir, opts) {
       next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
       return done(next, PUSH, step);
     }
-    // Already towing: the pair is rigid, so it moves as one thing or not at all.
-    if (target.lk !== undefined) return towMove(s, target.lk, dx, dy, done);
+    // Already towing: the pair is rigid while it can travel, and the hold breaks when it cannot.
+    if (target.lk !== undefined) return towOrBreak(s, target.lk, dir, dx, dy, done, opts);
 
     // Shoved straight at something too big to scoop, the barrow hooks on rather than refusing.
     // The shove is spent taking hold, which is the same beat a scoop costs.
@@ -1477,7 +1495,7 @@ function decide(s, dir, opts) {
   // takes its barrow, a chained can takes its magnet. That is the board pulling, not the
   // raccoon, which is the one place pulling was ever allowed. The magnet itself is exempt: a
   // shove on IT is an ordinary shove, and what it holds follows after.
-  if (target.lk !== undefined && !isMagnet(o)) return towMove(s, target.lk, dx, dy, done);
+  if (target.lk !== undefined && !isMagnet(o)) return towOrBreak(s, target.lk, dir, dx, dy, done, opts);
 
   // An open cabinet shuts two ways, and both are the same swap: the piece is destroyed and a shut
   // cabinet is put down. Shoved on the DRAWER toward the body it closes where it stands. Driven
