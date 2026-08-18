@@ -1,16 +1,20 @@
-stale
+fresh
 
 ## Summary
 
-The decision backlog is worked. The two build plans are deleted, the studio pin is at
-v0.25.0, the stale Rust binary is gone, and the clause that was missing upstream is now a
-studio CONTRACT directive. Two open rules were answered "leave it as is". T5, the bench room
-that afforded nothing, now has a piece to shove into its one-way.
+**The hold rework is the live thread.** `lk` — one colour painted across a holder and everything
+it held — is gone. A hold is now an EDGE written on the holder: `grip`, the signed offset along
+its own axis to what it has hold of. Nothing is written on the held body, so several holders can
+have hold of one thing and the complex is derived rather than stored.
 
-Six commits here, one in the studio. **Nothing is pushed yet** — both repos are ahead of
-their remotes.
+Steps one and two are landed and green. Sharing needed no work at all: the refusal that blocked it
+existed to protect a field on the target, and the target has no field any more. A real bug went
+with it — a magnet captured by another magnet used to be released inside the same settle sweep,
+because it read its holder as its own load. Measured before and after; it holds now.
 
-What is left is the crow, one open rule, and the rooms rebuild that everything else waits on.
+Before this: the shopping cart became the SKATEBOARD everywhere including the Rust port, with new
+art; `TODO.md` was deleted and its live items moved here; the studio pin reached v0.25.0 carrying
+a directive written from this repo.
 
 ## Todos
 
@@ -23,6 +27,16 @@ What is left is the crow, one open rule, and the rooms rebuild that everything e
 
 - [ ] #51 **The crow is still pinned.** Un-pin and design its powers, or leave it. Naming it
       lands occupant codes, refusals and `stateKey` lanes on every implementation at once.
+
+- [ ] #71 **A PARALLEL SESSION IS EDITING THIS REPO — read the tree before trusting a number.**
+      `levels/act1.tt`, `act2.tt`, both `.sol` files and `levels.md` were rewritten outside this
+      session: pars and solves repaired, `L19` from par 9 to 17 and traps 1 to 3. `research/`
+      arrived alongside it — competitive and marketing notes. All of it is UNCOMMITTED and must
+      stay that way until its author says otherwise; every commit made here was path-scoped so
+      none of it was swept in. It also explains a number that looked like a win: `verify.mjs`
+      went from 63 failures to 7, and that was the par repair, not any change made here — proved
+      by stashing and re-running, which gave 7 both ways. `verify.mjs` has no write path, so
+      nothing automated could have done it. **`git status` before attributing any gate result.**
 
 - [ ] #64 **The port's sanction is nominally CI-gated, and the gate is not executing.**
       `test.yml` runs verify, conformance, the port build and the port's conformance AFTER
@@ -57,12 +71,6 @@ What is left is the crow, one open rule, and the rooms rebuild that everything e
       one-cell version of the skateboard — the slot the barrow already occupies structurally
       but not fictionally. On the record before the vocabulary settles; nobody is asking for
       it yet.
-
-- [ ] #68 **The skateboard rename is done except `engine/`.** The Rust port still says `CART`
-      for the two-cell object across `rules.rs`, `board.rs` and `solver.rs`. It is the cheapest
-      of the items the port owes and it changes no behaviour, so it rides along whenever the
-      port is next brought current. The wire protocol was deliberately NOT touched: `"cart"` is
-      the family word there, and the family word did not move.
 
 ## The link rework — approved design, in progress
 
@@ -190,6 +198,17 @@ Pin is `.trace_rom_studio.toml` at **0.25.0**, level with the studio at
 and the brief already states every clause of it. The studio commit is local only.
 
 ## Next Step
+
+**The anchor rule — step 3 of the hold rework.** Capture still drags the metal to the magnet,
+which is the thing that keeps the settle sweep order-dependent. The owner's rule: metal already
+held is an ANCHOR, and a loose magnet coming into range travels to IT. Only loose magnets move,
+they move toward, and the reach bounds the distance — so the sweep becomes monotone, no pass can
+undo an earlier one, and iterating to closure stops being the unreadable rule it is today. Settle
+becomes a worklist of the magnets that moved.
+
+Then #69 has to be answered before the scrape can land, and it is no longer theoretical:
+`towOrBreak` clears EVERY grip in the complex rather than the ones holding the blocked cells. That
+was invisible while a complex had one edge in it, and complexes now have more.
 
 **#48 — rebuild the rooms.** It is the root of the red build, and #47 and #64 both resolve
 behind it. Everything else on this list is a design decision with no dependents.
