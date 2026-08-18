@@ -109,4 +109,4 @@ The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 | L59 | One More First | 12 | `luURruLulDul` |
 | L60 | Last Collection | 22 | `luURrurrrrDullllLulDul` |
 
-`tools/metrics.mjs` scores a room. Open questions about the pack live in `TODO.md`.
+`tools/metrics.mjs` scores a room. Open questions about the pack live in `BREADCRUMB.md`.

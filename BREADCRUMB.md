@@ -24,10 +24,22 @@ What is left is the crow, one open rule, and the rooms rebuild that everything e
 - [ ] #51 **The crow is still pinned.** Un-pin and design its powers, or leave it. Naming it
       lands occupant codes, refusals and `stateKey` lanes on every implementation at once.
 
-- [ ] #64 **`TODO.md` says the port is sanctioned "for exactly as long as the CI conformance
-      step is green".** That step has not run in months: `npm test` fails first and CI stops
-      there, so the sanction's own gate is not executing. The sentence is true about the
-      design and false about the state.
+- [ ] #64 **The port's sanction is nominally CI-gated, and the gate is not executing.**
+      `test.yml` runs verify, conformance, the port build and the port's conformance AFTER
+      `npm test` — which fails, so CI stops before reaching any of them. Resolves behind #48.
+
+- [ ] #65 **The solver's representation change, inside `src/`.** About half of a discovery
+      run's work is `analyze` itself and a sixth is garbage collection: string state keys
+      hashed into a `Map`, one object per node, one per edge, one per back-pointer. Integer
+      keys over a flat edge array plausibly buys another 2-4x — the same hours a second engine
+      would buy, at none of its cost, and `CLAUDE.md` names it as the thing to spend first.
+
+- [ ] #66 **Act 3 gets searched with the piece cap off.** `--maxpiece` is the last constraint
+      in the chooser nobody has measured; it was set to keep one piece from owning an act, and
+      then the recycle bin turned out to deserve the rooms it takes. Half buys 24 rooms, 0.8
+      buys 27, 0.9 buys 30 — on the evidence so far the cap only ever costs sets. Run Act 3 at
+      `--maxpiece 1` and judge the two acts on ramp mix, outline count, par band and `onPath`
+      spread. If the unbounded pool wins, delete the flag rather than picking a new number.
 
 ### Sequential
 

@@ -9,8 +9,8 @@ An untimed, single-raccoon, Sokoban-family block-pusher.
 `src/rules.js` is the engine of record — the game, the solver and the tests all import it,
 and `tools/verify.mjs` proves every claim a level file makes against that same module.
 **It is also the only description of what the pieces do.** No doc and no comment restates the
-rules; either would be wrong within the week. `levels.md` indexes the shipped rooms; `TODO.md`
-says where the work is.
+rules; either would be wrong within the week. `levels.md` indexes the shipped rooms;
+`BREADCRUMB.md` says where the work is.
 
 The core mechanic is built and playable: `./run.sh`, then the level picker. Missing is everything
 around it — art, audio, progression, and the solvability indicator.
@@ -192,8 +192,8 @@ Agents: this being here does not widen the rule above by one inch. It was the ow
 is in `SANCTIONED`, and a second one is the same conversation again.
 
 The pipeline is where the pressure to port comes from, and it is offline: it runs when the
-level design changes and nobody waits on it. `TODO.md` has what a representation change inside
-`src/` would buy, at none of the cost above, and it is the thing to spend first.
+level design changes and nobody waits on it. A representation change inside `src/` buys the
+same hours at none of the cost above, and it is the thing to spend first.
 
 Raise a design concern **once**, in a sentence or two, and then build what was asked. The
 owner has the context; a second round of pushback is noise. The things worth stopping for are
@@ -261,7 +261,7 @@ These govern how code is written. They are not design arguments.
 - `README.md` — what it is, how to play, how to check it.
 - `levels.md` — index of the shipped rooms. The rooms themselves are `levels/act1.tt`.
 - `FORMATS.md` — the `.tt`/`.sol` file syntax. Not what the pieces do.
-- `TODO.md` — where we are, what's open, what's next.
+- `BREADCRUMB.md` — where we are, what's open, what's next. Written and read by `/bob`.
 - `GAME-SHEET.md` — the player-facing pitch.
 - `RELEASE-CHECKLIST.md` — the one hard stop, worked once at ship.
 - `publishing/` — every launch surface and the tools that build it: `MARKETING-PLAN.md`,

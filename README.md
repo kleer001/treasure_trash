@@ -24,8 +24,7 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 | `levels.md` | Index of the shipped rooms. |
 | `tools/` | Offline only: `verify.mjs`, `metrics.mjs`, `build-artifact.mjs`, `draft-room.mjs`. |
 | `bench-cart.html` | The mechanic bench: a served page that imports `src/` to try one piece at a time. Presentation only — it carries no copy of the engine, and `verify.mjs` fails on a second copy of one anywhere in the tree. |
-| `TODO.md` | Where we are, what's open, and the next move. |
-| `BREADCRUMB.md` | Session handoff written and read by `/bob`. |
+| `BREADCRUMB.md` | Where we are, what's open, and the next move. Written and read by `/bob`. |
 | `GAME-SHEET.md` | Player-facing pitch (the fantasy, the loop, the hook). |
 | `RELEASE-CHECKLIST.md` | The one hard stop, worked once at ship. Post-beta — closed until then. |
 | `publishing/` | Launch surfaces and the tools that build them. Nothing the game needs to run; the scripts live there and work on the game root. |
@@ -44,4 +43,4 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 ## Status in one line
 A prototype. The core mechanic is built and playable in `src/`, and every room's par is proven minimal
 by `tools/verify.mjs`. What's left is everything around it — art, audio, progression, the
-solvability indicator. See `TODO.md`.
+solvability indicator. See `BREADCRUMB.md`.
