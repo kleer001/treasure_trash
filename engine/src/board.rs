@@ -59,7 +59,7 @@ pub const GLASS: u8 = 5;
 pub const COVERED: u8 = 6;
 pub const TERRAINS: u16 = 7;
 
-pub const CART: u8 = 0;
+pub const SKATE: u8 = 0;
 pub const BARROW_U: u8 = 1;
 pub const BARROW_D: u8 = 2;
 pub const BARROW_L: u8 = 3;
@@ -103,9 +103,9 @@ struct CartKind {
     word: &'static str,
     what: &'static str,
 }
-pub const CART_POOL: &[u8] = b"PQR";
+pub const SKATE_POOL: &[u8] = b"PQR";
 const CART_KINDS_IN_MASK: [CartKind; 5] = [
-    CartKind { glyphs: CART_POOL, ck: CART, size: 2, word: "two", what: "cart" },
+    CartKind { glyphs: SKATE_POOL, ck: SKATE, size: 2, word: "two", what: "skateboard" },
     // A barrow faces the way its tub points, and the mask says so outright: the direction it
     // faces, and its capital for a second one facing the same way.
     CartKind { glyphs: b"uvw", ck: BARROW_U, size: 1, word: "one", what: "barrow (facing up)" },
@@ -237,7 +237,7 @@ impl Cell {
         oneway: NO_DIR,
         ter: DRY,
         o: NONE,
-        ck: CART,
+        ck: SKATE,
         pid: NO_ID,
         cart: NO_ID,
         lk: NO_ID,
@@ -672,7 +672,7 @@ pub fn to_state(
                 marks[(y * cols + x) as usize] = ch;
             }
         }
-        // One counter across the kinds, and a size rule per kind: a cart is two cells and a
+        // One counter across the kinds, and a size rule per kind: a skateboard is two cells and a
         // barrow is one, so the two cannot share a single check.
         let mut next_cid: u16 = 0;
         for k in CART_KINDS_IN_MASK.iter() {

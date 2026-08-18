@@ -761,7 +761,7 @@ fn shove_cart(s: &State, cid: u16, entry: Pt, dx: i32, dy: i32) -> Outcome {
                 let c = next.at_mut(from.0, from.1);
                 c.set_chain(&Chain::EMPTY);
                 c.cart = NO_ID;
-                c.ck = CART;
+                c.ck = SKATE;
                 let to = along(files[i][j], end);
                 let cargo = loads[i][j];
                 let d = next.at_mut(to.0, to.1);
@@ -914,7 +914,7 @@ fn slide_body(next: &mut State, at: Pt, dx: i32, dy: i32) {
         c.set_chain(&Chain::EMPTY);
         c.pid = NO_ID;
         c.cart = NO_ID;
-        c.ck = CART;
+        c.ck = SKATE;
         c.lk = NO_ID;
     }
     for (i, &(x, y)) in own.iter().enumerate() {
@@ -1054,7 +1054,7 @@ fn tow_move(s: &State, lk: u16, dx: i32, dy: i32) -> Outcome {
         c.set_chain(&Chain::EMPTY);
         c.pid = NO_ID;
         c.cart = NO_ID;
-        c.ck = CART;
+        c.ck = SKATE;
         c.lk = NO_ID;
     }
     for (i, &(x, y)) in own.iter().enumerate() {
@@ -1261,7 +1261,7 @@ pub fn explain(s: &State, dir: u8) -> Result<Outcome, String> {
             }
             let c = next.at_mut(tx, ty);
             c.cart = NO_ID;
-            c.ck = CART;
+            c.ck = SKATE;
             c.set_chain(&Chain::EMPTY);
             let landed = next.at_mut(to.0, to.1);
             landed.cart = target.cart;
