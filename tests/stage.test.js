@@ -53,7 +53,7 @@ test('cargo starts out parented to the skateboard it is standing in', () => {
 });
 
 test('a pile being taken aboard does not move a hair', () => {
-  // Nothing pushes it. The cart rolls onto it and scoops it up, so it has no more business
+  // Nothing pushes it. The skateboard rolls onto it and scoops it up, so it has no more business
   // lurching forward than the ground does — the nudge belongs to what was already riding and
   // got hit by the newcomer.
   let midBeat = null;

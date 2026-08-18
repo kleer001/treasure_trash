@@ -128,7 +128,7 @@
 :solution L26
 :label  par
 :moves  ddlUruuLD!uru
-:note   Down and round to get under the near cart, shove it up into the far one, then work the bag back out and burst it on the way to the door.
+:note   Down and round to get under the near skateboard, shove it up into the far one, then work the bag back out and burst it on the way to the door.
 
 :solution L27
 :label  par
