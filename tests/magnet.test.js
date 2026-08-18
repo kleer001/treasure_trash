@@ -6,13 +6,18 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, MAGNET_REACH } from '../src/rules.js';
+import { explain, MAGNET_REACH, inAHold } from '../src/rules.js';
 import { toState, toGrid, toCart } from '../src/format.js';
 
 const S = (grid, water, cart) => toState({ id: 't', grid, water, cart });
 const push = (s, dir) => { const r = explain(s, dir); assert.ok(r.ok, `refused: ${r.reason}`); return r.next; };
 const refuse = (s, dir) => { const r = explain(s, dir); assert.ok(!r.ok, 'expected a refusal'); return r.reason; };
-const held = s => s.cells.flat().filter(c => c.lk !== undefined).length;
+/** How many cells are in a hold at all — a holder gripping, or a body being gripped. */
+const held = s => {
+  let n = 0;
+  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) if (inAHold(s, x, y)) n++;
+  return n;
+};
 
 // A field holds whatever is in it, and it does not wait to be asked. A room OPENS with its
 // magnets already holding — a field that waited for the first action would appear to fire in
@@ -78,19 +83,18 @@ test('what cannot keep pace is let go, and the magnet goes on alone', () => {
   assert.equal(held(after), 0, 'the chain let go');
 });
 
-// One link per piece. Without this a magnet takes hold of a barrow that is already towing, the
-// second hold overwrites the first, and what it was towing is orphaned — a board that is wrong
-// with nothing thrown and nothing to look at.
-test('a magnet will not take hold of something that is already held', () => {
+// A hold is written on the HOLDER, so two holders can have hold of one thing without either
+// standing on the other's field. A magnet taking hold of a barrow that is already towing leaves
+// the tow exactly where it was and adds itself in front of it: magnet, barrow, couch, one chain.
+test('a magnet takes hold of something already held, and the first hold survives', () => {
   const s = S(['---------', '-@---FF--', '---------', 'E--------']);
   const cart = toState({ id: 't', grid: ['---------', '-@---FF--', '---------', 'E--------'],
                          cart: ['---------', '----r----', '---------', '---------'] });
-  cart.cells[1][4].lk = 0; cart.cells[1][5].lk = 0; cart.cells[1][6].lk = 0;
+  cart.cells[1][4].grip = 1;                     // the barrow is towing the couch ahead of it
   cart.cells[1][2].o = 34;                       // a magnet facing the towing barrow
   const after = push(cart, 'r');
-  const groups = new Set(after.cells.flat().filter(c => c.lk !== undefined).map(c => c.lk));
-  assert.equal(groups.size, 1, 'still one group: the tow, untouched');
-  assert.equal(after.cells.flat().filter(c => c.lk !== undefined).length, 3, 'barrow and both couch cells');
+  assert.equal(after.cells[1][4].grip, 1, 'the tow is untouched');
+  assert.equal(held(after), 4, 'magnet, barrow and both couch cells, one chain');
   assert.ok(s, 'board builds');
 });
 

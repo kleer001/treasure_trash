@@ -89,10 +89,11 @@ test('a barrow keeps its kind when it moves, or two boards would key alike', () 
 // hooks what it cannot scoop and the pair moves as one. This is the link lane, and the magnet's
 // chain rides in the same one.
 
-import { linkCells } from '../src/rules.js';
+import { inAHold } from '../src/rules.js';
 
-const linked = s => s.cells.flatMap((row, y) => row.map((c, x) => [c.lk, x, y]))
-  .filter(([lk]) => lk !== undefined);
+/** Every cell in a hold — the holder gripping, and the body it has hold of. */
+const linked = s => s.cells.flatMap((row, y) => row.map((c, x) => [x, y]))
+  .filter(([x, y]) => inAHold(s, x, y));
 
 test('shoved at something too big to scoop, the barrow hooks on instead of refusing', () => {
   const s = push(S(['------', '@-FF--', '------', 'E-----'], ['------', '-r----', '------', '------']), 'r');
@@ -102,7 +103,7 @@ test('shoved at something too big to scoop, the barrow hooks on instead of refus
 
 test('a hooked pair moves as one rigid thing', () => {
   let s = push(S(['@--FF--E', '--------'], ['-r------', '--------']), 'r');   // rolls up and hooks
-  assert.equal(linkCells(s, 0).length, 3);
+  assert.equal(linked(s).length, 3, 'barrow and both couch cells, one complex');
   s = push(s, 'r');
   assert.equal(toGrid(s)[0], '--@-FF-E', 'the couch came along');
 });
@@ -117,7 +118,7 @@ test('a blocked tow refuses; a barrow shoved again would only take the same hold
 test('pushing the load drags the barrow along', () => {
   let s = push(S(['------', '@-FF--', '------', 'E-----'], ['------', '-r----', '------', '------']), 'r');
   const from = S(['------', '--FF@-', '------', 'E-----'], ['------', '-r----', '------', '------']);
-  from.cells[1][1].lk = 0; from.cells[1][2].lk = 0; from.cells[1][3].lk = 0;
+  from.cells[1][1].grip = 1;
   const after = push(from, 'l');
   assert.equal(toGrid(after)[1], '-FF@--', 'couch moved left, and the barrow with it');
 });
@@ -198,7 +199,7 @@ test('a barrow carries a barrow carrying a barrow, and every load comes back', (
 
 test('a hooked barrow is spoken for, and cannot be picked up', () => {
   const s = S(['@---FF-E', '--------'], ['-r-r----', '--------']);
-  s.cells[0][3].lk = 0; s.cells[0][4].lk = 0; s.cells[0][5].lk = 0;   // the far one is towing
+  s.cells[0][3].grip = 1;                                            // the far one is towing
   const r = explain(s, 'r');
   assert.ok(r.ok, `refused: ${r.reason}`);
   assert.equal(toCart(r.next)[0], '--rs----', 'it stopped against it rather than taking it');

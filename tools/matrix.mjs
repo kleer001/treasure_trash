@@ -259,7 +259,7 @@ export function reachable(s0, cap = 4000) {
       return label.get(k);
     };
     return JSON.stringify([st.cells.map(r => r.map(c =>
-      [c.o, c.hold ?? null, tag(c.pid, 'p'), tag(c.cart, 'c'), c.ck ?? -1, tag(c.lk, 'l'),
+      [c.o, c.hold ?? null, tag(c.pid, 'p'), tag(c.cart, 'c'), c.ck ?? -1, tag(c.grip, 'g'),
        c.water, c.bridge, c.ter ?? 0])), st.rac]);
   };
   seen.set(key(s0), s0);

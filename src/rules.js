@@ -276,22 +276,67 @@ const METAL = new Set([CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMP
                        MAG_U, MAG_D, MAG_L, MAG_R]);
 export const isMetal = c => (isCart(c) ? isBarrow(cartKindOf(c)) : METAL.has(c.o));
 
-// --- links ---------------------------------------------------------------------------------
-// Two things held together, and the ONE lane both the barrow's tow and the magnet's chain ride
-// in. Which of the two a group is falls out of what it holds rather than out of a second field.
-export const linkOf = c => c.lk;
-export const linkCells = (s, lk) => {
+// --- holds ---------------------------------------------------------------------------------
+// A hold is an EDGE, and it is written on the HOLDER: `grip` is the signed offset along the
+// holder's own axis to whatever it has hold of. Nothing is written on the held thing, which is
+// what lets several holders have hold of one object without competing for a field on it — and
+// what makes the direction of a hold readable, so a held magnet can tell its holder from its
+// load. Both the barrow's tow and the magnet's chain ride in this one lane.
+export const gripOf = c => c.grip;
+
+/** The axis a holder's hold runs along: its facing, either way along it for a barrow. */
+export const gripAxis = (s, x, y) => {
+  const c = cell(s, x, y);
+  if (isMagnet(c.o)) return DIRS[magnetFace(c.o)];
+  if (isCart(c) && isBarrow(cartKindOf(c))) return DIRS[barrowFace(cartKindOf(c))];
+  return undefined;
+};
+
+/** The cell a holder has hold of, or null when it has hold of nothing. */
+export const gripTarget = (s, x, y) => {
+  const c = cell(s, x, y);
+  if (c.grip === undefined) return null;
+  const f = gripAxis(s, x, y);
+  if (!f) return null;
+  const p = [x + f[0] * c.grip, y + f[1] * c.grip];
+  return inGrid(s, ...p) ? p : null;
+};
+
+/** Every holder with hold of the body standing here — the reverse of `gripTarget`. */
+export const holdersOf = (s, x, y) => {
+  const body = new Set(bodyCells(s, [x, y]).map(([bx, by]) => `${bx},${by}`));
   const out = [];
-  for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++)
-    if (s.cells[y][x].lk === lk) out.push([x, y]);
+  for (let yy = 0; yy < s.rows; yy++) for (let xx = 0; xx < s.cols; xx++) {
+    const t = gripTarget(s, xx, yy);
+    if (t && body.has(`${t[0]},${t[1]}`)) out.push([xx, yy]);
+  }
   return out;
 };
-/** An id no link on this board is using. */
-export const freeLink = s => {
-  let top = -1;
-  for (const row of s.cells) for (const c of row) if (c.lk !== undefined && c.lk > top) top = c.lk;
-  return top + 1;
+
+/**
+ * The whole rigid complex a cell belongs to: what it has hold of, whoever has hold of it, and
+ * onward through both. Derived rather than stored, the way `bodyCells`, `pieceCells` and
+ * `cartCells` are — so a hold shared by two holders needs no field to say so.
+ */
+export const complexCells = (s, at) => {
+  const seen = new Set(), out = [];
+  const walk = (x, y) => {
+    for (const [bx, by] of bodyCells(s, [x, y])) {
+      const k = `${bx},${by}`;
+      if (seen.has(k)) continue;
+      seen.add(k); out.push([bx, by]);
+      const t = gripTarget(s, bx, by);
+      if (t) walk(...t);
+      for (const [hx, hy] of holdersOf(s, bx, by)) walk(hx, hy);
+    }
+  };
+  walk(at[0], at[1]);
+  return out;
 };
+
+/** Whether anything at all has hold of this cell, either end of the edge. */
+export const inAHold = (s, x, y) =>
+  cell(s, x, y).grip !== undefined || holdersOf(s, x, y).length > 0;
 /** Whether this is the line it runs on at all — either way along its facing. */
 export const barrowRollsAlong = (k, dx, dy) => {
   const f = DIRS[barrowFace(k)];
@@ -579,7 +624,7 @@ const landsAs = o => (sheds(o) ? SLIDES[o].slides : o);
  */
 export const isScoopable = (s, x, y) => {
   const c = cell(s, x, y);
-  return isCart(c) && isBarrow(cartKindOf(c)) && c.lk === undefined
+  return isCart(c) && isBarrow(cartKindOf(c)) && !inAHold(s, x, y)
     && cartCells(s, c.cart).length === 1;
 };
 
@@ -785,12 +830,12 @@ function slideBody(next, at, dx, dy, step) {
   for (const [x, y] of own) {
     const c = cell(next, x, y);
     c.o = NONE; c.hold = undefined; c.pid = undefined;
-    c.cart = undefined; c.ck = undefined; c.lk = undefined;
+    c.cart = undefined; c.ck = undefined; c.grip = undefined;
   }
   own.forEach(([x, y], i) => {
     const c = cell(next, x + dx, y + dy);
     c.o = was[i].o; c.hold = was[i].hold; c.pid = was[i].pid;
-    c.cart = was[i].cart; c.ck = was[i].ck; c.lk = was[i].lk;
+    c.cart = was[i].cart; c.ck = was[i].ck; c.grip = was[i].grip;
   });
   nameMove(step, was, own, dx, dy);
 }
@@ -816,62 +861,57 @@ const drawIn = (next, at, dx, dy, max) => {
  */
 function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
   let wrote = false;
-  const o = cell(next, mx, my).o;
-  const f = DIRS[magnetFace(o)];
-  const lk = cell(next, mx, my).lk;
+  const f = DIRS[magnetFace(cell(next, mx, my).o)];
 
-  // The chain is strictly along the facing. Anything that has fallen off that line, or drifted
-  // past the reach, is simply let go — which is why the piece needs no distance metric.
-  if (lk !== undefined) {
-    const heldNow = () => linkCells(next, lk).filter(([x, y]) => !(x === mx && y === my));
-    let held = heldNow();
-
-    // ACROSS the field, what is held keeps pace: it moves the way the magnet moved, or the two
-    // simply come apart. ALONG the field there is nothing to keep pace with — the gap closes
-    // instead, further down. A shove that carries the magnet sideways carries its load sideways.
-    if (held.length && (dx || dy) && dx * f[0] + dy * f[1] === 0) {
-      if (drawIn(next, held[0], dx, dy, 1)) {
-        slideBody(next, held[0], dx, dy, step);
-        held = heldNow();
+  // The hold it already has: still hold of something, or let go. `grip` says which cell, so this
+  // asks after ONE edge and never has to work out which end of a group it is standing on.
+  if (cell(next, mx, my).grip !== undefined) {
+    const k = cell(next, mx, my).grip;
+    // This runs after the magnet has moved, and what it holds has not moved with it — so the
+    // offset is stale by exactly the shove. A shove is only ever along the facing or across it.
+    const along = dx * f[0] + dy * f[1];
+    const lag = [mx - dx + f[0] * k, my - dy + f[1] * k];   // where the load still stands
+    if (along) {
+      // ALONG: the load stayed put and the magnet closed on it, so the gap is short by the shove.
+      cell(next, mx, my).grip = k - along;
+    } else if (dx || dy) {
+      // ACROSS: what is held keeps pace, or the two simply come apart.
+      if (inGrid(next, ...lag) && drawIn(next, lag, dx, dy, 1)) {
+        slideBody(next, lag, dx, dy, step);
+        wrote = true;
+      } else {
+        cell(next, mx, my).grip = undefined;
         wrote = true;
       }
     }
-    const onLine = held.length && held.every(([x, y]) => {
-      const k = (x - mx) * f[0] + (y - my) * f[1];
-      return k >= 1 && k <= MAGNET_REACH && x - mx === f[0] * k && y - my === f[1] * k;
-    });
-    if (!onLine) {
-      for (const [x, y] of linkCells(next, lk)) cell(next, x, y).lk = undefined;
-      wrote = true;
+    const at = gripTarget(next, mx, my);
+    const g = cell(next, mx, my).grip;
+    if (g === undefined || !at || g < 1 || g > MAGNET_REACH || !isMetal(cell(next, ...at))) {
+      if (cell(next, mx, my).grip !== undefined) wrote = true;
+      cell(next, mx, my).grip = undefined;
     } else {
       // It closes the gap by up to two, and stops when it is alongside.
-      const [hx, hy] = held[0];
-      const gap = (hx - mx) * f[0] + (hy - my) * f[1];
-      const k = drawIn(next, held[0], -f[0], -f[1], Math.min(2, gap - 1));
-      if (k) { slideBody(next, [hx, hy], -f[0] * k, -f[1] * k, step); wrote = true; }
+      const drew = drawIn(next, at, -f[0], -f[1], Math.min(2, g - 1));
+      if (drew) {
+        slideBody(next, at, -f[0] * drew, -f[1] * drew, step);
+        cell(next, mx, my).grip = g - drew;
+        wrote = true;
+      }
     }
   }
 
   // Capture. Walls stop the field; objects do not, so the first METAL along the line is taken
   // even with something standing in front of it — it simply closes as far as it can.
-  if (cell(next, mx, my).lk !== undefined) return wrote;
+  if (cell(next, mx, my).grip !== undefined) return wrote;
   for (let k = 1; k <= MAGNET_REACH; k++) {
     const p = [mx + f[0] * k, my + f[1] * k];
     if (!inGrid(next, ...p) || cell(next, ...p).wall) return wrote;
     const c = cell(next, ...p);
     if (c.o === NONE && !isCart(c)) continue;
     if (!isMetal(c)) continue;
-    // One link per piece. A barrow already towing cannot also be captured — the second hold
-    // would overwrite the first and leave what it was towing orphaned, with nothing to say so.
-    if (c.lk !== undefined) return wrote;
     const drew = drawIn(next, p, -f[0], -f[1], k - 1);
-    const at = [p[0] - f[0] * drew, p[1] - f[1] * drew];
     if (drew) slideBody(next, p, -f[0] * drew, -f[1] * drew, step);
-    const lk2 = freeLink(next);
-    // The whole body is held, not the cell the field happened to touch: a link on one cell of a
-    // bicycle is a tow that would drag that cell out of it.
-    for (const [x, y] of bodyCells(next, at)) cell(next, x, y).lk = lk2;
-    cell(next, mx, my).lk = lk2;
+    cell(next, mx, my).grip = k - drew;
     return true;
   }
   return wrote;
@@ -914,10 +954,10 @@ function hookTow(next, cid, dx, dy) {
   const ahead = [at[0] + dx, at[1] + dy];
   if (!inGrid(next, ...ahead)) return;
   const c = cell(next, ...ahead);
-  if (!isMultiCell(c.o) || c.lk !== undefined) return;
-  const lk = freeLink(next);
-  cell(next, ...at).lk = lk;
-  for (const [x, y] of pieceCells(next, c.pid)) cell(next, x, y).lk = lk;
+  if (!isMultiCell(c.o) || holdersOf(next, ...ahead).length) return;
+  const f = gripAxis(next, ...at);
+  if (!f) return;
+  cell(next, ...at).grip = dx * f[0] + dy * f[1];
 }
 
 /** A tow is rigid: barrow and load move together, or the shove is refused. */
@@ -931,17 +971,18 @@ function hookTow(next, cid, dx, dy) {
  * the same beat and nothing has happened. Whether a blocked hook should let go and stay let go is
  * a question about the barrow, and it is open.
  */
-function towOrBreak(s, lk, dir, dx, dy, done, opts) {
-  const towed = towMove(s, lk, dx, dy, done);
+function towOrBreak(s, at, dir, dx, dy, done, opts) {
+  const towed = towMove(s, at, dx, dy, done);
   if (towed.ok) return towed;
-  if (!linkCells(s, lk).some(([x, y]) => isMagnet(cell(s, x, y).o))) return towed;
+  const own = complexCells(s, at);
+  if (!own.some(([x, y]) => isMagnet(cell(s, x, y).o))) return towed;
   const freed = cloneState(s);
-  for (const [x, y] of linkCells(freed, lk)) cell(freed, x, y).lk = undefined;
+  for (const [x, y] of own) cell(freed, x, y).grip = undefined;
   return decide(freed, dir, opts);
 }
 
-function towMove(s, lk, dx, dy, done) {
-  const own = linkCells(s, lk);
+function towMove(s, at, dx, dy, done) {
+  const own = complexCells(s, at);
   const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
   const blame = own.map(([x, y]) => [x + dx, y + dy])
     .filter(([x, y]) => !ownSet.has(`${x},${y}`) && !travelsInto(s, x, y, dx, dy));
@@ -951,12 +992,12 @@ function towMove(s, lk, dx, dy, done) {
   for (const [x, y] of own) {
     const c = cell(next, x, y);
     c.o = NONE; c.hold = undefined; c.pid = undefined;
-    c.cart = undefined; c.ck = undefined; c.lk = undefined;
+    c.cart = undefined; c.ck = undefined; c.grip = undefined;
   }
   own.forEach(([x, y], i) => {
     const c = cell(next, x + dx, y + dy);
     c.o = was[i].o; c.hold = was[i].hold; c.pid = was[i].pid;
-    c.cart = was[i].cart; c.ck = was[i].ck; c.lk = was[i].lk;
+    c.cart = was[i].cart; c.ck = was[i].ck; c.grip = was[i].grip;
   });
   next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
   // A link holds whatever the field caught, and the account names it the way the rest of the game
@@ -1367,8 +1408,7 @@ function decide(s, dir, opts) {
       const next = cloneState(s);
       const step = mkStep();
       // Tipping lets go of whatever it was towing: the barrow turns out from under the load.
-      if (target.lk !== undefined)
-        for (const [x, y] of linkCells(next, target.lk)) cell(next, x, y).lk = undefined;
+      cell(next, tx, ty).grip = undefined;
       cell(next, tx, ty).cart = undefined; cell(next, tx, ty).ck = undefined;
       setChain(cell(next, tx, ty), []);
       const landed = cell(next, ...to);
@@ -1388,19 +1428,20 @@ function decide(s, dir, opts) {
       return done(next, PUSH, step);
     }
     // Already towing: the pair is rigid while it can travel, and the hold breaks when it cannot.
-    if (target.lk !== undefined) return towOrBreak(s, target.lk, dir, dx, dy, done, opts);
+    if (inAHold(s, tx, ty)) return towOrBreak(s, [tx, ty], dir, dx, dy, done, opts);
 
     // Shoved straight at something too big to scoop, the barrow hooks on rather than refusing.
     // The shove is spent taking hold, which is the same beat a scoop costs.
     if (isBarrow(kind)) {
       const ahead = [tx + dx, ty + dy];
       if (inGrid(s, ...ahead) && isMultiCell(cell(s, ...ahead).o)
-          && cell(s, ...ahead).lk === undefined) {
+          && !holdersOf(s, ...ahead).length) {
         const next = cloneState(s);
-        const lk = freeLink(next);
-        cell(next, tx, ty).lk = lk;
-        for (const [x, y] of pieceCells(next, cell(next, ...ahead).pid)) cell(next, x, y).lk = lk;
-        return done(next, PUSH, mkStep());
+        const f = gripAxis(next, tx, ty);
+        if (f) {
+          cell(next, tx, ty).grip = dx * f[0] + dy * f[1];
+          return done(next, PUSH, mkStep());
+        }
       }
     }
 
@@ -1465,7 +1506,7 @@ function decide(s, dir, opts) {
   // takes its barrow, a chained can takes its magnet. That is the board pulling, not the
   // raccoon, which is the one place pulling was ever allowed. The magnet itself is exempt: a
   // shove on IT is an ordinary shove, and what it holds follows after.
-  if (target.lk !== undefined && !isMagnet(o)) return towOrBreak(s, target.lk, dir, dx, dy, done, opts);
+  if (inAHold(s, tx, ty) && !isMagnet(o)) return towOrBreak(s, [tx, ty], dir, dx, dy, done, opts);
 
   // An open cabinet shuts two ways, and both are the same swap: the piece is destroyed and a shut
   // cabinet is put down. Shoved on the DRAWER toward the body it closes where it stands. Driven
@@ -1695,7 +1736,7 @@ function decide(s, dir, opts) {
     const step = mkStep({ moved: [], gone: [] });
     let headMoved = null;
     for (const [x, y] of line) {
-      const c = cell(next, x, y); c.o = NONE; c.hold = undefined; c.lk = undefined;
+      const c = cell(next, x, y); c.o = NONE; c.hold = undefined; c.grip = undefined;
     }
     for (const [x, y] of [...line].reverse()) {
       const from = [x, y], to = [x + k * dx, y + k * dy];
@@ -1727,7 +1768,7 @@ function decide(s, dir, opts) {
       // Everything the cell was carrying travels with it, not just the occupant code. A link
       // left behind belongs to whatever is standing there now, which is a different board.
       const c = cell(next, ...to);
-      c.o = what; c.hold = cell(s, x, y).hold; c.lk = cell(s, x, y).lk;
+      c.o = what; c.hold = cell(s, x, y).hold; c.grip = cell(s, x, y).grip;
       const m = { o: what, from, to };
       step.moved.push(m);
       if (x === head[0] && y === head[1]) headMoved = m;
@@ -1800,9 +1841,9 @@ function decide(s, dir, opts) {
     // which is the cell it started from.
     else if (SLIDES[o].covers && cover(cell(next, ...at))) step.gone = [{ o, at: [tx, ty] }];
     else drop(next, at, [lands]);
-    const lk = cell(next, tx, ty).lk;
+    const grip = cell(next, tx, ty).grip;
     cell(next, tx, ty).o = NONE;
-    cell(next, tx, ty).lk = undefined;
+    cell(next, tx, ty).grip = undefined;
     // The magnet is an ordinary slider; what it does happens after it lands, and it lands
     // wherever the dispatch above put it — a cart slot is a place to land like any other.
     // Asking the board where it ended up is also how a grate that took it on the way says so:
@@ -1810,10 +1851,8 @@ function decide(s, dir, opts) {
     if (isMagnet(o)) {
       const rest = shove ? shove.file[0] : at;
       if (cell(next, ...rest).o === o) {
-        cell(next, ...rest).lk = lk;
+        cell(next, ...rest).grip = grip;
         magnetResolve(next, ...rest, step, dx, dy);
-      } else if (lk !== undefined) {
-        for (const [x, y] of linkCells(next, lk)) cell(next, x, y).lk = undefined;
       }
     }
     // He follows only onto floor he could have walked onto, the same question every travelling
@@ -1898,7 +1937,7 @@ const SEP = '#';                        // below 65, which is the floor every la
 // neither furniture nor a cart.
 export const stateKey = s => {
   let kinds = '', pids = '', carts = '', links = '', holds = '';
-  let pidLabels = null, cartLabels = null, linkLabels = null;
+  let pidLabels = null, cartLabels = null;
   for (let y = 0; y < s.rows; y++) {
     if (y) kinds += '/';
     const row = s.cells[y];
@@ -1917,11 +1956,7 @@ export const stateKey = s => {
       }
       // What is hooked to what is board state: the same pieces in the same cells, one pair
       // linked and one pair not, are two different boards and play differently.
-      if (c.lk !== undefined) {
-        linkLabels ??= new Map();
-        if (!linkLabels.has(c.lk)) linkLabels.set(c.lk, linkLabels.size);
-        links += String.fromCharCode(65 + linkLabels.get(c.lk));
-      }
+      if (c.grip !== undefined) links += String.fromCharCode(78 + c.grip);
       // What a carried barrow is holding, and what THAT is holding. Variable length, so each
       // one is written with its own count — the cells it belongs to are the ones the kinds lane
       // already says hold a carried barrow, in this same order, and every one of them writes a

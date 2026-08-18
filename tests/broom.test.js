@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain } from '../src/rules.js';
+import { explain , inAHold } from '../src/rules.js';
 import { toState, toGrid, toWater } from '../src/format.js';
 
 const S = (grid, water) => toState({ id: 't', grid, water });
@@ -79,8 +79,8 @@ test('a line holding something stuck in tar will not move at all', () => {
 test('a sweep carries what a cell holds, not only what is standing on it', () => {
   const s = S(['-@rq-----E']);
   s.cells[0][4].o = 7;                              // a wheelie beside the magnet
-  s.cells[0][3].lk = 0; s.cells[0][4].lk = 0;       // already held
+  s.cells[0][3].grip = 1;                          // already held
   const after = push(s, 'r');
-  const held = after.cells[0].map((c, i) => (c.lk !== undefined ? i : null)).filter(i => i !== null);
-  assert.deepEqual(held, [4, 5], 'the link moved with the pair, not stayed on the broom');
+  const held = after.cells[0].map((_, i) => (inAHold(after, i, 0) ? i : null)).filter(i => i !== null);
+  assert.deepEqual(held, [4, 5], 'the hold moved with the pair, not stayed on the broom');
 });
