@@ -12,7 +12,7 @@
 :traps  1
 :solves 1
 :solve  LLLLLdllluU!d
-:note   Set 1 of 10, opener. One long aisle, a cart sitting in the middle of it, and the work waiting at both ends.
+:note   Set 1 of 10, opener. One long aisle, a skateboard sitting in the middle of it, and the work waiting at both ends.
 :grid
 ---#######
 -$-#####--
@@ -100,7 +100,7 @@ b-------
 :traps  6
 :solves 1
 :solve  UurrrddrUluuurrDu
-:note   Set 2, rung 2. The near bin fills, and the cart's parking spot stops being free.
+:note   Set 2, rung 2. The near bin fills, and the skateboard's parking spot stops being free.
 :grid
 -####--E
 ---##--B
@@ -144,7 +144,7 @@ B-------
 :traps  329
 :solves 5
 :solve  uulDldRD!uullLd
-:note   Set 3 of 10, opener. Couch, cart, can and bin. The cast does not change again in this set — only where it starts.
+:note   Set 3 of 10, opener. Couch, skateboard, can and bin. The cast does not change again in this set — only where it starts.
 :grid
 --####---
 ----B--C-
@@ -166,7 +166,7 @@ PP-------
 :traps  17
 :solves 1
 :solve  UuLLdR!lllllluRdrr
-:note   Set 3, rung 2. Same cast, moved: the couch turns end-on and the cart begins in the other chamber.
+:note   Set 3, rung 2. Same cast, moved: the couch turns end-on and the skateboard begins in the other chamber.
 :grid
 --####C--
 -B-------

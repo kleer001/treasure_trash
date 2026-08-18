@@ -88,32 +88,32 @@
 :solution L18
 :label  par
 :moves  ddRU!dl
-:note   Down to the exit row, shove the cart clear of the strike square, then burst the bag upward and step back onto the door.
+:note   Down to the exit row, shove the skateboard clear of the strike square, then burst the bag upward and step back onto the door.
 
 :solution L19
 :label  par
 :moves  LdllluRR!l
-:note   Shove the cart across the row: it swallows the spill and the bag both, and parks against the door. Walk round, shove it back, and it sets the bag down again and carries the spill clear of the blast.
+:note   Shove the skateboard across the row: it swallows the spill and the bag both, and parks against the door. Walk round, shove it back, and it sets the bag down again and carries the spill clear of the blast.
 
 :solution L20
 :label  par
 :moves  DldRR!l
-:note   Shove the cart down onto the bag, walk round to its left, then shove it across: the bag comes out beside the door and the spill goes with the cart.
+:note   Shove the skateboard down onto the bag, walk round to its left, then shove it across: the bag comes out beside the door and the spill goes with the skateboard.
 
 :solution L21
 :label  par
 :moves  LdlUrrruL!r
-:note   Shove the cart onto the spill, walk under it and shove it up to set the spill down clear of the door, then go round and burst the bag from the door.
+:note   Shove the skateboard onto the spill, walk under it and shove it up to set the spill down clear of the door, then go round and burst the bag from the door.
 
 :solution L22
 :label  par
 :moves  uRD!ul
-:note   Step onto the door, shove the can into the basket, and the cell he needs to strike from is free.
+:note   Step onto the door, shove the can onto the deck, and the cell he needs to strike from is free.
 
 :solution L23
 :label  par
 :moves  uRRD!ul
-:note   Step onto the door, shove the bin into the basket for free, roll the basket clear, and the bin lands with its trash behind it.
+:note   Step onto the door, shove the bin onto the deck for free, roll the deck clear, and the bin lands with its trash behind it.
 
 :solution L24
 :label  par
@@ -123,7 +123,7 @@
 :solution L25
 :label  par
 :moves  rRU!d
-:note   Step onto the door, shove the cart, stay put because the can lands in the way, and burst the bag upward from where you are standing.
+:note   Step onto the door, shove the skateboard, stay put because the can lands in the way, and burst the bag upward from where you are standing.
 
 :solution L26
 :label  par
@@ -133,19 +133,19 @@
 :solution L27
 :label  par
 :moves  LullDR!lu
-:note   Shove the cart over the can, walk round to the bag it dropped, and burst it back toward the door.
+:note   Shove the skateboard over the can, walk round to the bag it dropped, and burst it back toward the door.
 
 :solution L28
 :label  par
 :moves  ULlullDR!lu
-:note   Lift the bin down a row with the cart, roll it along that row, then burst the bag it leaves behind.
+:note   Lift the bin down a row with the skateboard, roll it along that row, then burst the bag it leaves behind.
 
 :solution L29
 :label  par
 :moves  dlUruulLrrddlUddlU!d
-:note   Drive the cart into the couch early, then work the bag down the shaft the walls leave you and burst it at the bottom.
+:note   Drive the skateboard into the couch early, then work the bag down the shaft the walls leave you and burst it at the bottom.
 
 :solution L30
 :label  par
 :moves  UdlluuRD!ul
-:note   Put the jug in the basket, walk the long way round to the door side of it, and shove the basket off — standing where you do, the jug cannot be put down, so it goes with it.
+:note   Put the jug on the deck, walk the long way round to the door side of it, and shove the deck off — standing where you do, the jug cannot be put down, so it goes with it.

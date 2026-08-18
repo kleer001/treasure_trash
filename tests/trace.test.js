@@ -166,7 +166,7 @@ test('a cart reports one translation per cell of travel', () => {
 });
 
 test('swallowing and shedding are changes of parent, not of position', () => {
-  // Neither end of this moves on the board: the cart rolls ONTO what it takes and OUT FROM
+  // Neither end of this moves on the board: the skateboard rolls ONTO what it takes and OUT FROM
   // UNDER what it sheds. If either were reported as a position change the renderer would
   // snap it, which is the whole thing riding is meant to avoid.
   const r = audit('cart-parent', ['@--xxx-#', 'E-------'], 'r', { cart: ['-PP-----', '--------'] });
@@ -185,7 +185,7 @@ test('a shed names the cell the load rode in and the cell it lands on', () => {
   // or a renderer has nowhere to fly it from.
   const r = audit('cart-shed', ['-c#', '@c#', 'E--'], 'r', { cart: ['-P-', '-P-', '---'] });
   const tip = r.steps.at(-1);
-  assert.equal(tip.piece, null, 'the cart itself is going nowhere');
+  assert.equal(tip.piece, null, 'the skateboard itself is going nowhere');
   const out = tip.moved.filter(m => m.parent === null);
   assert.deepEqual(out.map(m => m.from), [[1, 0]], 'from the slot it rode in');
   assert.deepEqual(out.map(m => m.to), [[0, 0]], 'to the cell behind that file');
@@ -210,8 +210,8 @@ test('nothing a cart reports ever crosses more than one cell', () => {
   }
 });
 
-test('a tip lands contiguously behind the cart, never skipping a taken cell', () => {
-  // The property, not one board: whatever comes out fills the run backward from the cart with
+test('a tip lands contiguously behind the skateboard, never skipping a taken cell', () => {
+  // The property, not one board: whatever comes out fills the run backward from the skateboard with
   // no gap, so a pile can never be found on the far side of something already down.
   for (const [grid, cart] of [
     [['@--xxx-#', 'E-------'], ['-PP-----', '--------']],
@@ -226,7 +226,7 @@ test('a tip lands contiguously behind the cart, never skipping a taken cell', ()
     if (tip.piece) continue;                       // this board did not tip
     const before = r.frames[r.frames.length - 2];
     for (const m of tip.moved.filter(m => m.parent === null)) {
-      // walk from the landing cell back toward the cart: every cell between must be free
+      // walk from the landing cell back toward the skateboard: every cell between must be free
       const [dx, dy] = [Math.sign(m.from[0] - m.to[0]), Math.sign(m.from[1] - m.to[1])];
       for (let p = [m.to[0] + dx, m.to[1] + dy];
            !(p[0] === m.from[0] && p[1] === m.from[1]); p = [p[0] + dx, p[1] + dy]) {
@@ -247,10 +247,10 @@ test('cargo tipped into the canal reports that it fills', () => {
   assert.deepEqual(tip.moved[0].to, [0, 0]);
 });
 
-test('a tip only ever moves cargo backward, and never past the run the cart came through', () => {
-  // The load settles against the back of the basket and the wall pushes it out behind. Both
+test('a tip only ever moves cargo backward, and never past the run the skateboard came through', () => {
+  // The load settles against the tail of the deck and the wall pushes it out behind. Both
   // halves travel the same way — away from the wall — and nothing goes further back than the
-  // cell the cart's trail slot started in, which is where the raccoon is standing.
+  // cell the skateboard's trail slot started in, which is where the raccoon is standing.
   for (const [grid, cart, water] of [
     [['@--xxx-#', 'E-------'], ['-PP-----', '--------'], null],
     [['@cc---#', 'E------'], ['-PP----', '-------'], null],

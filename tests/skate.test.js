@@ -191,7 +191,7 @@ test('the exit stops a skateboard without tipping it — nothing may rest there'
   assert.deepEqual(toCart(next), ['--PP-', '-----']);
 });
 
-test('the cart block round-trips, loaded and all', () => {
+test('the skateboard block round-trips, loaded and all', () => {
   const s = S(['@-cx--E', '-------'], ['-PP-QQ-', '-------']);
   assert.deepEqual(toGrid(s), ['@-cx--E', '-------']);
   assert.deepEqual(toCart(s), ['-PP-QQ-', '-------']);
@@ -244,7 +244,7 @@ test('a can can be shoved INTO a skateboard, not just run over by one', () => {
   // A skateboard loads by being rolled into cargo; shoving the cargo into the skateboard is the same
   // collision from the other side. Refusing it made the piece feel broken rather than rigid.
   const next = act(['@c---E'], ['--PP--'], 'r');
-  assert.deepEqual(toGrid(next), ['-@c--E'], 'the can is in the cart cell, he is in the one it left');
+  assert.deepEqual(toGrid(next), ['-@c--E'], 'the can is in the skateboard cell, he is in the one it left');
   assert.deepEqual(toCart(next), ['--PP--'], 'and the skateboard has not moved');
   assert.equal(cell(next, 2, 0).cart, cell(next, 3, 0).cart, 'it is riding, not sitting beside it');
 });
@@ -271,14 +271,14 @@ test('every shovable piece can go in, and rides in whatever state it went in as'
   }
 });
 
-test('a container shoved into a basket needs no room past the basket', () => {
+test('a container shoved onto a deck needs no room past the deck', () => {
   // Nothing lands beyond it, so the far slot being skateboard, wall or occupied is not its business.
   assert.deepEqual(toGrid(act(['@B---E'], ['--PP--'], 'r')), ['-@B--E']);
   assert.deepEqual(toGrid(act(['@j---E'], ['--PP--'], 'r')), ['-@j--E']);
   assert.deepEqual(toGrid(act(['@B--#', '----E'], ['--PP-', '-----'], 'r')), ['-@B-#', '----E']);
 });
 
-test('a container displaced out the far side of a basket sheds where it lands', () => {
+test('a container displaced out the far side of a deck sheds where it lands', () => {
   const next = act(['@BB--E', '------'], ['--P---', '--P---'], 'r');
   assert.deepEqual(toGrid(next), ['-@BbxE', '------'],
     'the shoved bin rides at cell 2; the one it displaced landed at cell 3 and shed at cell 4');

@@ -46,7 +46,7 @@ test('a cart sprite carries its own cell offsets, and they never change', () => 
   assert.deepEqual(one(stage, CART).cells, [[0, 0], [1, 0]]);
 });
 
-test('cargo starts out parented to the cart it is standing in', () => {
+test('cargo starts out parented to the skateboard it is standing in', () => {
   const stage = stageFrom(S(['@c--E'], ['-PP--']));
   const can = one(stage, CAN_EMPTY);
   assert.equal(can.parent, one(stage, CART).ref);
@@ -66,15 +66,15 @@ test('a pile being taken aboard does not move a hair', () => {
 });
 
 test('cargo that shifts a slot is nudged, so the swap is visible at all', () => {
-  // It ends on the cell it started on, because the cart moved forward exactly as far as it
-  // moved back. True and invisible — without a nudge the cart appears to slide out from under
-  // it. So it sets off with the cart, is hit, and drops back where the board says it is.
+  // It ends on the cell it started on, because the skateboard moved forward exactly as far as it
+  // moved back. True and invisible — without a nudge the skateboard appears to slide out from under
+  // it. So it sets off with the skateboard, is hit, and drops back where the board says it is.
   const s = S(['@-ccc-F-', '------F-', 'E-------'], ['-PP-----', '--------', '--------']);
   const r = explain(s, 'r', { trace: true });
   const stage = stageFrom(s, 1);
   applyStep(stage, r.steps[0], r.frames[1].rac);
   const can = of(stage, CAN_EMPTY).find(sp => sp.ax === 2 && sp.ay === 0);
-  assert.ok(can, 'the can that started in the cart s rightmost cell');
+  assert.ok(can, 'the can that started in the skateboard s rightmost cell');
   assert.deepEqual([can.tx, can.ty], [2, 0], 'the board does not move it');
   advance(stage, 0.5);
   assert.ok(can.x > 2.05, `it should be visibly out of place mid-beat, was ${can.x}`);
@@ -95,9 +95,9 @@ test('the nudge goes out and comes back, harder on the way back', () => {
   assert.ok(Math.abs(back) > Math.abs(out), 'the return is the collision, so it is quicker');
 });
 
-test('riding cargo travels with the cart, cell for cell', () => {
-  // While the cart TRAVELS, cargo holds its place in the basket exactly. The tip is the one
-  // beat where it deliberately moves within the cart, so it is not part of the claim.
+test('riding cargo travels with the skateboard, cell for cell', () => {
+  // While the skateboard TRAVELS, cargo holds its place on the deck exactly. The tip is the one
+  // beat where it deliberately moves within the skateboard, so it is not part of the claim.
   // Empty at the start, so it is light and takes the whole run — it swallows the pile on the
   // way and then carries it, which is what gives this more than one beat of travel to check.
   const s = S(['@--x--#', 'E------'], ['-PP----', '-------']);
@@ -113,14 +113,14 @@ test('riding cargo travels with the cart, cell for cell', () => {
     settle(stage);
   });
   // The beat it is SWALLOWED on is not a ride — it is arriving, and mid-beat it is still
-  // crossing into the basket. Excluded for the same reason the tip is.
+  // crossing onto the deck. Excluded for the same reason the tip is.
   const riding = seen.slice(1);
   assert.ok(riding.length > 1, 'the pile rode for more than one beat');
   const [first] = riding;
-  for (const off of riding) assert.deepEqual(off, first, 'the offset from the cart never drifts');
+  for (const off of riding) assert.deepEqual(off, first, 'the offset from the skateboard never drifts');
 });
 
-test('a shed pile stops dead once the cart has rolled on', () => {
+test('a shed pile stops dead once the skateboard has rolled on', () => {
   // On the beat it is hit it gets its nudge like anything else. On every beat AFTER that it is
   // furniture, and must not drift by so much as a fraction of a cell for the rest of the roll.
   // "Shed" means it was riding and stopped — a pile never picked up has the same null parent.
@@ -146,7 +146,7 @@ test('a shed pile stops dead once the cart has rolled on', () => {
 });
 
 test('cargo already aboard does not advance on a step that takes something in', () => {
-  // Each item shifts one slot toward the back while the cart moves one cell forward, and
+  // Each item shifts one slot toward the back while the skateboard moves one cell forward, and
   // those cancel. Report only the entering item and the load already aboard gets dragged a
   // cell it never travelled — two piles end up stacked on one square and the shed one is
   // never drawn at all.

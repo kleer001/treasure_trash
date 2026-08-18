@@ -583,7 +583,7 @@
 
 :level  TS
 :name   Too heavy to shift
-:teach  R rolls the tyre into a loaded cart: it is carrying something, so it takes the blow and rattles instead of moving
+:teach  R rolls the tyre into a loaded skateboard: it is carrying something, so it takes the blow and rattles instead of moving
 :par    6
 :traps  4
 :solves 9
@@ -608,7 +608,7 @@
 :teach  a wheeled thing is heavy while it is CARRYING something — light ones roll when struck, heavy ones take the blow and rattle
 :par    22
 :solve  dddddddddddrrrrrrrrrrr
-:note   A bench: its par is a walk to the exit that touches nothing, so the pieces are here to be poked rather than solved. Row by row: a tyre into a LOADED cart, into an EMPTY cart, into a LOADED barrow, into an EMPTY barrow, a wheelie bin into a loaded cart, and a loaded barrow shoved onto grease. Shove each from its left.
+:note   A bench: its par is a walk to the exit that touches nothing, so the pieces are here to be poked rather than solved. Row by row: a tyre into a LOADED skateboard, into an EMPTY skateboard, into a LOADED barrow, into an EMPTY barrow, a wheelie bin into a loaded skateboard, and a loaded barrow shoved onto grease. Shove each from its left.
 :grid
 ###############
 #@-o-----cc---#
@@ -663,7 +663,7 @@
 :teach  a knock moves the wheels if there is anywhere to move them, and goes INSIDE if there is not
 :par    21
 :solve  ddddddddddrrrrrrrrrrr
-:note   A bench: its par is a walk to the exit that touches nothing. Shove each lane from its left. Row 1, a pinned cart takes the tyre aboard. Row 3, a barrow with its mouth toward the blow takes it; row 5, the same barrow turned round has a closed back, so it only wobbles. Row 7, raccoon, tyre and loaded cart travel as one. Rows 9 and 10, a loaded cart with nowhere to go sheds from the file he is NOT standing behind — shove that one from the left of row 10.
+:note   A bench: its par is a walk to the exit that touches nothing. Shove each lane from its left. Row 1, a pinned skateboard takes the tyre aboard. Row 3, a barrow with its mouth toward the blow takes it; row 5, the same barrow turned round has a closed back, so it only wobbles. Row 7, raccoon, tyre and loaded skateboard travel as one. Rows 9 and 10, a loaded skateboard with nowhere to go sheds from the file he is NOT standing behind — shove that one from the left of row 10.
 :grid
 ##############
 #@-o-----#---#
