@@ -53,6 +53,11 @@ What is left is the crow, one open rule, and the rooms rebuild that everything e
       magnet field, the stack cut, bodies on grease, the leading-cell rule, settle-at-load and
       the breaking hold. Its conformance run cannot report until #48 greens the build.
 
+- [ ] #67 **Parked idea, not approved work: the roller skate.** If a skateboard is the
+      two-cell rolling deck, a ROLLER SKATE is the one-cell version of the same thing — which
+      is the slot the barrow already occupies structurally but not fictionally. Worth having
+      on the record before the vocabulary settles; nobody is asking for it yet.
+
 ## Context
 
 ### The gates, and what "green" means here
