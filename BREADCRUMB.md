@@ -64,6 +64,83 @@ What is left is the crow, one open rule, and the rooms rebuild that everything e
       port is next brought current. The wire protocol was deliberately NOT touched: `"cart"` is
       the family word there, and the family word did not move.
 
+## The link rework — approved design, in progress
+
+**The problem with `lk`.** It is a group COLOUR: one id painted on the magnet's cell and on every
+cell of what it holds, recovered by scanning. A colour cannot express sharing (one cell, one
+scalar) and cannot express structure (no edges, so `towOrBreak` can only clear the WHOLE group and
+re-decide). Both of the asks — several magnets on one object, and scraping one connection off
+against a blocker — are blocked by that single fact. `lk` is also the lane the barrow's tow rides
+in, and the direction of the hold is not recorded, which is where the observed bug below comes
+from.
+
+**The representation.** Drop `lk`. A holder stores `grip` — the distance along its own facing to
+what it holds, an integer 1..`MAGNET_REACH`. Nothing is written on the held object at all.
+
+- **Sharing is free.** Two magnets each carry their own `grip`; both resolve to the same cell.
+- **Direction is explicit.** `grip` lives on the holder, so a held magnet reads its own `grip`
+  (what IT holds) and never mistakes its holder for its load.
+- **The complex is derived**, the way `bodyCells`, `pieceCells` and `cartCells` already derive
+  theirs: from each gripping holder, the held cell is `holder + facing * grip`, expanded through
+  `bodyCells`, and recursed for a held magnet that grips something itself.
+- **`towMove` needs no change.** It already takes a cell list, computes the blame frontier and
+  moves everything in lockstep; feed it the derived component instead of `linkCells`.
+- **Scrape is the blame set.** `towMove` already reports WHICH cells could not travel. Walk back
+  from those to the holders gripping them, clear only those grips, keep the rest, retry.
+- **The let-go check collapses.** `held.every(onLine)` plus a wholesale clear becomes: is there
+  still metal at `holder + facing * grip`? Same predicate the scrape uses.
+- **`stateKey` gets simpler, not riskier.** The link lane today is a label map canonicalised by
+  first appearance. A small integer per holder cell is canonical for free — the map goes away.
+
+**The anchor rule.** Capture currently drags the metal to the magnet, which changes every other
+magnet's field and is what makes the settle sweep order-dependent. Instead: metal already held by
+someone is an ANCHOR — a loose magnet coming into range travels to IT. Only loose magnets move, they
+move toward, and the distance is bounded by the reach, so the sweep becomes monotone and no pass can
+undo an earlier one. That is what makes iterating to closure affordable, and it has a sentence a
+player can read off the board: **metal only moves when something shoves it; a loose magnet walks to
+the metal.** Settle becomes a worklist of the magnets that moved rather than one raster pass.
+
+Still order-dependent in one place, by design: two loose magnets reaching the same loose metal on
+the same sweep, where whoever is reached first becomes the anchor.
+
+### Open, and needed before the scrape lands
+
+- [ ] #69 **Does a scraped grip stay cleared for the rest of the beat?** Objects do not stop the
+      field — a magnet grips through a two-cell couch, verified — so a scraped magnet is usually
+      still looking straight at what it lost. If the settle re-grips on the same beat, scraping is
+      a no-op by construction and nothing on screen ever shows it. If the cut persists, dragging a
+      load past a blocker to strip a magnet off it becomes a technique. Same question as #59 for
+      the barrow's hook, and it should be answered once for both.
+
+### Observed, not decided — magnets holding magnets
+
+The board does not do what it is assumed to do. A magnet captured by another magnet is released
+inside the same settle sweep, because the held magnet runs the same chain-check as a holder and
+`lk` does not say which end it is standing on: it reads its holder as its own load, finds it behind
+its facing, and clears the group. Measured:
+
+| board | result |
+|---|---|
+| `q` at x2, `q` at x3 — adjacent, same facing | no link at all |
+| `q` at x2, `q` at x4, can at x6 | the first loses the second; the second ends up holding the can |
+| `q` at x2, `p` at x4 — held magnet faces back | linked, and the only case that survives |
+
+So "a magnet holds a magnet" is true only from in front, and nobody wrote that. `grip` removes the
+confusion for free. Whether the surviving case is the rule is the owner's call.
+
+### Order of work
+
+1. Swap `lk` for `grip`; derive the complex; hold behaviour as close to constant as it goes.
+2. Sharing: drop the "one link per piece" refusal in capture.
+3. The anchor rule and the settle worklist.
+4. Scrape, once #69 is answered.
+5. Draw the connection — see #70.
+
+- [ ] #70 **The hold is invisible.** `lk` appears nowhere in `stage.js` or `sprites.js`: the magnet
+      has a sprite, the hold has none. Survivable while a complex is one magnet and one can; the
+      moment complexes are shared and scrape-able the player is being asked to reason about a
+      structure the screen does not show, and a scrape reads as the game dropping things at random.
+
 ## Context
 
 ### The gates, and what "green" means here
