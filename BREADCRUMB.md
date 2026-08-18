@@ -112,28 +112,35 @@ the same sweep, where whoever is reached first becomes the anchor.
       load past a blocker to strip a magnet off it becomes a technique. Same question as #59 for
       the barrow's hook, and it should be answered once for both.
 
-### Observed, not decided — magnets holding magnets
+### Magnets holding magnets — was broken, now works
 
-The board does not do what it is assumed to do. A magnet captured by another magnet is released
-inside the same settle sweep, because the held magnet runs the same chain-check as a holder and
-`lk` does not say which end it is standing on: it reads its holder as its own load, finds it behind
-its facing, and clears the group. Measured:
+Measured before the swap and after it. Before, a magnet captured by another was released inside the
+same settle sweep: the held one read its holder as its own load, found it behind its facing and
+cleared the group. `grip` records direction, so it cannot happen.
 
-| board | result |
-|---|---|
-| `q` at x2, `q` at x3 — adjacent, same facing | no link at all |
-| `q` at x2, `q` at x4, can at x6 | the first loses the second; the second ends up holding the can |
-| `q` at x2, `p` at x4 — held magnet faces back | linked, and the only case that survives |
+| board | before | after |
+|---|---|---|
+| `q` x2, `q` x3 — adjacent, same facing | no hold at all | holds |
+| `q` x2, `q` x4, can x6 | the first loses the second | chain: first → second → can |
+| `q` x2, `p` x4 — held magnet faces back | held, the only case that survived | mutual hold, both ends |
 
-So "a magnet holds a magnet" is true only from in front, and nobody wrote that. `grip` removes the
-confusion for free. Whether the surviving case is the rule is the owner's call.
+Two magnets facing each other now hold each other. `complexCells` walks cycles safely; whether a
+mutual hold is the rule is the owner's, and nobody has played one yet.
 
 ### Order of work
 
-1. Swap `lk` for `grip`; derive the complex; hold behaviour as close to constant as it goes.
-2. Sharing: drop the "one link per piece" refusal in capture.
-3. The anchor rule and the settle worklist.
-4. Scrape, once #69 is answered.
+1. ~~Swap `lk` for `grip`; derive the complex.~~ **Done.** All gates green: 367/367 rules specs,
+   `npm test` 402/2 at its `deadscan` baseline, `matrix.mjs` 1820 unchanged, `conform.mjs`
+   reference ALL AGREE, `verify.mjs` identical with and without the change, and the browser sweep
+   clean at 63 runs / 153 meetings through the real input path.
+2. ~~Sharing.~~ **Done, by construction** — the refusal it needed was a field on the target, and
+   the target has no field now. A magnet takes hold of a barrow that is already towing and the
+   tow survives; the spec asserts it.
+3. **Next: the anchor rule and the settle worklist.** Capture still drags the metal to the magnet,
+   which is what keeps the sweep order-dependent.
+4. Scrape, once #69 is answered. `towOrBreak` still clears every grip in the complex rather than
+   the ones holding the blocked cells — which was invisible while a complex had one edge in it and
+   is not any more.
 5. Draw the connection — see #70.
 
 - [ ] #70 **The hold is invisible.** `lk` appears nowhere in `stage.js` or `sprites.js`: the magnet
