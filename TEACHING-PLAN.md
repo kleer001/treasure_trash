@@ -10,7 +10,7 @@ Every room in the game is rebuilt from here. The order is a dependency order, no
 **Difficulty does not climb. Every room is a lesson.**
 
 The pieces are difficult and interesting on their own — a barrow that only takes what it is
-already touching, a cart that goes heavy the moment you fill it, a rug that rolls the way you
+already touching, a skateboard that goes heavy the moment you fill it, a rug that rolls the way you
 do not push it. None of that needs a puzzle wrapped round it to be worth meeting. A room that
 also asks the player to be clever is a room where a failure to understand and a failure to solve
 look identical, and the lesson is the casualty.
@@ -35,7 +35,7 @@ about anything but the new thing, the room is doing too much.
 ## The losing rooms
 
 A few rules can only be understood by watching them cost something: tar keeps what enters it,
-a bag on broken glass tears, a barrow that scoops cannot un-scoop, a loaded cart end-on in a
+a bag on broken glass tears, a barrow that scoops cannot un-scoop, a loaded skateboard end-on in a
 corridor cannot be emptied. These get rooms of their own, AFTER the piece is known, and they are
 built so the loss is **visible, immediate and one move from a restart** — never a soft lock the
 player discovers twenty moves later. The solvability indicator already tells the truth; these
@@ -129,12 +129,12 @@ One lane per room, each against a piece already known.
 
 The largest chapter, and the one whose ideas most need separating.
 
-55. The shopping cart: open-mouthed, it takes what it rolls over.
+55. The skateboard: an open deck, it takes what it rolls over.
 56. What it takes in pushes the old load out the back.
-57. Weight: a cart carrying anything moves one cell instead of rolling.
+57. Weight: a skateboard carrying anything moves one cell instead of rolling.
 58. A wheelie bin is light full or empty — its trash is not cargo.
 59. Grease beats weight.
-60. A loaded cart with nowhere to go sheds out the back.
+60. A loaded skateboard with nowhere to go sheds out the back.
 61. It never sheds into the cell the raccoon is standing in. **(losing room)**
 62. The barrow faces the way its tub points.
 63. Shoved that way, it takes what it is ALREADY touching.
@@ -155,7 +155,7 @@ roster feel like one system rather than a list.
 72. Pinned, with nowhere to move, it takes the thing that hit it INSIDE instead.
 73. A barrow catches only through its mouth; its back is a wall.
 74. A run of touching things is one thing to push, and the heaviest sets the pace.
-75. A cart set rolling by a knock keeps its mouth shut.
+75. A skateboard set rolling by a knock takes nothing aboard.
 
 ---
 

@@ -20,7 +20,7 @@ around it — art, audio, progression, and the solvability indicator.
 - `./run.sh [port]` — no-cache dev server (default 8000). Scans upward for a free port and
   opens the page. ES modules, `fetch` and relative paths all behave differently under
   `file://`, so **a served page is the only supported way to run it.**
-- `bench-cart.html` — the mechanic bench, served alongside the game at `/bench-cart.html`. It
+- `bench-skate.html` — the mechanic bench, served alongside the game at `/bench-skate.html`. It
   is presentation only and **imports `src/`**, so it cannot disagree with the game about what a
   piece does. See **One engine** below for what may and may not carry a copy of the rules.
 - `npm test` — Node's built-in runner (`node --test`); specs in `tests/*.test.js`.

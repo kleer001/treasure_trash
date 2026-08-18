@@ -109,7 +109,7 @@ One value per cell: the block is a mask, so a cell carries exactly the lane its 
 
 | `:cart` | |
 |---|---|
-| `P` `Q` `R` | a cart cell — one letter per cart, two cells each |
+| `P` `Q` `R` | a skateboard cell — one letter per board, two cells each |
 | `u` `v` `w` | a barrow facing up — one cell each, one letter per barrow |
 | `d` `e` `f` | facing down |
 | `l` `m` `n` | facing left |
@@ -119,7 +119,7 @@ One value per cell: the block is a mask, so a cell carries exactly the lane its 
 The letters within a facing are a POOL, the way the furniture letters are: a 4-connected run of
 one letter is one piece, so two barrows of the same facing standing flush need two letters
 between them. The seconds are the next letters along rather than capitals, because `R` is
-already a two-cell cart and the reader would match that first.
+already a two-cell skateboard and the reader would match that first.
 
 ```
 :grid                   :water                  :grid                   :cart

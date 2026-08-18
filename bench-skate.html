@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Shopping cart — mechanic test</title>
+<title>Skateboard — mechanic test</title>
 </head>
 <body>
 <style>
@@ -32,7 +32,7 @@
     --exit:       #2e9e5b;
     --canal:      #2d7dd2;
     --bridge:     #9cc4e8;
-    --cart:       #ff2e88;
+    --skate:       #ff2e88;
     --bag:        #ffcf00;
     --metal:      #b9bec7;
     --metal-line: #6d7480;
@@ -58,7 +58,7 @@
       --exit:       #35c273;
       --canal:      #2f6ea8;
       --bridge:     #4d7fa8;
-      --cart:       #ff5da2;
+      --skate:       #ff5da2;
       --bag:        #ffd633;
       --metal:      #767d8a;
       --metal-line: #c3c9d3;
@@ -80,7 +80,7 @@
     --exit:       #35c273;
     --canal:      #2f6ea8;
     --bridge:     #4d7fa8;
-    --cart:       #ff5da2;
+    --skate:       #ff5da2;
     --bag:        #ffd633;
     --metal:      #767d8a;
     --metal-line: #c3c9d3;
@@ -101,7 +101,7 @@
     --exit:       #2e9e5b;
     --canal:      #2d7dd2;
     --bridge:     #9cc4e8;
-    --cart:       #ff2e88;
+    --skate:       #ff2e88;
     --bag:        #ffcf00;
     --metal:      #b9bec7;
     --metal-line: #6d7480;
@@ -132,7 +132,7 @@
     font-size: clamp(2.4rem, 5vw, 3.6rem); font-weight: 400; line-height: 0.95;
     letter-spacing: 0.01em; margin: 0.15em 0 0; text-wrap: balance;
   }
-  h1 .sub { color: var(--cart); }
+  h1 .sub { color: var(--skate); }
   .lede { max-width: 62ch; margin: calc(var(--step) * 1.5) 0 0; color: var(--ink-soft); }
 
   /* --- bench --- */
@@ -180,7 +180,7 @@
   }
   .stat dd.lit  { color: var(--exit); }
   .stat dd.dark { color: var(--ink-soft); }
-  .stat dd.held { color: var(--cart); }
+  .stat dd.held { color: var(--skate); }
 
   .log {
     font-family: 'VT323', ui-monospace, monospace; font-size: 1.25rem;
@@ -189,7 +189,7 @@
   .log.no { color: var(--halt); }
   .log.yes { color: var(--ink-soft); }
   /* Busy is a nudge, not a refusal — the red belongs to the board saying no. */
-  .log.busy { color: var(--cart); }
+  .log.busy { color: var(--skate); }
 
   /* --- panel --- */
   .panel { display: grid; gap: calc(var(--step) * 3); align-content: start; }
@@ -206,9 +206,9 @@
     font: inherit; display: grid; gap: 0.1em;
     border-left: 3px solid transparent;
   }
-  .case:hover { background: color-mix(in srgb, var(--cart) 8%, var(--plate)); }
-  .case[aria-pressed="true"] { border-left-color: var(--cart); }
-  .case[aria-pressed="true"] b { color: var(--cart); }
+  .case:hover { background: color-mix(in srgb, var(--skate) 8%, var(--plate)); }
+  .case[aria-pressed="true"] { border-left-color: var(--skate); }
+  .case[aria-pressed="true"] b { color: var(--skate); }
   .case b {
     font-family: 'VT323', ui-monospace, monospace; font-weight: 400;
     font-size: 1.2rem; letter-spacing: 0.02em;
@@ -227,7 +227,7 @@
     text-align: center;
   }
   .controls .lbl b {
-    font-weight: 400; color: var(--cart); font-variant-numeric: tabular-nums;
+    font-weight: 400; color: var(--skate); font-variant-numeric: tabular-nums;
     margin-left: 0.4em;
   }
   /* The slider: a flat track with a square thumb, to match the buttons rather than the OS. */
@@ -240,13 +240,13 @@
   }
   #speed::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none;
-    width: 12px; height: 22px; margin-top: -8px; border: 0; background: var(--cart);
+    width: 12px; height: 22px; margin-top: -8px; border: 0; background: var(--skate);
   }
   #speed::-moz-range-track {
     height: 8px; background: var(--bench); border: 1px solid var(--bench-edge);
   }
-  #speed::-moz-range-thumb { width: 12px; height: 22px; border: 0; border-radius: 0; background: var(--cart); }
-  #speed:focus-visible { outline: 2px solid var(--cart); outline-offset: 4px; }
+  #speed::-moz-range-thumb { width: 12px; height: 22px; border: 0; border-radius: 0; background: var(--skate); }
+  #speed:focus-visible { outline: 2px solid var(--skate); outline-offset: 4px; }
   .ticks {
     display: flex; justify-content: space-between;
     font-family: 'VT323', ui-monospace, monospace; font-size: 0.85rem; color: var(--ink-soft);
@@ -260,14 +260,14 @@
     font-family: 'VT323', ui-monospace, monospace; font-size: 1.3rem; line-height: 1;
     padding: 0.55rem 0.4rem;
   }
-  .pad button:hover, .util button:hover { border-color: var(--cart); color: var(--cart); }
-  .pad button:active, .util button:active { background: color-mix(in srgb, var(--cart) 14%, var(--plate)); }
+  .pad button:hover, .util button:hover { border-color: var(--skate); color: var(--skate); }
+  .pad button:active, .util button:active { background: color-mix(in srgb, var(--skate) 14%, var(--plate)); }
   .pad .gap { visibility: hidden; }
   .util { display: flex; gap: 4px; justify-content: center; margin-top: 4px; }
   .util button { flex: 1; font-size: 1.05rem; letter-spacing: 0.1em; }
   .util button i { font-style: normal; font-size: 0.7em; opacity: 0.6; margin-left: 0.15em; }
-  .util button[aria-pressed="true"] { border-color: var(--cart); color: var(--cart); }
-  :focus-visible { outline: 2px solid var(--cart); outline-offset: 2px; }
+  .util button[aria-pressed="true"] { border-color: var(--skate); color: var(--skate); }
+  :focus-visible { outline: 2px solid var(--skate); outline-offset: 2px; }
 
   .keys {
     font-size: 0.8rem; color: var(--ink-soft); text-align: center; margin: 0;
@@ -285,9 +285,9 @@
 <div class="wrap">
   <header>
     <p class="eyebrow">Treasure Trash · mechanic test</p>
-    <h1>Shopping <span class="sub">cart</span></h1>
+    <h1>Skate<span class="sub">board</span></h1>
     <p class="lede">
-      A bench for the shopping cart and the pieces it meets. Pick a case, shove it about, and
+      A bench for the skateboard and the pieces it meets. Pick a case, shove it about, and
       watch what the rules actually do — <code>src/rules.js</code> and <code>src/stage.js</code>
       are imported, not described, so what you see here is what the game does.
     </p>
@@ -320,7 +320,7 @@
       <p class="log" id="log"></p>
       <dl class="readout">
         <div class="stat"><dt>Bags left</dt><dd id="s-bags">0</dd></div>
-        <div class="stat"><dt>In cart</dt><dd id="s-held">0</dd></div>
+        <div class="stat"><dt>Aboard</dt><dd id="s-held">0</dd></div>
         <div class="stat"><dt>Exit</dt><dd id="s-exit">—</dd></div>
         <div class="stat"><dt>Moves</dt><dd id="s-moves">0</dd></div>
       </dl>
@@ -348,7 +348,7 @@ if (location.protocol === 'file:') document.addEventListener('DOMContentLoaded',
     '<p class="lede">Opened over <code>file://</code>, where the browser refuses the module ' +
     'imports this page is built from, so nothing can run. Serve the game directory and open ' +
     'it over http:<br><br><code>./run.sh</code><br><br>then ' +
-    '<code>/bench-cart.html</code> on the port it prints.</p></header></div>';
+    '<code>/bench-skate.html</code> on the port it prints.</p></header></div>';
 });
 </script>
 <script type="module">
@@ -367,7 +367,7 @@ import {
 import { createSprites, drawOccupant, exitArrowDir } from './src/sprites.js';
 
 // ---------------------------------------------------------------- cases
-// Straight out of tests/cart.test.js, so the demo and the suite assert the same boards.
+// Straight out of tests/skate.test.js, so the demo and the suite assert the same boards.
 const CASES = [
   { id: 'end-on', name: 'End-on load',
     grid: ['@-ccc-F-', '------F-', 'E-------'],
@@ -522,7 +522,7 @@ function tick() {
 //
 // Cutting an action short still has to LAND it. The board was committed the moment the shove
 // was legal, so the stage has to be walked through whatever steps are left or it would keep
-// drawing a cart halfway down a corridor it has already finished rolling along.
+// drawing a skateboard halfway down a corridor it has already finished rolling along.
 function stop() {
   cancelAnimationFrame(raf); raf = 0;
   if (!anim) return;
@@ -559,8 +559,8 @@ function sprites() {
   return SP;
 }
 
-// Couch under everything, then the cart, then what is standing on the ground, then what is
-// riding, then him. Cargo draws over the cart it is in — a basket you can see into.
+// Couch under everything, then the deck, then what is standing on the ground, then what is
+// riding, then him. Cargo draws over the deck it rides on, at full size.
 const LAYER = sp => sp.kind === COUCH ? 0 : sp.kind === CART ? 1
   : sp.kind === RACCOON ? 4 : (sp.parent === null ? 2 : 3);
 
