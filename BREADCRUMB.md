@@ -1,151 +1,132 @@
-stale
+fresh
 
 ## Summary
 
-**Two systems landed on top of the weight work: the cabinet was rebuilt as a real piece, and the
-magnet's field went live.**
+**A rules session, then a governance one.** Six rules changes landed and were played; the browser
+harness was rebuilt to plan interactions rather than replay solves; and the studio's directive
+backlog — eleven releases unread — was worked to v0.24.0.
 
-The cabinet used to be an occupant plus a separate `DRAWER` occupant, paired by re-deriving the
-facing on every question — nine codes, three helpers, four predicate clauses and two hand-written
-copies of "it opens". It is now one cell shut and ONE TWO-CELL PIECE open, with a piece id like the
-couch. Opening destroys the shut piece and mints the open one; folding in and closing-in-place do
-the reverse. `DRAWER` is gone, so half a cabinet is not refused — it cannot be written down.
+Everything is committed and pushed. 22 commits went up; the tree is clean.
 
-The magnet no longer waits to be shoved. Every magnet on the board is asked again after every
-action, so a field holds whatever is in it. That is what makes a magnet carry a cabinet that was
-merely standing beside it.
-
-**Everything from this session is UNCOMMITTED.** Working tree is dirty across `src/`, `tests/`,
-`tools/`, `levels/`, `CLAUDE.md`, plus a new untracked `src/debug.js`.
+The through-line of the second half: **prose was being treated as law.** A test NAME was read as a
+design decision and used to narrow a change the owner had asked for, with an invented rationale
+reported as fact. That is now a directive in `CLAUDE.md` (**NO PROSE IS EVER A RULE**), and the
+studio turns out to have shipped the same rule at 0.14.0, unread since 2026-08-05.
 
 ## Todos
 
 ### Parallel
 
-- [ ] #52 **Commit this session.** Nothing is committed. Suggested split: the debug panel; the
-      grate/pane account fixes; the cabinet swap; the live magnet field; the `CLAUDE.md` note.
+- [ ] #57 **Decide the two build plans.** `ROSTER-BUILD-PLAN.md` (222 lines) and
+      `WEIGHT-BUILD-PLAN.md` (135) both open with "this file is scaffolding and it gets deleted
+      when the last stage lands", and both state rules deliberately. They are now the largest
+      rule-stating prose in the repo. Their last stage is THE PORT, which is gated — so they
+      cannot land by their own terms. Delete them (`SPEC-SHEET.md` went for this reason) or say
+      they stay.
 
-- [ ] #53 **`engine/target/release/tt-engine` does not match its source.** The binary on disk was
-      built from a Rust edit that has since been reverted, and `survey`/`harvest` pick it up
-      automatically when it exists. Either rebuild it from the reverted source or delete it —
-      OWNER'S CALL, and it is the one thing left touching `engine/`.
+- [ ] #58 **The dead-board indicator names a state, not a cause.** It says the board is dead; it
+      does not say which shove killed it. Recorded as the thin answer to design question 5 in
+      `GAME-SHEET.md` — a loss the player cannot attribute. Naming the move is the work.
 
-- [ ] #54 **A magnet tow reports nothing that moved.** `towMove` names bodies by cart id and piece
-      id, so a magnet towing a plain occupant (a can, a wheelie, a shut cabinet) hands back an
-      empty step: the board is right and the sprites stay put until the stage is rebuilt.
-      Reproduced and confirmed against the matrix census. An open cabinet is a piece now, so it is
-      already fine — the bug is the plain-occupant case.
+- [ ] #59 **Open rule: should a blocked barrow hook let go and STAY let go?** Fields break when
+      the group cannot travel; hooks do not. The reason is not "a hook is mechanical" — it is
+      that a barrow shoved at something too big to scoop TAKES HOLD, so cutting the link hands it
+      the same couch back on the same beat. Making it stay broken needs the re-hook suppressed for
+      that beat.
 
-- [ ] #55 **Decide whether the field settles at level LOAD.** It settles after every action, but a
-      room authored with a magnet beside metal starts unheld until the first move. Settling at load
-      would relink the sandbox at move zero and re-par anything built around the current start.
-
-- [ ] #50 **Decide the stack (`S`).** Last in the fertility survey by an order of magnitude and in
-      no shipped room. `TEACHING-PLAN.md` gives it a room because it is in the roster, and
-      deliberately does not settle whether it stays.
+- [ ] #60 **Open rule: should a slider carried by grease hand off momentum?** A roller crossing a
+      slick into another roller transfers correctly. A can skating three cells into a tyre
+      transfers nothing — consistent with a can never handing off on dry, but "momentum always
+      lands somewhere" reads otherwise.
 
 - [ ] #51 **The crow is still pinned.** Un-pin and design its powers, or leave it. Naming it lands
       occupant codes, refusals and `stateKey` lanes on every implementation at once.
 
+- [ ] #62 **Bench room T5 "One-way" is a stub.** Its teach line promises a one-way; the room is an
+      empty corridor with no terrain block and no pieces. It affords ZERO interactions. Solves at
+      par, so every replay-to-a-win check passes it. Found by `tools/sweep.mjs`.
+
 ### Sequential
 
-- [ ] #46 **Walk the bench rooms.** `index.html?acts=scratch.tt` — TR, TS, TT, TU for the weight
-      rules; TF, TL, TM for the cabinet; TH for the magnet (rebuilt this session).
-      `index.html?acts=sandbox.tt` — SB, every piece and every lane in one room. Add `&debug` for
-      the play-by-play panel.
+- [ ] #56 (needs: #57) **`--mark-read` the studio pin to 0.24.0.** All 16 directives are worked
+      except the build-plan question, which came out of 0.14.0/0.15.0. Command:
+      `python3 /home/menser/Dropbox/ai/code/trace_rom_studio/scripts/check_updates.py . --mark-read`
 
-- [ ] #48 (needs: #46) **Rebuild every room from `TEACHING-PLAN.md`.** 76 rooms, nine chapters,
-      flat difficulty — one new idea per room. Drafted by hand and then proved, NOT searched for.
-      Two new constraints from this session, both in Context: metal that must be emptied cannot
-      start inside a magnet's field, and a cabinet plus a grate makes a room losable.
+- [ ] #61 (needs: #56) **Send one clause upstream.** The studio's 0.14.0 CONTRACT names docs,
+      comments and consequence-asserting tests, but not that a test NAME is prose too — which is
+      the specific hole this session fell through. There is no contribute-back script; the studio
+      is written to, by hand, as a CONTRACT amendment.
 
-- [ ] #47 (needs: #46) **The Rust port is GATED — do not touch `engine/` without the owner's
-      explicit okay for that specific change.** Not now. When it is time it owes: the weight
-      ruleset, the cabinet swap, and the live magnet field. `tools/conform.mjs --engine ...` fails
-      on 34 rooms and has since before this session; the reference run is green.
+- [ ] #53 **`engine/target/release/tt-engine` does not match its source.** Built from a Rust edit
+      since reverted, and `survey`/`harvest` pick it up automatically when it exists. Rebuild or
+      delete — OWNER'S CALL, and the one thing left touching `engine/`.
+
+- [ ] #47 **The Rust port is GATED — do not touch `engine/` without an explicit okay for that
+      specific change.** It now owes: the weight ruleset, the cabinet swap, the live magnet field,
+      the stack cut, bodies on grease, the leading-cell rule, settle-at-load and the breaking hold.
+
+- [ ] #48 **Rebuild the rooms from `TEACHING-PLAN.md`** (now 75, renumbered after the stack). Held
+      behind the rules settling, same gate as #53.
 
 ## Context
 
-### The cabinet, as it now stands
+### What the rules do now that they did not this morning
 
-- Shut is one cell with a `SLIDES` row, so it takes the lanes like anything its size: **down a
-  grate, along a slick, stuck in tar** — and a cart the raccoon pushes onto it takes it aboard. A
-  cart arriving on a KNOCK still strikes it and opens it, because a cart only has its mouth open
-  when the raccoon is pushing.
-- Open is one two-cell piece with a `pid`, out of `ROLL_AXIS`, so it shifts one cell like the
-  couch. A body is swallowed by a grate only when ALL of it lands in holes — so a hole in front of
-  a cabinet does not stop it opening, and the drawer spans it.
-- **Over a grate the piece is safe while it is a body and gone the moment it becomes one cell
-  again**: folding a cabinet in over a hole destroys it.
-- Two ways to shut it: drawer-first into something that will not take the drawer (folds in, body
-  advances), and shoved on the drawer toward the body (closes where it stands).
-- New account lane: **`born`** — `{ kind, ref, o, cells }`, board cells in raster order, anchor
-  first. Its mirror is a `piece` entry with `effect: 'swaps'`. Nothing else in the game mints a
-  body mid-action.
-- Glyphs: `a/e/k/m` shut; open takes a POOL PER FACING — `A/L`, `D/T`, `I/P`, `J/Q` — because
-  `MULTI_POOLS` is keyed per occupant code. The format checks the SHAPE, not just the count: a
-  two-cell blob lying across its own facing is refused.
+Read `src/rules.js`; these are pointers, not statements of the rules.
 
-### The magnet, as it now stands
+- An impact that opens a cabinet reports it — `born`/`gone` are forwarded through the roller-train
+  branch, which was the one path missed when `born` was added. It threw inside the rAF tick and
+  killed the render loop.
+- A tow names plain occupants, not only carts and pieces.
+- Shutting a cabinet goes through `drop`, so a fold-in over a grate falls.
+- The bag-on-can stack is CUT. Occupant code 6 retired, never reissued.
+- Bodies run a slick, decided by the LEADING cell.
+- `toState` settles magnet fields, so a room opens with its fields already holding.
+- A magnet's hold breaks when the group cannot travel; a barrow's hook does not (see #59).
 
-- `settleMagnets` runs every magnet in raster order after every successful action. ONE pass: a
-  piece drawn into a second magnet's field is taken only if that magnet comes later in the order.
-- A hold is never permanent. It survives while what is held stays on the line, within three, and
-  able to keep pace; fail any one and it is let go. A wall beside the held piece when the magnet
-  moves sideways breaks it — confirmed on a board.
-- **Anything metal that must be EMPTIED cannot start inside a field.** A held can cannot be tipped
-  (shoving it is a rigid tow), so its bag never comes out. This made `scratch.tt` TH unsolvable;
-  the room was rebuilt with the can at reach four.
-- A magnet holding something looks identical to one standing next to it — nothing draws the link.
-  The owner's decision is to rely on people's understanding of magnets rather than draw it.
+### The harness
 
-### Why the gates read the way they do
+- `tools/sweep.mjs` plans a bench pack's MEETINGS — piece against piece, piece onto lane — filtered
+  to what a board can be driven to, ordered greedily. `--write` puts the plan where the dev server
+  serves it. **For a rules change, never a verdict on a room.**
+- `?debug` gives a play-by-play panel and `window.__tt`: `walk(keys)` presses through the game's
+  own handler and compares the stage's sprites to a stage rebuilt from the board, every beat;
+  `sweep(plan)` runs a whole plan. A disagreement names the sprite drawn that the board has not
+  got and the one the board has that was never built.
+- **Screenshots are the failure artifact, not the check.** The census disagreement that caught the
+  cabinet bug was ~200 bytes on the first keypress.
+- Last full run: 60 runs, 149 meetings, clean.
 
-| gate | | why |
-|---|---|---|
-| `npm test` | 393 pass / 2 fail | both read `levels/act1.tt` — shipped rooms whose pars are stale; #48 |
-| `tools/verify.mjs` | 63 checks | same rooms. Failing set diffed against HEAD: IDENTICAL |
-| `tools/matrix.mjs` | GREEN, 1908 cases | the gate that catches a step describing a board wrongly |
-| `tools/conform.mjs` | reference ALL AGREE | `--engine` fails 34 rooms; predates this session; #47 |
+### Gates, and what "green" means here
 
-**Measure against that baseline, not against green.** The tree has not been green for a while and
-the reason is level data, not rules.
+`npm run test_rules` — 367/367, 17s, the specs that never read a file. `npm test` — 402/2, and the
+two failures are `deadscan` against stale `act1` pars: BASELINE, not regression. `tools/matrix.mjs`
+green at 1820 cases (690 of them now doing something, up from 672 once settle-at-load let links
+exist in the census). `tools/conform.mjs` reference ALL AGREE; `--engine` fails and will until #47.
 
-### The weight rules, still standing
+### Governance
 
-- **Weight = carrying objects**, read ONCE at the top of the shove. Read per beat and the cart
-  becomes a barrow. A wheelie bin is light full or empty.
-- **The cart is open-mouthed; the barrow is aimed.** Picking up takes a raccoon-driven push.
-- **Momentum always lands somewhere:** moves the wheels, goes inside, or rattles.
-- **Grease beats weight.**
-- A loaded cart end-on in a one-wide corridor cannot be emptied by shoving. Accepted dead end.
-- `tools/survey.mjs` bounds at 50,000 states. **If the cart falls off the fertility map during the
-  rebuild, suspect the bound before believing the piece got worse.**
+- **`CLAUDE.md` § NO PROSE IS EVER A RULE** — no comment, doc, test name, `:teach` line, commit
+  message or line of that file decides what a piece does. A red test is the expected result of a
+  rules change, not a veto. Never invent a rationale for prose you find.
+- **NOTHING IS SHIPPED.** Never cite authored levels as the cost of a rules change.
+- **Rules before levels.** No solving, no par computation, no chasing level failures. The one
+  exception is `tests/bench.test.js`, which replays each bench pack's declared `:solve` and asserts
+  `par == length` — satisfy it quietly, without reporting routes.
 
-### Traps worth not falling into again
+### Studio
 
-- **A source comment is a note, not a constraint.** Two comments in `src/rules.js` described the
-  cabinet in ways that contradicted each other and the code. Argue from what the code does.
-- **`analyze` takes an OPTIONS OBJECT** — `analyze(s, { maxStates: N })`. A bare number runs it
-  unbounded.
-- **Headless checks say the rule fires; only a DRIVEN board says it was driven right.** Drive with
-  real key presses and verify the raccoon's column.
-- **Order matters in `explain`.** The open-cabinet branch has to be asked BEFORE the multi-cell
-  branch, or the generic body mover catches the shove and refuses the fold-in. Found by playing.
-- `tests/bench.test.js` replays every non-act pack on every run, so a rules change that breaks a
-  bench solve fails `npm test` — that is the gate that holds the rooms `verify.mjs` never sees.
+Pin is `.trace_rom_studio.toml` at **0.13.0** (the old `.trace_rom_studio_version` jammed the tool
+at the gate). Studio is 0.24.0 at `/home/menser/Dropbox/ai/code/trace_rom_studio`. All 16
+directives worked; the pin is deliberately NOT advanced — see #56.
 
-### Run it
-
-`./run.sh` · add `&debug` to any URL for the play-by-play panel (`index.html?acts=sandbox.tt&debug`)
-`npm test` · `node tools/verify.mjs` · `node tools/matrix.mjs [--pack]` · `node tools/conform.mjs`
-
-`<` and `>` step through the levels, wrapping round the pack.
+**GitHub Pages was serving `publishing/` publicly** because the source was `legacy` (branch), and
+the gate in `pages.yml` only fires when the source is Actions. Fixed and verified: `promo.html`
+now 404s, the game still serves.
 
 ## Next Step
 
-**#52 — commit this session**, before anything else touches the tree. Then #46, walking the bench
-rooms with the debug panel open: the cabinet rooms (TF, TL, TM) and the rebuilt magnet room (TH)
-are the ones whose rules changed under them.
+**#57 — decide the build plans.** It is the only thing between here and advancing the studio pin
+(#56), and it is the same question `SPEC-SHEET.md` already answered once this session.
 
 /home/menser/Dropbox/ai/code/treasure_trash
