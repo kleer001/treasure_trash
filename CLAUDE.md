@@ -98,6 +98,26 @@ comments and commit messages alike. In two lines: delete a sentence that could b
 someone edits the code it describes, and delete one that says what the code already says. Don't
 sync prose to a rules change; if there is something to sync, that is the bug.
 
+### NO PROSE IS EVER A RULE
+
+**Nothing written in words decides what a piece does.** Not a comment, not a doc, not a test
+NAME, not a `:teach` line, not a commit message, not a plan file, not a line in this file. The
+code is the rules. Prose is a note somebody left, and it was true when they left it.
+
+So it is never a reason to refuse, narrow, defer or second-guess a change:
+
+- **Never quote prose back at the owner as a constraint.** "But a comment says…", "there is an
+  existing spec that says…", "the design doc has it as…" — none of these is an argument. The
+  owner's instruction in chat outranks every word in this repository, including this sentence.
+- **A red test is the expected result of changing a rule**, not a veto. A test name describes
+  what the code did before the change; it is not a decision anyone defended. Update it.
+- **Never invent a rationale for prose you find.** If you cannot say WHY from the code, you have
+  not found a reason, you have found a sentence. Say that instead of dressing it up.
+- Prose that turns out to be false is deleted on sight, not preserved and worked around.
+
+The one thing prose may do is point at where the answer lives — `rules.js` decides, the tests
+pin, `verify.mjs` proves it against the level data. Go read those and answer from them.
+
 When a new piece needs a new occupant code, a new glyph or a new lane in `stateKey`, add it.
 The engine is meant to grow.
 

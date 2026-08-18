@@ -3,9 +3,7 @@
 
 // Occupant codes. `stateKey` encodes each as one printable character, so the list can grow.
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
-             // 6 was the bag-on-can stack: a full can with one more shove in front of it. It
-             // taught what the full can already teaches, a move later, and made rooms at a
-             // twelfth the rate of every other piece.
+             // 6 is retired.
              BIN = 5, WHEELIE = 7, WHEELIE_EMPTY = 8, JUG = 9, FURNITURE = 10,
              BIN_EMPTY = 11, JUG_EMPTY = 12, SPONGE = 13, CARDBOARD = 14, PANE = 15,
              TIRE_H = 16, TIRE_V = 17, BICYCLE = 18, RUG = 19, CHAIR = 20, BROOM = 21,
@@ -18,19 +16,16 @@ export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
              // 30 is free. Codes are handed out, never renumbered: the board protocol reads them
              // as numbers, so a code that moves is a board that means something else.
              MAG_U = 31, MAG_D = 32, MAG_L = 33, MAG_R = 34,
-             // A barrow being CARRIED. One cell holds one cart, so a barrow riding in something
-             // cannot still be a cart — it is cargo, like everything else that rides, and turns
-             // back into a cart wherever cargo is put down. It only ever exists inside a cart:
-             // the moment it is set on the floor it is a barrow again.
+             // A barrow being CARRIED. One cell holds one cart, so a barrow riding in
+             // something cannot also be one — it rides as cargo and is put down as a cart.
              BAR_U = 35, BAR_D = 36, BAR_L = 37, BAR_R = 38;
 
 // The one code a cell does not fully describe: two adjacent FURNITURE cells may be one couch
 // or two, and only `pid` says which. `stateKey` encodes the partition as well as the codes.
-// An open cabinet is one of these: a body of two cells, the drawer end read off the facing.
 export const isMultiCell = o =>
   o === FURNITURE || o === BICYCLE || o === RUG || (o >= CABO_U && o <= CABO_R);
 
-// A cabinet's facing is baked into its code, so nothing stores it and nothing can rotate it.
+// A cabinet's facing is baked into its code, so nothing stores it.
 export const cabinetFace = o =>
   ({ [CABC_U]: 'u', [CABC_D]: 'd', [CABC_L]: 'l', [CABC_R]: 'r',
      [CABO_U]: 'u', [CABO_D]: 'd', [CABO_L]: 'l', [CABO_R]: 'r' })[o];
@@ -112,14 +107,9 @@ export const freePid = s => {
   return top + 1;
 };
 
-// The multi-cell pieces that roll, and which shove sets each one going. A couch is shoved;
-// these two travel — and they take their axis from the cells they already occupy, so anisotropy
-// costs no field of its own and nothing in `stateKey`. That is the whole reason they are
-// cheaper than a turnstile.
-//
-// They travel on OPPOSITE axes, and the shape of each is the reason. A bicycle runs on its
-// wheels, which point along its length. A rolled rug is a cylinder lying on the floor: shoved
-// end-on it only slides, and it is a shove against its side that sets it rolling.
+// The multi-cell pieces that roll, and which shove sets each one going. The axis is taken from
+// the cells a piece already occupies, so anisotropy costs no field of its own and nothing in
+// `stateKey` — which is the whole reason these are cheaper than a turnstile.
 const ROLL_AXIS = new Map([[BICYCLE, 'long'], [RUG, 'short']]);
 
 /** Whether a shove this way is the one that sets this body rolling, read off the footprint. */
@@ -135,8 +125,6 @@ const rollsBody = (o, cells, dx, dy) => {
  *  bicycle, and what stops it when the two lie across each other. */
 export const rollsHere = (s, x, y, dx, dy) => {
   const c = cell(s, x, y);
-  // A cart has wheels, so a knock moves it like anything else with wheels — but only while it is
-  // LIGHT. Heavy, it does not budge, and what struck it stops against it and rattles it.
   if (isCart(c)) return !isHeavyCart(s, c.cart)
     && (!isBarrow(cartKindOf(c)) || barrowRollsAlong(cartKindOf(c), dx, dy));
   if (isMultiCell(c.o)) return rollsBody(c.o, pieceCells(s, c.pid), dx, dy);
@@ -178,10 +166,7 @@ export const isRoller = c =>
   !isCart(c) && (c.o === WHEELIE || c.o === WHEELIE_EMPTY || c.o === TIRE_H || c.o === TIRE_V
                  || c.o === CHAIR);
 
-// Whether a rolling KIND rolls THIS way. A bin is round from every side and rolls wherever it is
-// shoved; a tire has an axis and, shoved across it, is just a thing being pushed one cell. So
-// the question a shove asks is never "does this roll" but "does this roll from here" — and the
-// answer is what decides which branch it takes.
+// Asked per shove rather than per kind, because the answer decides which branch is taken.
 export const rollsAlong = (c, dx, dy) =>
   isRoller(c) && (c.o === TIRE_H ? dx !== 0 : c.o === TIRE_V ? dy !== 0 : true);
 
@@ -199,8 +184,6 @@ const SLIDES = {
   [MAG_D]:     { slides: MAG_D },
   [MAG_L]:     { slides: MAG_L },
   [MAG_R]:     { slides: MAG_R },
-  // A shut cabinet is one cell and shoves like one: it takes the lanes, and a cart standing in
-  // its way takes it aboard. Open, it is a body and none of that applies.
   [CABC_U]:    { slides: CABC_U },
   [CABC_D]:    { slides: CABC_D },
   [CABC_L]:    { slides: CABC_L },
@@ -247,18 +230,14 @@ export const terrainOf = c => (c.water ? WATER : c.bridge ? BRIDGE : c.ter ?? DR
 // A cell nothing can be dragged off again. The permanence is the piece.
 export const isTar = c => c.ter === TAR;
 
-// Slick floor. A ROLLER already travels until blocked, so grease changes nothing for one — it
-// buys its keep against the shove branches, by making a slider behave like a roller.
+// Slick floor.
 export const isGrease = c => c.ter === GREASE;
 
-// Broken glass: the raccoon may not stand on it, and objects rest on it and cross it freely.
-// That splits "where he can walk" from "where anything can sit" — one predicate did both.
+// Broken glass. It is what split "where he can walk" from "where anything can sit"; one
+// predicate did both.
 export const isGlass = c => c.ter === GLASS;
 
 // Static lanes. Out of `stateKey` for the reason `wall` always was.
-//
-// A grate swallows an object whose footprint FITS inside it; a bigger thing spans it. The
-// raccoon crosses either way.
 export const isGrate = c => c.grate === true;
 
 /** One-way cells bind the raccoon and objects alike, so the test needs the direction of travel
@@ -276,10 +255,7 @@ export const CART = 0, BARROW_U = 1, BARROW_D = 2, BARROW_L = 3, BARROW_R = 4;
 export const CART_KINDS = 5;
 export const cartKindOf = c => c.ck ?? CART;
 
-// A barrow is a cart of one cell, and it FACES the way its tub points. Three things can happen
-// to it and the facing decides which: shoved the way it faces it swallows what it meets, which
-// is the scoop; shoved the other way along that line it rolls like any cart but picks nothing
-// up, and stops against whatever it meets; shoved ACROSS the line, it tips.
+// A barrow is a cart of one cell, and it FACES the way its tub points.
 export const isBarrow = k => k >= BARROW_U && k <= BARROW_R;
 export const barrowFace = k =>
   ({ [BARROW_U]: 'u', [BARROW_D]: 'd', [BARROW_L]: 'l', [BARROW_R]: 'r' })[k];
@@ -292,9 +268,8 @@ export const barrowScoops = (k, dx, dy) => {
 // --- the magnet ------------------------------------------------------------------------------
 // `MAGNET_REACH`, `METAL`, `magnetResolve` and `settleAtRest` are the whole of it.
 
-// What a magnet takes hold of. The chair is in and the sponge is not, which is a design
-// statement rather than an oversight: the chair is only ever moved by being hit, and the one
-// piece that cleans up water and grease cannot be fetched back from wherever it was left.
+// What a magnet takes hold of. The sponge's absence is deliberate: an unlimited cleaner that
+// could be fetched back from anywhere would have no bound at all.
 const METAL = new Set([CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMPTY,
                        TIRE_H, TIRE_V, BICYCLE, CHAIR,
                        CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R,
@@ -303,8 +278,7 @@ export const isMetal = c => (isCart(c) ? isBarrow(cartKindOf(c)) : METAL.has(c.o
 
 // --- links ---------------------------------------------------------------------------------
 // Two things held together, and the ONE lane both the barrow's tow and the magnet's chain ride
-// in. They differ in how they behave, not in how they are recorded: a tow is rigid and a chain
-// stretches, and which it is falls out of what the group holds rather than out of a second field.
+// in. Which of the two a group is falls out of what it holds rather than out of a second field.
 export const linkOf = c => c.lk;
 export const linkCells = (s, lk) => {
   const out = [];
@@ -366,12 +340,11 @@ export const isOccupiable = (s, x, y) =>
   && cell(s, x, y).o === NONE && !isCart(cell(s, x, y));
 
 /** Where a travelling thing may go on to: a cell it can rest in, entered from a legal side.
- *  Tar is enterable and is never left, so it ends travel rather than forbidding it. */
+ *  Tar ends travel rather than forbidding it, which is why it is not a bar to entry here. */
 export const travelsInto = (s, x, y, dx, dy) =>
   isOccupiable(s, x, y) && mayEnter(s, x, y, dx, dy);
 
-/** A piece standing on tar is there for good, and a multi-cell one needs only a single foot in
- *  it. `explain` asks before it asks anything else, so no branch can forget. */
+/** Asked by `explain` before anything else, so no branch can forget it. */
 const stuckInTar = (s, tx, ty) => {
   const c = cell(s, tx, ty);
   if (isTar(c)) return true;
@@ -426,10 +399,8 @@ export function fan(bx, by, dx, dy) {
   ];
 }
 
-// Which way a chair goes when the burst reaches it: directly away from the bag. Every `spawned`
-// entry the tear makes carries the bag's own cell, so a five-cell spray still yields one ray per
-// chair — and a ray that comes out diagonal takes the direction the burst itself is travelling,
-// because a grid has nowhere else to put it.
+// Every `spawned` entry the tear makes carries the bag's own cell, which is what keeps a spray
+// to one ray per chair. A grid has nowhere to put a diagonal, so one takes the burst's own way.
 export const fleeFrom = (bx, by, dx, dy, fx, fy) => {
   const rx = Math.sign(fx - bx), ry = Math.sign(fy - by);
   return rx !== 0 && ry !== 0 ? [dx, dy] : [rx, ry];

@@ -99,12 +99,9 @@ const offsets = (cells, ox, oy) => cells.map(([x, y]) => [x - ox, y - oy]);
 const CONSUMES = new Set(['fills', 'pours', 'shatters', 'falls', 'swaps']);
 
 const atCell = (sp, x, y) => sp.ax === x && sp.ay === y;
-// `parent` narrows the match when kind and cell are not enough: a barrow riding in a barrow is
-// the same code as the barrow carrying it, standing on the same cell, and what tells them apart
-// is which of them the other is inside.
-// `depth` is what tells apart two sprites of one code standing on one cell — a barrow riding in
-// a barrow, most of all, where the two are the same code and the only difference is which of
-// them the other is inside.
+// `parent` and `depth` both narrow the match when kind and cell are not enough. A barrow riding
+// in a barrow is the same code as its carrier on the same cell; which of them is inside the
+// other is the only thing that separates them.
 const find = (stage, kind, [x, y], depth = 0) =>
   stage.sprites.find(sp => sp.kind === kind && !sp.dying && atCell(sp, x, y)
     && (sp.depth ?? 0) === depth);
@@ -134,10 +131,8 @@ export function applyStep(stage, step, racTo = null) {
     // A body has no occupant code, so `gone` cannot name it and this is where it is consumed.
     if (CONSUMES.has(effect)) body.spent = true;
     if (effect === 'falls') body.falls = true;
-    // Struck and too heavy to shift. It goes nowhere, so the only thing to play is the wobble —
-    // and what it is CARRYING wobbles with it. About the cart's own bottom edge, not each
-    // sprite's: pivot the cargo on itself and it spins in place while the cart leans out from
-    // under it, which is the load and its carrier disagreeing about being one thing.
+    // The wobble pivots on the CART's bottom edge, not each sprite's: pivot cargo on itself and
+    // it spins in place while the cart leans out from under it.
     if (effect === 'rattles') {
       const cells = body.cells ?? [[0, 0]];
       const xs = cells.map(([cx]) => cx), ys = cells.map(([, cy]) => cy);
