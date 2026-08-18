@@ -37,7 +37,7 @@ test('every surveyed group can actually be cleared and lands in the target bag b
     const bags = [...g].reduce((n, c) => n + (BAGS[c] ?? 0), 0);
     assert.ok(bags >= 2 && bags <= 4, `${g} carries ${bags} bags`);
     assert.equal(g.length, 4, `${g} is not a group of four`);
-    assert.ok([...g].filter(c => c === 'P').length <= 3, `${g} wants more carts than CART_POOL has`);
+    assert.ok([...g].filter(c => c === 'P').length <= 3, `${g} wants more skateboards than SKATE_POOL has`);
     assert.ok([...g].filter(c => c === 'F').length <= 6, `${g} wants more couches than FURN_POOL has`);
   }
 });

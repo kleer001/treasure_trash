@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stateKey, step, CART, CART_KINDS, TERRAINS } from '../src/rules.js';
+import { stateKey, step, SKATE, CART_KINDS, TERRAINS } from '../src/rules.js';
 import { toState, toGrid, toWater } from '../src/format.js';
 
 /** Minimal board carrying nothing but the occupant codes under test. */
@@ -45,8 +45,8 @@ test('carts of different kinds that swap positions are different boards', () => 
     cells: [[{ o: 0, cart: 0, ck: kinds[0] }, { o: 0, cart: 0, ck: kinds[0] },
              { o: 0, cart: 1, ck: kinds[1] }, { o: 0 }]],
   });
-  assert.notEqual(stateKey(carted([CART, CART + 1])), stateKey(carted([CART + 1, CART])));
-  assert.equal(stateKey(carted([CART, CART])), stateKey(carted([CART, CART])));
+  assert.notEqual(stateKey(carted([SKATE, SKATE + 1])), stateKey(carted([SKATE + 1, SKATE])));
+  assert.equal(stateKey(carted([SKATE, SKATE])), stateKey(carted([SKATE, SKATE])));
 });
 
 test('a cart kind never overruns into the next label', () => {

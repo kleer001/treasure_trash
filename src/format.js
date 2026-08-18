@@ -2,7 +2,7 @@
 // Text in, data out; data in, byte-identical text out. See FORMATS.md for the spec.
 
 import {
-  CART, BARROW_U, BARROW_D, BARROW_L, BARROW_R,
+  SKATE, BARROW_U, BARROW_D, BARROW_L, BARROW_R,
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMPTY, JUG,
   JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
   CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R,
@@ -110,14 +110,14 @@ const MULTI_POOLS = [
 // Carts are written in their own aligned `:cart` block rather than the occupant grid, for the
 // same reason water is: a cart cell holds cargo, and one character cannot say "empty cart
 // cell", "cart holding a can" and "cart Q holding trash" at once. Same blob rule, own pool.
-export const CART_POOL = [...'PQR'];
+export const SKATE_POOL = [...'PQR'];
 // A barrow is a cart of ONE cell, and its axis is in the glyph because nothing else carries it.
 
 const CART_KINDS_IN_MASK = [
-  { glyphs: [...'PQR'], ck: CART, size: 2, word: 'two', what: 'cart' },
+  { glyphs: [...'PQR'], ck: SKATE, size: 2, word: 'two', what: 'skateboard' },
   // A barrow faces the way its tub points, and the mask says so outright: the direction it
   // faces, and the NEXT LETTER ALONG for a second one facing the same way. Not its capital,
-  // which would want `R` — and `R` is a two-cell cart, which the reader would match first.
+  // which would want `R` — and `R` is a two-cell skateboard, which the reader would match first.
   { glyphs: [...'uvw'], ck: BARROW_U, size: 1, word: 'one', what: 'barrow (facing up)' },
   { glyphs: [...'def'], ck: BARROW_D, size: 1, word: 'one', what: 'barrow (facing down)' },
   { glyphs: [...'lmn'], ck: BARROW_L, size: 1, word: 'one', what: 'barrow (facing left)' },
@@ -135,7 +135,7 @@ export const LEGEND = [
   'f/l/p/q magnet — its field runs up/down/left/right',
   `${FURN_POOL.join('/')} furniture — one letter per piece, a touching same-letter blob is one couch`,
   'terrain lives in its own :water block — ~ open canal, = filled in (floor), - dry',
-  `carts live in their own :cart block — ${CART_POOL.join('/')}, two cells each, cargo reads from :grid`,
+  `skateboards live in their own :cart block — ${SKATE_POOL.join('/')}, two cells each, cargo reads from :grid`,
   'barrows live there too, one cell each — u/d/l/r face up/down/left/right, and the next '
     + 'letters along are further barrows facing the same way',
   ':hold says what a carried barrow has inside it — "x,y glyphs", outermost first',
@@ -415,7 +415,7 @@ export function toState(level) {
       }
       marks.push(row);
     }
-    // One counter across the kinds, and a size rule per kind: a cart is two cells and a barrow
+    // One counter across the kinds, and a size rule per kind: a skateboard is two cells and a barrow
     // is one, so the two cannot share a single check.
     let nextCid = 0;
     for (const k of CART_KINDS_IN_MASK)

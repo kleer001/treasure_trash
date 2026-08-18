@@ -250,10 +250,10 @@ export const mayEnter = (s, x, y, dx, dy) => {
 
 // Carts are not interchangeable once they have kinds, and `stateKey` labels them by first
 // appearance — so the kind travels in the key beside the label, or two different boards key
-// alike. `CART` is the two-cell cart every level has today.
-export const CART = 0, BARROW_U = 1, BARROW_D = 2, BARROW_L = 3, BARROW_R = 4;
+// alike. `SKATE` is the two-cell skateboard every level has today.
+export const SKATE = 0, BARROW_U = 1, BARROW_D = 2, BARROW_L = 3, BARROW_R = 4;
 export const CART_KINDS = 5;
-export const cartKindOf = c => c.ck ?? CART;
+export const cartKindOf = c => c.ck ?? SKATE;
 
 // A barrow is a cart of one cell, and it FACES the way its tub points.
 export const isBarrow = k => k >= BARROW_U && k <= BARROW_R;
@@ -664,7 +664,7 @@ function handOff(next, from, dx, dy, step) {
       if (j === 0) {
         // Pinned, and the momentum has to go SOMEWHERE. It moved the thing on wheels while there
         // was anywhere to move it; with nowhere left, what rolled in goes in instead of stopping
-        // dead against a basket. A barrow takes it only through its mouth — its back is closed,
+        // dead against the deck. A barrow takes it only through its mouth — its back is closed,
         // and a blow there is just a blow. Nothing displaces: a cart with anything aboard is
         // heavy, and a heavy one never reaches this branch at all.
         const kind = cartKindOf(c);
@@ -1125,7 +1125,7 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
     if (out === NONE || cell(s, ...first[i]).o === NONE) return;
     if (!tipFits(s, out, back, -dx, -dy)) blame.push(tipsInto(out, back, -dx, -dy));
   });
-  // Heavy and going nowhere, a CART slops one item out the back rather than refusing: shove it
+  // Heavy and going nowhere, a SKATEBOARD slops one item out the back rather than refusing: shove it
   // at a wall and the load comes off, which is the only way a cart is emptied deliberately. Never
   // out of the file the raccoon is pushing — he is standing exactly where it would land — so a
   // cart pinned with nothing free behind either file is genuinely stuck.
