@@ -27,7 +27,6 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
 | `TODO.md` | Where we are, what's open, and the next move. |
 | `BREADCRUMB.md` | Session handoff written and read by `/bob`. |
 | `GAME-SHEET.md` | Player-facing pitch (the fantasy, the loop, the hook). |
-| `SPEC-SHEET.md` | Design sketchpad. Nothing in it is binding, and it is never synced to the code. |
 | `RELEASE-CHECKLIST.md` | The one hard stop, worked once at ship. Post-beta — closed until then. |
 | `publishing/` | Launch surfaces and the tools that build them. Nothing the game needs to run; the scripts live there and work on the game root. |
 

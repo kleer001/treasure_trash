@@ -9,6 +9,8 @@
 # THE TWO TABLES BELOW — clip_cut and TRAILER — ARE THE PER-GAME TUNING SURFACE.
 # Retime a clip, recaption it, or reorder the trailer by editing the numbers
 # there, not by re-shooting. Everything under them is generic ffmpeg plumbing.
+# No `-e`: this script checks its own dependencies by hand and prints what is wrong. With
+# `pipefail`, `-e` would exit on the failing pipeline first and those messages never reach you.
 set -uo pipefail
 cd "$(dirname "$0")/.."   # this script lives in publishing/; every path below is game-root-relative
 

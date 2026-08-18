@@ -26,9 +26,8 @@ jobs:
       # the release-gate checkbox in RELEASE-CHECKLIST.md. Ticking it is the release
       # act already, and it is what puts the page online.
       #
-      # Both files are searched: the sentinel line lives in RELEASE-CHECKLIST.md,
-      # and a game still carrying it in SPEC-SHEET.md keeps deploying. They are
-      # concatenated first so a missing file is silently empty rather than an error
+      # The sentinel line lives in RELEASE-CHECKLIST.md. It is `cat`ed rather than
+      # grepped directly so a missing file is silently empty rather than an error
       # — grep implementations disagree on the exit status when a named file is
       # absent, and one that returns "error" would withhold a released game's page.
       # Move the sentinel line and this step moves with it: a miss here withholds
@@ -41,7 +40,7 @@ jobs:
         run: |
           if [ ! -d publishing ]; then
             echo "no publishing/ — nothing to withhold"
-          elif cat RELEASE-CHECKLIST.md SPEC-SHEET.md 2>/dev/null | grep -qiE '^- \[x\] \*\*Release gate cleared'; then
+          elif cat RELEASE-CHECKLIST.md 2>/dev/null | grep -qiE '^- \[x\] \*\*Release gate cleared'; then
             find publishing -mindepth 1 ! -name promo.html -delete
             echo "release gate cleared — landing page serves at /publishing/promo.html"
           else

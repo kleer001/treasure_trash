@@ -48,7 +48,6 @@ declares itself non-binding.
 - **checked** — `levels.md`'s `:solve` strings, which `verify.mjs` asserts appear verbatim; a
   comment whose assertions sit right below it
 - **not their pencil** — `GAME-SHEET.md`, `publishing/`
-- **self-declared stale** — `SPEC-SHEET.md`, which opens by saying so
 
 An exception is a claim about the file, not about the sentence. In a file with no exception, a
 rule statement is still a rule statement.

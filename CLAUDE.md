@@ -54,7 +54,7 @@ around it — art, audio, progression, and the solvability indicator.
   obligation to touch anything. `--write` puts the plan where the dev server can serve it. It says
   nothing about whether a room is any good; that is `verify.mjs` and the level work.
 - `node tools/survey.mjs` — samples every legal group of four pieces and writes which ones
-  make rooms at all to `levels/fertility.jsonl`. Findings are read in `SPEC-SHEET.md`.
+  make rooms at all to `levels/fertility.jsonl`.
 - `node tools/harvest.mjs` — samples the fertile groups deeply, on outlines rather than open
   rectangles, and stores every metric per room in `levels/harvest.jsonl`.
 - Both are parallel, and both **use the sanctioned port when it is built**, which is where the
@@ -252,8 +252,6 @@ These govern how code is written. They are not design arguments.
 - `FORMATS.md` — the `.tt`/`.sol` file syntax. Not what the pieces do.
 - `TODO.md` — where we are, what's open, what's next.
 - `GAME-SHEET.md` — the player-facing pitch.
-- `SPEC-SHEET.md` — the design sketchpad: decisions and why, systems, open questions.
-  Nothing in it is binding, and it is never synced to the code.
 - `RELEASE-CHECKLIST.md` — the one hard stop, worked once at ship.
 - `publishing/` — every launch surface and the tools that build it: `MARKETING-PLAN.md`,
   `promo.html`, `ITCH-PAGE.md`, `PUBLISHING-RUNBOOK.md`, the shot list, and the

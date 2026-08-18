@@ -3,8 +3,7 @@
 **This file is scaffolding and it gets deleted when the last stage lands.** It states rules
 because a build plan has to, which is the one thing `CLEAN_PROSE.md` otherwise forbids —
 so it is fenced off here rather than leaking into `src/`, and `src/rules.js` outranks it the
-moment a stage is written. The design it builds toward is `SPEC-SHEET.md` -> *The candidate
-roster*, which is equally non-binding.
+moment a stage is written.
 
 Nothing here is a schedule. It is an order, and the order exists because some of these break
 storage, some break `isWon`, and two of them fail silently if built in the wrong sequence.

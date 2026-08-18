@@ -13,6 +13,7 @@ import {
 import { parseLevelPack, toState, toGrid } from './format.js';
 import { deadScan } from './solver.js';
 import { createProgress } from './progress.js';
+import { installFocusReclaim } from './focus.js';
 import { createDebugLog, createProbe } from './debug.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
 import { createCompositor } from './compositor.js';
@@ -707,6 +708,11 @@ function hash(x,y){ return ((x*73856093)^(y*19349663))>>>0; }
 // ---- wire up ----
 const KEY={ArrowUp:'u',ArrowDown:'d',ArrowLeft:'l',ArrowRight:'r',
   w:'u',s:'d',a:'l',d:'r',W:'u',S:'d',A:'l',D:'r'};
+// The itch embed runs in an iframe on another origin, and its fullscreen button leaves focus on
+// the parent document — `keydown` simply stops arriving. Clicking back in normally heals it, but
+// focusing the frame is the default action of the very press this game cancels.
+installFocusReclaim(window);
+
 addEventListener('keydown',e=>{
   // While the sheet is up it owns the keyboard: Escape closes, and nothing reaches the board.
   if(!document.getElementById('sheet').hidden){

@@ -37,6 +37,8 @@
 #   ?seed=CODE  seed the run (src/rng.js), so a take is reproducible.
 # A take that fails to land its beat should throw rather than bank silent
 # footage — a scripted shot nobody watched is worth less than a loud failure.
+# No `-e`: this script checks its own dependencies by hand and prints what is wrong. With
+# `pipefail`, `-e` would exit on the failing pipeline first and those messages never reach you.
 set -uo pipefail
 
 # ---- per-game knobs --------------------------------------------------------
@@ -51,8 +53,26 @@ WIN_H=400
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 # The OS-level window recorder (kleer001/utilities, private). It does the ffmpeg
 # work; this script only sets up a window worth pointing it at.
-RECORDER="$HERE/../utilities/window_recorder.sh"
-[ -x "$RECORDER" ] || { echo "recorder not found: $RECORDER" >&2; exit 1; }
+# WINDOW_RECORDER to say where yours is rather than editing this line.
+RECORDER="${WINDOW_RECORDER:-$HERE/../utilities/window_recorder.sh}"
+[ -x "$RECORDER" ] || {
+  cat >&2 <<MSG
+capture.sh: no executable window recorder at
+  $RECORDER
+
+It is not part of this game. Point WINDOW_RECORDER at yours:
+  WINDOW_RECORDER=/path/to/window_recorder.sh publishing/capture.sh $*
+
+It must take: -c CLASS [-s] [-t SECONDS] OUTPUT_DIR — find the window whose
+WM_CLASS is CLASS, record that screen region with the default sink's monitor as
+the audio track, and write an MP4 into OUTPUT_DIR. With -s it starts recording at
+once; without it, it arms and waits. With -t it stops itself after SECONDS.
+
+Any recorder honouring that interface works; nothing else here depends on which
+one you use.
+MSG
+  exit 1
+}
 
 # Some beats the game will not perform to camera. Those are staged on their own
 # page, which takes the same go-file handshake and so records like every other

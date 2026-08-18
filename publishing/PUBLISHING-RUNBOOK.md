@@ -9,6 +9,11 @@ reports success.
 
 ---
 
+Every section asserting how an outside service behaves carries an **Observed:** date — when the
+claim was last checked against the live service. A platform claim with no date cannot be told
+apart from a belief a year later. Re-check before a release and move the date forward, whether
+the claim held or not.
+
 ## Order of operations
 
 1. **Page copy first**, while the build is still cooking — the description is the
@@ -28,6 +33,8 @@ message. See *Verify server-side* below.
 ---
 
 ## itch.io — the edit form
+
+**Observed:** 2026-08-05
 
 **Saving rewrites every field, not just the one you changed.** The form posts the
 whole record from whatever the loaded page contained. A page that comes up with a
@@ -63,6 +70,8 @@ by default will click Delete and change nothing, with no error.
 
 ## itch.io — replacing a build (every update after the first)
 
+**Observed:** 2026-08-05
+
 Uploading a zip **with the same filename replaces the existing upload in place** —
 one row, but a new upload id. Two consequences that bite every time:
 
@@ -78,6 +87,8 @@ immediately. Plan for it; verify after.
 ---
 
 ## itch.io — verify server-side
+
+**Observed:** 2026-08-05
 
 The dashboard is not evidence. itch exposes a read-only API that is:
 
@@ -102,6 +113,8 @@ logged.
 ---
 
 ## itch.io — butler, and when it is worth it
+
+**Observed:** 2026-08-05
 
 `butler` is itch's CLI uploader. Install:
 
@@ -132,6 +145,8 @@ unattended command. Take butler if the game will ship more than once.
 ---
 
 ## YouTube — the trailer
+
+**Observed:** 2026-08-05
 
 **Test & Compare** runs up to **3 variants**, as title-only, thumbnail-only, or
 title-and-thumbnail. Two things follow from how it scores:
@@ -167,6 +182,9 @@ the game; a real detail invites real answers, where a generic question invites n
 ---
 
 ## Pre-publish checks
+
+- **The fullscreen key check.** In the itch embed, press the fullscreen button, then try the
+  arrow keys. The failure exists only inside the embed and no local build reproduces it.
 
 - [ ] Tagline ≤ 120 characters, counted
 - [ ] Archive has `index.html` at its root, no absolute asset paths, under itch's
