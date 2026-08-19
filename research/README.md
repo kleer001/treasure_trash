@@ -3,14 +3,18 @@
 Market and competitor research on games in the wild: one raccoon-themed simulator and two
 block-pusher exemplars, studied for what caused their attention and what it was worth.
 
-Self-contained. These are notes about other people's games and the market they sit in — nothing
-here describes, prescribes for, or constrains any project.
+Gathered for **Treasure Trash**, the block-pusher in the directory above this one — see
+[`the-game.md`](./the-game.md) for where it stands and where it is going. Everything else here is
+notes on other people's games. Findings, not instructions: nothing in this directory decides
+anything about the game, and `src/rules.js`, `levels/` and [`GAME-SHEET.md`](../GAME-SHEET.md)
+are unaffected by every word of it.
 
 ## What's here
 
 | File | What it is |
 |---|---|
 | `marketing-playbooks.md` | Three playbooks side by side, and the channels the evidence names. **Start here.** |
+| `the-game.md` | Treasure Trash: what runs today, what it is meant to be, and what these findings mean for it. |
 | `trash-panda-dossier.md` | The raccoon simulator, with numbers: what it is, what it sold, its timeline, its press. |
 | `review-teardown.md` | Every English Steam review of it, coded into themes, with quotes. |
 | `case-trash-panda-marketing.md` | Channel-by-channel forensics on it: TV, blogs, Reddit, YouTube, events, collabs. |
@@ -54,4 +58,6 @@ with a six-word store description and two famous developers vouching for it, and
 selling a decade later; *Baba Is You* gave its jam build away free for two years, won IGF awards
 on it before release, and sold over a million. The fantasy is proven and currently unattended,
 its audience has said out loud what it wanted, and none of the 2,297 sokoban-tagged games on
-itch.io is wearing that costume.
+itch.io is wearing that costume. *Treasure Trash* is a raccoon game whose whole substance is the
+part the incumbent never built, it is already the free browser artifact the Baba playbook says to
+put in front of people, and — per pattern two — it cannot be late.

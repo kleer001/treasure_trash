@@ -64,7 +64,8 @@ It was not a funnel, a wishlist driver, or a cut-down demo — it was the idea, 
 anyone including festival judges could reach it.
 
 This is the pattern most directly available to a free browser game, which is *already* that
-artifact. The gap is not the build; it is that nobody has been pointed at it.
+artifact. *Treasure Trash* is one — it opens in a tab today. The gap is not the build; it is that
+nobody has been pointed at it, and that is a far better problem to have than the other one.
 
 ### 4. Presence compounds, and so does absence
 
@@ -96,6 +97,15 @@ And the one this evidence rules out: **local press.** The Toronto angle belongs 
 else's game, television does not run segments about browser puzzle games, and the audience it
 delivers does not buy indie puzzle games. Copying that channel means copying the part of the
 story that did not work.
+
+## What this means for the game downstairs
+
+[`the-game.md`](./the-game.md) has the detail. In short: three of the four patterns above are
+already free to it. The free public artifact exists (pattern 3). There is no window to miss, so
+the rooms can take as long as they take (pattern 2). The mechanic is showable going wrong in one
+short clip, which is what recruits the people in pattern 1. Pattern 4 is the only one that is pure
+future work — and it is the cheapest of the four to start, and the one the incumbent lost by
+default.
 
 ## The single sentence
 

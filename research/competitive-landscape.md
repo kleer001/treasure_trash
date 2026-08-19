@@ -80,3 +80,22 @@ launch in 2023. That is unusual, and it is the most transferable asset in this r
 
 It is not proof that the fantasy sells a puzzle game. What sold on the shelf above was level
 design. The theme is the reason someone clicks; the rooms are the reason they stay.
+
+## Where Treasure Trash goes on this shelf
+
+Intent as of 2026-08-19, not a listing — see [`the-game.md`](./the-game.md). It is a
+Sokoban-family block-pusher wearing the raccoon costume, which is the crossing this file just
+measured as empty in both directions.
+
+**On the free browser field:** it is already there, in the sense that matters — a page you open
+with no install, which is what the whole 2,297 are. The plan is to keep that free and put a price
+on the full pack, so the browser build is the demo rather than a thing to build later. That is
+the cheap half of the Baba pattern taken as given rather than as a project.
+
+**On the paid shelf:** the table above is the range to be honest inside. $4.99 buys 184 reviews
+and $29.99 buys 1,580 — price on that shelf tracks how much game is behind it, not how the
+storefront is dressed, and the fair time to name a number is when the rooms are all in. Around a
+hundred of them is the current target, against 61 built.
+
+**What it does not get for free:** everything above the theme. Being the only raccoon on the
+shelf gets the click; nothing on this table got its rating any way but the rooms.
