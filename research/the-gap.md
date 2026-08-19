@@ -1,7 +1,10 @@
 # What the three cases add up to
 
 Findings, not instructions. Everything here is an inference from the market evidence in the
-other files, and where something is a judgement rather than a measured fact it is labelled.
+other files, and where something is a judgement rather than a measured fact it is labelled. The
+game these findings were gathered for is *Treasure Trash* — [`the-game.md`](./the-game.md) — and
+naming it changes nothing about what the evidence says; it just means the last section has
+somebody in it.
 
 ## The thesis in one sentence
 
@@ -53,7 +56,7 @@ a property of the format, not an accomplishment.
 The axis that is genuinely contested is level design, and the competition there is Draknek's
 catalogue, not a lone raccoon sim.
 
-## Risks the evidence surfaces for anyone attempting the crossing
+## Risks the evidence surfaces for the crossing
 
 - **The theme could repel the shelf.** The block-pusher audience is abstract-leaning and has
   seen a thousand cute reskins of Sokoban on itch. A mascot reads as a jam game to exactly the
@@ -70,7 +73,7 @@ catalogue, not a lone raccoon sim.
 
 ## The positioning the evidence would support
 
-Stated as observations about what is available to say, not as copy for anyone.
+Observations about what is available to say. Not copy — nobody has written any yet.
 
 - **The available true difference:** in most block-pushers the mess is something you fix. A
   mechanic where mess is the only thing you make, never goes away, and has to be routed through
@@ -82,7 +85,33 @@ Stated as observations about what is available to say, not as copy for anyone.
 - **The asset that would sell it:** one clip, under fifteen seconds, where a mistake and its
   consequence are both legible without words. Not the genre name, not a level count, not tech.
 
+## Where Treasure Trash sits in this
+
+Encouraging, and honest about which parts are still promises.
+
+**It is standing in the empty square.** A raccoon, garbage, and a real Sokoban-family engine with
+a solver and verified pars behind it. Both halves of the crossing, in one page, and the
+`competitive-landscape.md` sweep found nothing else wearing both.
+
+**The complaint that sank the incumbent is this game's subject.** "Nothing to do" is what 39
+reviews say in one voice. A room with a par is the answer, and there are 61 of them already.
+
+**Its true difference is the one the shelf has not got.** The mess is the only thing you make and
+it never comes up again — the bomb-Sokoban inversion, above, is available to say honestly because
+it is what the engine does.
+
+**The risks land softly.** "The theme could repel the shelf" is answered by leading with the
+mechanic in motion, which costs one clip. "The fantasy was Toronto's" is a reason not to inherit
+someone else's civic joke, and the alley at 3 a.m. is nowhere in particular on purpose.
+"Discovery binds" is true and the doors are all listed and open.
+
+**And the cheque is the honest part.** A costume writes one the rooms must cash. That is not a
+warning about a mistake already made — it is a description of the work in progress, on a game
+that has shipped nothing, told nobody, and can therefore still spend as long on the rooms as they
+turn out to need.
+
 ## The thing this research cannot help with
 
 Every game on the shelf in `competitive-landscape.md` is there because its levels are good. No
-competitor analysis, positioning line or channel list moves that number.
+competitor analysis, positioning line or channel list moves that number. It is the one number
+that is entirely in the developer's hands, which is the good news and the whole job at once.
