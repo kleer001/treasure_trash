@@ -1,0 +1,661 @@
+<title>Garbage Night Dossier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --paper:#F2F3EF; --card:#FBFBF8; --ink:#16191A; --soft:#5A625F; --faint:#8A918D;
+  --rule:#D8DBD3; --rule-strong:#B9BEB4;
+  --accent:#1D5B3D; --accent-tint:#E3EDE6; --accent-deep:#123A27;
+  --flag:#9C4A2F; --flag-tint:#F2E4DE;
+  --display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
+  --body:"Newsreader",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --measure:68ch;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--body); font-size:18px; line-height:1.62;
+  font-weight:400; font-optical-sizing:auto;
+}
+
+/* ---------- shell ---------- */
+.shell{display:grid; grid-template-columns:250px minmax(0,1fr); gap:0; max-width:1240px; margin:0 auto}
+.rail{position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto; padding:38px 26px 40px 28px; border-right:1px solid var(--rule)}
+.main{min-width:0; padding:38px 40px 120px 48px}
+
+.rail .mark{font-family:var(--mono); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--flag); margin:0 0 22px}
+.rail nav{display:flex; flex-direction:column; gap:1px}
+.rail a{
+  font-family:var(--display); font-size:13.5px; font-weight:400; line-height:1.35;
+  color:var(--soft); text-decoration:none; padding:6px 8px 6px 12px;
+  border-left:2px solid transparent; display:flex; gap:9px; align-items:baseline;
+}
+.rail a:hover{color:var(--accent); border-left-color:var(--accent); background:var(--accent-tint)}
+.rail a:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.rail a .n{font-family:var(--mono); font-size:9.5px; color:var(--faint); letter-spacing:.06em}
+.rail .grp{font-family:var(--mono); font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); margin:20px 0 6px 12px}
+
+/* ---------- masthead ---------- */
+.masthead{border-bottom:3px solid var(--ink); padding-bottom:20px; margin-bottom:26px}
+.kicker{font-family:var(--mono); font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--flag); margin:0 0 14px}
+h1{
+  font-family:var(--display); font-weight:800; font-size:clamp(40px,6.2vw,68px);
+  line-height:.96; letter-spacing:-.028em; margin:0 0 16px; text-wrap:balance;
+}
+.dek{font-size:20px; line-height:1.5; color:var(--soft); max-width:56ch; margin:0 0 22px; font-weight:300}
+.dek b{color:var(--ink); font-weight:600}
+.stamp{display:flex; flex-wrap:wrap; gap:0; font-family:var(--mono); font-size:10.5px; letter-spacing:.05em; color:var(--soft); border-top:1px solid var(--rule); padding-top:12px}
+.stamp span{padding-right:22px; margin-right:22px; border-right:1px solid var(--rule)}
+.stamp span:last-child{border-right:0}
+.stamp b{color:var(--ink); font-weight:600}
+
+/* ---------- sections ---------- */
+section{margin:0 0 64px; scroll-margin-top:24px}
+h2{
+  font-family:var(--display); font-weight:800; font-size:29px; letter-spacing:-.018em;
+  line-height:1.14; margin:0 0 6px; text-wrap:balance;
+}
+.h2-num{font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.14em; color:var(--flag); display:block; margin-bottom:9px}
+h2 + .sub{font-size:17px; color:var(--soft); margin:0 0 24px; max-width:var(--measure); font-weight:300}
+h3{font-family:var(--display); font-weight:600; font-size:19px; letter-spacing:-.008em; margin:36px 0 10px; text-wrap:balance}
+h4{font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.15em; text-transform:uppercase; color:var(--soft); margin:28px 0 10px}
+p{max-width:var(--measure); margin:0 0 16px}
+ul{max-width:var(--measure); padding-left:20px; margin:0 0 16px}
+li{margin-bottom:9px}
+strong{font-weight:600}
+em{font-style:italic}
+a{color:var(--accent)}
+.hr{height:1px; background:var(--rule); border:0; margin:44px 0; max-width:var(--measure)}
+
+/* ---------- data ---------- */
+.scroll{overflow-x:auto; margin:0 0 20px; padding-bottom:2px}
+table{border-collapse:collapse; width:100%; min-width:520px; font-size:15px}
+caption{
+  font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--faint); text-align:left; padding-bottom:9px;
+}
+th,td{text-align:left; padding:9px 14px 9px 0; border-bottom:1px solid var(--rule); vertical-align:baseline}
+thead th{
+  font-family:var(--mono); font-size:9.5px; font-weight:600; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--soft); border-bottom:1.5px solid var(--rule-strong); padding-bottom:7px;
+}
+td.num,th.num{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:13.5px; text-align:right; padding-right:18px; white-space:nowrap}
+tbody tr:last-child td{border-bottom:1.5px solid var(--rule-strong)}
+tr.subject td{background:var(--flag-tint)}
+tr.subject td:first-child{font-weight:600}
+.game{font-family:var(--display); font-weight:600; font-size:15px}
+.mono{font-family:var(--mono); font-size:13px}
+.win{color:var(--accent); font-weight:600}
+.bad{color:var(--flag); font-weight:600}
+
+/* inline bar cells */
+.bar{display:flex; align-items:center; gap:10px; min-width:210px}
+.bar i{display:block; height:9px; background:var(--accent); border-radius:0}
+.bar.alt i{background:var(--flag)}
+.bar span{font-family:var(--mono); font-size:12.5px; font-variant-numeric:tabular-nums; color:var(--soft); white-space:nowrap}
+
+/* ---------- figures ---------- */
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(158px,1fr)); gap:1px; background:var(--rule); border:1px solid var(--rule); margin:0 0 26px}
+.stat{background:var(--card); padding:16px 18px}
+.stat .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--faint); display:block; margin-bottom:7px}
+.stat .v{font-family:var(--display); font-weight:800; font-size:30px; line-height:1; letter-spacing:-.03em; display:block; font-variant-numeric:tabular-nums}
+.stat .v.sm{font-size:20px; letter-spacing:-.015em}
+.stat .n{font-family:var(--mono); font-size:11px; color:var(--soft); display:block; margin-top:7px}
+
+blockquote{
+  margin:0 0 18px; padding:2px 0 2px 20px; border-left:2px solid var(--accent);
+  max-width:var(--measure); font-size:18.5px; line-height:1.5; color:var(--ink);
+}
+blockquote p{margin:0 0 8px}
+blockquote cite{
+  display:block; font-family:var(--mono); font-style:normal; font-size:11px;
+  letter-spacing:.05em; color:var(--faint); margin-top:8px;
+}
+
+.callout{
+  background:var(--accent-tint); border:1px solid #C7DBCE; padding:18px 22px;
+  margin:0 0 24px; max-width:var(--measure);
+}
+.callout p:last-child{margin-bottom:0}
+.callout .lab{font-family:var(--mono); font-size:9.5px; letter-spacing:.15em; text-transform:uppercase; color:var(--accent-deep); display:block; margin-bottom:9px}
+
+.note{
+  border-top:1px solid var(--rule); border-bottom:1px solid var(--rule);
+  padding:14px 0; margin:0 0 24px; max-width:var(--measure);
+  font-size:16px; color:var(--soft);
+}
+.note b{color:var(--ink)}
+
+/* timeline */
+.tl{max-width:var(--measure); margin:0 0 24px; border-top:1px solid var(--rule)}
+.tl div{display:grid; grid-template-columns:104px 1fr; gap:18px; padding:11px 0; border-bottom:1px solid var(--rule); align-items:baseline}
+.tl dt,.tl .d{font-family:var(--mono); font-size:11.5px; letter-spacing:.03em; color:var(--flag); font-weight:500}
+.tl .t{font-size:16px; line-height:1.45}
+.tl .t b{font-weight:600}
+
+.tag{
+  display:inline-block; font-family:var(--mono); font-size:9.5px; letter-spacing:.12em;
+  text-transform:uppercase; padding:3px 8px; border:1px solid var(--rule-strong); color:var(--soft);
+}
+.tag.push{border-color:#D8C3B8; background:var(--flag-tint); color:var(--flag)}
+.tag.pull{border-color:#C7DBCE; background:var(--accent-tint); color:var(--accent-deep)}
+
+.srcs{columns:2; column-gap:34px; max-width:none; font-size:14px; line-height:1.5}
+.srcs li{break-inside:avoid; margin-bottom:9px; max-width:44ch}
+
+footer{border-top:3px solid var(--ink); padding-top:18px; margin-top:70px; max-width:var(--measure)}
+footer p{font-family:var(--mono); font-size:11.5px; color:var(--soft); line-height:1.7}
+
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .rail{position:static; height:auto; border-right:0; border-bottom:1px solid var(--rule); padding:26px 22px}
+  .rail nav{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:0}
+  .main{padding:30px 22px 90px}
+  .srcs{columns:1}
+  body{font-size:17px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+
+<div class="shell">
+<aside class="rail">
+  <p class="mark">Market research · 2026</p>
+  <nav>
+    <a href="#finding"><span class="n">00</span> The finding</a>
+    <a href="#scoreboard"><span class="n">01</span> Scoreboard</a>
+    <p class="grp">Case one</p>
+    <a href="#dossier"><span class="n">02</span> Trash Panda</a>
+    <a href="#reviews"><span class="n">03</span> What players said</a>
+    <a href="#channels"><span class="n">04</span> Where attention came from</a>
+    <p class="grp">Case two &amp; three</p>
+    <a href="#ssr"><span class="n">05</span> Stephen's Sausage Roll</a>
+    <a href="#baba"><span class="n">06</span> Baba Is You</a>
+    <p class="grp">Synthesis</p>
+    <a href="#shelf"><span class="n">07</span> The shelf</a>
+    <a href="#patterns"><span class="n">08</span> Patterns that repeat</a>
+    <a href="#where"><span class="n">09</span> Where the audience is</a>
+    <a href="#voices"><span class="n">10</span> Lone voices</a>
+    <a href="#gap"><span class="n">11</span> The gap</a>
+    <a href="#sources"><span class="n">12</span> Sources &amp; method</a>
+  </nav>
+</aside>
+
+<main class="main">
+
+<header class="masthead">
+  <p class="kicker">Competitive research · three games in the wild</p>
+  <h1>Garbage Night</h1>
+  <p class="dek">One raccoon simulator that television made famous and nobody kept playing, and two block-pushers that no journalist ever launched and that are <b>still selling years later</b>. What caused the attention, and what it was worth.</p>
+  <div class="stamp">
+    <span>Read <b>2026-08-18</b></span>
+    <span>Sources <b>Steam · SteamSpy · itch · YouTube · Reddit · press</b></span>
+    <span>Subjects <b>3</b></span>
+    <span>Reviews read <b>39</b></span>
+  </div>
+</header>
+
+<section id="finding">
+  <span class="h2-num">00 — Thesis</span>
+  <h2>Push once, or pull forever</h2>
+  <p class="sub">Every channel that worked for one of these games worked once. Every channel that worked for the other two is still working.</p>
+
+  <p><strong>Trash Panda</strong> was <em>told about</em>. A CTV News segment in May 2021 made a prototype viral — blogTO's own piece says "thousands have shown interest in the game since it was featured by CTV on Monday" — and CBC, Daily Hive and the city-lifestyle blogs relayed it twice, at prototype and at launch. That is <span class="tag push">push</span>: somebody with a broadcast platform decides to tell people, reaches their audience once, and is gone.</p>
+
+  <p><strong>Stephen's Sausage Roll</strong> and <strong>Baba Is You</strong> were <em>adopted</em>. Two famous developers vouched for one; a jam build given away free won festival awards for the other. That is <span class="tag pull">pull</span>: a small, dense, opinionated genre community takes a game up and keeps taking it up for a decade.</p>
+
+  <div class="callout">
+    <span class="lab">The load-bearing number</span>
+    <p>The single most-watched video about each game: for the raccoon simulator it is <strong>a newspaper doing news, 32k views</strong>. For the other two it is <strong>a critic's design essay — 625k and 1.9m</strong>, in both cases outperforming the developer's own trailer. In this genre, marketing is done by people explaining your game to each other.</p>
+  </div>
+</section>
+
+<section id="scoreboard">
+  <span class="h2-num">01 — Scoreboard</span>
+  <h2>The three, side by side</h2>
+  <p class="sub">All figures read 2026-08-18 from the Steam review API, SteamSpy, itch.io and YouTube search by view count. Every one of them moves.</p>
+
+  <div class="scroll">
+  <table>
+    <caption>Commercial and critical position</caption>
+    <thead><tr>
+      <th>Game</th><th>Released</th><th class="num">Price</th><th class="num">Steam reviews</th>
+      <th>Rating</th><th class="num">Owners (SteamSpy)</th><th class="num">Metacritic</th>
+    </tr></thead>
+    <tbody>
+      <tr class="subject">
+        <td class="game">Trash Panda</td><td class="mono">Nov 2023</td><td class="num">$9.99</td>
+        <td class="num bad">40</td><td class="bad">Mixed</td><td class="num">0 – 20k</td><td class="num">—</td>
+      </tr>
+      <tr>
+        <td class="game">Stephen's Sausage Roll</td><td class="mono">Apr 2016</td><td class="num">$29.99</td>
+        <td class="num">1,580</td><td class="win">Overwhelmingly Positive</td><td class="num">100 – 200k</td><td class="num">90</td>
+      </tr>
+      <tr>
+        <td class="game">Baba Is You</td><td class="mono">Mar 2019</td><td class="num">$14.99</td>
+        <td class="num">24,473</td><td class="win">Overwhelmingly Positive</td><td class="num">1 – 2M</td><td class="num">87</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="scroll">
+  <table>
+    <caption>Biggest single YouTube video, and who made it</caption>
+    <thead><tr><th>Game</th><th>Top video is…</th><th>Views</th><th>Still updated?</th></tr></thead>
+    <tbody>
+      <tr class="subject">
+        <td class="game">Trash Panda</td><td>A newspaper's news segment <span class="mono">(Toronto Sun)</span></td>
+        <td><div class="bar alt"><i style="width:4px"></i><span>32,000</span></div></td>
+        <td class="bad">No — silent since Jun 2024</td>
+      </tr>
+      <tr>
+        <td class="game">Stephen's Sausage Roll</td><td>A critic's essay <span class="mono">(Joseph Anderson)</span></td>
+        <td><div class="bar"><i style="width:66px"></i><span>625,000</span></div></td>
+        <td>Still reviewed at 10 years</td>
+      </tr>
+      <tr>
+        <td class="game">Baba Is You</td><td>A design essay <span class="mono">(Game Maker's Toolkit)</span></td>
+        <td><div class="bar"><i style="width:200px"></i><span>1,900,000</span></div></td>
+        <td class="win">Yes — devlogs to Feb 2026</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note"><b>Read the bars, not the ratio.</b> The raccoon simulator's top video is not small because the game is obscure — it is small because it is <em>news</em>, and news has a fixed audience that arrives once. The other two bars are the compounding kind.</p>
+</section>
+
+<section id="dossier">
+  <span class="h2-num">02 — Case one</span>
+  <h2>Trash Panda</h2>
+  <p class="sub">Jason Leaver, solo. A 3D chill raccoon simulator on real Toronto streets, built from OpenStreetMap data. Steam appid 1669320.</p>
+
+  <div class="stats">
+    <div class="stat"><span class="k">Steam reviews</span><span class="v">40</span><span class="n">27 pos / 13 neg</span></div>
+    <div class="stat"><span class="k">Rating</span><span class="v sm">Mixed</span><span class="n">67% of English reviews</span></div>
+    <div class="stat"><span class="k">Owners</span><span class="v sm">0 – 20k</span><span class="n">lowest SteamSpy band</span></div>
+    <div class="stat"><span class="k">Concurrent</span><span class="v">1</span><span class="n">at the read date</span></div>
+    <div class="stat"><span class="k">Median playtime</span><span class="v sm">0.8 h</span><span class="n">21 of 39 under one hour</span></div>
+  </div>
+
+  <p>You are a raccoon on a Toronto street — real streets, real mailboxes and bus stops, named real neighbourhoods. You knock over bins, eat what spills, score points for mess. There are power-ups, a garbage truck on a fixed patrol route, and rival raccoons you can challenge to a bin-knocking race.</p>
+  <p><strong>No fail state, no timer, no level structure, no story, no puzzle.</strong> The store blurb, verbatim: <em>"A small, chill, low-fi raccoon simulator, where you play as a raccoon roaming neighbourhoods of Toronto making a mess."</em></p>
+
+  <h3>Timeline</h3>
+  <div class="tl">
+    <div><span class="d">2020–21</span><span class="t">Built during lockdown by a filmmaker with no prior game credits, after raccoons raided his green bin.</span></div>
+    <div><span class="d">2021-05-12</span><span class="t"><b>Prototype goes viral</b> after a CTV News feature. blogTO: "People are obsessed with this Toronto raccoon video game and it hasn't even launched yet."</span></div>
+    <div><span class="d">2022-02</span><span class="t">Steam Next Fest — demo and developer stream.</span></div>
+    <div><span class="d">2023-11-15</span><span class="t"><b>Launch</b>, $9.99, with an in-person party in Toronto.</span></div>
+    <div><span class="d">2024-04</span><span class="t">Busiest month: new camera, compass pointers ("requested many times for a very long time"), a new largest neighbourhood, and a brand collab with meal-kit company Goodfood — a promo skin and a porch-pirate mechanic.</span></div>
+    <div><span class="d">2024-06-03</span><span class="t"><b>Last update of any kind.</b></span></div>
+    <div><span class="d">2024-08-14</span><span class="t">Board thread: "Abandoned by dev?" — zero replies.</span></div>
+    <div><span class="d">2025-11-08</span><span class="t">Board thread: "Saving?" — zero replies.</span></div>
+  </div>
+  <p class="note"><b>Eighteen discussion threads, zero developer replies on any of them</b> — including direct feature requests and "is anyone home". The niche has an incumbent who is not defending it.</p>
+</section>
+
+<section id="reviews">
+  <span class="h2-num">03 — Case one</span>
+  <h2>What 39 players actually said</h2>
+  <p class="sub">A free, self-selected sample of the exact audience the raccoon fantasy attracts, telling a developer in their own words what the fantasy owed them and did not pay.</p>
+
+  <div class="scroll">
+  <table>
+    <caption>Themes, regex-coded over the full set — a review can land in several rows</caption>
+    <thead><tr><th>Theme</th><th class="num">Total</th><th class="num">Positive</th><th class="num">Negative</th><th>Weight</th></tr></thead>
+    <tbody>
+      <tr><td>Charm, cute, love it</td><td class="num">16</td><td class="num">12</td><td class="num">4</td><td><div class="bar"><i style="width:160px"></i><span></span></div></td></tr>
+      <tr><td>"Potential"</td><td class="num">10</td><td class="num">3</td><td class="num">7</td><td><div class="bar alt"><i style="width:100px"></i><span></span></div></td></tr>
+      <tr><td>Toronto / local pride</td><td class="num">8</td><td class="num">3</td><td class="num">5</td><td><div class="bar"><i style="width:80px"></i><span></span></div></td></tr>
+      <tr><td>Repetitive, wears off, shallow</td><td class="num">7</td><td class="num">0</td><td class="num">7</td><td><div class="bar alt"><i style="width:70px"></i><span></span></div></td></tr>
+      <tr><td>Bugs, jank, camera</td><td class="num">7</td><td class="num">1</td><td class="num">6</td><td><div class="bar alt"><i style="width:70px"></i><span></span></div></td></tr>
+      <tr><td>Price, refund, wait for sale</td><td class="num">6</td><td class="num">1</td><td class="num">5</td><td><div class="bar alt"><i style="width:60px"></i><span></span></div></td></tr>
+      <tr><td>Nothing to do, no goals</td><td class="num">6</td><td class="num">0</td><td class="num">6</td><td><div class="bar alt"><i style="width:60px"></i><span></span></div></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>The one-liners are almost all positive — "Raccoon.", "this is literally me.", "racoons are cool, dude." The 14 reviews long enough to carry an argument split <strong>exactly 7 positive to 7 negative</strong>, and seven of those fourteen use the word "potential". Nobody who used it meant it kindly.</p>
+
+  <h4>The single finding</h4>
+  <blockquote>
+    <p>There's no actual game here at all, no explanation of what to do, no story, no meaningful goals. The only thing there is to do is to knock bins over and eat garbage. I know, that sounds great, but it gets old in about 30 seconds.</p>
+    <cite>Negative · 0.2 hours played</cite>
+  </blockquote>
+  <blockquote>
+    <p>Nice idea and I like the vibe, but sadly the game lacks any depth at all… <strong>the core mechanic is basically discovered and mastered within the first few minutes.</strong> Then it's just grinding to tip over all the bins.</p>
+    <cite>Negative · 10.7 hours played — the longest session in the set</cite>
+  </blockquote>
+  <blockquote>
+    <p>Definitely add some missions or more activities also.</p>
+    <cite>Positive · 1.6 hours played</cite>
+  </blockquote>
+
+  <h4>What they praised — the part worth taking seriously</h4>
+  <p>The praise is almost never about content. It is about <strong>the physical comedy of one verb</strong>: strike the container, watch the contents scatter.</p>
+  <blockquote>
+    <p>The physics of the individual pieces of trash is good, and probably one of the most entertaining things about this game… a raccoon yeeting a full sized herby curby across a street in a single slap is entertaining.</p>
+    <cite>Negative · 4.3 hours · the most-upvoted review in the set, titled "More Potential than Game"</cite>
+  </blockquote>
+  <p>That verb carried a structureless game to 67% positive with a broken camera on top of it. Every unit of praise here is about the <em>moment</em>; every complaint is about what surrounds it.</p>
+
+  <h4>The price lesson</h4>
+  <p>Six reviews mention money, five negatively, and the recurring verdict is "get it on sale" or "you are simply donating". $9.99 set the expectation of <em>a game</em> and what shipped was an experience. Stephen's Sausage Roll charged three times as much and was praised for the nerve. <strong>Price is not high or low — it is congruent or incongruent with what the thing turns out to be.</strong></p>
+</section>
+
+<section id="channels">
+  <span class="h2-num">04 — Case one</span>
+  <h2>Where the attention actually came from</h2>
+  <p class="sub">Not whether it got attention — it got two waves — but which channel produced it, whether that channel repeats, and whether it reached people who buy games.</p>
+
+  <h4>Television — the only thing that worked</h4>
+  <p>CBC ran a video segment. CTV News Toronto ran a piece. CFRB ran a radio interview. A TV producer chose this story because it was about <em>Toronto and raccoons</em>, not because it was a good game — a channel you cannot plan, cannot repeat and cannot aim, delivering an audience of local news viewers.</p>
+
+  <h4>Reddit — did not happen</h4>
+  <p>r/toronto, all time, top-sorted: <strong>one relevant post</strong> — a link to the blogTO article, <strong>41 votes and 8 comments</strong>. A whole-of-Reddit search returns nothing on topic. For a game whose premise is a running local joke in a city with a 498,000-member subreddit, this is the striking number in the file. The story was told <em>at</em> Torontonians by television; it was never taken up <em>by</em> them.</p>
+
+  <h4>YouTube — no creator ever covered it</h4>
+  <div class="scroll">
+  <table>
+    <caption>"Trash Panda raccoon game Toronto", sorted by view count</caption>
+    <thead><tr><th>Video</th><th>Channel</th><th class="num">Views</th></tr></thead>
+    <tbody>
+      <tr><td>TRASH PANDA NIGHTMARE: New raccoon video game terrorizes Toronto!</td><td><strong>Toronto Sun</strong> <span class="mono">newspaper</span></td><td class="num">32,000</td></tr>
+      <tr><td>Roaming the streets like a Toronto raccoon</td><td><strong>CityNews</strong> <span class="mono">broadcaster</span></td><td class="num">5,900</td></tr>
+      <tr><td>Trash Panda Canadian Racoon Simulator</td><td>TheSideOrder</td><td class="num">669</td></tr>
+      <tr><td>Goodfood x Trash Panda</td><td>GoodfoodCA <span class="mono">the brand partner</span></td><td class="num">335</td></tr>
+      <tr><td>Trash Panda ★ Gameplay ★ Free DEMO</td><td>Sokol Free Channel</td><td class="num">218</td></tr>
+      <tr><td>Trash Panda: Raccoon's City, Gameplay Footage</td><td>HeyBishop</td><td class="num">149</td></tr>
+      <tr><td>…and every other video by a games creator</td><td class="mono">various</td><td class="num">9 – 124</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The top two are news organisations doing news. <strong>Every video made by an actual games creator is in the double or low-triple digits.</strong> No streamer, no let's-player, no critic, at any size, ever — for a game whose selling point is physical comedy, the exact material that normally travels on YouTube.</p>
+
+  <h4>What the developer worked, and what it returned</h4>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Channel</th><th>What was done</th><th>Visible result</th></tr></thead>
+    <tbody>
+      <tr><td>Steam Next Fest</td><td>Demo + developer stream, Feb 2022</td><td class="mono">demo videos at 15–218 views</td></tr>
+      <tr><td>Games from Ontario</td><td>Four Steam announcements, Sept 2022</td><td class="mono">none traceable</td></tr>
+      <tr><td>Discord</td><td>Community server from 2021</td><td class="mono">not measurable externally</td></tr>
+      <tr><td>Launch party</td><td>In person, Toronto Metropolitan University</td><td class="mono">one board post</td></tr>
+      <tr><td>Brand collab</td><td>Goodfood, No Food Waste Day 2024 — in-game skin, new mechanic, Canada only</td><td class="mono">partner's own video: 335 views</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The Goodfood collab is the most ambitious thing on that list and the clearest data point: a national meal-kit company put its mascot in the game, and the video it made about it was seen 335 times.</p>
+</section>
+
+<section id="ssr">
+  <span class="h2-num">05 — Case two</span>
+  <h2>Stephen's Sausage Roll</h2>
+  <p class="sub">The control case: a block-pusher with no marketing at all that outsold the raccoon simulator by an order of magnitude at three times the price, and is still selling a decade later.</p>
+
+  <div class="stats">
+    <div class="stat"><span class="k">Steam reviews</span><span class="v">1,580</span><span class="n">Overwhelmingly Positive</span></div>
+    <div class="stat"><span class="k">Recent reviews</span><span class="v">14</span><span class="n">ten years after release</span></div>
+    <div class="stat"><span class="k">Owners</span><span class="v sm">100 – 200k</span><span class="n">SteamSpy</span></div>
+    <div class="stat"><span class="k">Metacritic</span><span class="v">90</span><span class="n">9 critics</span></div>
+    <div class="stat"><span class="k">Price</span><span class="v sm">$29.99</span><span class="n">never a budget title</span></div>
+  </div>
+
+  <h4>The store page, in full</h4>
+  <blockquote><p><strong>A simple 3d puzzle game.</strong></p><cite>The entire Steam description</cite></blockquote>
+  <p>Six words. No feature bullets, no pillars, no adjectives. The lesson is not "write less" — it is that <strong>copy was not the variable</strong>. What sold this game happened entirely outside the store page.</p>
+
+  <h4>Two developers vouching</h4>
+  <p>Before release, <strong>Jonathan Blow</strong> (Braid, The Witness) and <strong>Bennett Foddy</strong> (QWOP, Getting Over It) both praised it publicly.</p>
+  <blockquote>
+    <p>One of the best puzzle games ever made, or one of the best video games ever made.</p>
+    <p>After this game comes out, if your game design school isn't teaching it, then it is just a bad school.</p>
+    <cite>Jonathan Blow</cite>
+  </blockquote>
+  <p>That is the whole launch campaign. Two people the target audience already trusted said it was important, and a small, dense, well-connected audience moved. One let's-play in the search results is literally titled <em>"Puzzle Game Recommended by Jonathan Blow!"</em></p>
+
+  <h4>The YouTube shape</h4>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Video</th><th>Channel</th><th class="num">Views</th><th class="num">Age</th></tr></thead>
+    <tbody>
+      <tr><td>The Best Puzzle Game I've Played</td><td><strong>Joseph Anderson</strong> <span class="mono">critic</span></td><td class="num">625,000</td><td class="num">8 yr</td></tr>
+      <tr><td>we're finally learning how to grill</td><td>Game Grumps</td><td class="num">366,000</td><td class="num">3 yr</td></tr>
+      <tr><td>There's a lot of cussing in this one</td><td>Game Grumps</td><td class="num">250,000</td><td class="num">3 yr</td></tr>
+      <tr class="subject"><td>Official Trailer</td><td><strong>increpare</strong> <span class="mono">the developer</span></td><td class="num">240,000</td><td class="num">10 yr</td></tr>
+      <tr><td>Why SSR is Brutal: A State-Space Walkthrough</td><td>Stephen's State Space</td><td class="num">64,000</td><td class="num">10 mo</td></tr>
+      <tr><td>Quick Look</td><td>Giant Bomb</td><td class="num">39,000</td><td class="num">10 yr</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Three things in that table. <strong>A critic's essay outperformed the developer's own trailer 2.6 to 1</strong> — the largest piece of marketing this game ever received was made by someone else, for free, about why it is good. <strong>Game Grumps found it seven years after launch</strong> and brought 600k+ views in two videos; there was no launch window to miss. And <strong>someone published a fresh state-space analysis within the past year</strong> that 64,000 people watched — a decade on, the game is still generating explanation.</p>
+</section>
+
+<section id="baba">
+  <span class="h2-num">06 — Case three</span>
+  <h2>Baba Is You</h2>
+  <p class="sub">The ceiling case, and the most instructive: it began as a free build given away in public two years before anyone could buy it.</p>
+
+  <div class="stats">
+    <div class="stat"><span class="k">Steam reviews</span><span class="v">24,473</span><span class="n">Overwhelmingly Positive</span></div>
+    <div class="stat"><span class="k">Owners</span><span class="v sm">1 – 2M</span><span class="n">269 concurrent</span></div>
+    <div class="stat"><span class="k">itch rating</span><span class="v sm">4.8 / 5</span><span class="n">1,199 ratings</span></div>
+    <div class="stat"><span class="k">Jam build</span><span class="v sm">Free</span><span class="n">still up · 4.9 from 211</span></div>
+    <div class="stat"><span class="k">Major awards</span><span class="v">5</span><span class="n">IGF ×2, DICE, GDCA ×2</span></div>
+  </div>
+
+  <h4>The two-year runway</h4>
+  <div class="tl">
+    <div><span class="d">2017</span><span class="t">Built at <b>Nordic Game Jam</b>, theme "Not There" — <b>won first place</b>. <span class="mono">cost: a weekend</span></span></div>
+    <div><span class="d">2017</span><span class="t">Jam build posted <b>free on itch.io</b>, publicly and permanently. <span class="mono">cost: a zip upload</span></span></div>
+    <div><span class="d">Mar 2018</span><span class="t"><b>IGF: won Best Student Game and Excellence in Design</b>, nominated for the Seumas McNally Grand Prize — all on the free jam build, a year before release. <span class="mono">cost: a festival submission</span></span></div>
+    <div><span class="d">Aug 2018</span><span class="t">Featured in <b>Nintendo's Nindies Showcase</b> — a platform holder putting it on their own channel.</span></div>
+    <div><span class="d">Mar 2019</span><span class="t"><b>Release</b>, PC + Switch, $14.99.</span></div>
+    <div><span class="d">2019–20</span><span class="t">The Game Awards nominee; <b>DICE 2020 Outstanding Achievement in Game Design</b>; <b>GDCA 2020 Best Design + Innovation</b>; BAFTA nominations.</span></div>
+    <div><span class="d">Nov 2021</span><span class="t">Level editor and 250 new levels — players become content producers.</span></div>
+    <div><span class="d">→ 2026</span><span class="t">Devlogs, Fangamer merch, vinyl OST, still shipping versions.</span></div>
+  </div>
+
+  <div class="callout">
+    <span class="lab">The move</span>
+    <p><strong>The free build was the marketing.</strong> Not a demo carved out of a finished game to drive wishlists — the whole idea, given away, two years early, where anyone could play it and anyone could judge it. Every award above was won by something nobody had paid for.</p>
+  </div>
+
+  <h4>The YouTube shape — same as Sausage Roll, one order of magnitude up</h4>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Video</th><th>Channel</th><th class="num">Views</th></tr></thead>
+    <tbody>
+      <tr><td>How Baba Is You Makes Brain Busting Puzzles</td><td><strong>Game Maker's Toolkit</strong> <span class="mono">design criticism</span></td><td class="num">1,900,000</td></tr>
+      <tr><td>How To Become ANYTHING!</td><td>Aphmau</td><td class="num">1,200,000</td></tr>
+      <tr><td>This game outsmarted a professional engineer…</td><td>Real Civil Engineer</td><td class="num">1,000,000</td></tr>
+      <tr class="subject"><td>Release Date Trailer</td><td><strong>Nintendo of America</strong></td><td class="num">825,000</td></tr>
+      <tr><td>Fun way of deleting a save file</td><td>butcherberries <span class="mono">a player's clip</span></td><td class="num">779,000</td></tr>
+      <tr><td>Baba Is You is the Dark Souls of Puzzle Games</td><td>Aliensrock</td><td class="num">647,000</td></tr>
+      <tr><td>OST — Cog Is Push</td><td>Hempuli <span class="mono">the developer</span></td><td class="num">534,000</td></tr>
+      <tr><td>Breaking All The Rules — Episode 1</td><td>Northernlion</td><td class="num">461,000</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p><strong>Why the rules-as-blocks design is itself a marketing asset:</strong> the mechanic is legible in a screenshot and astonishing in a GIF. A player who breaks it in a funny way has something to post; an essayist has something to explain. Both market the game for free, forever. That property is designed in, not bolted on.</p>
+
+  <p class="note"><b>The honest caveat.</b> Baba Is You is a generational outlier — an original mechanic that had not existed before, from a developer who won a major jam on the first try. Nothing here is a formula that reproduces the outcome. What reproduces is the <b>order of operations</b>: free build in public → festival validation → platform attention → paid release → permanent presence. That order is available to anyone. The result is not.</p>
+</section>
+
+<section id="shelf">
+  <span class="h2-num">07 — Synthesis</span>
+  <h2>The shelf, and the field below it</h2>
+  <p class="sub">The block-pusher audience is small, extremely literate about the genre, and unforgiving about level design.</p>
+
+  <div class="scroll">
+  <table>
+    <caption>Sokoban-family comparables, Steam, read 2026-08-18</caption>
+    <thead><tr><th>Game</th><th class="num">appid</th><th class="num">Price</th><th class="num">Reviews</th><th>Rating</th></tr></thead>
+    <tbody>
+      <tr><td class="game">Baba Is You</td><td class="num">736260</td><td class="num">$14.99</td><td class="num">24,473</td><td class="win">Overwhelmingly Positive</td></tr>
+      <tr><td class="game">Patrick's Parabox</td><td class="num">1260520</td><td class="num">$19.99</td><td class="num">5,773</td><td class="win">Overwhelmingly Positive</td></tr>
+      <tr><td class="game">A Monster's Expedition</td><td class="num">1052990</td><td class="num">$19.99</td><td class="num">1,716</td><td>Very Positive</td></tr>
+      <tr><td class="game">Stephen's Sausage Roll</td><td class="num">353540</td><td class="num">$29.99</td><td class="num">1,580</td><td class="win">Overwhelmingly Positive</td></tr>
+      <tr><td class="game">Filament</td><td class="num">1137350</td><td class="num">$16.99</td><td class="num">760</td><td>Very Positive</td></tr>
+      <tr><td class="game">Sokobond</td><td class="num">290260</td><td class="num">$14.99</td><td class="num">713</td><td>Very Positive</td></tr>
+      <tr><td class="game">Cosmic Express</td><td class="num">583270</td><td class="num">$14.99</td><td class="num">627</td><td>Very Positive</td></tr>
+      <tr><td class="game">Bonfire Peaks</td><td class="num">1147890</td><td class="num">$19.99</td><td class="num">343</td><td>Very Positive</td></tr>
+      <tr><td class="game">Hiding Spot</td><td class="num">950140</td><td class="num">$4.99</td><td class="num">184</td><td>Very Positive</td></tr>
+      <tr><td class="game">Sokobond Express</td><td class="num">1701330</td><td class="num">$14.99</td><td class="num">107</td><td>Very Positive</td></tr>
+      <tr class="subject"><td class="game">Trash Panda</td><td class="num">1669320</td><td class="num">$9.99</td><td class="num">40</td><td class="bad">Mixed</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p><strong>This genre does not produce Mixed ratings.</strong> Every entry is Very or Overwhelmingly Positive. Puzzle players either accept a game or ignore it; a weak puzzle game does not get a Mixed rating, it gets no reviews at all.</p>
+  <p><strong>But the floor is thin.</strong> Sokobond Express has 107 reviews with a long-pedigree developer behind it. Below about $15 and outside the Draknek orbit the tail falls off fast. Nobody on this shelf got there on theme — they got there on the quality of the levels.</p>
+
+  <h4>The irreversibility corner</h4>
+  <ul>
+    <li><strong>A Monster's Expedition</strong> (Draknek, 2020) — push trees, they fall and <em>become permanent bridges</em>. Terrain created by acting, then routed around. Closest published relative to "your actions rewrite the floor", except its changes are usually <em>enabling</em> rather than disabling.</li>
+    <li><strong>Bonfire Peaks</strong> (Corey Martin / Draknek, 2021) — burn your own belongings. Consumption as goal rather than obstacle, same register: the board is a thing you use up.</li>
+    <li><strong>Classic Sokoban</strong> (1982) — the origin of irreversible deadlock. You cannot pull, so a wrong push is permanent. There it is a failure mode, not the subject.</li>
+    <li><strong>Bomb-Sokoban variants</strong> — the direct inverse. Bombs <em>clear</em> space rather than closing it.</li>
+  </ul>
+  <p><strong>Nothing on that list is themed.</strong> Logs, crates, atoms, trains. The shelf is aggressively abstract — which is both the opening and the risk.</p>
+
+  <h4>The free browser field</h4>
+  <p>itch.io, tags <span class="mono">puzzle</span> + <span class="mono">sokoban</span>: <strong>2,297 results</strong>. Sampling the front of that list, the overwhelming majority are free, browser-playable and jam-scale. Two consequences: <strong>discovery is the binding constraint, not quality</strong> — being better than the median sokoban on itch is not a plan. And <strong>nothing in that field is wearing the raccoon costume</strong>; the closest thing to a mascot in the sampled front rank was a pug.</p>
+</section>
+
+<section id="patterns">
+  <span class="h2-num">08 — Synthesis</span>
+  <h2>Four patterns that repeat</h2>
+
+  <h3>In this genre, the top video is an essay</h3>
+  <p>Baba's most-watched video is Game Maker's Toolkit explaining the design (1.9m). Sausage Roll's is Joseph Anderson explaining the design (625k) — 2.6× the developer's own trailer. Trash Panda's is a newspaper's news segment. Puzzle games are marketed by people explaining them, which makes <strong>legibility a growth mechanic</strong>: a rule you can state in one sentence and demonstrate in a five-second clip recruits critics, and critics have audiences you cannot buy.</p>
+
+  <h3>There is no launch window</h3>
+  <p>Game Grumps picked up Sausage Roll <strong>seven years</strong> after release and delivered 600k+ views. It still collects Steam reviews at ten years. Baba's itch page is still rated and still updated in 2026. Trash Panda had its entire life in its launch month, twice, because news is an event and not a relationship. <strong>A puzzle game that is good is never late</strong>, and effort spent on a launch spike is misallocated.</p>
+
+  <h3>The free public artifact is the marketing</h3>
+  <p>Baba's jam build was free, permanent, and won the awards that made everything after it possible. It was not a funnel or a cut-down demo — it was the idea, given away, where anyone including festival judges could reach it.</p>
+
+  <h3>Presence compounds, and so does absence</h3>
+  <p>Baba: devlogs through 2026, level editor, merch, vinyl, seven years of visible life. Trash Panda: silent since June 2024, eighteen threads, zero replies, one titled "Abandoned by dev?". The audience each one has today is the sum of those decisions.</p>
+</section>
+
+<section id="where">
+  <span class="h2-num">09 — Synthesis</span>
+  <h2>Where this audience actually gathers</h2>
+  <p class="sub">Every one of these has a door that does not check whether anyone has heard of you. Counts move — re-check before acting.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Channel</th><th>What it is</th><th>Cost of entry</th></tr></thead>
+    <tbody>
+      <tr><td class="game">ThinkyGames.com + Discord</td><td>The genre's actual gathering place — curated database, sokoban lists, ~9,400 members</td><td class="mono">joining</td></tr>
+      <tr><td class="game">Thinky Puzzle Jam</td><td>Annual itch.io jam run out of that community</td><td class="mono">an entry</td></tr>
+      <tr><td class="game">Thinky Third Thursday</td><td>Recurring showcase for thinky games</td><td class="mono">a submission</td></tr>
+      <tr><td class="game">IGF and comparable festivals</td><td>Took a free jam build seriously and gave it two awards</td><td class="mono">a submission fee</td></tr>
+      <tr><td class="game">Analysis creators</td><td>GMTK, Joseph Anderson, Aliensrock, Snoman Gaming and successors — they cover mechanics, not budgets</td><td class="mono">reading their feed first</td></tr>
+      <tr><td class="game">itch.io</td><td>The free, browser-playable storefront the whole field already lives on</td><td class="mono">a page</td></tr>
+      <tr class="subject"><td class="game">Local press</td><td class="bad">Ruled out by this evidence</td><td class="mono">—</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The Toronto angle belongs to somebody else's game, television does not run segments about browser puzzle games, and the audience it delivers does not buy indie puzzle games. <strong>Copying that channel means copying the part of the story that did not work.</strong></p>
+</section>
+
+<section id="voices">
+  <span class="h2-num">10 — Evidence</span>
+  <h2>Lone voices</h2>
+  <p class="sub">Real people, on the record, asking for something and getting no answer. Eighteen threads on the incumbent's board; zero developer replies on any of them.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="num">Date</th><th>Thread</th><th class="num">Replies</th></tr></thead>
+    <tbody>
+      <tr><td class="num">2025-11-08</td><td>Saving?</td><td class="num">0</td></tr>
+      <tr><td class="num">2024-08-14</td><td>Abandoned by dev?</td><td class="num">0</td></tr>
+      <tr><td class="num">2024-01-27</td><td>Neighbourhood Suggestions — major locations, lots of ideas</td><td class="num">0</td></tr>
+      <tr><td class="num">2023-12-15</td><td>Raccoon Simulator?</td><td class="num">0</td></tr>
+      <tr><td class="num">2023-12-04</td><td>Rebind controls?</td><td class="num">0</td></tr>
+      <tr><td class="num">2023-12-04</td><td>RELEASE DATE ? NEWS ? ANYONE HOME ?</td><td class="num">3</td></tr>
+      <tr><td class="num">2023-12-02</td><td>steam deck</td><td class="num">6</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Somebody wrote a long list of location ideas for a game whose developer had already stopped reading. Somebody asked in November 2025 whether it saves.</p>
+
+  <h4>Asks stated inside reviews, where nobody answers either</h4>
+  <ul>
+    <li>"Definitely add some missions or more activities also."</li>
+    <li>"it just needs some TLC (and some objectives/goals) to really capture people."</li>
+    <li>"Things I wish it had: a full map you can view to see what ro[ads/bins you've missed]…"</li>
+    <li>"it would be cool if you had to avoid moving cars too"</li>
+    <li><strong>"Add chirp"</strong> — four words, four helpful votes. The cheapest possible request, never granted.</li>
+  </ul>
+  <p class="note"><b>Before anyone answers one of these.</b> Answering a lone voice is done on its merits and verified first, and posting publicly is a decision for whoever owns the account. Nothing here has been posted anywhere. A self-promotional drive-by on a dead board is worse than silence — and there is a real person at the other end of that silence.</p>
+</section>
+
+<section id="gap">
+  <span class="h2-num">11 — Conclusion</span>
+  <h2>The gap</h2>
+  <p class="sub">Findings, not instructions. Inferences are labelled as inferences.</p>
+
+  <p>The costume was proven and the game under it was never built; the shelf is full of excellent games wearing no costume at all. <strong>The crossing is unoccupied in both directions</strong> — the raccoon games have no puzzle, and the puzzles have no raccoon.</p>
+
+  <h4>What would not be a compliment</h4>
+  <p>Half of the raccoon simulator's negative reviews are 3D-open-world failures: camera collision, terrain that fails to load, invisible walls, empty maps, achievements pointing at unbuilt levels. A one-screen deterministic grid does not have those problems <em>to</em> have. Beating it on those axes is a property of choosing a different format, not an accomplishment. The contested axis is level design, and the competition there is Draknek's catalogue.</p>
+
+  <h4>Risks the evidence surfaces</h4>
+  <ul>
+    <li><strong>The theme could repel the shelf.</strong> The block-pusher audience is abstract-leaning and has seen a thousand cute Sokoban reskins. A mascot reads as a jam game to exactly the people most qualified to appreciate the rooms.</li>
+    <li><strong>The fantasy was Toronto's, not the raccoon's.</strong> <em>Inference:</em> a meaningful share of that press was civic — a local joke made playable, not inheritable by anything set nowhere in particular.</li>
+    <li><strong>The browser field is 2,297 competitors deep.</strong> Discovery, not quality, binds.</li>
+    <li><strong>A costume writes a cheque the rooms must cash.</strong> That audience arrived on charm and left over substance. A puzzle game that leads with charm and has thirty mediocre rooms fails the same way, one shelf over.</li>
+  </ul>
+
+  <h4>What the evidence cannot help with</h4>
+  <p>Every game on the shelf is there because its levels are good. No competitor analysis, positioning line or channel list moves that number.</p>
+
+  <div class="callout">
+    <span class="lab">The single sentence</span>
+    <p>Trash Panda was told about by broadcasters and never adopted by anyone; the two exemplars were adopted by a small, dense, opinionated genre community and then spent years compounding — so the transferable move is not to seek coverage, it is to <strong>put a free, finished, legible thing in front of the people who argue about puzzle design, and then still be there in three years.</strong></p>
+  </div>
+</section>
+
+<section id="sources">
+  <span class="h2-num">12 — Method</span>
+  <h2>Sources &amp; method</h2>
+  <p class="sub">Steam storefront and review APIs, SteamSpy, Steam news feeds and discussion boards, itch.io pages, YouTube search by view count, Reddit search, Wikipedia and press coverage. Steam appids: 1669320, 353540, 736260.</p>
+
+  <ul class="srcs">
+    <li><a href="https://store.steampowered.com/app/1669320/Trash_Panda/">Trash Panda on Steam</a></li>
+    <li><a href="https://steamcommunity.com/app/1669320/reviews/?browsefilter=toprated">Trash Panda reviews</a></li>
+    <li><a href="https://steamcommunity.com/app/1669320/discussions/">Trash Panda discussions</a></li>
+    <li><a href="https://steamspy.com/app/1669320">SteamSpy — Trash Panda</a></li>
+    <li><a href="https://www.blogto.com/city/2021/05/toronto-raccoon-video-game-trash-panda/">blogTO, May 2021 — the viral prototype</a></li>
+    <li><a href="https://www.blogto.com/tech/2023/11/trash-panda-game-toronto/">blogTO, Nov 2023 — launch</a></li>
+    <li><a href="https://www.cbc.ca/player/play/video/1.7045031">CBC — video segment</a></li>
+    <li><a href="https://www.ctvnews.ca/toronto/article/make-a-mess-of-the-streets-of-toronto-as-a-raccoon-in-new-video-game-trash-panda/">CTV News Toronto</a></li>
+    <li><a href="https://dailyhive.com/toronto/trash-panda-toronto-raccoon-game">Daily Hive — developer interview</a></li>
+    <li><a href="https://store.steampowered.com/app/353540/Stephens_Sausage_Roll/">Stephen's Sausage Roll on Steam</a></li>
+    <li><a href="https://en.wikipedia.org/wiki/Stephen%27s_Sausage_Roll">Stephen's Sausage Roll — Wikipedia</a></li>
+    <li><a href="https://store.steampowered.com/app/736260/Baba_Is_You/">Baba Is You on Steam</a></li>
+    <li><a href="https://en.wikipedia.org/wiki/Baba_Is_You">Baba Is You — Wikipedia</a></li>
+    <li><a href="https://hempuli.itch.io/baba-is-you">The free Nordic Game Jam 2017 build</a></li>
+    <li><a href="https://hempuli.itch.io/baba">Baba Is You on itch.io</a></li>
+    <li><a href="https://www.gamedeveloper.com/business/road-to-the-igf-hempuli-oy-s-i-baba-is-you-i-">Road to the IGF — Game Developer</a></li>
+    <li><a href="https://thinkygames.com/">Thinky Games</a></li>
+    <li><a href="https://itch.io/jam/thinky-puzzle-game-jam">Thinky Puzzle Game Jam</a></li>
+    <li><a href="https://itch.io/games/tag-sokoban/tag-puzzle">itch.io — puzzle + sokoban</a></li>
+  </ul>
+
+  <footer>
+    <p>All figures read 2026-08-18. Every one of them moves — re-pull before quoting any of them anywhere public. Raw API dumps are stored alongside this page so a later reader can re-derive the numbers rather than trust them.</p>
+  </footer>
+</section>
+
+</main>
+</div>
