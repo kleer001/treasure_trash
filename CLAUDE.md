@@ -6,6 +6,9 @@ A browser game budded from **Trace ROM Studio**. Vanilla JS, ES modules, no buil
 
 An untimed, single-raccoon, Sokoban-family block-pusher.
 
+It is a PUZZLE game: it is meant to be capable of beating the player. Undo is free and
+unbounded, so a room is never softened to spare anyone a wrong move.
+
 `src/rules.js` is the engine of record — the game, the solver and the tests all import it,
 and `tools/verify.mjs` proves every claim a level file makes against that same module.
 **It is also the only description of what the pieces do.** No doc and no comment restates the
