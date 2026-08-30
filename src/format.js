@@ -318,7 +318,7 @@ export function formatLevelPack(pack) {
   out.push(';', `; legend  ${LEGEND.join('  ')}`, ';', '');
   for (const l of pack.levels) {
     out.push(`:level  ${l.id}`);
-    for (const k of ['name', 'teach', 'arm', 'par', 'traps', 'solves', 'lead', 'tail', 'solve', 'note']) {
+    for (const k of ['name', 'teach', 'gate', 'arm', 'par', 'traps', 'solves', 'lead', 'tail', 'solve', 'note']) {
       if (l[k] === undefined) continue;
       if (BOOL_KEYS.has(k) && !l[k]) continue;                 // off is the default: don't write it
       const v = BOOL_KEYS.has(k) ? 'on' : l[k];

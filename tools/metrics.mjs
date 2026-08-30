@@ -24,7 +24,7 @@ import { dirname, resolve } from 'node:path';
 import { parseLevelPack, parseLurd, toState, toGrid, toCart } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import {
-  DIR_ORDER, DIRS, MOVE, TEAR, BAG, NONE, explain, cell, fan, canStand, isOccupiable, bagsLeft,
+  DIR_ORDER, DIRS, MOVE, PUSH, TEAR, BAG, NONE, explain, cell, fan, canStand, isOccupiable, bagsLeft,
   isWon,
 } from '../src/rules.js';
 
@@ -392,6 +392,90 @@ export function inertPieces(room, a, { maxStates = MAX_STATES, onDag } = {}) {
   return roomPieces(toState({ id: 'inert', ...room })).filter(p =>
     !p.cells.some(([x, y]) => hit.has(`${x},${y}`))
     && answerWithout(erase(room, p), maxStates) === base);
+}
+
+// ---------------------------------------------------------------- the teaching gate
+// A teaching room holds its exit shut until its lesson is done. `inertPieces` above is a
+// weaker question and cannot stand in for this one: it asks whether a piece earns its cell,
+// which a room satisfies while the player walks around the lesson to the door.
+//
+// The claim is declared per room and proved by taking the lesson away. Three forms, because
+// three kinds of thing get taught and the operation that removes each one differs:
+//
+//   erase   the lesson is a piece. Its cells go back to bare floor — the room keeps every
+//           route it had and loses only the piece, so an unsolvable result means the piece
+//           was doing work rather than blocking a corridor.
+//   wall    the lesson is a terrain lane. Its cells are taken away, because handing a lane
+//           back as floor only ever makes a room more permissive and could never fail.
+//   kind    the lesson is an action class. Every win is unreachable using the other classes.
+//
+// `none` is the fourth, and it is a claim too: this room has no gate. The rooms that open the
+// game gate on themselves, and a room whose lesson IS the loss cannot hold its exit shut until
+// the player has lost.
+
+const GATE_MODES = new Set(['erase', 'wall', 'kind', 'none']);
+const GATE_KINDS = { push: PUSH, tear: TEAR, move: MOVE };
+
+/** Read a `:gate` value. Cells are `x,y` in grid indices, the way `:hold` writes them. */
+export function parseGate(gate, id) {
+  const [mode, ...rest] = String(gate).trim().split(/\s+/);
+  if (!GATE_MODES.has(mode))
+    throw new Error(`${id}: :gate wants ${[...GATE_MODES].join('|')}, got ${JSON.stringify(mode)}`);
+  if (mode === 'none') {
+    if (rest.length) throw new Error(`${id}: :gate none takes nothing after it`);
+    return { mode, cells: [], kind: null };
+  }
+  if (mode === 'kind') {
+    if (rest.length !== 1 || !(rest[0] in GATE_KINDS))
+      throw new Error(`${id}: :gate kind wants one of ${Object.keys(GATE_KINDS).join('|')}, got ${JSON.stringify(rest.join(' '))}`);
+    return { mode, cells: [], kind: GATE_KINDS[rest[0]] };
+  }
+  if (!rest.length) throw new Error(`${id}: :gate ${mode} names no cells`);
+  return { mode, kind: null, cells: rest.map(t => {
+    const m = /^(\d+),(\d+)$/.exec(t);
+    if (!m) throw new Error(`${id}: :gate wants 'x,y' cells, got ${JSON.stringify(t)}`);
+    return [Number(m[1]), Number(m[2])];
+  }) };
+}
+
+/** The room with its lesson covered, for `erase` and `wall`. */
+export function coverGate(room, { mode, cells }, id = room.id) {
+  const rows = room.grid.length;
+  const cols = Math.max(...room.grid.map(r => r.length));
+  const hit = (x, y) => cells.some(([cx, cy]) => cx === x && cy === y);
+  for (const [x, y] of cells) {
+    if (x >= cols || y >= rows) throw new Error(`${id}: :gate names (${x},${y}), off a ${cols}x${rows} grid`);
+    // Naming one of these covers the room rather than the lesson, and `toState` would then
+    // complain about a missing raccoon instead of about the declaration that removed it.
+    const ch = room.grid[y][x] ?? '-';
+    if ('@+E'.includes(ch)) throw new Error(`${id}: :gate names (${x},${y}), which is the ${ch === 'E' ? 'exit' : 'raccoon'}`);
+  }
+  const paint = (block, ch) => block.map((row, y) =>
+    [...row.padEnd(cols, '-')].map((c, x) => (hit(x, y) ? ch : c)).join(''));
+  const out = { ...room, grid: paint(room.grid, mode === 'wall' ? '#' : '-') };
+  // Erasing a piece leaves the floor it stood on, terrain and all; walling takes the cell away,
+  // and a wall carries neither a lane nor a cart.
+  if (room.water && mode === 'wall') out.water = paint(room.water, '-');
+  if (room.cart) out.cart = paint(room.cart, '-');
+  return out;
+}
+
+/** Can the room still be won without ever taking an action of this kind? */
+export function winnableWithoutKind(a, kind) {
+  const root = [...a.states].find(([, n]) => n.depth === 0)?.[0];
+  if (root === undefined) return false;
+  const seen = new Set([root]);
+  const stack = [root];
+  while (stack.length) {
+    const k = stack.pop();
+    const n = a.states.get(k);
+    if (isWon(n.state)) return true;
+    for (const e of n.edges) {
+      if (e.kind === kind || seen.has(e.to)) continue;
+      seen.add(e.to); stack.push(e.to);
+    }
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------- room structure

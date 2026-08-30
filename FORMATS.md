@@ -38,6 +38,7 @@ Line-oriented. `;` starts a comment, `:` starts a directive, and everything insi
 | `:level` | text | starts a level; the value is its id |
 | `:name` `:teach` `:note` | text | documentation; never affects play |
 | `:arm` | `on`/`off` | default off. Input-layer only |
+| `:gate` | `none`, `kind push\|tear\|move`, or `erase`/`wall` then `x,y` cells | what covers the room's lesson, for `verify.mjs` to take away |
 | `:par` | int | solve length. Verified, not declared |
 | `:traps` | int | verified, not declared |
 | `:solves` | int | verified, not declared |

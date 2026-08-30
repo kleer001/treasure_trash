@@ -14,7 +14,10 @@ import {
 } from '../src/format.js';
 import { analyze, replay } from '../src/solver.js';
 import { isWon, bagsLeft, isMagnet } from '../src/rules.js';
-import { deadTravel, isOneRoom, inertPieces, shortestDag, WALK_MAX } from './metrics.mjs';
+import {
+  deadTravel, isOneRoom, inertPieces, shortestDag, WALK_MAX,
+  parseGate, coverGate, winnableWithoutKind,
+} from './metrics.mjs';
 import { actPacks, root } from './packs.mjs';
 
 // Neither end of a solve is free. The walk IN is the room withholding its first decision; the
@@ -159,6 +162,24 @@ for (const { levelPath, solPath } of PACKS) {
     walk('walk to the first piece', lead, level.lead, WALK_MAX.lead);
     walk('walk to the exit', tail, level.tail, WALK_MAX.tail);
 
+    // The teaching gate: with its lesson covered, the room must have no way out. The inert
+    // check above is a weaker question and does not stand in for this one — a room passes it
+    // while the player walks around the lesson to the door.
+    if (level.gate !== undefined) {
+      const g = parseGate(level.gate, level.id);
+      if (g.mode === 'none') console.log('    \u00b7 gate none — the room declares it has none');
+      else if (g.mode === 'kind')
+        check('the exit is shut without the lesson', !winnableWithoutKind(a, g.kind),
+          `every solve needs a ${g.kind}`);
+      else {
+        const covered = analyze(toState({ ...coverGate(level, g), id: `${level.id}~gated` }));
+        check('the exit is shut when the lesson is covered', covered.minMoves === null,
+          covered.minMoves === null
+            ? `${g.mode} ${g.cells.map(c => c.join(',')).join(' ')}`
+            : `still solvable in ${covered.minMoves} without it`);
+      }
+    }
+
     // A room that arms has to say which piece it is introducing.
     if (level.arm) check('an arming room declares what it teaches', !!level.teach, level.teach ?? '');
     console.log(`    · arming ${level.arm ? 'ON (introduces a piece)' : 'off'}`);
@@ -174,9 +195,11 @@ for (const { levelPath, solPath } of PACKS) {
   // verbatim, so the doc cannot disagree with the file.
   section('docs');
   const docPath = resolve(root, 'levels.md');
+  const isAct = /[\\/]act\d+\.tt$/.test(levelPath);
   let doc = null;
   try { doc = readFileSync(docPath, 'utf8'); } catch { /* doc is optional */ }
-  if (doc === null) console.log('  · ../levels.md not found, skipping');
+  if (!isAct) console.log('  \u00b7 levels.md indexes the acts; this pack is not one, skipping');
+  else if (doc === null) console.log('  \u00b7 ../levels.md not found, skipping');
   else for (const l of pack.levels) {
     check(`levels.md quotes ${l.id}'s solve`, doc.includes(l.solve), `\`${l.solve}\``);
     // The table quotes the par too, and a solve that changed length without it is a silent
