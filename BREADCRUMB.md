@@ -1,4 +1,4 @@
-fresh
+stale
 
 ## Summary
 
@@ -57,7 +57,7 @@ a directive written from this repo.
 
 ### Sequential
 
-- [ ] #48 **Rebuild the rooms from `TEACHING-PLAN.md`** (75 of them, renumbered after the
+- [ ] #48 **Rebuild the rooms from `TEACHING-PLAN.md`** (81 of them, renumbered after the
       stack). This is the root of the red build: the act1 pars are stale against the current
       ruleset, which is what `npm test` and `verify.mjs` are failing on, which is what stops
       CI before the conformance steps.
