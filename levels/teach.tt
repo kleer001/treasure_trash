@@ -1,0 +1,118 @@
+:pack   Treasure Trash — the teaching rooms, chapter 1: the verbs
+:format 1
+;
+;  legend  # wall  - floor  @ raccoon  $ bag  c empty can  x spilled trash  E exit
+;
+;  Nothing here is a piece. These teach what a shove is and what the room wants.
+;  Every room declares a :gate — what covers its lesson, and what verify.mjs takes away
+;  to prove the exit will not open without it.
+;
+
+:level  T1
+:name   Doorway
+:teach  the exit
+:gate   none
+:par    3
+:traps  0
+:solves 1
+:solve  rrr
+:note   No bags, so the exit is live from the first move; the lesson is reaching it.
+:grid
+#####
+#@--E
+#####
+:end
+
+:level  T2
+:name   Held Up
+:teach  the exit waits on the bags
+:gate   kind tear
+:arm    on
+:par    3
+:traps  0
+:solves 1
+:solve  D!ur
+:note   The exit is one step away and does nothing while the bag is out.
+:grid
+#####
+#-@E#
+#-$-#
+#---#
+#####
+:end
+
+:level  T3
+:name   Shove
+:teach  a push moves one thing one cell
+:gate   kind push
+:arm    on
+:par    4
+:traps  0
+:solves 1
+:solve  RRdd
+:note   The can stands in the only corridor and is shoved past the turning, not out of it.
+:grid
+#######
+#@c---#
+###-###
+###E###
+#######
+:end
+
+:level  T4
+:name   No Room
+:teach  a shove needs somewhere for the thing to go
+:gate   kind push
+:arm    on
+:par    4
+:traps  0
+:solves 2
+:solve  ldRd
+:note   The can is in the mouth of the exit alcove; shoving it onto the exit is refused.
+:grid
+#######
+#--@--#
+#--c--#
+#-#E#-#
+#-###-#
+#-----#
+#######
+:end
+
+:level  T5
+:name   The Fan
+:teach  the trash lands away from you, and it stays
+:gate   kind tear
+:arm    on
+:par    5
+:traps  0
+:solves 1
+:solve  ruL!ru
+:note   Struck from below or from the left the fan would reach the exit, and the strike is refused.
+:grid
+#######
+#---E-#
+#--$--#
+#--@--#
+#-----#
+#######
+:end
+
+:level  T6
+:name   Take It Back
+:teach  undo and restart
+:gate   none
+:arm    on
+:par    3
+:traps  4
+:solves 1
+:solve  U!dd
+:note   Four of the strikes here bury the way out, and none of them costs more than one undo.
+:grid
+#######
+#-----#
+#--$--#
+#-c@--#
+#--E--#
+#######
+:end
