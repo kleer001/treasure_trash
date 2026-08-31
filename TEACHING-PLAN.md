@@ -124,7 +124,7 @@ rest is the room's doing and not the player's.
 34. The bicycle rolls along its own length.
 35. The rug is a cylinder: shoved end-on it slides.
 36. The rug rolls when shoved against its SIDE.
-37. A rolling rug hands off to a bicycle lying across it.
+37. A rug shoved end-on hands off to a bicycle lying along its path.
 38. A body a grate takes whole.
 39. A body that spans a grate.
 
