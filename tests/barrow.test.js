@@ -8,7 +8,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, bagsLeft, NONE, CAN_FULL, BAR_R, cell, chainOf } from '../src/rules.js';
+import { explain, bagsLeft, NONE, CAN_FULL, BAR_R, cell, chainOf, cartCells } from '../src/rules.js';
 import { toState, toGrid, toCart, toHold } from '../src/format.js';
 
 const S = (grid, cart) => toState({ id: 't', grid, cart });
@@ -139,7 +139,8 @@ test('a tipping barrow is a BODY, not an occupant that moved', () => {
   const r = explain(s, 'd', { trace: true });
   assert.ok(r.ok, `refused: ${r.reason}`);
   const step = r.steps.at(-1);
-  assert.deepEqual([step.piece].flat(), [{ kind: 'cart', ref: 0, dx: 0, dy: 1 }]);
+  assert.deepEqual(step.piece,
+    [{ kind: 'cart', ref: 0, dx: 0, dy: 1, cells: cartCells(r.frames[0], 0) }]);
   assert.ok(!step.moved.some(m => m.o === NONE), 'nothing of code NONE is an occupant sprite');
 });
 

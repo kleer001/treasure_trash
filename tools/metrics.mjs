@@ -178,7 +178,7 @@ export function solveShape(start, actions) {
     const st = r.steps[0];
     // A tear consumes the bag, so nothing after it can be the same piece.
     const id = act.kind === TEAR ? { type: 'gone' }
-      : st.piece ? { type: 'ref', kind: st.piece.kind, ref: st.piece.ref }
+      : st.piece.length ? { type: 'ref', kind: st.piece[0].kind, ref: st.piece[0].ref }
       : { type: 'cell', from: target, to: st.moved[0]?.to ?? target };
 
     if (id.type === 'ref') touched.add(`${id.kind}${id.ref}`);
@@ -345,14 +345,8 @@ function handledCells(a, onDag) {
       for (const m of st.moved) { add(m.from); add(m.to); }
       for (const s of st.spawned) { add(s.at); add(s.from); }
       for (const g of st.gone) add(g.at);
-      // A body and a cart travel as a `piece` entry naming an id, not as a list of cells, so
-      // reading only the lists above loses every piece the raccoon did not shove itself — the
-      // one a roll handed its motion to most of all.
-      for (const pc of [st.piece ?? []].flat()) {
-        const field = pc.kind === 'cart' ? 'cart' : 'pid';
-        for (let y = 0; y < n.state.rows; y++) for (let x = 0; x < n.state.cols; x++)
-          if (n.state.cells[y][x][field] === pc.ref) { add([x, y]); add([x + pc.dx, y + pc.dy]); }
-      }
+      for (const p of st.piece)
+        for (const [x, y] of p.cells) { add([x, y]); add([x + p.dx, y + p.dy]); }
     }
   }
   return hit;

@@ -108,7 +108,7 @@ test('riding cargo travels with the skateboard, cell for cell', () => {
     applyStep(stage, step, r.frames[i + 1].rac);
     advance(stage, 0.5);
     const cart = one(stage, CART), pile = of(stage, TRASH)[0];
-    if (step.piece && pile && pile.parent !== null)
+    if (step.piece.length && pile && pile.parent !== null)
       seen.push([+(pile.x - cart.x).toFixed(3), pile.y - cart.y]);
     settle(stage);
   });
@@ -131,7 +131,7 @@ test('a shed pile stops dead once the skateboard has rolled on', () => {
   r.steps.forEach((step, i) => {
     applyStep(stage, step, r.frames[i + 1].rac);
     advance(stage, 0.5);
-    if (step.piece) for (const sp of of(stage, TRASH)) {      // travel only — a tip does move
+    if (step.piece.length) for (const sp of of(stage, TRASH)) {      // travel only — a tip does move
       if (sp.parent !== null) { rode.add(sp.id); continue; }
       if (!rode.has(sp.id)) continue;
       if (!hitOn.has(sp.id)) { hitOn.set(sp.id, i); continue; }   // the beat it was knocked off
@@ -342,7 +342,7 @@ test('what goes down a grate arrives first, then drops', () => {
   // say it was disappearing rather than dropping, and would not say which cell took it.
   const stage = { sprites: [], nextId: 0 };
   applyStep(stage, {
-    moved: [], gone: [], born: [], piece: null, impact: false,
+    moved: [], gone: [], born: [], piece: [], impact: false,
     spawned: [{ o: BAG, at: [3, 1], from: [1, 1], effect: 'falls' }],
   });
   const [bag] = stage.sprites;
@@ -369,7 +369,7 @@ test('what goes down a grate arrives first, then drops', () => {
 test('a body can be born mid-action, and lands where a rebuilt stage would put it', () => {
   const stage = stageFrom(S(['@---E', '-----']), 1);
   applyStep(stage, {
-    moved: [], spawned: [], gone: [], piece: null, impact: false,
+    moved: [], spawned: [], gone: [], piece: [], impact: false,
     born: [{ kind: 'furniture', ref: 0, o: FURNITURE, cells: [[1, 1], [2, 1]] }],
   });
   settle(stage);
@@ -384,7 +384,7 @@ test('a second sprite for one body ref is loud rather than quietly doubled', () 
   const stage = stageFrom(S(['@---E', '-FF--']), 1);
   const ref = one(stage, COUCH).ref;
   assert.throws(() => applyStep(stage, {
-    moved: [], spawned: [], gone: [], piece: null, impact: false,
+    moved: [], spawned: [], gone: [], piece: [], impact: false,
     born: [{ kind: 'furniture', ref, o: FURNITURE, cells: [[1, 1], [2, 1]] }],
   }), /already answers/);
 });
@@ -393,7 +393,7 @@ test('a body swapped for something else leaves the stage', () => {
   const stage = stageFrom(S(['@---E', '-FF--']), 1);
   const ref = one(stage, COUCH).ref;
   applyStep(stage, {
-    moved: [], spawned: [{ o: BAG, at: [1, 1], from: [1, 1] }], gone: [], born: [], impact: false,
+    moved: [], spawned: [{ o: BAG, at: [1, 1], from: [1, 1] }], gone: [], born: [], piece: [], impact: false,
     piece: [{ kind: 'furniture', ref, dx: 0, dy: 0, effect: 'swaps' }],
   });
   settle(stage);

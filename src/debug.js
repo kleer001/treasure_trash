@@ -30,7 +30,7 @@ const linesOf = step => {
   const out = [];
   // One piece or several — a tow moves a barrow and what it is towing in the same beat. Same
   // shape `applyStep` reads, so a step that carries a list is not read as one piece with no name.
-  for (const p of [step.piece ?? []].flat())
+  for (const p of step.piece)
     out.push(`${p.kind}#${p.ref} rolls ${at([p.dx, p.dy])}` + (p.effect ? ` ${p.effect}` : ''));
   if (step.impact) out.push('impact');
   for (const m of step.moved)

@@ -31,7 +31,7 @@ export const shapeOf = sp => JSON.stringify([
 
 export const census = stage => stage.sprites.map(shapeOf).sort();
 
-/** `step.piece.kind` from the rules → the sprite that is that piece's body. */
+/** A piece entry's `kind` from the rules → the sprite that is that piece's body. */
 const BODY = { cart: CART, furniture: COUCH };
 
 /**
@@ -122,7 +122,7 @@ export function applyStep(stage, step, racTo = null) {
 
   // `piece` is one body or several: a tow moves a barrow and what it is towing in the same
   // beat, and neither is an occupant sprite the `moved` list could name.
-  for (const { kind, ref, dx, dy, effect, blow } of [step.piece ?? []].flat()) {
+  for (const { kind, ref, dx, dy, effect, blow } of step.piece) {
     const want = BODY[kind];
     if (!want) throw new Error(`no sprite kind for piece '${kind}'`);
     const body = stage.sprites.find(sp => sp.kind === want && sp.ref === ref);
@@ -186,7 +186,7 @@ export function applyStep(stage, step, racTo = null) {
     // Only what was ALREADY riding gets nudged: a slot shift is a true no-op on the board and
     // would otherwise read as nothing at all. Something being scooped up is not hit by
     // anything, so it does not lurch.
-    const aboard = step.piece && sp.parent === step.piece.ref;
+    const carrier = step.piece.find(p => p.kind === 'cart' && p.ref === sp.parent);
     [sp.tx, sp.ty] = m.to;
     sp.depth = m.depth ?? 0;
     if (m.parent !== undefined) sp.parent = m.parent;
@@ -195,8 +195,8 @@ export function applyStep(stage, step, racTo = null) {
     if (m.becomes !== undefined) sp.kind = m.becomes;
     if (CONSUMES.has(m.effect)) sp.spent = true;
     if (m.effect === 'falls') sp.falls = true;
-    if (aboard && m.from[0] === m.to[0] && m.from[1] === m.to[1])
-      sp.nudge = [step.piece.dx, step.piece.dy];
+    if (carrier && m.from[0] === m.to[0] && m.from[1] === m.to[1])
+      sp.nudge = [carrier.dx, carrier.dy];
   });
 
   for (const g of step.gone) {
@@ -350,7 +350,7 @@ const dist = st => Math.max(1,
  *  being cut rather than as something dropping through. */
 const drops = st =>
   st.spawned.some(sp => sp.effect === 'falls') || st.moved.some(m => m.effect === 'falls')
-  || [st.piece ?? []].flat().some(p => p.effect === 'falls');
+  || st.piece.some(p => p.effect === 'falls');
 
 /**
  * A traced action, cut into the segments a clock can play. One action can be several cells of
@@ -366,9 +366,9 @@ export function timeline(r, cellTime) {
   let i = 0;
   const entry = k => ({ step: r.steps[k], racTo: r.frames[k + 1].rac, board: r.frames[k] });
   while (i < r.steps.length) {
-    if (r.steps[i].piece && r.steps[i].piece.kind === 'cart') {
+    if (r.steps[i].piece.some(p => p.kind === 'cart')) {
       const run = [];
-      while (i < r.steps.length && r.steps[i].piece && r.steps[i].piece.kind === 'cart') run.push(entry(i++));
+      while (i < r.steps.length && r.steps[i].piece.some(p => p.kind === 'cart')) run.push(entry(i++));
       // `pace` is cells per item — what one beat's worth of `u` buys.
       segs.push({ items: run, cells: run.length, dur: run.length * cellTime, roll: true, pace: 1 });
     } else {

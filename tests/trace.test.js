@@ -39,7 +39,7 @@ function named(prev, step) {
   // One body or several — a tow moves a barrow and its load in one beat, and a rug that sets a
   // bicycle going moves two pieces. Same shape `applyStep` reads.
   for (const b of step.born) for (const [x, y] of b.cells) t.add(`${x},${y}`);
-  for (const { kind, ref, dx, dy } of [step.piece ?? []].flat()) {
+  for (const { kind, ref, dx, dy } of step.piece) {
     const cells = kind === 'cart' ? cartCells(prev, ref) : pieceCells(prev, ref);
     assert.ok(cells.length, `piece ${kind}:${ref} has no cells on the board it moves from`);
     for (const [x, y] of cells) { t.add(`${x},${y}`); t.add(`${x + dx},${y + dy}`); }
@@ -80,7 +80,7 @@ function audit(label, grid, dir, { cart, water } = {}) {
 
 test('a plain step reports no motion but the raccoon', () => {
   const r = audit('walk', ['@--E'], 'r');
-  assert.deepEqual(r.steps, [{ moved: [], spawned: [], gone: [], born: [], piece: null, impact: false }]);
+  assert.deepEqual(r.steps, [{ moved: [], spawned: [], gone: [], born: [], piece: [], impact: false }]);
   assert.equal(r.frames[1].rac.x, 1);
 });
 
@@ -122,7 +122,8 @@ test('an empty can is one move and nothing else', () => {
 test('a couch reports one rigid translation, not four cell edits', () => {
   const r = audit('couch', ['-----', '-FF--', '-FF--', '-@---', 'E----'], 'u');
   const [step] = r.steps;
-  assert.deepEqual(step.piece, [{ kind: 'furniture', ref: 0, dx: 0, dy: -1 }]);
+  assert.deepEqual(step.piece,
+    [{ kind: 'furniture', ref: 0, dx: 0, dy: -1, cells: pieceCells(r.frames[0], 0) }]);
   assert.deepEqual(step.moved, [], 'a rigid body is one piece, not a pile of moves');
 });
 
@@ -152,9 +153,9 @@ test('an empty wheelie bin rolls with nothing to eject', () => {
 test('a cart reports one translation per cell of travel', () => {
   const r = audit('cart-roll', ['@--xxx-#', 'E-------'], 'r', { cart: ['-PP-----', '--------'] });
   assert.equal(r.frames.length, 6);
-  const travel = r.steps.filter(st => st.piece);
+  const travel = r.steps.filter(st => st.piece.length);
   assert.equal(travel.length, 4, 'four advances');
-  for (const st of travel) assert.deepEqual([st.piece.dx, st.piece.dy], [1, 0]);
+  for (const st of travel) assert.deepEqual([st.piece[0].dx, st.piece[0].dy], [1, 0]);
   assert.equal(travel.at(-1).impact, true, 'the last cell of travel is the collision');
   assert.equal(r.steps.length, 5, 'four advances and the tip that follows them');
 
@@ -171,7 +172,7 @@ test('swallowing and shedding are changes of parent, not of position', () => {
   // snap it, which is the whole thing riding is meant to avoid.
   const r = audit('cart-parent', ['@--xxx-#', 'E-------'], 'r', { cart: ['-PP-----', '--------'] });
   // travel steps only — the tip is the one step where cart cargo genuinely goes somewhere
-  const rides = r.steps.filter(st => st.piece).flatMap(st => st.moved).filter(m => m.parent !== undefined);
+  const rides = r.steps.filter(st => st.piece.length).flatMap(st => st.moved).filter(m => m.parent !== undefined);
   assert.ok(rides.length >= 4, 'three swallows and at least one shed');
   for (const m of rides)
     assert.deepEqual(m.from, m.to, `a ${m.parent === null ? 'shed' : 'swallow'} must not move the cargo`);
@@ -185,7 +186,7 @@ test('a shed names the cell the load rode in and the cell it lands on', () => {
   // or a renderer has nowhere to fly it from.
   const r = audit('cart-shed', ['-c#', '@c#', 'E--'], 'r', { cart: ['-P-', '-P-', '---'] });
   const tip = r.steps.at(-1);
-  assert.equal(tip.piece, null, 'the skateboard itself is going nowhere');
+  assert.deepEqual(tip.piece, [], 'the skateboard itself is going nowhere');
   const out = tip.moved.filter(m => m.parent === null);
   assert.deepEqual(out.map(m => m.from), [[1, 0]], 'from the slot it rode in');
   assert.deepEqual(out.map(m => m.to), [[0, 0]], 'to the cell behind that file');
@@ -223,7 +224,7 @@ test('a tip lands contiguously behind the skateboard, never skipping a taken cel
   ]) {
     const r = audit('contiguity', grid, 'r', { cart });
     const tip = r.steps.at(-1);
-    if (tip.piece) continue;                       // this board did not tip
+    if (tip.piece.length) continue;                // this board did not tip
     const before = r.frames[r.frames.length - 2];
     for (const m of tip.moved.filter(m => m.parent === null)) {
       // walk from the landing cell back toward the skateboard: every cell between must be free
@@ -260,7 +261,7 @@ test('a tip only ever moves cargo backward, and never past the run the skateboar
   ]) {
     const r = audit('tip-direction', grid, 'r', { cart, water });
     const tip = r.steps.at(-1);
-    if (tip.piece) continue;
+    if (tip.piece.length) continue;
     for (const m of tip.moved) {
       const back = (m.from[0] - m.to[0]) + (m.from[1] - m.to[1]);   // shoves here are all 'r'
       assert.ok(back > 0, `a tip moved ${m.o} from ${m.from} to ${m.to} — not backward`);
@@ -274,7 +275,7 @@ test('a broadside cart reports both files in one step', () => {
   const r = audit('cart-wide', ['@--c-FE', '---c-F-'], 'r', { cart: ['-P-----', '-P-----'] });
   const swallows = r.steps.flatMap(st => st.moved).filter(m => m.parent !== undefined && m.parent !== null);
   assert.equal(swallows.length, 2, 'two lead cells, two things aboard');
-  assert.deepEqual(r.steps[0].piece.ref, r.steps[1].piece.ref, 'the same cart both steps');
+  assert.deepEqual(r.steps[0].piece[0].ref, r.steps[1].piece[0].ref, 'the same cart both steps');
 });
 
 test('nothing is traced unless it is asked for', () => {
@@ -296,8 +297,10 @@ test('a rug that sets a bicycle going reports the bicycle as a BODY', () => {
   const [step] = r.steps;
   assert.deepEqual(step.moved, [], 'a body is never an occupant sprite');
   assert.deepEqual(step.piece, [
-    { kind: 'furniture', ref: 1, dx: 0, dy: 1 },     // the rug, stopped against the bicycle
-    { kind: 'furniture', ref: 0, dx: 0, dy: 3 },     // the bicycle it handed off to
+    // the rug, stopped against the bicycle
+    { kind: 'furniture', ref: 1, dx: 0, dy: 1, cells: pieceCells(r.frames[0], 1) },
+    // the bicycle it handed off to
+    { kind: 'furniture', ref: 0, dx: 0, dy: 3, cells: pieceCells(r.frames[0], 0) },
   ]);
 });
 
@@ -319,7 +322,8 @@ test('a grate that takes a BODY says so on the piece entry', () => {
   const rolled = audit('grate body', ['#####', '#@---', '#UU--', '#----', '#----', '#---E', '#####'],
                        'd', { water: ['-----', '-----', '-----', '-----', '-OO--', '-----', '-----'] });
   assert.deepEqual(rolled.steps[0].piece,
-                   [{ kind: 'furniture', ref: 0, dx: 0, dy: 2, effect: 'falls' }]);
+                   [{ kind: 'furniture', ref: 0, dx: 0, dy: 2, effect: 'falls',
+                      cells: pieceCells(rolled.frames[0], 0) }]);
 
   // And what a hand-off passes to a grate, body or not: the same word, on whichever entry can
   // carry it. A tyre is an occupant, so it is `moved` that has to say it.

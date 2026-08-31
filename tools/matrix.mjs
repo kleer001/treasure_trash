@@ -235,7 +235,7 @@ function crossesTest(s, dir, holes) {
       if (along(m.from, m.to).some(k => holes.includes(k))) return true;
     // A body reports one translation for a whole footprint, so its path is every cell of it
     // swept by that translation.
-    for (const { kind, ref, dx, dy } of [step.piece ?? []].flat()) {
+    for (const { kind, ref, dx, dy } of step.piece) {
       const own = kind === 'cart' ? cartCells(before, ref) : pieceCells(before, ref);
       for (const [x, y] of own)
         if (along([x, y], [x + dx, y + dy]).some(k => holes.includes(k))) return true;
