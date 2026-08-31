@@ -343,8 +343,8 @@ function handledCells(a, onDag) {
     add([n.state.rac.x + dx, n.state.rac.y + dy]);         // the cell shoved or torn into
     for (const st of explain(n.state, e.dir, { trace: true }).steps ?? []) {
       for (const m of st.moved) { add(m.from); add(m.to); }
-      for (const s of st.spawned) { add(s.at); add(s.from); }
-      for (const g of st.gone) add(g.at);
+      for (const s of st.spawned) { for (const c of s.cells) add(c); if (s.from) add(s.from); }
+      for (const g of st.gone) for (const c of g.cells) add(c);
       for (const p of st.piece)
         for (const [x, y] of p.cells) { add([x, y]); add([x + p.dx, y + p.dy]); }
     }

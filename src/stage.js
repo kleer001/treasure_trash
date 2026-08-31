@@ -128,9 +128,6 @@ export function applyStep(stage, step, racTo = null) {
     const body = stage.sprites.find(sp => sp.kind === want && sp.ref === ref);
     if (!body) throw new Error(`no ${want} sprite for piece ${ref}`);
     body.tx = body.ax + dx; body.ty = body.ay + dy;
-    // A body has no occupant code, so `gone` cannot name it and this is where it is consumed.
-    if (CONSUMES.has(effect)) body.spent = true;
-    if (effect === 'falls') body.falls = true;
     // The wobble pivots on the CART's bottom edge, not each sprite's: pivot cargo on itself and
     // it spins in place while the cart leans out from under it.
     if (effect === 'rattles') {
@@ -162,7 +159,7 @@ export function applyStep(stage, step, racTo = null) {
     // swapped — which is what keeps its draw seed and stops it popping.
     const sp = m.fromCart !== undefined
       ? stage.sprites.find(s => s.kind === CART && s.ref === m.fromCart && !s.dying)
-      : find(stage, m.o, m.from, m.wasDepth ?? m.depth ?? 0);
+      : find(stage, m.o, m.from, m.wasDepth ?? m.depth);
     if (!sp) throw new Error(`no ${m.o} sprite at ${m.from} to move to ${m.to}`);
     // Two entries landing on one sprite is a step describing a board it did not produce: one of
     // the things it says moved is not on the stage at all, and the other is being moved twice.
@@ -188,7 +185,7 @@ export function applyStep(stage, step, racTo = null) {
     // anything, so it does not lurch.
     const carrier = step.piece.find(p => p.kind === 'cart' && p.ref === sp.parent);
     [sp.tx, sp.ty] = m.to;
-    sp.depth = m.depth ?? 0;
+    sp.depth = m.depth;
     if (m.parent !== undefined) sp.parent = m.parent;
     // Immediately, not at the end of the beat, or a bin still drawn full alongside the bag it
     // has just thrown reads as two bags.
@@ -203,36 +200,40 @@ export function applyStep(stage, step, racTo = null) {
     // Loud for the reason `moved` is: a step naming a sprite the stage does not hold means the
     // rules and the stage disagree about the board. Passing over it quietly leaves the sprite
     // drawn where it was consumed, which reads as a rules bug and is found only by playing.
-    const sp = find(stage, g.o, g.at, g.depth ?? 0);
-    if (!sp) throw new Error(`no ${g.o} sprite at ${g.at} to consume`);
-    sp.dying = true;                                // the one thing that really does deflate
+    const body = g.ref !== undefined;
+    const sp = body
+      ? stage.sprites.find(s => s.kind === BODY[g.kind] && s.ref === g.ref && !s.spent)
+      : find(stage, g.o, g.cells[0], g.depth);
+    if (!sp) throw new Error(`no ${body ? g.kind : g.o} sprite at ${g.cells[0]} to consume`);
+    // A body is spent where it stands; an occupant deflates. Same fact, two ways of leaving.
+    if (body) { sp.spent = true; if (g.effect === 'falls') sp.falls = true; }
+    else sp.dying = true;
   }
 
   for (const sp of step.spawned) {
-    const [ax, ay] = sp.from ?? sp.at;
-    const born = { id: stage.nextId++, kind: sp.effect === 'pours' ? SPLASH : sp.o,
-                   x: ax, y: ay, ax, ay, tx: sp.at[0], ty: sp.at[1],
+    // A body that was not on the stage before this step, told apart by the piece id it carries.
+    if (sp.ref !== undefined) {
+      const want = BODY[sp.kind];
+      if (!want) throw new Error(`no sprite kind for piece '${sp.kind}'`);
+      // Loud, for the reason every other lookup here is: two sprites answering to one ref is
+      // the rules and the stage disagreeing about how many pieces the board has.
+      if (stage.sprites.some(s => s.kind === want && s.ref === sp.ref && !s.spent))
+        throw new Error(`a ${sp.kind} sprite already answers to ${sp.ref}`);
+      const [x, y] = sp.cells[0];
+      stage.sprites.push({ id: stage.nextId++, kind: want, x, y, ax: x, ay: y, tx: x, ty: y,
+                           depth: sp.depth, seed: (stage.nextId * 2654435761) >>> 0, parent: null,
+                           dying: false, ref: sp.ref, o: sp.o, cells: offsets(sp.cells, x, y) });
+      continue;
+    }
+    const [at] = sp.cells;
+    const [ax, ay] = sp.from ?? at;
+    stage.sprites.push({ id: stage.nextId++, kind: sp.effect === 'pours' ? SPLASH : sp.o,
+                   x: ax, y: ay, ax, ay, tx: at[0], ty: at[1],
                    // Where it came FROM is where a drawer's body still is.
-                   face: [Math.sign(sp.at[0] - ax), Math.sign(sp.at[1] - ay)],
-                   depth: sp.depth ?? 0,
+                   face: [Math.sign(at[0] - ax), Math.sign(at[1] - ay)],
+                   depth: sp.depth,
                    seed: (stage.nextId * 2654435761) >>> 0, parent: sp.parent ?? null, dying: false,
-                   spent: CONSUMES.has(sp.effect), falls: sp.effect === 'falls' };
-    stage.sprites.push(born);
-  }
-
-  // A body that was not on the stage before this step. Nothing else can make one: `spawned`
-  // mints an occupant sprite, and a `piece` entry can only move a body that is already here.
-  for (const b of step.born) {
-    const want = BODY[b.kind];
-    if (!want) throw new Error(`no sprite kind for piece '${b.kind}'`);
-    // Loud, for the reason every other lookup here is: two sprites answering to one ref is the
-    // rules and the stage disagreeing about how many pieces the board has.
-    if (stage.sprites.some(sp => sp.kind === want && sp.ref === b.ref && !sp.spent))
-      throw new Error(`a ${b.kind} sprite already answers to ${b.ref}`);
-    const [x, y] = b.cells[0];
-    stage.sprites.push({ id: stage.nextId++, kind: want, x, y, ax: x, ay: y, tx: x, ty: y,
-                         depth: 0, seed: (stage.nextId * 2654435761) >>> 0, parent: null,
-                         dying: false, ref: b.ref, o: b.o, cells: offsets(b.cells, x, y) });
+                   spent: CONSUMES.has(sp.effect), falls: sp.effect === 'falls' });
   }
 
   if (racTo) {

@@ -38,13 +38,13 @@ const linesOf = step => {
       + (m.becomes !== undefined ? ` becomes ${named(m.becomes)}` : '')
       + stow(m) + (m.effect ? ` ${m.effect}` : ''));
   for (const s of step.spawned)
-    out.push(`+${named(s.o)} ${at(s.at)}`
-      + (s.from ? ` from ${at(s.from)}` : '') + (s.parent != null ? ` in ${cart(s.parent)}` : '')
-      + (s.effect ? ` ${s.effect}` : ''));
+    out.push(s.ref !== undefined
+      ? `*${s.kind}#${s.ref} ${named(s.o)} ${s.cells.map(at).join(' ')}`
+      : `+${named(s.o)} ${at(s.cells[0])}`
+        + (s.from ? ` from ${at(s.from)}` : '') + (s.parent != null ? ` in ${cart(s.parent)}` : '')
+        + (s.effect ? ` ${s.effect}` : ''));
   for (const g of step.gone)
-    out.push(`-${named(g.o)} ${at(g.at)}` + (g.depth ? ` @${g.depth}` : ''));
-  for (const b of step.born)
-    out.push(`*${b.kind}#${b.ref} ${named(b.o)} ${b.cells.map(at).join(' ')}`);
+    out.push(`-${named(g.o ?? g.kind)} ${at(g.cells[0])}` + (g.depth ? ` @${g.depth}` : ''));
   return out;
 };
 

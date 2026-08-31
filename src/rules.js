@@ -547,15 +547,18 @@ const land = (s, at, ch, step, m = null) => {
 // A board says what is where, not what moved where, so a traced action carries a step. The
 // schema is stage.js's contract; the branches that fill it are the spec for what goes in it.
 //
-//   moved    { o, from, to, becomes?, parent?, effect?, fromCart?, toCart?, depth?, wasDepth? }
-//   spawned  { o, at, from?, effect?, parent? }
-//   gone     { o, at, depth? }
-//   born     { kind, ref, o, cells }
+//   moved    { o, from, to, depth, becomes?, parent?, effect?, fromCart?, toCart?, wasDepth? }
+//   spawned  { cells, depth, from?, o?, effect?, parent?, kind?, ref? }
+//   gone     { cells, depth, o?, effect?, kind?, ref? }
 //
-// `born` is a BODY that did not exist before this step, named in board cells, raster order — the
-// first is its anchor. It is the one thing the other lanes cannot express: they name a sprite by
-// its occupant code and the cell it stands on, and a body has neither to be found by. The mirror
-// is a `piece` entry whose effect consumes it.
+// One lane per FACT — a thing moved, arrived, left — and never one lane per kind of thing. An
+// occupant is found by its code and the cell it stands on; a body has neither, and is found by
+// the piece id it carries. Both are the same event, so both go in the same list: a reader
+// counting what left the board reads `gone` and is right, rather than reading `gone` and then
+// remembering that bodies say it somewhere else.
+//
+// Every entry names `cells`, however many it has. A `piece` entry says which cells a body or a
+// cart moved FROM, so nothing downstream has to rebuild that from the board.
 //
 // `depth` is how far INSIDE this cell's contents a thing comes to rest: 0 is what stands in the
 // cart slot or on the floor, 1 is what that is carrying, and so on down. `wasDepth` is where the
@@ -570,15 +573,27 @@ const land = (s, at, ch, step, m = null) => {
  * Resolved against the frame the step ran on, which is the only board on which those ids still
  * mean what the entry says.
  */
-function withPieceCells(frames, steps) {
+/** A body carries a piece id; an occupant does not. The one thing that tells the two apart. */
+export const isBodyEvent = e => e.ref !== undefined;
+
+// The two effects that take a BODY off the board. A body has no occupant code, so nothing else
+// about the entry says it is leaving.
+const CONSUMES_BODY = new Set(['falls', 'swaps']);
+
+function settleSteps(frames, steps) {
   steps.forEach((step, i) => {
-    for (const p of step.piece)
+    for (const p of step.piece) {
       p.cells = p.kind === 'cart' ? cartCells(frames[i], p.ref) : pieceCells(frames[i], p.ref);
+      // A body leaves the board by being named in `gone`, the way everything else does.
+      if (CONSUMES_BODY.has(p.effect))
+        step.gone.push({ kind: p.kind, ref: p.ref, cells: p.cells, effect: p.effect });
+    }
+    for (const e of [...step.moved, ...step.gone, ...step.spawned]) e.depth ??= 0;
   });
   return steps;
 }
 
-const mkStep = (over = {}) => ({ moved: [], spawned: [], gone: [], born: [], piece: [], impact: false, ...over });
+const mkStep = (over = {}) => ({ moved: [], spawned: [], gone: [], piece: [], impact: false, ...over });
 // What landing here looks like. A grate takes what arrives regardless of what it is, so the
 // thing that arrives plays its arrival and is then gone — which is what stops the stage holding
 // a sprite for cargo the board never received.
@@ -617,10 +632,10 @@ function tipOut(s, o, at, dx, dy, step) {
   const c = tipCell(at, dx, dy);
   const target = cell(s, ...c);
   if (t.pours) {
-    if (step) step.spawned.push({ o: NONE, at: c, from: at, effect: 'pours' });
+    if (step) step.spawned.push({ o: NONE, cells: [c], from: at, effect: 'pours' });
     pour(target);
   } else {
-    if (step) step.spawned.push({ o: t.drops, at: c, from: at, effect: effectOf(target, t.drops) });
+    if (step) step.spawned.push({ o: t.drops, cells: [c], from: at, effect: effectOf(target, t.drops) });
     drop(s, c, [t.drops]);
   }
   if (t.slides !== o) cell(s, ...at).o = t.slides;
@@ -1066,8 +1081,9 @@ function openInPlace(next, at, step, clears) {
   // that grew. `freePid` rather than a count, or the new piece is welded to an old one.
   const open = CAB_OPENS[o], pid = freePid(next);
   for (const p of [at, draw]) { const c = cell(next, ...p); c.o = open; c.pid = pid; }
-  step.gone.push({ o, at });
-  step.born.push({ kind: 'furniture', ref: pid, o: open, cells: rasterOrder([at, draw]) });
+  step.gone.push({ o, cells: [at] });
+  step.spawned.push({ kind: 'furniture', ref: pid, o: open,
+                      cells: rasterOrder([at, draw]), from: at });
   return null;
 }
 
@@ -1091,7 +1107,7 @@ function shutCabinet(s, own, at, shut, [px, py], dx, dy, done) {
   next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
   return done(next, PUSH, mkStep({
     piece: [{ kind: 'furniture', ref: pid, dx: px, dy: py, effect: 'swaps' }],
-    spawned: [{ o: shut, at, from: own[0], effect }],
+    spawned: [{ o: shut, cells: [at], from: own[0], effect }],
   }));
 }
 
@@ -1173,9 +1189,9 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
     const knocked = cloneState(s);
     const step = mkStep();
     for (const at of blame) strikeBack(knocked, at, dx, dy, step);
-    if (step.moved.length || step.born.length || step.piece.length)
+    if (step.moved.length || step.spawned.some(isBodyEvent) || step.piece.length)
       return { ok: true, kind: PUSH, next: knocked,
-               ...(trace && (f => ({ frames: f, steps: withPieceCells(f, [step]) }))([cloneState(s), knocked])) };
+               ...(trace && (f => ({ frames: f, steps: settleSteps(f, [step]) }))([cloneState(s), knocked])) };
   }
   if (!blame.length) files.forEach((f, i) => {
     const back = f[f.length - 1], out = cell(s, ...back).o;
@@ -1210,7 +1226,7 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
     }                       // one per FILE, the way every other shed in the game is counted
     if (step.moved.length)
       return { ok: true, kind: PUSH, next,
-               ...(trace && (f => ({ frames: f, steps: withPieceCells(f, [step]) }))([cloneState(s), next])) };
+               ...(trace && (f => ({ frames: f, steps: settleSteps(f, [step]) }))([cloneState(s), next])) };
   }
   if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
 
@@ -1324,7 +1340,7 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
   // What the roll finally came up against wears the blow, wherever along the run it stopped.
   const blow = mkStep();
   for (const at of stoppedAt ?? []) strikeBack(next, at, dx, dy, blow);
-  if (trace && (blow.moved.length || blow.born.length || blow.piece.length)) {
+  if (trace && (blow.moved.length || blow.spawned.some(isBodyEvent) || blow.piece.length)) {
     frames.push(cloneState(next)); steps.push(blow);
   }
 
@@ -1334,7 +1350,7 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
   next.rac = isClearFloor(next, ...racTo) ? { x: racTo[0], y: racTo[1] } : { ...s.rac };
   if (trace) for (let k = 1; k < frames.length; k++) frames[k].rac = { ...next.rac };
 
-  return trace ? { ok: true, kind: PUSH, next, frames, steps: withPieceCells(frames, steps) } : { ok: true, kind: PUSH, next };
+  return trace ? { ok: true, kind: PUSH, next, frames, steps: settleSteps(frames, steps) } : { ok: true, kind: PUSH, next };
 }
 
 /**
@@ -1364,7 +1380,7 @@ export function explain(s, dir, opts = {}) {
   const step = mkStep();
   if (!settleMagnets(next, step)) return r;
   return opts.trace
-    ? (f => ({ ...r, next, frames: f, steps: withPieceCells(f, [...r.steps, step]) }))([...r.frames, next])
+    ? (f => ({ ...r, next, frames: f, steps: settleSteps(f, [...r.steps, step]) }))([...r.frames, next])
     : { ...r, next };
 }
 
@@ -1380,7 +1396,7 @@ function decide(s, dir, opts) {
 
   // One board pair, one step. Anything with more to report builds its own.
   const done = (next, kind, step) => opts.trace
-    ? (f => ({ ok: true, kind, next, frames: f, steps: withPieceCells(f, [step]) }))([cloneState(s), next])
+    ? (f => ({ ok: true, kind, next, frames: f, steps: settleSteps(f, [step]) }))([cloneState(s), next])
     : { ok: true, kind, next };
 
   // Only the raccoon moves, and he rides on `rac` — so the board the step lands on is the board
@@ -1478,7 +1494,7 @@ function decide(s, dir, opts) {
     const blockers = fanBlockers(s, tx, ty, dx, dy);
     if (blockers.length) return { ok: false, reason: reasonFor(s, blockers, 'fan'), blame: blockers };
     const next = cloneState(s);
-    const step = mkStep({ gone: [{ o: BAG, at: [tx, ty] }] });
+    const step = mkStep({ gone: [{ o: BAG, cells: [[tx, ty]] }] });
     // Chairs clear out before anything is laid down, so the trash lands on the cells they left.
     // This is the whole of what the chair changes: the fan stops being only a cost and becomes
     // something you can aim.
@@ -1492,7 +1508,7 @@ function decide(s, dir, opts) {
     for (const [fx, fy] of fan(tx, ty, dx, dy)) {
       const c = cell(next, fx, fy);
       // one origin for the whole fan
-      step.spawned.push({ o: TRASH, at: [fx, fy], from: [tx, ty], effect: effectOf(c, TRASH) });
+      step.spawned.push({ o: TRASH, cells: [[fx, fy]], from: [tx, ty], effect: effectOf(c, TRASH) });
       layTrash(c);
     }
     cell(next, tx, ty).o = NONE;
@@ -1513,8 +1529,8 @@ function decide(s, dir, opts) {
     if (!isGrate(target1)) target1.ter = GLASS;
     next.rac = { x: tx, y: ty };
     return done(next, PUSH, mkStep({
-      gone: [{ o: PANE, at: [tx, ty] }],
-      spawned: [{ o: NONE, at: c1, from: [tx, ty], effect: 'shatters' }],
+      gone: [{ o: PANE, cells: [[tx, ty]] }],
+      spawned: [{ o: NONE, cells: [c1], from: [tx, ty], effect: 'shatters' }],
     }));
   }
 
@@ -1672,16 +1688,15 @@ function decide(s, dir, opts) {
       impact: true,
     })];
     const struck = [...passedTo.bodies, ...strike.piece];
-    // `born` and `gone` are asked for the same reason the rest of `strike` is: an impact that
+    // A body arriving and a thing leaving are asked for the same reason the rest of `strike` is: an impact that
     // only opened a cabinet moves nothing and names nothing, and the body it minted is then a
     // piece the stage was never told to build. The next step to reference it cannot find it.
     if (shedAt || passedTo.moved.length || struck.length
-        || strike.moved.length || strike.born.length || strike.gone.length) {
+        || strike.moved.length || strike.spawned.some(isBodyEvent) || strike.gone.length) {
       frames.push(next);
       steps.push(mkStep({
         piece: struck,
         spawned: strike.spawned,
-        born: strike.born,
         gone: strike.gone,
         moved: [
           ...strike.moved,
@@ -1691,10 +1706,10 @@ function decide(s, dir, opts) {
         ],
       }));
       if (shedAt) steps.at(-1).spawned.push(
-        { o: BAG, at: shedAt, from: [rear[0] + k * dx, rear[1] + k * dy] });
+        { o: BAG, cells: [shedAt], from: [rear[0] + k * dx, rear[1] + k * dy] });
     }
     for (let i = 1; i < frames.length; i++) frames[i].rac = { ...next.rac };
-    return { ok: true, kind: PUSH, next, frames, steps: withPieceCells(frames, steps) };
+    return { ok: true, kind: PUSH, next, frames, steps: settleSteps(frames, steps) };
   }
 
   // A shut cabinet opens when it is struck on the BACK — the face opposite the drawer — and the
@@ -1722,7 +1737,7 @@ function decide(s, dir, opts) {
       const knocked = cloneState(s);
       const step = mkStep();
       strikeBack(knocked, beyond, dx, dy, step);
-      if (!step.born.length)
+      if (!step.spawned.some(isBodyEvent))
         return { ok: false, reason: reasonFor(s, [beyond], 'canRoom'), blame: [beyond] };
       return done(knocked, PUSH, step);
     }
@@ -1767,16 +1782,16 @@ function decide(s, dir, opts) {
         // where it would have to set off from. Swept, the space it breaks into is the space it
         // was going anyway.
         step.moved.push({ o: PANE, from, to });
-        step.gone.push({ o: PANE, at: from });
+        step.gone.push({ o: PANE, cells: [from] });
         cell(next, ...to).ter = GLASS;
         continue;
       }
       // A bag swept onto glass bursts where it lands, which only the head of a line can do.
       if (what === BAG && isGlass(cell(next, ...to))) {
-        step.gone.push({ o: BAG, at: from });
+        step.gone.push({ o: BAG, cells: [from] });
         for (const [fx, fy] of fan(to[0], to[1], dx, dy)) {
           if (!isOccupiable(next, fx, fy)) continue;
-          step.spawned.push({ o: TRASH, at: [fx, fy], from: to, effect: effectOf(cell(next, fx, fy), TRASH) });
+          step.spawned.push({ o: TRASH, cells: [[fx, fy]], from: to, effect: effectOf(cell(next, fx, fy), TRASH) });
           layTrash(cell(next, fx, fy));
         }
         continue;
@@ -1843,10 +1858,10 @@ function decide(s, dir, opts) {
         ...(gone && { effect: 'falls' }) }],
     });
     if (tips && pours) {
-      step.spawned.push({ o: NONE, at: c2, from: [tx, ty], effect: 'pours' });
+      step.spawned.push({ o: NONE, cells: [c2], from: [tx, ty], effect: 'pours' });
       pour(cell(next, c2[0], c2[1]));
     } else if (tips) {
-      step.spawned.push({ o: drops, at: c2, from: [tx, ty],
+      step.spawned.push({ o: drops, cells: [c2], from: [tx, ty],
         effect: effectOf(cell(next, c2[0], c2[1]), drops) });
       drop(next, c2, [drops]);
     }
@@ -1855,7 +1870,7 @@ function decide(s, dir, opts) {
     // Spent making the cell walkable. It still MOVES — the sheet slides onto the hazard and goes
     // down with it — so the step keeps the move and names the sprite where the stage holds it,
     // which is the cell it started from.
-    else if (SLIDES[o].covers && cover(cell(next, ...at))) step.gone = [{ o, at: [tx, ty] }];
+    else if (SLIDES[o].covers && cover(cell(next, ...at))) step.gone = [{ o, cells: [[tx, ty]] }];
     else drop(next, at, [lands]);
     const grip = cell(next, tx, ty).grip;
     cell(next, tx, ty).o = NONE;

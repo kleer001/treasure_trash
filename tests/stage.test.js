@@ -342,8 +342,8 @@ test('what goes down a grate arrives first, then drops', () => {
   // say it was disappearing rather than dropping, and would not say which cell took it.
   const stage = { sprites: [], nextId: 0 };
   applyStep(stage, {
-    moved: [], gone: [], born: [], piece: [], impact: false,
-    spawned: [{ o: BAG, at: [3, 1], from: [1, 1], effect: 'falls' }],
+    moved: [], gone: [], piece: [], impact: false,
+    spawned: [{ o: BAG, cells: [[3, 1]], from: [1, 1], depth: 0, effect: 'falls' }],
   });
   const [bag] = stage.sprites;
   assert.equal(bag.falls, true);
@@ -369,8 +369,8 @@ test('what goes down a grate arrives first, then drops', () => {
 test('a body can be born mid-action, and lands where a rebuilt stage would put it', () => {
   const stage = stageFrom(S(['@---E', '-----']), 1);
   applyStep(stage, {
-    moved: [], spawned: [], gone: [], piece: [], impact: false,
-    born: [{ kind: 'furniture', ref: 0, o: FURNITURE, cells: [[1, 1], [2, 1]] }],
+    moved: [], gone: [], piece: [], impact: false,
+    spawned: [{ kind: 'furniture', ref: 0, o: FURNITURE, cells: [[1, 1], [2, 1]], from: [1, 1], depth: 0 }],
   });
   settle(stage);
   const born = one(stage, COUCH);
@@ -384,8 +384,8 @@ test('a second sprite for one body ref is loud rather than quietly doubled', () 
   const stage = stageFrom(S(['@---E', '-FF--']), 1);
   const ref = one(stage, COUCH).ref;
   assert.throws(() => applyStep(stage, {
-    moved: [], spawned: [], gone: [], piece: [], impact: false,
-    born: [{ kind: 'furniture', ref, o: FURNITURE, cells: [[1, 1], [2, 1]] }],
+    moved: [], gone: [], piece: [], impact: false,
+    spawned: [{ kind: 'furniture', ref, o: FURNITURE, cells: [[1, 1], [2, 1]], from: [1, 1], depth: 0 }],
   }), /already answers/);
 });
 
@@ -393,8 +393,9 @@ test('a body swapped for something else leaves the stage', () => {
   const stage = stageFrom(S(['@---E', '-FF--']), 1);
   const ref = one(stage, COUCH).ref;
   applyStep(stage, {
-    moved: [], spawned: [{ o: BAG, at: [1, 1], from: [1, 1] }], gone: [], born: [], piece: [], impact: false,
+    moved: [], spawned: [{ o: BAG, cells: [[1, 1]], from: [1, 1], depth: 0 }], impact: false,
     piece: [{ kind: 'furniture', ref, dx: 0, dy: 0, effect: 'swaps' }],
+    gone: [{ kind: 'furniture', ref, cells: [[1, 1], [2, 1]], effect: 'swaps', depth: 0 }],
   });
   settle(stage);
   assert.equal(of(stage, COUCH).length, 0, 'the body is gone');

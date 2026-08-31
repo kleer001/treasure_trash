@@ -33,12 +33,11 @@ function changed(a, b) {
 /** Every cell some event in this step points at, including both ends of a piece's travel. */
 function named(prev, step) {
   const t = new Set();
-  step.gone.forEach(g => t.add(key(g.at)));
-  step.spawned.forEach(sp => t.add(key(sp.at)));
+  step.gone.forEach(g => g.cells.forEach(c => t.add(key(c))));
+  step.spawned.forEach(sp => sp.cells.forEach(c => t.add(key(c))));
   step.moved.forEach(m => { t.add(key(m.from)); t.add(key(m.to)); });
   // One body or several — a tow moves a barrow and its load in one beat, and a rug that sets a
   // bicycle going moves two pieces. Same shape `applyStep` reads.
-  for (const b of step.born) for (const [x, y] of b.cells) t.add(`${x},${y}`);
   for (const { kind, ref, dx, dy } of step.piece) {
     const cells = kind === 'cart' ? cartCells(prev, ref) : pieceCells(prev, ref);
     assert.ok(cells.length, `piece ${kind}:${ref} has no cells on the board it moves from`);
@@ -64,15 +63,17 @@ function audit(label, grid, dir, { cart, water } = {}) {
       assert.equal(cell(prev, ...m.from).o, m.o,
         `${at}: moved says ${m.o} was at ${m.from}, the board had ${cell(prev, ...m.from).o}`);
     for (const g of step.gone)
-      assert.equal(cell(prev, ...g.at).o, g.o, `${at}: gone says ${g.o} was at ${g.at}`);
+      if (g.o !== undefined)
+        assert.equal(cell(prev, ...g.cells[0]).o, g.o, `${at}: gone says ${g.o} was at ${g.cells[0]}`);
 
     // Something new lands on empty ground, or on ground vacated in this same step — the
     // wheelie's bag drops onto the bin's own starting cell when the roll is one long.
     const vacated = new Set(step.moved.map(m => key(m.from)));
     for (const sp of step.spawned) {
       if (sp.effect === 'pours') continue;
-      assert.ok(cell(prev, ...sp.at).o === NONE || vacated.has(key(sp.at)),
-        `${at}: spawned ${sp.o} onto occupied cell ${sp.at}`);
+      if (sp.o !== undefined && sp.ref === undefined)
+        assert.ok(cell(prev, ...sp.cells[0]).o === NONE || vacated.has(key(sp.cells[0])),
+          `${at}: spawned ${sp.o} onto occupied cell ${sp.cells[0]}`);
     }
   });
   return r;
@@ -80,14 +81,14 @@ function audit(label, grid, dir, { cart, water } = {}) {
 
 test('a plain step reports no motion but the raccoon', () => {
   const r = audit('walk', ['@--E'], 'r');
-  assert.deepEqual(r.steps, [{ moved: [], spawned: [], gone: [], born: [], piece: [], impact: false }]);
+  assert.deepEqual(r.steps, [{ moved: [], spawned: [], gone: [], piece: [], impact: false }]);
   assert.equal(r.frames[1].rac.x, 1);
 });
 
 test('a tear consumes the bag and throws five piles out of it', () => {
   const r = audit('tear', ['-----', '--$--', '--@--', 'E----'], 'u');
   const [step] = r.steps;
-  assert.deepEqual(step.gone, [{ o: BAG, at: [2, 1] }]);
+  assert.deepEqual(step.gone, [{ o: BAG, cells: [[2, 1]], depth: 0 }]);
   assert.equal(step.spawned.length, 5);
   for (const sp of step.spawned) assert.deepEqual(sp.from, [2, 1], 'every speck flies out of the bag');
 });
@@ -97,7 +98,7 @@ test('a fan cell over the canal reports that it fills rather than rests', () => 
     { water: ['--~--', '-----', '-----', '-----'] });
   const fills = r.steps[0].spawned.filter(sp => sp.effect === 'fills');
   assert.equal(fills.length, 1);
-  assert.deepEqual(fills[0].at, [2, 0]);
+  assert.deepEqual(fills[0].cells, [[2, 0]]);
 });
 
 test('each two-cell piece moves itself and launches its load from its own cell', () => {
@@ -107,8 +108,9 @@ test('each two-cell piece moves itself and launches its load from its own cell',
   ]) {
     const r = audit(`two-cell ${g}`, ['-----', '-----', `--${g}--`, '--@--', 'E----'], 'u');
     const [step] = r.steps;
-    assert.deepEqual(step.moved, [{ o, from: [2, 2], to: [2, 1], ...(becomes && { becomes }) }]);
-    assert.deepEqual(step.spawned[0].at, [2, 0]);
+    assert.deepEqual(step.moved,
+      [{ o, from: [2, 2], to: [2, 1], depth: 0, ...(becomes && { becomes }) }]);
+    assert.deepEqual(step.spawned[0].cells, [[2, 0]]);
     assert.deepEqual(step.spawned[0].from, [2, 2], 'the load comes out of the piece');
     assert.equal(step.spawned[0].o, load);
   }
@@ -116,7 +118,7 @@ test('each two-cell piece moves itself and launches its load from its own cell',
 
 test('an empty can is one move and nothing else', () => {
   const r = audit('can', ['-----', '--c--', '--@--', 'E----'], 'u');
-  assert.deepEqual(r.steps[0].moved, [{ o: CAN_EMPTY, from: [2, 1], to: [2, 0] }]);
+  assert.deepEqual(r.steps[0].moved, [{ o: CAN_EMPTY, from: [2, 1], to: [2, 0], depth: 0 }]);
 });
 
 test('a couch reports one rigid translation, not four cell edits', () => {
@@ -135,11 +137,11 @@ test('a wheelie bin rolls first and dumps after, out of the BIN', () => {
   const r = audit('wheelie', ['-----', '-----', '-----', '--W--', 'E-@--'], 'u');
   assert.equal(r.steps.length, 2, 'the roll and the dump are separate beats');
   const [roll, dump] = r.steps;
-  assert.deepEqual(roll.moved, [{ o: WHEELIE, from: [2, 3], to: [2, 0] }]);
+  assert.deepEqual(roll.moved, [{ o: WHEELIE, from: [2, 3], to: [2, 0], depth: 0 }]);
   assert.deepEqual(roll.spawned, [], 'it is still carrying the bag the whole way down');
   assert.equal(roll.impact, true, 'and it stopped because something stopped it');
   assert.equal(bagsLeft(r.frames[1]), 1, 'the bag is accounted for throughout, never in limbo');
-  assert.deepEqual(dump.spawned, [{ o: BAG, at: [2, 1], from: [2, 0] }]);
+  assert.deepEqual(dump.spawned, [{ o: BAG, cells: [[2, 1]], from: [2, 0], depth: 0 }]);
   assert.equal(dump.moved[0].becomes, WHEELIE_EMPTY, 'and it empties as the bag leaves');
   assert.equal(dump.impact, false, 'the dump is the consequence, not another collision');
 });
@@ -341,17 +343,18 @@ test('a grate takes what travelled into it, and the step says it fell', () => {
   // travel: matched against a sprite's ANCHOR it deflates the piece on the cell it started
   // from, and a piece that shrinks where it stood reads as forgotten rather than dropped.
   const slid = audit('grate slide', ['-----', '-@C--', 'E----'], 'r', { water: ['-----', '---O-', '-----'] });
-  assert.deepEqual(slid.steps[0].moved, [{ o: CAN_FULL, from: [2, 1], to: [3, 1], effect: 'falls' }]);
+  assert.deepEqual(slid.steps[0].moved,
+    [{ o: CAN_FULL, from: [2, 1], to: [3, 1], depth: 0, effect: 'falls' }]);
   assert.deepEqual(slid.steps[0].gone, []);
 
   const rolled = audit('grate roll', ['------', '-@W---', 'E-----'], 'r', { water: ['------', '----O-', '------'] });
   assert.deepEqual(rolled.steps.flatMap(st => st.moved),
-                   [{ o: WHEELIE, from: [2, 1], to: [4, 1], effect: 'falls' }]);
+                   [{ o: WHEELIE, from: [2, 1], to: [4, 1], depth: 0, effect: 'falls' }]);
   assert.deepEqual(rolled.steps.flatMap(st => st.gone), []);
 
   // And what a broom sweeps in, which travels as a line and loses only its head to the hole.
   const swept = audit('grate sweep', ['------', '@rC---', 'E-----'], 'r', { water: ['------', '---O--', '------'] });
   assert.deepEqual(swept.steps[0].moved.find(m => m.o === CAN_FULL),
-                   { o: CAN_FULL, from: [2, 1], to: [3, 1], effect: 'falls' });
+                   { o: CAN_FULL, from: [2, 1], to: [3, 1], depth: 0, effect: 'falls' });
   assert.deepEqual(swept.steps[0].gone, []);
 });
