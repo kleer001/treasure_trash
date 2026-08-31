@@ -2,10 +2,12 @@
 :format 1
 ;
 ;  legend  # wall  - floor  @ raccoon  $ bag  C full can  c empty can  x spilled trash
-;          B recycle bin (full)  b recycle bin (empty)  s sponge  d cardboard  E exit
+;          B recycle bin (full)  b recycle bin (empty)  s sponge  d cardboard
+;          w wheelie bin (empty)  E exit
 ;          terrain rides in :water — ~ canal  = filled in  % grease  O grate  * glass  _ covered
 ;
-;  Chapter 1 is the verbs, chapter 2 the containers, chapter 3 the floor.
+;  Chapter 1 is the verbs, chapter 2 the containers, chapter 3 the floor,
+;  chapter 4 the rollers.
 ;  Every room declares a :gate — what covers its lesson, and what verify.mjs takes away
 ;  to prove the exit will not open without it.
 ;
@@ -282,5 +284,79 @@
 ---------
 ----~----
 ----~----
+---------
+:end
+
+:level  T15
+:name   Free Wheeling
+:teach  the wheelie bin rolls until something stops it
+:gate   kind push
+:arm    on
+:par    3
+:traps  0
+:solves 1
+:solve  Rrd
+:note   One shove takes it the length of the run, and the turning is clear behind it.
+:grid
+#########
+#@w-----#
+###E#####
+#########
+:end
+
+:level  T16
+:name   Coupled
+:teach  two rollers already touching are one thing to shove
+:gate   kind push
+:arm    on
+:par    4
+:traps  0
+:solves 1
+:solve  Rrrd
+:note   They travel together and stay together, so one shove clears both.
+:grid
+##########
+#@ww-----#
+####E#####
+##########
+:end
+
+:level  T17
+:name   Handed On
+:teach  a roller strikes a roller and hands its motion on
+:gate   kind push
+:arm    on
+:par    4
+:traps  0
+:solves 1
+:solve  RrRd
+:note   The first stops where it meets the second, and the second goes on without being touched.
+:grid
+##########
+#@w--w---#
+####E#####
+##########
+:end
+
+:level  T18
+:name   No Difference
+:teach  grease changes nothing for a roller
+:gate   wall 4,1
+:arm    on
+:par    5
+:traps  0
+:solves 1
+:solve  Rrrrd
+:note   It was already going to the end of the run; the slick has nothing left to give it.
+:grid
+#########
+#@w-----#
+#####E###
+#########
+:end
+:water
+---------
+---%%%---
+---------
 ---------
 :end

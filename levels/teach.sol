@@ -46,3 +46,15 @@
 
 :solution T14
 :moves  RRRRdrru
+
+:solution T15
+:moves  Rrd
+
+:solution T16
+:moves  Rrrd
+
+:solution T17
+:moves  RrRd
+
+:solution T18
+:moves  Rrrrd
