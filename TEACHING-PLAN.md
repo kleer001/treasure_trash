@@ -48,6 +48,23 @@ hold its exit shut until the player has lost, so the gate rule does not reach th
 
 ---
 
+## What constrains a room
+
+Found by building, and each one has cost a room already:
+
+- **A tear needs all five of its fan cells free.** Tear rooms are open ground, never corridors.
+- **A can puts its bag down beside itself, and is then inside every fan.** So a full can is
+  three beats at minimum: shed, shove the can clear, tear.
+- **A container will not move unless the cell it moves into and the cell it sheds into are both
+  free.** There is no line of containers to have a leading one.
+- **A room with no piece action spends its whole par walking**, and the walk to the exit is
+  capped. A lesson with nothing to do in it has to be tiny.
+- **A gate needs the lesson to be NECESSARY, not merely present.** A barrier fails that on its
+  own — take it away and the room only gets easier — so it earns its room by being on the route
+  (`wall`) or by stranding a tool worth losing.
+- **A slick only matters to something the raccoon cannot walk behind.** It shortens a shove and
+  never enables one, so it is taught against the pieces that cannot be shoved twice.
+
 ## Chapter 1 — the verbs
 
 These teach what a shove is and what the room wants. The can turns up here because a push
@@ -63,105 +80,108 @@ needs something to shove; what a can IS belongs to chapter 2.
 ## Chapter 2 — the containers
 
 7. The full can, and the bag it puts down.
-8. The empty can: the same thing, done.
+8. A spent can is not something the exit waits for.
 9. The recycle bin, and the trash it sheds.
 10. A container needs room for what it puts down.
 
 ## Chapter 3 — the floor
 
-One lane per room, each against a piece already known.
+One lane per room, each against a piece already known. The tools come before the lanes that
+stop them, because a lane earns its room by keeping something worth keeping.
 
-11. The canal: what falls in, and what it becomes.
-12. Trash fills a canal, and the crossing is permanent.
-13. Grease: a slider runs to the end of the slick.
-14. Grease changes nothing for a roller.
-15. Tar keeps what enters it — and the raccoon walks it freely. **(losing room)**
-16. Broken glass: he may not step on it; objects cross it.
-17. A bag swept onto glass tears. **(losing room)**
-18. The grate: what goes down it is gone.
-19. The grate's fit rule: a longer thing spans the hole.
+11. The canal, and the trash that fills it.
+12. Grease: a slider runs to the end of the slick.
+13. The grate: what goes down it is gone.
+14. Cardboard covers a hazard and is spent doing it.
+15. The sponge dries the cell it lands on, and is not spent.
+16. The sponge will not skate on grease.
+17. Tar keeps what enters it — and the raccoon walks it freely. **(losing room)**
+18. Broken glass: he may not step on it, and what slides onto it stays. **(losing room)**
+19. The jug pours, and what it leaves is water.
 20. The one-way `^`: through it, and no way back.
 21. The one-way `v`.
 22. The one-way `<`.
 23. The one-way `>`.
-24. Cardboard covers a hazard and is spent doing it.
-25. The sponge dries the cell it lands on, and is not spent.
-26. The sponge will not skate on grease.
-27. The jug pours once, and the water washes the cell.
 
 ## Chapter 4 — the rollers
 
-28. The wheelie bin rolls until something stops it.
-29. The tyre has an axis: along it rolls, across it shifts.
-30. The other tyre, turned.
-31. Transfer on impact: a roller strikes a roller and hands its motion on.
-32. Two rollers already touching are one thing to shove.
-33. A slider is not a roller, and passes nothing on.
-34. A cascade ends.
-35. The office chair, and the trash that knocks it exactly one cell.
+A roller cannot be parked: one shove sends it until something stops it, so where it comes to
+rest is the room's doing and not the player's.
+
+24. The wheelie bin rolls until something stops it.
+25. Two rollers already touching are one thing to shove.
+26. A roller strikes a roller and hands its motion on.
+27. A cascade ends.
+28. A slider is not a roller, and passes nothing on.
+29. Grease changes nothing for a roller.
+30. The tyre has an axis: along it rolls, across it shifts.
+31. The other tyre, turned.
+32. The office chair, and the trash that knocks it exactly one cell.
 
 ## Chapter 5 — the bodies
 
-36. The couch: two cells, one thing, one cell a shove.
-37. The bicycle rolls along its own length.
-38. The rug is a cylinder: shoved end-on it slides.
-39. The rug rolls when shoved against its SIDE.
-40. A rolling rug hands off to a bicycle lying across it.
-41. A body a grate takes whole, and a body that spans it.
+33. The couch: two cells, one thing, one cell a shove.
+34. The bicycle rolls along its own length.
+35. The rug is a cylinder: shoved end-on it slides.
+36. The rug rolls when shoved against its SIDE.
+37. A rolling rug hands off to a bicycle lying across it.
+38. A body a grate takes whole.
+39. A body that spans a grate.
 
 ## Chapter 6 — the tools
 
-42. The pane shatters into the cell beyond and leaves glass.
-43. A pane with nowhere to break rides intact.
-44. The broom moves a whole line, of any kinds, one cell.
-45. The broom on grease takes its line the length of the slick.
-46. Only the head of a swept line can shed.
+40. The pane shatters into the cell beyond and leaves glass.
+41. A pane with nowhere to break rides intact.
+42. The broom moves a whole line, of any kinds, one cell.
+43. The broom on grease takes its line the length of the slick.
+44. Only the head of a swept line can shed.
+45. A bag swept onto glass tears. **(losing room)**
 
 ## Chapter 7 — the machines
 
-47. The closed cabinet: one cell, shoved like anything else.
-48. Struck on the back, the drawer shoots out the front.
-49. Shoved on the drawer, the shove is spent closing it.
-50. An object pushed into an open drawer closes it.
-51. The cabinet facing up.
-52. The cabinet facing down.
-53. The cabinet facing left.
-54. The cabinet facing right.
-55. The magnet: the nearest metal on its line closes to adjacent.
-56. Reach is three cells, and four is out of reach.
-57. A wall blocks the line; an object does not.
-58. The chain follows, and breaks when it leaves the line.
-59. Pushing the metal drags the magnet.
-60. A magnet capturing a magnet.
+46. The closed cabinet: one cell, shoved like anything else.
+47. Struck on the back, the drawer shoots out the front.
+48. Shoved on the drawer, the shove is spent closing it.
+49. An object pushed into an open drawer closes it.
+50. The cabinet facing up.
+51. The cabinet facing down.
+52. The cabinet facing left.
+53. The cabinet facing right.
+54. The magnet: the nearest metal on its line closes to adjacent.
+55. Reach is three cells, and four is out of reach.
+56. A wall blocks the line; an object does not.
+57. The chain follows, and breaks when it leaves the line.
+58. Pushing the metal drags the magnet.
+59. A magnet capturing a magnet.
 
 ## Chapter 8 — the wheels
 
-61. The skateboard: an open deck, it takes what it rolls over.
-62. What it takes in pushes the old load out the back.
-63. Weight: a skateboard carrying anything moves one cell instead of rolling.
-64. A wheelie bin is light full or empty — its trash is not cargo.
-65. Grease beats weight.
-66. A loaded skateboard with nowhere to go sheds out the back.
-67. It never sheds into the cell the raccoon is standing in. **(losing room)**
-68. The barrow faces the way its tub points.
-69. Shoved that way, it takes what it is ALREADY touching.
-70. Shoved back along the same line it rolls, and takes nothing.
-71. Shoved across the line it tips, and the load lands one cell on.
-72. A barrow carries a loaded barrow.
-73. Depth costs an empty barrow, and the stack is built from the inside out.
-74. A barrow tows a piece too big to scoop.
-75. Pushing the towed piece brings the barrow along.
+60. The skateboard: an open deck, it takes what it rolls over.
+61. What it takes in pushes the old load out the back.
+62. Weight: a skateboard carrying anything moves one cell instead of rolling.
+63. A wheelie bin is light full or empty — its trash is not cargo.
+64. Grease beats weight.
+65. A loaded skateboard with nowhere to go sheds out the back.
+66. It never sheds into the cell the raccoon is standing in. **(losing room)**
+67. The barrow faces the way its tub points.
+68. Shoved that way, it takes what it is ALREADY touching.
+69. Shoved back along the same line it rolls, and takes nothing.
+70. Shoved across the line it tips, and the load lands one cell on.
+71. A barrow carries a loaded barrow.
+72. Depth costs an empty barrow, and the stack is built from the inside out.
+73. A barrow tows a piece too big to scoop.
+74. Pushing the towed piece brings the barrow along.
 
 ## Chapter 9 — where the momentum goes
 
 Everything here needs two pieces the player already knows.
 
-76. A knock moves a wheeled thing, the way it moves any other roller.
-77. A heavy one does not move — it takes the blow and rattles.
-78. Pinned, with nowhere to move, it takes the thing that hit it INSIDE instead.
-79. A barrow catches only through its mouth; its back is a wall.
-80. A run of touching things is one thing to push, and the heaviest sets the pace.
-81. A skateboard set rolling by a knock takes nothing aboard.
+75. A knock moves a wheeled thing, the way it moves any other roller.
+76. A heavy one does not move — it takes the blow and rattles.
+77. Pinned, with nowhere to move, it takes the thing that hit it INSIDE instead.
+78. A barrow catches only through its mouth; its back is a wall.
+79. A run of touching things is one thing to push, and the heaviest sets the pace.
+80. A skateboard set rolling by a knock takes nothing aboard.
 
 ---
 
