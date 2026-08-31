@@ -3,11 +3,12 @@
 ;
 ;  legend  # wall  - floor  @ raccoon  $ bag  C full can  c empty can  x spilled trash
 ;          B recycle bin (full)  b recycle bin (empty)  s sponge  d cardboard
-;          w wheelie bin (empty)  E exit
+;          w wheelie bin (empty)  F couch  Y bicycle  U rug  E exit
+;          a multi-cell piece is a touching blob of one letter
 ;          terrain rides in :water — ~ canal  = filled in  % grease  O grate  * glass  _ covered
 ;
 ;  Chapter 1 is the verbs, chapter 2 the containers, chapter 3 the floor,
-;  chapter 4 the rollers.
+;  chapter 4 the rollers, chapter 5 the bodies.
 ;  Every room declares a :gate — what covers its lesson, and what verify.mjs takes away
 ;  to prove the exit will not open without it.
 ;
@@ -359,4 +360,120 @@
 ---%%%---
 ---------
 ---------
+:end
+
+:level  T19
+:name   Two Cells, One Thing
+:teach  the couch: two cells, one thing, one cell a shove
+:gate   kind push
+:arm    on
+:par    5
+:traps  0
+:solves 4
+:solve  dRRRd
+:note   Three shoves to clear one turning, because it never travels further than it is shoved.
+:grid
+##########
+#@F------#
+#-F------#
+####E#####
+##########
+:end
+
+:level  T20
+:name   Unrolled
+:teach  the rug rolls when shoved against its side
+:gate   kind push
+:arm    on
+:par    5
+:traps  0
+:solves 4
+:solve  dRrrd
+:note   The room before this one, with the couch swapped for a rug: same par, one shove.
+:grid
+##########
+#@U------#
+#-U------#
+####E#####
+##########
+:end
+
+:level  T21
+:name   End On
+:teach  the rug is a cylinder: shoved end-on it slides
+:gate   kind push
+:arm    on
+:par    4
+:traps  0
+:solves 1
+:solve  RRRd
+:note   Turned the other way it is the couch again, and goes a cell at a time.
+:grid
+##########
+#@UU-----#
+####E#####
+##########
+:end
+
+:level  T22
+:name   Along Its Length
+:teach  the bicycle rolls along its own length
+:gate   kind push
+:arm    on
+:par    4
+:traps  0
+:solves 1
+:solve  Rrrd
+:note   Same board as the rug end-on, same par, and one shove instead of three.
+:grid
+##########
+#@YY-----#
+####E#####
+##########
+:end
+
+:level  T23
+:name   Taken Whole
+:teach  a body a grate takes whole
+:gate   dry 4,1 5,1
+:arm    on
+:par    4
+:traps  0
+:solves 1
+:solve  RRrd
+:note   The corridor is too short to shove it clear, so the only way past it is down.
+:grid
+#######
+#@FF--#
+####E##
+#######
+:end
+:water
+-------
+----OO-
+-------
+-------
+:end
+
+:level  T24
+:name   Spanning
+:teach  a body that spans a grate
+:gate   wall 4,1
+:arm    on
+:par    6
+:traps  0
+:solves 1
+:solve  RRRRRd
+:note   One cell of it is over the hole and the other is not, so it rides across.
+:grid
+##########
+#@FF-----#
+######E###
+##########
+:end
+:water
+----------
+----O-----
+----------
+----------
 :end

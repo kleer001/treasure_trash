@@ -58,3 +58,21 @@
 
 :solution T18
 :moves  Rrrrd
+
+:solution T19
+:moves  dRRRd
+
+:solution T20
+:moves  dRrrd
+
+:solution T21
+:moves  RRRd
+
+:solution T22
+:moves  Rrrd
+
+:solution T23
+:moves  RRrd
+
+:solution T24
+:moves  RRRRRd
