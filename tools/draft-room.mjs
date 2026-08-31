@@ -35,8 +35,8 @@ export function draft(room) {
   if (s.cells[s.rac.y][s.rac.x].exit) no('raccoon starts on the exit');
   if (!isOneRoom(s)) no('the open cells fall in more than one region');
   if (toGrid(s).join('\n') !== room.grid.join('\n')) no('grid does not round-trip');
-  if (room.cart && toCart(s).join('\n') !== room.cart.join('\n')) no('cart mask does not round-trip');
-  if (room.water && toWater(s).join('\n') !== room.water.join('\n')) no('water mask does not round-trip');
+  if (room.cart && (toCart(s) ?? []).join('\n') !== room.cart.join('\n')) no('cart mask does not round-trip');
+  if (room.water && (toWater(s) ?? []).join('\n') !== room.water.join('\n')) no('water mask does not round-trip');
 
   const t0 = Date.now();
   const a = analyze(s);
