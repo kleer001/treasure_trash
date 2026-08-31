@@ -76,3 +76,6 @@
 
 :solution T24
 :moves  RRRRRd
+
+:solution T25
+:moves  Rrrrd

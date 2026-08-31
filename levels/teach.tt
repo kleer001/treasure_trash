@@ -477,3 +477,26 @@
 ----------
 ----------
 :end
+
+:level  T25
+:name   Handed Along
+:teach  a rug shoved end-on hands off to a bicycle lying along its path
+:gate   kind push
+:arm    on
+:par    5
+:traps  0
+:solves 1
+:solve  Rrrrd
+:note   The corridor never lets him behind the bicycle; the rug is the only thing that moves it.
+:grid
+#############
+#@UU-YY-----#
+#####E#######
+#############
+:end
+:water
+-------------
+---OO--------
+-------------
+-------------
+:end
