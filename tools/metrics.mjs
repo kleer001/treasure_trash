@@ -345,6 +345,14 @@ function handledCells(a, onDag) {
       for (const m of st.moved) { add(m.from); add(m.to); }
       for (const s of st.spawned) { add(s.at); add(s.from); }
       for (const g of st.gone) add(g.at);
+      // A body and a cart travel as a `piece` entry naming an id, not as a list of cells, so
+      // reading only the lists above loses every piece the raccoon did not shove itself — the
+      // one a roll handed its motion to most of all.
+      for (const pc of [st.piece ?? []].flat()) {
+        const field = pc.kind === 'cart' ? 'cart' : 'pid';
+        for (let y = 0; y < n.state.rows; y++) for (let x = 0; x < n.state.cols; x++)
+          if (n.state.cells[y][x][field] === pc.ref) { add([x, y]); add([x + pc.dx, y + pc.dy]); }
+      }
     }
   }
   return hit;
