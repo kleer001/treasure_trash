@@ -21,3 +21,15 @@
 
 :solution T6
 :moves  U!dd
+
+:solution T7
+:moves  RurDR!lu
+
+:solution T8
+:moves  R!lu
+
+:solution T9
+:moves  Ru
+
+:solution T10
+:moves  urDu

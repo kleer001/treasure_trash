@@ -1,9 +1,10 @@
-:pack   Treasure Trash — the teaching rooms, chapter 1: the verbs
+:pack   Treasure Trash — the teaching rooms
 :format 1
 ;
-;  legend  # wall  - floor  @ raccoon  $ bag  c empty can  x spilled trash  E exit
+;  legend  # wall  - floor  @ raccoon  $ bag  C full can  c empty can  x spilled trash
+;          B recycle bin (full)  b recycle bin (empty)  E exit
 ;
-;  Nothing here is a piece. These teach what a shove is and what the room wants.
+;  Chapter 1 is the verbs, chapter 2 the containers.
 ;  Every room declares a :gate — what covers its lesson, and what verify.mjs takes away
 ;  to prove the exit will not open without it.
 ;
@@ -114,5 +115,81 @@
 #--$--#
 #-c@--#
 #--E--#
+#######
+:end
+
+:level  T7
+:name   Set Down
+:teach  the full can, and the bag it puts down
+:gate   kind push
+:arm    on
+:par    7
+:traps  2
+:solves 1
+:solve  RurDR!lu
+:note   The bag lands beside the can, and the can is then in every fan, so it is shoved clear
+:grid
+#######
+#--E--#
+#@C---#
+#-----#
+#-----#
+#######
+:end
+
+:level  T8
+:name   Spent
+:teach  a spent can is not something the exit waits for
+:gate   kind tear
+:arm    on
+:par    3
+:traps  2
+:solves 1
+:solve  R!lu
+:note   The can is still standing when the door opens, which is the whole of the lesson.
+:grid
+#######
+#E----#
+#@$-c-#
+#-----#
+#-----#
+#######
+:end
+
+:level  T9
+:name   Recycling
+:teach  the recycle bin, and the trash it sheds
+:gate   kind push
+:arm    on
+:par    2
+:traps  0
+:solves 1
+:solve  Ru
+:note   One shove clears the yard, and nothing is torn.
+:grid
+#######
+#-E---#
+#@B---#
+#-----#
+#-----#
+#######
+:end
+
+:level  T10
+:name   Nowhere To Put It
+:teach  a container needs room for what it puts down
+:gate   kind push
+:arm    on
+:par    4
+:traps  0
+:solves 1
+:solve  urDu
+:note   The room before this one with one wall added, and the shove that solved it refused.
+:grid
+#######
+#-E---#
+#@B-#-#
+#-----#
+#-----#
 #######
 :end

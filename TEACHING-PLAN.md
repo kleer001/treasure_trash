@@ -49,7 +49,8 @@ hold its exit shut until the player has lost, so the gate rule does not reach th
 
 ## Chapter 1 — the verbs
 
-Nothing here is a piece. These teach what a shove is and what the room wants.
+These teach what a shove is and what the room wants. The can turns up here because a push
+needs something to shove; what a can IS belongs to chapter 2.
 
 1. Walk to the exit.
 2. The exit waits on the bags.
@@ -63,7 +64,7 @@ Nothing here is a piece. These teach what a shove is and what the room wants.
 7. The full can, and the bag it puts down.
 8. The empty can: the same thing, done.
 9. The recycle bin, and the trash it sheds.
-10. Only the leading thing in a line can shed.
+10. A container needs room for what it puts down.
 
 ## Chapter 3 — the floor
 
