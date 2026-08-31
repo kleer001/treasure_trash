@@ -442,9 +442,10 @@ export function parseGate(gate, id) {
 }
 
 /** The room with its lesson covered, for `erase` and `wall`. */
-export function coverGate(room, { mode, cells }, id = room.id) {
+export function coverGate(room, { mode, cells: named }, id = room.id) {
   const rows = room.grid.length;
   const cols = Math.max(...room.grid.map(r => r.length));
+  let cells = named;
   const hit = (x, y) => cells.some(([cx, cy]) => cx === x && cy === y);
   for (const [x, y] of cells) {
     if (x >= cols || y >= rows) throw new Error(`${id}: :gate names (${x},${y}), off a ${cols}x${rows} grid`);
@@ -456,6 +457,15 @@ export function coverGate(room, { mode, cells }, id = room.id) {
   }
   const paint = (block, ch) => block.map((row, y) =>
     [...row.padEnd(cols, '-')].map((c, x) => (hit(x, y) ? ch : c)).join(''));
+  // `erase` takes a PIECE, so a cell of one takes all of it. Naming a single cell of a couch
+  // would otherwise leave half a couch, which is not a board the reader will build.
+  if (mode === 'erase') {
+    for (const p of roomPieces(toState({ ...room, id }))) {
+      if (!p.cells.some(([px, py]) => hit(px, py))) continue;
+      for (const c of p.cells) if (!hit(...c)) cells = [...cells, c];
+    }
+  }
+
   // Drying touches the lane and nothing else: the cell, and whatever is standing on it, stay.
   if (mode === 'dry') {
     if (!room.water) throw new Error(`${id}: :gate dry on a room with no terrain`);
