@@ -405,15 +405,18 @@ export function inertPieces(room, a, { maxStates = MAX_STATES, onDag } = {}) {
 //   erase   the lesson is a piece. Its cells go back to bare floor — the room keeps every
 //           route it had and loses only the piece, so an unsolvable result means the piece
 //           was doing work rather than blocking a corridor.
-//   wall    the lesson is a terrain lane. Its cells are taken away, because handing a lane
-//           back as floor only ever makes a room more permissive and could never fail.
+//   wall    the lesson is a lane the route has to CROSS. Its cells are taken away, because a
+//           crossing is proved by there being nothing left to cross to.
+//   dry     the lesson is what a lane DOES. Its cells stay and go back to bare floor, which is
+//           the only cover that can fail for the right reason when a room needs a slick to
+//           carry something further than a shove would.
 //   kind    the lesson is an action class. Every win is unreachable using the other classes.
 //
 // `none` is the fourth, and it is a claim too: this room has no gate. The rooms that open the
 // game gate on themselves, and a room whose lesson IS the loss cannot hold its exit shut until
 // the player has lost.
 
-const GATE_MODES = new Set(['erase', 'wall', 'kind', 'none']);
+const GATE_MODES = new Set(['erase', 'wall', 'dry', 'kind', 'none']);
 const GATE_KINDS = { push: PUSH, tear: TEAR, move: MOVE };
 
 /** Read a `:gate` value. Cells are `x,y` in grid indices, the way `:hold` writes them. */
@@ -448,10 +451,16 @@ export function coverGate(room, { mode, cells }, id = room.id) {
     // Naming one of these covers the room rather than the lesson, and `toState` would then
     // complain about a missing raccoon instead of about the declaration that removed it.
     const ch = room.grid[y][x] ?? '-';
-    if ('@+E'.includes(ch)) throw new Error(`${id}: :gate names (${x},${y}), which is the ${ch === 'E' ? 'exit' : 'raccoon'}`);
+    if (mode !== 'dry' && '@+E'.includes(ch))
+      throw new Error(`${id}: :gate names (${x},${y}), which is the ${ch === 'E' ? 'exit' : 'raccoon'}`);
   }
   const paint = (block, ch) => block.map((row, y) =>
     [...row.padEnd(cols, '-')].map((c, x) => (hit(x, y) ? ch : c)).join(''));
+  // Drying touches the lane and nothing else: the cell, and whatever is standing on it, stay.
+  if (mode === 'dry') {
+    if (!room.water) throw new Error(`${id}: :gate dry on a room with no terrain`);
+    return { ...room, water: paint(room.water, '-') };
+  }
   const out = { ...room, grid: paint(room.grid, mode === 'wall' ? '#' : '-') };
   // Erasing a piece leaves the floor it stood on, terrain and all; walling takes the cell away,
   // and a wall carries neither a lane nor a cart.

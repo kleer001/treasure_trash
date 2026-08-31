@@ -2,9 +2,10 @@
 :format 1
 ;
 ;  legend  # wall  - floor  @ raccoon  $ bag  C full can  c empty can  x spilled trash
-;          B recycle bin (full)  b recycle bin (empty)  E exit
+;          B recycle bin (full)  b recycle bin (empty)  s sponge  d cardboard  E exit
+;          terrain rides in :water — ~ canal  = filled in  % grease  O grate  * glass  _ covered
 ;
-;  Chapter 1 is the verbs, chapter 2 the containers.
+;  Chapter 1 is the verbs, chapter 2 the containers, chapter 3 the floor.
 ;  Every room declares a :gate — what covers its lesson, and what verify.mjs takes away
 ;  to prove the exit will not open without it.
 ;
@@ -192,4 +193,94 @@
 #-----#
 #-----#
 #######
+:end
+
+:level  T11
+:name   Bridged
+:teach  trash fills a canal, and the crossing is permanent
+:gate   erase 2,1
+:arm    on
+:par    8
+:traps  0
+:solves 1
+:solve  RRRRdrru
+:note   The bin sheds into the water rather than onto the floor, and what it sheds is the bridge.
+:grid
+#########
+#@B----E#
+#-------#
+#########
+:end
+:water
+---------
+----~----
+----~----
+---------
+:end
+
+:level  T12
+:name   Down The Drain
+:teach  the grate: what goes down it is gone
+:gate   dry 3,1
+:arm    on
+:par    4
+:traps  0
+:solves 1
+:solve  Rrrr
+:note   The corridor is cleared by losing the can, and the can is not coming back.
+:grid
+#######
+#@c--E#
+#######
+:end
+:water
+-------
+---O---
+-------
+:end
+
+:level  T13
+:name   Laid Over
+:teach  cardboard covers a hazard, and is spent doing it
+:gate   erase 2,1
+:arm    on
+:par    6
+:traps  1
+:solves 1
+:solve  RRrrrr
+:note   The glass is still there under it; what changed is that it can be walked on.
+:grid
+#########
+#@d----E#
+#-------#
+#########
+:end
+:water
+---------
+----*----
+----*----
+---------
+:end
+
+:level  T14
+:name   Mopped Up
+:teach  the sponge dries the cell it lands on, and is not spent
+:gate   erase 2,1
+:arm    on
+:par    8
+:traps  1
+:solves 1
+:solve  RRRRdrru
+:note   The sponge is still a sponge afterwards, which is the whole of what it is for.
+:grid
+#########
+#@s----E#
+#-------#
+#########
+:end
+:water
+---------
+----~----
+----~----
+---------
 :end

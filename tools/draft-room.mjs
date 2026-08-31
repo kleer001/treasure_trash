@@ -59,7 +59,9 @@ export function draft(room) {
   if (room.gate !== undefined) {
     const g = parseGate(room.gate, room.id);
     if (g.mode === 'kind' && winnableWithoutKind(a, g.kind)) no(`the exit opens without a ${g.kind}`);
-    if (g.mode === 'erase' || g.mode === 'wall') {
+    // Every cover mode but `kind`, rather than a list of them: a mode left off a list here is a
+    // room drafted against a question nobody asked.
+    if (g.mode !== 'kind' && g.mode !== 'none') {
       const covered = analyze(toState({ ...coverGate(room, g), id: `${room.id}~gated` }));
       if (covered.minMoves !== null) no(`covered, the room is still solvable in ${covered.minMoves}`);
     }

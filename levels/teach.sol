@@ -33,3 +33,16 @@
 
 :solution T10
 :moves  urDu
+
+:solution T11
+:moves  RRRRdrru
+
+
+:solution T12
+:moves  Rrrr
+
+:solution T13
+:moves  RRrrrr
+
+:solution T14
+:moves  RRRRdrru

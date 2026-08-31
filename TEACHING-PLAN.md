@@ -27,9 +27,10 @@ So: **one new idea per room, and nothing else on the board that has to be worked
 - **Short par.** Long enough to do the thing and reach the exit. Walking is not content.
 - **One new piece, lane or rule.** Everything else present has already had its own room.
 - **The exit stays shut until the lesson is done.** Each room declares a `:gate` naming what
-  covers its lesson; `verify.mjs` takes that away and proves nothing is left to solve. Three
-  covers, because three kinds of thing get taught: `erase` a piece, `wall` a lane, or name the
-  action `kind` no solution can avoid. `none` is a claim too, not an omission — the rooms that
+  covers its lesson; `verify.mjs` takes that away and proves nothing is left to solve. Four
+  covers, because four kinds of thing get taught: `erase` a piece, `wall` a lane the route has
+  to cross, `dry` a lane whose behaviour is what matters, or name the action `kind` no solution
+  can avoid. `none` is a claim too, not an omission — the rooms that
   open the game gate on themselves, and a losing room cannot hold its exit shut until the
   player has lost.
 - **One shape at a time.** A piece with an axis or a facing gets its directions in consecutive
