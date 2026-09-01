@@ -177,3 +177,20 @@ test('an entry naming the wrong handle is caught where no sprite comparison coul
   assert.equal(misnamed.ok, false);
   assert.match(misnamed.why, /nothing answers to \d+,\d+\/cart/);
 });
+
+test('a removal that lies about what it took cannot hide behind an arrival', () => {
+  // A removal at a handle the board never held is asked of the entry that announced it, because
+  // there is nothing else to ask. That reading must not extend to a handle the board DOES hold:
+  // pairing a spawn onto one would let a removal agree with itself about a thing it never took.
+  const { room } = corridor({ left: 'C', lane: 'O' });
+  const s = toState({ ...room, id: 'disguise' });
+  assert.equal(landsWhereTheBoardSays(s, 'r').ok, true, 'the honest run passes');
+  const disguised = landsWhereTheBoardSays(s, 'r', st => {
+    const g = st.gone.find(e => e.ref === undefined);
+    const lie = { ...g, o: g.o + 1 };
+    return { ...st, gone: st.gone.map(e => (e === g ? lie : e)),
+             spawned: [...st.spawned, { o: lie.o, cells: g.cells, depth: g.depth }] };
+  });
+  assert.equal(disguised.ok, false);
+  assert.match(disguised.why, /gone: the step names o \d+ at \d+,\d+\/\d+, which holds occupant/);
+});

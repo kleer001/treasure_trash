@@ -161,10 +161,13 @@ export function handleFaults(r) {
         ? { what: 'cart', ref: m.fromCart } : { what: 'occupant', o: m.o }));
     // An arrival the board did not receive is both facts: it arrives, and it is then gone. Such
     // a removal answers to a handle on the board the step PRODUCED rather than the one it ran
-    // on, so it is asked of the entry that announced it instead.
+    // on, so it is asked of the entry that announced it instead. The before board still gets
+    // the first word: a handle it holds is a thing that was already there, and pairing a spawn
+    // onto that handle cannot excuse the removal from saying what it took.
     const arrivals = new Map(step.spawned.filter(sp => !isBodyEvent(sp))
       .map(sp => [eventHandle(sp), sp]));
-    const fromTheBoard = g => isBodyEvent(g) || !arrivals.has(eventHandle(g));
+    const fromTheBoard = g => isBodyEvent(g)
+      || before.has(eventHandle(g)) || !arrivals.has(eventHandle(g));
     const asArrived = g => {
       const { o } = arrivals.get(eventHandle(g));
       return o === g.o ? null
