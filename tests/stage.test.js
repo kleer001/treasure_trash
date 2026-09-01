@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, CAN_EMPTY, TRASH, BAG, WHEELIE, WHEELIE_EMPTY, FURNITURE } from '../src/rules.js';
+import { explain, CAN_EMPTY, CAN_FULL, TRASH, BAG, WHEELIE, WHEELIE_EMPTY, FURNITURE } from '../src/rules.js';
 import { toState } from '../src/format.js';
 import {
   stageFrom, applyStep, advance, settle, rollEase, easeOut, pileLook, bump, NUDGE,
@@ -342,8 +342,9 @@ test('what goes down a grate arrives first, then drops', () => {
   // say it was disappearing rather than dropping, and would not say which cell took it.
   const stage = { sprites: [], nextId: 0 };
   applyStep(stage, {
-    moved: [], gone: [], piece: [], impact: false,
-    spawned: [{ o: BAG, cells: [[3, 1]], from: [1, 1], depth: 0, effect: 'falls' }],
+    moved: [], piece: [], impact: false,
+    spawned: [{ o: BAG, cells: [[3, 1]], from: [1, 1], depth: 0 }],
+    gone: [{ o: BAG, cells: [[3, 1]], depth: 0, effect: 'falls' }],
   });
   const [bag] = stage.sprites;
   assert.equal(bag.falls, true);
@@ -361,6 +362,27 @@ test('what goes down a grate arrives first, then drops', () => {
   assert.equal(bag.deflate, 0, 'gone by the end of the beat');
   settle(stage);
   assert.deepEqual(stage.sprites, [], 'and off the stage');
+});
+
+test('a thing that travels into a grate is taken once, not deflated on the way as well', () => {
+  // Two accounts of one leaving. Deflate it for the removal and drop it for the grate and it
+  // shrinks by both at once, which is the sprite being taken twice over.
+  const stage = stageFrom(S(['@-C-E', '-----']), 1);
+  const can = one(stage, CAN_FULL);
+  applyStep(stage, {
+    moved: [{ o: CAN_FULL, from: [2, 0], to: [3, 0], depth: 0 }],
+    gone: [{ o: CAN_FULL, cells: [[2, 0]], depth: 0, effect: 'falls' }],
+    spawned: [], piece: [], impact: false,
+  });
+  assert.equal(can.falls, true);
+  assert.ok(!can.dying, 'the drop is the whole of how it leaves');
+
+  advance(stage, 0.3);
+  assert.equal(can.deflate, 1, 'still whole while it is travelling');
+  advance(stage, 1);
+  assert.equal(can.deflate, 0, 'and all the way down by the end of the beat');
+  settle(stage);
+  assert.equal(of(stage, CAN_FULL).length, 0, 'off the stage');
 });
 
 // A piece that opens into two cells has to be able to APPEAR: nothing in the game mints a body
@@ -394,8 +416,8 @@ test('a body swapped for something else leaves the stage', () => {
   const ref = one(stage, COUCH).ref;
   applyStep(stage, {
     moved: [], spawned: [{ o: BAG, cells: [[1, 1]], from: [1, 1], depth: 0 }], impact: false,
-    piece: [{ kind: 'furniture', ref, dx: 0, dy: 0, effect: 'swaps' }],
-    gone: [{ kind: 'furniture', ref, cells: [[1, 1], [2, 1]], effect: 'swaps', depth: 0 }],
+    piece: [{ kind: 'furniture', ref, dx: 0, dy: 0 }],
+    gone: [{ kind: 'furniture', ref, cells: [[1, 1], [2, 1]], depth: 0 }],
   });
   settle(stage);
   assert.equal(of(stage, COUCH).length, 0, 'the body is gone');

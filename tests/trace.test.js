@@ -62,8 +62,12 @@ function audit(label, grid, dir, { cart, water } = {}) {
     for (const m of step.moved)
       assert.equal(cell(prev, ...m.from).o, m.o,
         `${at}: moved says ${m.o} was at ${m.from}, the board had ${cell(prev, ...m.from).o}`);
+    // An arrival the board did not receive is both facts: it arrives, and it is then gone. Such
+    // a removal is about a thing that was never on the board this step ran on, so the origin
+    // claim is not one it makes.
+    const arrived = new Set(step.spawned.map(sp => `${key(sp.cells[0])}/${sp.depth}`));
     for (const g of step.gone)
-      if (g.o !== undefined)
+      if (g.o !== undefined && !arrived.has(`${key(g.cells[0])}/${g.depth}`))
         assert.equal(cell(prev, ...g.cells[0]).o, g.o, `${at}: gone says ${g.o} was at ${g.cells[0]}`);
 
     // Something new lands on empty ground, or on ground vacated in this same step — the
@@ -93,12 +97,14 @@ test('a tear consumes the bag and throws five piles out of it', () => {
   for (const sp of step.spawned) assert.deepEqual(sp.from, [2, 1], 'every speck flies out of the bag');
 });
 
-test('a fan cell over the canal reports that it fills rather than rests', () => {
+test('a fan cell over the canal takes what lands on it, and the step says so', () => {
   const r = audit('tear-canal', ['-----', '--$--', '--@--', 'E----'], 'u',
     { water: ['--~--', '-----', '-----', '-----'] });
-  const fills = r.steps[0].spawned.filter(sp => sp.effect === 'fills');
-  assert.equal(fills.length, 1);
-  assert.deepEqual(fills[0].cells, [[2, 0]]);
+  const [step] = r.steps;
+  assert.equal(step.spawned.filter(sp => sp.cells[0][0] === 2 && sp.cells[0][1] === 0).length, 1,
+    'the speck still flies to the canal cell');
+  assert.deepEqual(step.gone.filter(g => g.o === TRASH),
+    [{ o: TRASH, cells: [[2, 0]], depth: 0 }], 'and the canal keeps it');
 });
 
 test('each two-cell piece moves itself and launches its load from its own cell', () => {
@@ -241,13 +247,14 @@ test('a tip lands contiguously behind the skateboard, never skipping a taken cel
   }
 });
 
-test('cargo tipped into the canal reports that it fills', () => {
+test('cargo tipped into the canal travels there and does not survive it', () => {
   const r = audit('cart-canal', ['-x#', '@x#', 'E--'], 'r',
     { cart: ['-P-', '-P-', '---'], water: ['~--', '---', '---'] });
   const tip = r.steps.at(-1);
-  assert.equal(tip.moved[0].effect, 'fills');
   assert.equal(tip.moved[0].o, TRASH);
   assert.deepEqual(tip.moved[0].to, [0, 0]);
+  // Named where the stage is HOLDING it, which is the cell it set off from.
+  assert.deepEqual(tip.gone, [{ o: TRASH, cells: [tip.moved[0].from], depth: 0 }]);
 });
 
 test('a tip only ever moves cargo backward, and never past the run the skateboard came through', () => {
@@ -316,45 +323,51 @@ test('a swept container reports what it becomes as it sheds', () => {
   assert.equal(r.steps[0].spawned.filter(sp => sp.o === BAG).length, 1);
 });
 
-test('a grate that takes a BODY says so on the piece entry', () => {
-  // A body has no occupant code, so `gone` — which names a sprite by its code and cell — cannot
-  // express one. Without a word from the piece entry nothing is emitted at all: the board is
-  // right, the step is silent, and the stage slides the sprite onto the grate and leaves it
-  // drawn there. It ARRIVES and is then gone, which is what `falls` says everywhere else.
+test('a grate that takes a BODY takes it in the same lane as everything else', () => {
+  // Without a removal nothing is emitted at all: the board is right, the step is silent, and the
+  // stage slides the sprite onto the grate and leaves it drawn there. The piece entry carries it
+  // to the hole and the removal takes it down, which is the two-part account every traveller
+  // that does not survive the trip gets.
   const rolled = audit('grate body', ['#####', '#@---', '#UU--', '#----', '#----', '#---E', '#####'],
                        'd', { water: ['-----', '-----', '-----', '-----', '-OO--', '-----', '-----'] });
+  const cells = pieceCells(rolled.frames[0], 0);
   assert.deepEqual(rolled.steps[0].piece,
-                   [{ kind: 'furniture', ref: 0, dx: 0, dy: 2, effect: 'falls',
-                      cells: pieceCells(rolled.frames[0], 0) }]);
+                   [{ kind: 'furniture', ref: 0, dx: 0, dy: 2, cells }]);
+  assert.deepEqual(rolled.steps[0].gone,
+                   [{ kind: 'furniture', ref: 0, effect: 'falls', cells, depth: 0 }]);
 
-  // And what a hand-off passes to a grate, body or not: the same word, on whichever entry can
-  // carry it. A tyre is an occupant, so it is `moved` that has to say it.
+  // And what a hand-off passes to a grate, body or not: one lane, whichever sort of thing it is.
   const passed = audit('grate handoff',
                        ['######', '#@----', '#UU---', '#-----', '#O----', '#-----', '#----E', '######'],
                        'd', { water: ['------', '------', '------', '------', '------', '-O----',
                                       '------', '------'] });
   const tyre = passed.steps[0].moved.find(m => m.to[1] === 5);
-  assert.equal(tyre.effect, 'falls', 'the tyre it handed off to went down the grate');
+  assert.deepEqual(passed.steps[0].gone,
+                   [{ o: tyre.o, cells: [tyre.from], depth: 0, effect: 'falls' }],
+                   'the tyre it handed off to went down the grate');
 });
 
-test('a grate takes what travelled into it, and the step says it fell', () => {
-  // It ARRIVES over the grate and only then goes down, which is the same two-part account the
-  // body and the hand-off get. `gone` alone is right about the board and silent about the
-  // travel: matched against a sprite's ANCHOR it deflates the piece on the cell it started
-  // from, and a piece that shrinks where it stood reads as forgotten rather than dropped.
+test('a grate takes what travelled into it, and the step keeps both halves of that', () => {
+  // It ARRIVES over the grate and only then goes down. A removal on its own is right about the
+  // board and silent about the travel: matched against a sprite's ANCHOR it deflates the piece
+  // on the cell it started from, and a piece that shrinks where it stood reads as forgotten
+  // rather than dropped. So the movement entry carries it and the removal takes it down.
   const slid = audit('grate slide', ['-----', '-@C--', 'E----'], 'r', { water: ['-----', '---O-', '-----'] });
   assert.deepEqual(slid.steps[0].moved,
-    [{ o: CAN_FULL, from: [2, 1], to: [3, 1], depth: 0, effect: 'falls' }]);
-  assert.deepEqual(slid.steps[0].gone, []);
+    [{ o: CAN_FULL, from: [2, 1], to: [3, 1], depth: 0 }]);
+  assert.deepEqual(slid.steps[0].gone,
+    [{ o: CAN_FULL, cells: [[2, 1]], depth: 0, effect: 'falls' }]);
 
   const rolled = audit('grate roll', ['------', '-@W---', 'E-----'], 'r', { water: ['------', '----O-', '------'] });
   assert.deepEqual(rolled.steps.flatMap(st => st.moved),
-                   [{ o: WHEELIE, from: [2, 1], to: [4, 1], depth: 0, effect: 'falls' }]);
-  assert.deepEqual(rolled.steps.flatMap(st => st.gone), []);
+                   [{ o: WHEELIE, from: [2, 1], to: [4, 1], depth: 0 }]);
+  assert.deepEqual(rolled.steps.flatMap(st => st.gone),
+                   [{ o: WHEELIE, cells: [[2, 1]], depth: 0, effect: 'falls' }]);
 
   // And what a broom sweeps in, which travels as a line and loses only its head to the hole.
   const swept = audit('grate sweep', ['------', '@rC---', 'E-----'], 'r', { water: ['------', '---O--', '------'] });
   assert.deepEqual(swept.steps[0].moved.find(m => m.o === CAN_FULL),
-                   { o: CAN_FULL, from: [2, 1], to: [3, 1], depth: 0, effect: 'falls' });
-  assert.deepEqual(swept.steps[0].gone, []);
+                   { o: CAN_FULL, from: [2, 1], to: [3, 1], depth: 0 });
+  assert.deepEqual(swept.steps[0].gone,
+                   [{ o: CAN_FULL, cells: [[2, 1]], depth: 0, effect: 'falls' }]);
 });

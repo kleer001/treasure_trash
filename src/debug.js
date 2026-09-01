@@ -36,7 +36,7 @@ const linesOf = step => {
   for (const m of step.moved)
     out.push(`${named(m.o)} ${at(m.from)}->${at(m.to)}`
       + (m.becomes !== undefined ? ` becomes ${named(m.becomes)}` : '')
-      + stow(m) + (m.effect ? ` ${m.effect}` : ''));
+      + stow(m));
   for (const s of step.spawned)
     out.push(s.ref !== undefined
       ? `*${s.kind}#${s.ref} ${named(s.o)} ${s.cells.map(at).join(' ')}`
@@ -44,7 +44,8 @@ const linesOf = step => {
         + (s.from ? ` from ${at(s.from)}` : '') + (s.parent != null ? ` in ${cart(s.parent)}` : '')
         + (s.effect ? ` ${s.effect}` : ''));
   for (const g of step.gone)
-    out.push(`-${named(g.o ?? g.kind)} ${at(g.cells[0])}` + (g.depth ? ` @${g.depth}` : ''));
+    out.push(`-${named(g.o ?? g.kind)} ${at(g.cells[0])}` + (g.depth ? ` @${g.depth}` : '')
+      + (g.effect ? ` ${g.effect}` : ''));
   return out;
 };
 

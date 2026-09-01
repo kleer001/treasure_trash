@@ -159,10 +159,24 @@ export function handleFaults(r) {
     for (const m of step.moved)
       say('moved', mismatch(before, movedFrom(m), m.fromCart !== undefined
         ? { what: 'cart', ref: m.fromCart } : { what: 'occupant', o: m.o }));
+    // An arrival the board did not receive is both facts: it arrives, and it is then gone. Such
+    // a removal answers to a handle on the board the step PRODUCED rather than the one it ran
+    // on, so it is asked of the entry that announced it instead.
+    const arrivals = new Map(step.spawned.filter(sp => !isBodyEvent(sp))
+      .map(sp => [eventHandle(sp), sp]));
+    const fromTheBoard = g => isBodyEvent(g) || !arrivals.has(eventHandle(g));
+    const asArrived = g => {
+      const { o } = arrivals.get(eventHandle(g));
+      return o === g.o ? null
+        : `the step takes occupant ${g.o} at ${eventHandle(g)}, where ${o} arrived`;
+    };
+
     for (const g of step.gone)
-      say('gone', mismatch(before, eventHandle(g),
-        isBodyEvent(g) ? { what: g.kind === 'cart' ? 'cart' : 'body', ref: g.ref }
-          : { what: 'occupant', o: g.o }));
+      say('gone', fromTheBoard(g)
+        ? mismatch(before, eventHandle(g),
+          isBodyEvent(g) ? { what: g.kind === 'cart' ? 'cart' : 'body', ref: g.ref }
+            : { what: 'occupant', o: g.o })
+        : asArrived(g));
     for (const p of step.piece)
       say('piece', mismatch(before, pieceFrom(p),
         { what: p.kind === 'cart' ? 'cart' : 'body', ref: p.ref }));
@@ -180,11 +194,14 @@ export function handleFaults(r) {
           went.set(d.handle, handleAt([d.at[0] + p.dx, d.at[1] + p.dy], d.lane));
     }
     for (const m of step.moved) went.set(movedFrom(m), movedTo(m));
-    for (const g of step.gone) went.delete(eventHandle(g));
+    for (const g of step.gone) if (fromTheBoard(g)) went.delete(eventHandle(g));
 
     // An arrival entry with no occupant code is an effect playing itself out — a splash, a
-    // shattering — and the board never receives it, so it announces nothing.
-    const announced = step.spawned.filter(sp => isBodyEvent(sp) || sp.o !== NONE)
+    // shattering — and the board never receives it, so it announces nothing. Neither does one
+    // a removal takes off in the same step.
+    const announced = step.spawned
+      .filter(sp => (isBodyEvent(sp) || sp.o !== NONE)
+        && !step.gone.some(g => !fromTheBoard(g) && eventHandle(g) === eventHandle(sp)))
       .map(sp => eventHandle(sp));
     const covered = new Set([...went.values(), ...announced]);
     for (const [h, d] of after)

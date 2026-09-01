@@ -8,7 +8,7 @@
 // fractional position, and can be parented to a cart rather than standing on a square.
 
 import { NONE, cell, cartCells, pieceCells, isCart, isMultiCell,
-         carriedKind, chainOf } from './rules.js';
+         carriedKind, chainOf, isBodyEvent } from './rules.js';
 import { mulberry32 } from './rng.js';
 
 /** Multi-cell kinds are their own sprites; every other sprite is keyed by occupant code. */
@@ -92,11 +92,8 @@ export function stageFrom(state, seed = 1) {
 /** A body's parts keep their places relative to its anchor, so its offsets hold for life. */
 const offsets = (cells, ox, oy) => cells.map(([x, y]) => [x - ox, y - oy]);
 
-/** Effects that consume the sprite in the beat they happen: it plays where it arrives, and is
- *  then gone. What they have in common is that the BOARD does not hold what arrived — the water
- *  took it, the grate took it, there was never an occupant to hold, or the step put something
- *  else in its place. */
-const CONSUMES = new Set(['fills', 'pours', 'shatters', 'falls', 'swaps']);
+/** Where a removal and an arrival meet: the cell and the lane of it they both name. */
+const where = (at, depth) => `${at}/${depth ?? 0}`;
 
 const atCell = (sp, x, y) => sp.ax === x && sp.ay === y;
 // `parent` and `depth` both narrow the match when kind and cell are not enough. A barrow riding
@@ -144,6 +141,14 @@ export function applyStep(stage, step, racTo = null) {
         if (sp.parent === ref) { sp.tx = sp.ax + dx; sp.ty = sp.ay + dy; }
   }
 
+  // An arrival the board did not receive is both facts at once: it arrives, and it is gone. The
+  // sprite such a removal names is the one this step MINTS, so it is settled where it is minted
+  // rather than looked for among the sprites the stage was already holding.
+  const arriving = new Set(step.spawned.filter(sp => !isBodyEvent(sp))
+    .map(sp => where(sp.cells[0], sp.depth)));
+  const taken = new Map(step.gone.filter(g => !isBodyEvent(g))
+    .map(g => [where(g.cells[0], g.depth), g]));
+
   // Every sprite is found BEFORE any of them is changed. A step can move several things that
   // are alike — a barrow riding in a barrow is the same code on the same cell as the barrow
   // carrying it — and they are told apart by what they are NOW. Resolve them one at a time and
@@ -165,6 +170,23 @@ export function applyStep(stage, step, racTo = null) {
     // the things it says moved is not on the stage at all, and the other is being moved twice.
     if (claimed.has(sp.id)) throw new Error(`two moves claim the ${m.o} sprite at ${m.from}`);
     claimed.add(sp.id);
+    return sp;
+  });
+
+  // Found here, with `moved`, and for the same reason: a removal names where the stage is
+  // HOLDING the thing, and a movement entry is about to change every part of that address.
+  const leaving = step.gone.map(g => {
+    if (isBodyEvent(g)) {
+      const body = stage.sprites.find(s => s.kind === BODY[g.kind] && s.ref === g.ref && !s.spent);
+      if (!body) throw new Error(`no ${g.kind} sprite for piece ${g.ref} to consume`);
+      return body;
+    }
+    if (arriving.has(where(g.cells[0], g.depth))) return null;
+    // Loud for the reason `moved` is: a step naming a sprite the stage does not hold means the
+    // rules and the stage disagree about the board. Passing over it quietly leaves the sprite
+    // drawn where it was consumed, which reads as a rules bug and is found only by playing.
+    const sp = find(stage, g.o, g.cells[0], g.depth);
+    if (!sp) throw new Error(`no ${g.o} sprite at ${g.cells[0]} to consume`);
     return sp;
   });
 
@@ -190,25 +212,20 @@ export function applyStep(stage, step, racTo = null) {
     // Immediately, not at the end of the beat, or a bin still drawn full alongside the bag it
     // has just thrown reads as two bags.
     if (m.becomes !== undefined) sp.kind = m.becomes;
-    if (CONSUMES.has(m.effect)) sp.spent = true;
-    if (m.effect === 'falls') sp.falls = true;
     if (carrier && m.from[0] === m.to[0] && m.from[1] === m.to[1])
       sp.nudge = [carrier.dx, carrier.dy];
   });
 
-  for (const g of step.gone) {
-    // Loud for the reason `moved` is: a step naming a sprite the stage does not hold means the
-    // rules and the stage disagree about the board. Passing over it quietly leaves the sprite
-    // drawn where it was consumed, which reads as a rules bug and is found only by playing.
-    const body = g.ref !== undefined;
-    const sp = body
-      ? stage.sprites.find(s => s.kind === BODY[g.kind] && s.ref === g.ref && !s.spent)
-      : find(stage, g.o, g.cells[0], g.depth);
-    if (!sp) throw new Error(`no ${body ? g.kind : g.o} sprite at ${g.cells[0]} to consume`);
-    // A body is spent where it stands; an occupant deflates. Same fact, two ways of leaving.
-    if (body) { sp.spent = true; if (g.effect === 'falls') sp.falls = true; }
-    else sp.dying = true;
-  }
+  step.gone.forEach((g, i) => {
+    const sp = leaving[i];
+    if (!sp) return;
+    sp.spent = true;
+    // How it leaves, and never more than one of them: down a grate it drops and shrinks as it
+    // goes, so deflating it as well would take it twice. A body is one sprite over its whole
+    // footprint and simply stops being drawn; an occupant deflates where it was taken.
+    if (g.effect === 'falls') sp.falls = true;
+    else if (!isBodyEvent(g)) sp.dying = true;
+  });
 
   for (const sp of step.spawned) {
     // A body that was not on the stage before this step, told apart by the piece id it carries.
@@ -227,13 +244,17 @@ export function applyStep(stage, step, racTo = null) {
     }
     const [at] = sp.cells;
     const [ax, ay] = sp.from ?? at;
+    // An arrival with no occupant code is an effect playing itself out — a splash, a shattering
+    // — and the board has nothing to hold it with, so it goes when the beat does. Anything else
+    // stays unless a removal in this same step says it did not survive the landing.
+    const took = taken.get(where(at, sp.depth));
     stage.sprites.push({ id: stage.nextId++, kind: sp.effect === 'pours' ? SPLASH : sp.o,
                    x: ax, y: ay, ax, ay, tx: at[0], ty: at[1],
                    // Where it came FROM is where a drawer's body still is.
                    face: [Math.sign(at[0] - ax), Math.sign(at[1] - ay)],
                    depth: sp.depth,
                    seed: (stage.nextId * 2654435761) >>> 0, parent: sp.parent ?? null, dying: false,
-                   spent: CONSUMES.has(sp.effect), falls: sp.effect === 'falls' });
+                   spent: sp.o === NONE || took !== undefined, falls: took?.effect === 'falls' });
   }
 
   if (racTo) {
@@ -349,9 +370,7 @@ const dist = st => Math.max(1,
 /** Whether anything in this step goes down a grate — which is a beat of its own, after the
  *  travelling is done. Crammed into the same beat it is three frames, which reads as the sprite
  *  being cut rather than as something dropping through. */
-const drops = st =>
-  st.spawned.some(sp => sp.effect === 'falls') || st.moved.some(m => m.effect === 'falls')
-  || st.piece.some(p => p.effect === 'falls');
+const drops = st => st.gone.some(g => g.effect === 'falls');
 
 /**
  * A traced action, cut into the segments a clock can play. One action can be several cells of
