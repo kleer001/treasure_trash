@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import {
   explain, cell, cartCells, pieceCells, bagsLeft, restsOn, moves, arrives, leaves, NONE,
   BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMPTY, JUG, JUG_EMPTY,
-  FURNITURE, RUG,
+  FURNITURE, RUG, LANDS_ON, TERRAINS,
 } from '../src/rules.js';
 import { toState } from '../src/format.js';
 import { anchorOf, laneOf, CART_LANE, BODY_LANE } from '../src/handles.js';
@@ -106,7 +106,8 @@ test('a fan cell over the canal takes what lands on it, and the step says so', (
   assert.equal(step.spawned.filter(sp => sp.cells[0][0] === 2 && sp.cells[0][1] === 0).length, 1,
     'the speck still flies to the canal cell');
   assert.deepEqual(step.gone.filter(g => g.o === TRASH),
-    [leaves({ o: TRASH, cells: [[2, 0]] })], 'and the canal keeps it');
+    [leaves({ o: TRASH, cells: [[2, 0]], effect: 'sinks' })],
+    'and the canal keeps it, saying how');
 });
 
 test('each two-cell piece moves itself and launches its load from its own cell', () => {
@@ -261,7 +262,7 @@ test('cargo tipped into the canal travels there and does not survive it', () => 
   assert.deepEqual(restsOn(tip.moved[0]), [0, 0]);
   // Named where the stage is HOLDING it, which is the cell it set off from.
   assert.deepEqual(tip.gone, [{ o: TRASH, ref: null, cells: tip.moved[0].cells,
-                                handle: tip.moved[0].handle }]);
+                                handle: tip.moved[0].handle, effect: 'sinks' }]);
 });
 
 test('a tip only ever moves cargo backward, and never past the run the skateboard came through', () => {
@@ -377,4 +378,14 @@ test('a grate takes what travelled into it, and the step keeps both halves of th
                    moves({ o: CAN_FULL, from: [2, 1], to: [3, 1] }));
   assert.deepEqual(swept.steps[0].gone,
                    [leaves({ o: CAN_FULL, cells: [[2, 1]], effect: 'falls' })]);
+});
+
+
+test('every terrain lane answers for itself about what landing on it costs', () => {
+  // The point of the table is that there is no fallthrough: a lane that takes nothing says so,
+  // and a lane added without an answer is a throw rather than a silent inheritance of one.
+  for (let ter = 0; ter < TERRAINS; ter++)
+    assert.equal(typeof LANDS_ON[ter], 'function', `terrain ${ter} states no landing rule`);
+  assert.equal(Object.keys(LANDS_ON).length, TERRAINS,
+    'the table holds every lane and nothing else');
 });

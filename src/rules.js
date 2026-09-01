@@ -617,11 +617,32 @@ export const leaves = ({ cells, lane, at = 0, o = null, ref = null, ...rest }) =
 
 const mkStep = (over = {}) => ({ moved: [], spawned: [], gone: [], impact: false, ...over });
 /**
- * What landing here costs. Null when the board holds what arrives; otherwise the tail of the
- * `gone` entry that says it did not survive the landing — which is what stops the stage holding
- * a sprite for cargo the board never received.
+ * What landing on each lane costs the thing that arrives. Null when the lane holds what lands on
+ * it; otherwise the tail of the `gone` entry that says it did not survive, which is what stops
+ * the stage holding a sprite for cargo the board never received.
+ *
+ * Every lane answers for itself, including the ones that take nothing. Two lanes giving the same
+ * answer is not a reason for either to borrow it from the other: a lane that says nothing here
+ * is a lane whose behaviour is decided somewhere else, and there is no way to tell that from a
+ * fallthrough. Adding a lane without answering is a throw rather than a silent inheritance.
  */
-const takenBy = (c, o) => (isGrate(c) ? { effect: 'falls' } : o === TRASH && c.water ? {} : null);
+export const LANDS_ON = {
+  [DRY]:     () => null,                                        // bare floor keeps what lands
+  [BRIDGE]:  () => null,                                        // a filled canal is floor again
+  [GREASE]:  () => null,                                        // carries a slider on; keeps it
+  [TAR]:     () => null,                                        // holds a thing fast, intact
+  [GLASS]:   () => null,                                        // bursts a bag on arrival, and
+                                                                //   what bursts is not what lands
+  [COVERED]: () => null,                                        // a covered lane is its cover
+  [WATER]:   o => (o === TRASH ? { effect: 'sinks' } : null),    // open water takes loose trash
+};
+
+const takenBy = (c, o) => {
+  if (isGrate(c)) return { effect: 'falls' };                    // a grate takes anything at all
+  const lane = LANDS_ON[terrainOf(c)];
+  if (!lane) throw new Error(`no landing rule for terrain ${terrainOf(c)}`);
+  return lane(o);
+};
 
 /** A thing that travels and is then taken keeps both facts: `m` says it travelled, and this says
  *  it did not survive. It is named where the stage is HOLDING it, which is where it set off. */
