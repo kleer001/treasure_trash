@@ -25,8 +25,12 @@ import { parseLevelPack, parseLurd, toState, toGrid, toCart } from '../src/forma
 import { analyze, TooManyStates } from '../src/solver.js';
 import {
   DIR_ORDER, DIRS, MOVE, PUSH, TEAR, BAG, NONE, explain, cell, fan, canStand, isOccupiable, bagsLeft,
-  isWon,
+  isWon, restsOn,
 } from '../src/rules.js';
+import { laneOf, CART_LANE, BODY_LANE } from '../src/handles.js';
+
+/** The lanes a thing the board gives an id to rests in. */
+const BODY_LANES = [CART_LANE, BODY_LANE];
 
 const FAN_CELLS = fan(0, 0, 1, 0).length;
 
@@ -176,10 +180,13 @@ export function solveShape(start, actions) {
     pushes++;
 
     const st = r.steps[0];
+    // A body and a cart carry an id the board gives them; everything else is followed by cell.
+    const body = st.moved.find(m => BODY_LANES.includes(laneOf(m.handle)));
     // A tear consumes the bag, so nothing after it can be the same piece.
     const id = act.kind === TEAR ? { type: 'gone' }
-      : st.piece.length ? { type: 'ref', kind: st.piece[0].kind, ref: st.piece[0].ref }
-      : { type: 'cell', from: target, to: st.moved[0]?.to ?? target };
+      : body ? { type: 'ref', kind: laneOf(body.handle), ref: body.ref }
+      : { type: 'cell', from: target,
+          to: st.moved[0] ? restsOn(st.moved[0]) : target };
 
     if (id.type === 'ref') touched.add(`${id.kind}${id.ref}`);
     else {
@@ -342,11 +349,12 @@ function handledCells(a, onDag) {
     const [dx, dy] = DIRS[e.dir];
     add([n.state.rac.x + dx, n.state.rac.y + dy]);         // the cell shoved or torn into
     for (const st of explain(n.state, e.dir, { trace: true }).steps ?? []) {
-      for (const m of st.moved) { add(m.from); add(m.to); }
+      // Three lanes, and every entry in each of them names the whole span it is about — so a
+      // couch and a can are read the same way and neither can be missed by reading half of this.
+      for (const m of st.moved)
+        for (const [x, y] of m.cells) { add([x, y]); add([x + m.dx, y + m.dy]); }
       for (const s of st.spawned) { for (const c of s.cells) add(c); if (s.from) add(s.from); }
       for (const g of st.gone) for (const c of g.cells) add(c);
-      for (const p of st.piece)
-        for (const [x, y] of p.cells) { add([x, y]); add([x + p.dx, y + p.dy]); }
     }
   }
   return hit;

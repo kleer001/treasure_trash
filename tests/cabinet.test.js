@@ -5,7 +5,11 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, isMultiCell, CABC_R, CABO_R, cell, isCart, isBodyEvent } from '../src/rules.js';
+import { explain, isMultiCell, CABC_R, CABO_R, cell, isCart } from '../src/rules.js';
+import { BODY_LANE } from '../src/handles.js';
+
+/** The arrivals that are a body of their own rather than an occupant of a cell. */
+const bodies = born => born.filter(e => e.lane === BODY_LANE);
 import { toState, toGrid, toCart } from '../src/format.js';
 
 const S = (grid, water, cart) => toState({ id: 't', grid, water, cart });
@@ -28,9 +32,9 @@ test('the step says the shut one is gone and a piece was born', () => {
   const r = explain(S(['-------', '-@m----', '-------', 'E------']), 'r', { trace: true });
   const [step] = r.steps;
   assert.equal(step.gone.length, 1, 'the shut cabinet leaves the stage');
-  const [body] = step.spawned.filter(isBodyEvent);
+  const [body] = bodies(step.spawned);
   assert.deepEqual(body.cells, [[2, 1], [3, 1]], 'and a two-cell piece arrives');
-  assert.equal(body.kind, 'furniture');
+  assert.equal(body.handle, '2,1/body');
 });
 
 // A blow is a blow whoever lands it, and the account owes the same thing either way: the stage
@@ -40,7 +44,7 @@ test('an impact that opens a cabinet says so too', () => {
   const r = explain(S(['--------', '-@w--m--', '--------', 'E-------']), 'r', { trace: true });
   assert.ok(r.ok, `refused: ${r.reason}`);
   const gone = r.steps.flatMap(st => st.gone),
-        born = r.steps.flatMap(st => st.spawned).filter(isBodyEvent);
+        born = bodies(r.steps.flatMap(st => st.spawned));
   assert.equal(gone.length, 1, 'the shut cabinet leaves the stage');
   assert.deepEqual(born.map(b => b.cells), [[[5, 1], [6, 1]]], 'and the two-cell piece arrives');
 });

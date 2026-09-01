@@ -27,15 +27,13 @@
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  explain, cell, terrainOf, DIR_ORDER,
-  cartCells, pieceCells, isBodyEvent, carriedAs, NONE,
+  explain, cell, terrainOf, DIR_ORDER, NONE,
 } from '../src/rules.js';
 import { toState, toGrid, toWater, toCart } from '../src/format.js';
 import { analyze } from '../src/solver.js';
 import { MAX_STATES } from './metrics.mjs';
 import { stageFrom, applyStep, settle, timeline, census, spriteHandle } from '../src/stage.js';
-import { handlesOf, handleAt, anchorOf, depthLane, pieceLane,
-         CART_LANE, RAC_LANE } from '../src/handles.js';
+import { handlesOf, handleAt, anchorOf, spanOf, RAC_LANE } from '../src/handles.js';
 import { root } from './packs.mjs';
 
 // ---------------------------------------------------------------- what there is to meet
@@ -120,38 +118,30 @@ export function unresolvedSprites(stage, state) {
 // its keep by matching what the board holds at it. Where a thing comes TO is derived instead,
 // off the cells and offsets the entry declares, so the two ends of a move are two statements
 // rather than one restated.
-const movedTo = m => (m.toCart !== undefined
-  ? handleAt(m.to, CART_LANE) : handleAt(m.to, depthLane(m.depth)));
-const anchorHandle = e => handleAt(anchorOf(e.cells), pieceLane(e.kind));
-const pieceTo = p => handleAt([anchorOf(p.cells)[0] + p.dx, anchorOf(p.cells)[1] + p.dy],
-                              pieceLane(p.kind));
+const shift = ([x, y], e) => [x + e.dx, y + e.dy];
+const movedTo = m => handleAt(shift(anchorOf(m.cells), m), m.becomes.lane);
 
-/** What the board holds at this handle, against what the entry claims is there. */
-const mismatch = (roll, h, want) => {
-  const d = roll.get(h);
-  if (!d) return `nothing answers to ${h}`;
-  for (const k of Object.keys(want))
-    if (d[k] !== want[k])
-      return `the step names ${k} ${want[k]} at ${h}, which holds ${d.what} ${k} ${d[k]}`;
+/**
+ * What the board holds at the handle an entry stamped, against what the entry says stands there:
+ * the same span of cells, the same occupant code, the same piece or cart id. Every entry answers
+ * it the same way, however many cells it covers.
+ */
+const named = (roll, e) => {
+  const d = roll.get(e.handle);
+  if (!d) return `nothing answers to ${e.handle}`;
+  if (spanOf(d.cells) !== spanOf(e.cells))
+    return `the step names ${e.handle} over ${spanOf(e.cells)},`
+      + ` where the ${d.what} there stands on ${spanOf(d.cells)}`;
+  for (const k of ['o', 'ref'])
+    if (d[k] !== e[k])
+      return `the step names ${k} ${e[k]} at ${e.handle}, which holds ${d.what} ${k} ${d[k]}`;
   return null;
 };
 
-/**
- * A movement, against the board it set off from. A scoop is the one entry that names something
- * the board is not holding as an occupant at all: the thing it moves is a CART where it stands,
- * and the code it moves it as is that cart's kind, ridden as cargo.
- */
-const movedFault = (roll, m) => {
-  const d = roll.get(m.handle);
-  if (d && d.what === 'cart')
-    return carriedAs(d.ck) === m.o ? null
-      : `the step moves o ${m.o} at ${m.handle}, where a cart rides as ${carriedAs(d.ck)}`;
-  return mismatch(roll, m.handle, { what: 'occupant', o: m.o });
-};
-
-/** A body entry addressed by a footprint it also declares: the two have to be the same body. */
-const anchorFault = e => (e.handle === anchorHandle(e) ? null
-  : `the step names ${e.handle}, whose cells anchor at ${anchorHandle(e)}`);
+/** An arrival is stamped where it comes to rest, which the span and lane it declares also say. */
+const anchorFault = e => (e.handle === handleAt(anchorOf(e.cells), e.lane) ? null
+  : `the step names ${e.handle}, whose cells and lane anchor at`
+    + ` ${handleAt(anchorOf(e.cells), e.lane)}`);
 
 /**
  * CONTINUOUS, of a traced action. Every fault it can report is the account describing a board
@@ -163,47 +153,33 @@ export function handleFaults(r) {
     const before = handlesOf(r.frames[i]), after = handlesOf(r.frames[i + 1]);
     const say = (what, why) => { if (why) bad.push(`step ${i} ${what}: ${why}`); };
 
-    for (const m of step.moved) say('moved', movedFault(before, m));
+    for (const m of step.moved) say('moved', named(before, m));
     // An arrival the board did not receive is both facts: it arrives, and it is then gone. Such
     // a removal answers to a handle on the board the step PRODUCED rather than the one it ran
     // on, so it is asked of the entry that announced it instead. The before board still gets
     // the first word: a handle it holds is a thing that was already there, and pairing a spawn
     // onto that handle cannot excuse the removal from saying what it took.
-    const arrivals = new Map(step.spawned.filter(sp => !isBodyEvent(sp))
-      .map(sp => [sp.handle, sp]));
-    const fromTheBoard = g => isBodyEvent(g)
-      || before.has(g.handle) || !arrivals.has(g.handle);
+    const arrivals = new Map(step.spawned.map(sp => [sp.handle, sp]));
+    const fromTheBoard = g => before.has(g.handle) || !arrivals.has(g.handle);
     const asArrived = g => {
       const { o } = arrivals.get(g.handle);
       return o === g.o ? null : `the step takes occupant ${g.o} at ${g.handle}, where ${o} arrived`;
     };
 
-    for (const g of step.gone) {
-      if (isBodyEvent(g)) say('gone', anchorFault(g));
-      say('gone', fromTheBoard(g)
-        ? mismatch(before, g.handle,
-          isBodyEvent(g) ? { what: g.kind === 'cart' ? 'cart' : 'body', ref: g.ref }
-            : { what: 'occupant', o: g.o })
-        : asArrived(g));
-    }
-    for (const sp of step.spawned) if (isBodyEvent(sp)) say('spawned', anchorFault(sp));
-    for (const p of step.piece) {
-      say('piece', anchorFault(p));
-      say('piece', mismatch(before, p.handle,
-        { what: p.kind === 'cart' ? 'cart' : 'body', ref: p.ref }));
-    }
+    for (const g of step.gone) say('gone', fromTheBoard(g) ? named(before, g) : asArrived(g));
+    for (const sp of step.spawned) say('spawned', anchorFault(sp));
 
-    // Where each thing on the before board ends up. Standing still is the default; a piece
-    // carries whatever is riding on it; a movement entry overrides both; a removal takes it off.
+    // Where each thing on the before board ends up. Standing still is the default; a cart
+    // carries whatever is riding in it; the thing's own entry overrides both; a removal takes
+    // it off.
     const went = new Map([...before.keys()].map(h => [h, h]));
     const rac = st => handleAt([st.rac.x, st.rac.y], RAC_LANE);
     went.set(rac(r.frames[i]), rac(r.frames[i + 1]));
-    for (const p of step.piece) {
-      went.set(p.handle, pieceTo(p));
-      if (p.kind !== 'cart') continue;
+    for (const m of step.moved) {
+      if (before.get(m.handle)?.what !== 'cart') continue;
       for (const d of before.values())
-        if (d.what === 'occupant' && p.cells.some(([cx, cy]) => cx === d.at[0] && cy === d.at[1]))
-          went.set(d.handle, handleAt([d.at[0] + p.dx, d.at[1] + p.dy], d.lane));
+        if (d.what === 'occupant' && m.cells.some(([cx, cy]) => cx === d.at[0] && cy === d.at[1]))
+          went.set(d.handle, handleAt(shift(d.at, m), d.lane));
     }
     for (const m of step.moved) went.set(m.handle, movedTo(m));
     for (const g of step.gone) if (fromTheBoard(g)) went.delete(g.handle);
@@ -212,7 +188,7 @@ export function handleFaults(r) {
     // shattering — and the board never receives it, so it announces nothing. Neither does one
     // a removal takes off in the same step.
     const announced = step.spawned
-      .filter(sp => (isBodyEvent(sp) || sp.o !== NONE)
+      .filter(sp => sp.o !== NONE
         && !step.gone.some(g => !fromTheBoard(g) && g.handle === sp.handle))
       .map(sp => sp.handle);
     const covered = new Set([...went.values(), ...announced]);
@@ -382,17 +358,12 @@ const along = ([fx, fy], [tx, ty]) => {
 function crossesTest(s, dir, holes) {
   const r = explain(s, dir, { trace: true });
   if (!r.ok) return false;
-  for (let i = 0; i < r.steps.length; i++) {
-    const step = r.steps[i], before = r.frames[i];
+  for (const step of r.steps) {
+    // One translation per entry, however many cells it covers, so a body's path is every cell
+    // of it swept by that translation and a can's is the one cell it crossed.
     for (const m of step.moved)
-      if (along(m.from, m.to).some(k => holes.includes(k))) return true;
-    // A body reports one translation for a whole footprint, so its path is every cell of it
-    // swept by that translation.
-    for (const { kind, ref, dx, dy } of step.piece) {
-      const own = kind === 'cart' ? cartCells(before, ref) : pieceCells(before, ref);
-      for (const [x, y] of own)
-        if (along([x, y], [x + dx, y + dy]).some(k => holes.includes(k))) return true;
-    }
+      for (const [x, y] of m.cells)
+        if (along([x, y], [x + m.dx, y + m.dy]).some(k => holes.includes(k))) return true;
   }
   return false;
 }

@@ -6,7 +6,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, MAGNET_REACH, inAHold } from '../src/rules.js';
+import { explain, MAGNET_REACH, inAHold, restsOn } from '../src/rules.js';
+import { anchorOf } from '../src/handles.js';
 import { toState, toGrid, toCart } from '../src/format.js';
 
 const S = (grid, water, cart) => toState({ id: 't', grid, water, cart });
@@ -155,7 +156,7 @@ test('a tow of plain occupants says what moved', () => {
   const r = explain(s, 'd', { trace: true });
   assert.ok(r.ok, `refused: ${r.reason}`);
   const moved = r.steps.flatMap(st => st.moved);
-  assert.deepEqual(moved.map(m => [m.from, m.to]).sort(),
+  assert.deepEqual(moved.map(m => [anchorOf(m.cells), restsOn(m)]).sort(),
     [[[1, 1], [1, 2]], [[2, 1], [2, 2]]].sort(), 'the magnet and the can both travelled');
 });
 

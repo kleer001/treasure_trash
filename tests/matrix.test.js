@@ -17,8 +17,9 @@ import { run, cases, reachable, meeting, corridor, sweepRooms,
 import { generatedRooms } from '../tools/conform.mjs';
 import { actLevels } from '../tools/packs.mjs';
 import { toState } from '../src/format.js';
-import { handlesOf } from '../src/handles.js';
-import { cell, pieceCells, isCabinetOpen, cabinetFace, carriedKind, DIRS } from '../src/rules.js';
+import { handlesOf, laneOf, CART_LANE } from '../src/handles.js';
+import { arrives, cell, pieceCells, isCabinetOpen, cabinetFace,
+         carriedKind, DIRS } from '../src/rules.js';
 
 test('every piece meeting every lane and every other piece lands where it says it does', () => {
   const rows = run();
@@ -107,7 +108,7 @@ test('a step that moves a sprite to the wrong cell is caught', () => {
   const { room } = corridor({ left: 'c', lane: '-' });
   const s = toState({ ...room, id: 'bend' });
   const wrong = landsWhereTheBoardSays(s, 'r',
-    st => ({ ...st, moved: st.moved.map(m => ({ ...m, to: [m.to[0], m.to[1] + 1] })) }));
+    st => ({ ...st, moved: st.moved.map(m => ({ ...m, dy: m.dy + 1 })) }));
   assert.equal(wrong.ok, false, 'a sprite sent to the wrong cell has to be caught');
 });
 
@@ -118,7 +119,7 @@ test('a step that forgets a container emptied is caught', () => {
   const s = toState({ ...room, id: 'bend' });
   assert.equal(landsWhereTheBoardSays(s, 'r').ok, true);
   const silent = landsWhereTheBoardSays(s, 'r', st => ({
-    ...st, moved: st.moved.map(({ becomes, ...m }) => m),
+    ...st, moved: st.moved.map(m => ({ ...m, becomes: { ...m.becomes, o: m.o } })),
   }));
   assert.equal(silent.ok, false, 'a container that sheds without saying what it becomes');
 });
@@ -159,25 +160,26 @@ test('two entries that swap the handles they name are caught', () => {
   const swapped = landsWhereTheBoardSays(s, 'r', st => {
     const [a, b, ...rest] = st.moved;
     return { ...st,
-             moved: [{ ...a, from: b.from, handle: b.handle },
-                     { ...b, from: a.from, handle: a.handle }, ...rest] };
+             moved: [{ ...a, cells: b.cells, handle: b.handle },
+                     { ...b, cells: a.cells, handle: a.handle }, ...rest] };
   });
   assert.equal(swapped.ok, false, 'two entries pointing at each other has to be caught');
   assert.match(swapped.why, /the step names o \d+ at \d+,\d+\/\d+, which holds occupant o \d+/);
 });
 
 test('an entry naming the wrong handle is caught where no sprite comparison could', () => {
-  // The stage resolves a body by the handle the entry carries and never reads its cells, so a
-  // piece entry that names the wrong ones builds exactly the sprites it should. What reads those
-  // cells is everything downstream that wants to know WHICH cells an action disturbed.
+  // The stage resolves a thing by the handle the entry carries and never reads its span, so an
+  // entry that names the wrong cells builds exactly the sprites it should. What reads that span
+  // is everything downstream that wants to know WHICH cells an action disturbed.
   const { room } = corridor({ left: 'W', right: { mask: 'PP' } });
   const s = toState({ ...room, id: 'misnamed' });
   assert.equal(landsWhereTheBoardSays(s, 'r').ok, true, 'the honest run passes');
   const misnamed = landsWhereTheBoardSays(s, 'r', st => ({
-    ...st, piece: st.piece.map(p => ({ ...p, cells: p.cells.map(([x, y]) => [x, y + 1]) })),
+    ...st, moved: st.moved.map(m => (laneOf(m.handle) !== CART_LANE ? m
+      : { ...m, cells: m.cells.map(([x, y]) => [x, y + 1]) })),
   }));
   assert.equal(misnamed.ok, false);
-  assert.match(misnamed.why, /whose cells anchor at \d+,\d+\/cart/);
+  assert.match(misnamed.why, /over [\d, ]+, where the cart there stands on [\d, ]+/);
 });
 
 test('a body entry that names a handle no board holds is caught', () => {
@@ -186,8 +188,9 @@ test('a body entry that names a handle no board holds is caught', () => {
   const { room } = corridor({ left: 'W', right: { mask: 'PP' } });
   const s = toState({ ...room, id: 'unheld' });
   const adrift = landsWhereTheBoardSays(s, 'r', st => ({
-    ...st, piece: st.piece.map(p => ({ ...p, cells: p.cells.map(([x, y]) => [x, y + 1]),
-                                       handle: `${p.cells[0][0]},${p.cells[0][1] + 1}/cart` })),
+    ...st, moved: st.moved.map(m => (laneOf(m.handle) !== CART_LANE ? m
+      : { ...m, cells: m.cells.map(([x, y]) => [x, y + 1]),
+          handle: `${m.cells[0][0]},${m.cells[0][1] + 1}/cart` })),
   }));
   assert.equal(adrift.ok, false);
   assert.match(adrift.why, /nothing answers to \d+,\d+\/cart/);
@@ -201,11 +204,10 @@ test('a removal that lies about what it took cannot hide behind an arrival', () 
   const s = toState({ ...room, id: 'disguise' });
   assert.equal(landsWhereTheBoardSays(s, 'r').ok, true, 'the honest run passes');
   const disguised = landsWhereTheBoardSays(s, 'r', st => {
-    const g = st.gone.find(e => e.ref === undefined);
+    const g = st.gone.find(e => e.ref === null);
     const lie = { ...g, o: g.o + 1 };
     return { ...st, gone: st.gone.map(e => (e === g ? lie : e)),
-             spawned: [...st.spawned,
-                       { o: lie.o, cells: g.cells, handle: g.handle, depth: 0 }] };
+             spawned: [...st.spawned, arrives({ o: lie.o, cells: g.cells })] };
   });
   assert.equal(disguised.ok, false);
   assert.match(disguised.why, /gone: the step names o \d+ at \d+,\d+\/\d+, which holds occupant/);

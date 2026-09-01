@@ -132,16 +132,17 @@ test('tipping lets go of what it was towing', () => {
 
 test('a tipping barrow is a BODY, not an occupant that moved', () => {
   // Across its axis the barrow turns over: it goes one cell and its load carries on one
-  // further. The barrow has a cart sprite keyed by id — naming it in `moved` asks the stage
-  // for an occupant of code NONE, which it does not hold.
+  // further. The barrow has a cart sprite of its own — an occupant entry on that cell asks the
+  // stage for a sprite of code NONE, which it does not hold.
   const s = S(['-----', '--@--', '--C--', '-----', '-----', 'E----'],
               ['-----', '-----', '--d--', '-----', '-----', '-----']);
   const r = explain(s, 'd', { trace: true });
   assert.ok(r.ok, `refused: ${r.reason}`);
   const step = r.steps.at(-1);
-  assert.deepEqual(step.piece,
-    [{ kind: 'cart', ref: 0, dx: 0, dy: 1, cells: cartCells(r.frames[0], 0),
-       handle: '2,2/cart' }]);
+  const [body] = step.moved;
+  assert.deepEqual([body.handle, body.ref, body.dx, body.dy], ['2,2/cart', 0, 0, 1]);
+  assert.deepEqual(body.cells, cartCells(r.frames[0], 0));
+  assert.equal(body.becomes.lane, 'cart', 'it is set down as the cart it already was');
   assert.ok(!step.moved.some(m => m.o === NONE), 'nothing of code NONE is an occupant sprite');
 });
 

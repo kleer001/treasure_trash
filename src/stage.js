@@ -9,8 +9,9 @@
 // owns a fractional position, and can be parented to a cart rather than standing on a square.
 
 import { NONE, cell, cartCells, pieceCells, isCart, isMultiCell,
-         carriedKind, chainOf, isBodyEvent } from './rules.js';
-import { handleAt, depthLane, CART_LANE, BODY_LANE, RAC_LANE } from './handles.js';
+         carriedKind, chainOf } from './rules.js';
+import { handleAt, anchorOf, depthLane, laneDepth, laneOf,
+         CART_LANE, BODY_LANE, RAC_LANE } from './handles.js';
 import { mulberry32 } from './rng.js';
 
 /** Multi-cell kinds are their own sprites; every other sprite is keyed by occupant code. */
@@ -25,7 +26,7 @@ export const CART = 'cart', COUCH = 'couch', RACCOON = 'raccoon', SPLASH = 'spla
 export const spriteHandle = sp => handleAt([sp.tx, sp.ty],
   sp.kind === RACCOON ? RAC_LANE
     : sp.kind === CART ? CART_LANE
-      : sp.kind === COUCH ? BODY_LANE : depthLane(sp.depth ?? 0));
+      : sp.kind === COUCH ? BODY_LANE : depthLane(sp.depth));
 
 /**
  * What identifies a sprite for comparison, and the sorted roll of every one on a stage. Ids and
@@ -38,14 +39,22 @@ export const spriteHandle = sp => handleAt([sp.tx, sp.ty],
  * lives here, with the sprites, so no checker can hold its own idea of what a sprite is.
  */
 export const shapeOf = sp => JSON.stringify([
-  sp.kind, sp.tx, sp.ty, sp.parent ?? null, sp.ref ?? null, sp.o ?? null, sp.ck ?? null,
-  sp.cells ?? null, sp.depth ?? 0,
+  sp.kind, sp.tx, sp.ty, sp.parent, sp.ref ?? null, sp.o ?? null, sp.ck ?? null,
+  sp.cells ?? null, sp.depth,
 ]);
 
 export const census = stage => stage.sprites.map(shapeOf).sort();
 
-/** A piece entry's `kind` from the rules → the sprite that is that piece's body. */
-const BODY = { cart: CART, furniture: COUCH };
+/**
+ * A body is ONE sprite over however many cells it covers, and every other sprite is one sprite on
+ * one cell. That is a fact about drawing, and it is the stage's alone: it is asked of the sprite
+ * the stage minted, never of the shape of an account entry.
+ */
+const isBody = sp => sp.kind === CART || sp.kind === COUCH;
+
+/** Which sprite kind rests in a lane. A body's is the lane; anything else draws as its code. */
+const kindIn = (lane, o, effect) => (lane === CART_LANE ? CART : lane === BODY_LANE ? COUCH
+  : effect === 'pours' ? SPLASH : o);
 
 /**
  * Build a stage from a board. One sprite per loose occupant, per cart, per couch, per cargo
@@ -127,10 +136,10 @@ const holding = stage => {
  * Retarget everything for one step of an action. Positions are not applied here — `advance`
  * interpolates between each sprite's anchor and its new target.
  *
- * Order matters. The piece translation runs first and carries everything already aboard;
- * `moved` then runs over the top of it, which is what lets a shed cargo undo that carry and
- * stay where the cart left it, and lets a swallowed one take a parent without lurching a cell
- * forward — its target is the cell it is already standing on.
+ * Order matters within `moved`. A cart carries what stands in it, so that pass runs over every
+ * movement first; each thing's own entry then runs over the top of it, which is what lets a shed
+ * cargo undo the carry and stay where the cart left it, and lets a swallowed one take a parent
+ * without lurching a cell forward — its target is the cell it is already standing on.
  */
 export function applyStep(stage, step, racTo = null) {
   for (const sp of stage.sprites) {
@@ -150,65 +159,60 @@ export function applyStep(stage, step, racTo = null) {
     return sp;
   };
 
-  // `piece` is one body or several: a tow moves a barrow and what it is towing in the same
-  // beat, and neither is an occupant sprite the `moved` list could name.
-  const bodies = step.piece.map(claim);
   const targets = step.moved.map(claim);
   // An arrival the board did not receive is both facts at once: it arrives, and it is gone. The
   // sprite such a removal names is the one this step MINTS, so it is settled where it is minted
   // rather than looked for among the sprites the stage was already holding.
+  const born = new Set(step.spawned.map(e => e.handle));
   const arrivals = new Map();
   const leaving = step.gone.map(g => {
-    // A body is never minted and taken in the same beat, so one that answers to nothing is the
-    // disagreement `claim` is loud about rather than an arrival that did not survive.
-    if (isBodyEvent(g) || held.has(g.handle)) return claim(g);
-    arrivals.set(g.handle, g);
-    return null;
+    if (!held.has(g.handle) && born.has(g.handle)) { arrivals.set(g.handle, g); return null; }
+    return claim(g);
   });
 
-  step.piece.forEach(({ kind, dx, dy, effect, blow, ref }, i) => {
-    const body = bodies[i];
-    body.tx = body.ax + dx; body.ty = body.ay + dy;
+  // What a cart is carrying travels with it, and a cart that takes a blow it cannot go anywhere
+  // with leans and takes its load with it. Both are the cart's own sprite answering for what is
+  // parented to it, which is the stage's bookkeeping rather than anything the entry says.
+  const carriage = new Map();
+  step.moved.forEach((m, i) => {
+    const sp = targets[i];
+    if (sp.kind !== CART) return;
+    carriage.set(sp.ref, m);
+    const riding = stage.sprites.filter(s => s.parent === sp.ref);
+    for (const load of riding) { load.tx = load.ax + m.dx; load.ty = load.ay + m.dy; }
     // The wobble pivots on the CART's bottom edge, not each sprite's: pivot cargo on itself and
     // it spins in place while the cart leans out from under it.
-    if (effect === 'rattles') {
-      const cells = body.cells ?? [[0, 0]];
-      const xs = cells.map(([cx]) => cx), ys = cells.map(([, cy]) => cy);
-      const pivot = [body.ax + (Math.min(...xs) + Math.max(...xs)) / 2 + 0.5,
-                     body.ay + Math.max(...ys) + 1];
-      for (const sp of [body, ...stage.sprites.filter(s => s.parent === ref)]) {
-        sp.rattle = blow; sp.pivot = pivot;
-      }
-    }
-    if (kind === 'cart')
-      for (const sp of stage.sprites)
-        if (sp.parent === ref) { sp.tx = sp.ax + dx; sp.ty = sp.ay + dy; }
+    if (m.effect !== 'rattles') return;
+    const xs = sp.cells.map(([cx]) => cx), ys = sp.cells.map(([, cy]) => cy);
+    const pivot = [sp.ax + (Math.min(...xs) + Math.max(...xs)) / 2 + 0.5,
+                   sp.ay + Math.max(...ys) + 1];
+    for (const it of [sp, ...riding]) { it.rattle = m.blow; it.pivot = pivot; }
   });
 
   step.moved.forEach((m, i) => {
-    const sp = targets[i];
-    // Whatever it was, the entry says it is an occupant now — everything that made it a cart
-    // goes, `ck` included, since a sprite that is cargo and still carries a cart kind is one a
-    // rebuild of the same board would not produce. The same object either way, so it is
-    // converted rather than swapped, which keeps its draw seed and stops it popping.
-    sp.kind = m.o; sp.ref = undefined; sp.cells = undefined; sp.ck = undefined;
-    // And the way back: set down, it is a barrow again.
-    if (m.toCart !== undefined) {
-      sp.kind = CART; sp.ref = m.toCart; sp.ck = carriedKind(m.o); sp.cells = [[0, 0]];
-      sp.depth = 0;                                  // a cart is never inside anything
+    const sp = targets[i], rest = m.becomes;
+    sp.tx = sp.ax + m.dx; sp.ty = sp.ay + m.dy;
+    if (rest.lane === CART_LANE) {
+      // Set down, it is a barrow again: a cart id of its own, the kind it rode as, and one cell.
+      if (sp.kind !== CART) {
+        sp.kind = CART; sp.ref = rest.ref; sp.ck = carriedKind(m.o); sp.cells = [[0, 0]];
+      }
+    } else if (rest.lane !== BODY_LANE) {
+      // It rests as an occupant, whatever it was — everything that made it a cart goes, `ck`
+      // included, since a sprite that is cargo and still carries a cart kind is one a rebuild of
+      // the same board would not produce. The same object either way, so it is converted rather
+      // than swapped, which keeps its draw seed and stops it popping. Immediately, too, or a bin
+      // still drawn full alongside the bag it has just thrown reads as two bags.
+      sp.kind = rest.o; sp.ref = undefined; sp.cells = undefined; sp.ck = undefined;
     }
+    sp.depth = laneDepth(rest.lane);
     // Only what was ALREADY riding gets nudged: a slot shift is a true no-op on the board and
     // would otherwise read as nothing at all. Something being scooped up is not hit by
-    // anything, so it does not lurch.
-    const carrier = step.piece.find(p => p.kind === 'cart' && p.ref === sp.parent);
-    [sp.tx, sp.ty] = m.to;
-    sp.depth = m.depth;
+    // anything, so it does not lurch — which is why this is asked before the entry says what
+    // it is riding in now.
+    const carrier = carriage.get(sp.parent);
+    if (carrier && m.dx === 0 && m.dy === 0) sp.nudge = [carrier.dx, carrier.dy];
     if (m.parent !== undefined) sp.parent = m.parent;
-    // Immediately, not at the end of the beat, or a bin still drawn full alongside the bag it
-    // has just thrown reads as two bags.
-    if (m.becomes !== undefined) sp.kind = m.becomes;
-    if (carrier && m.from[0] === m.to[0] && m.from[1] === m.to[1])
-      sp.nudge = [carrier.dx, carrier.dy];
   });
 
   step.gone.forEach((g, i) => {
@@ -219,37 +223,35 @@ export function applyStep(stage, step, racTo = null) {
     // goes, so deflating it as well would take it twice. A body is one sprite over its whole
     // footprint and simply stops being drawn; an occupant deflates where it was taken.
     if (g.effect === 'falls') sp.falls = true;
-    else if (!isBodyEvent(g)) sp.dying = true;
+    else if (!isBody(sp)) sp.dying = true;
   });
 
-  for (const sp of step.spawned) {
-    // A body that was not on the stage before this step, told apart by the piece id it carries.
-    if (sp.ref !== undefined) {
-      const want = BODY[sp.kind];
-      if (!want) throw new Error(`no sprite kind for piece '${sp.kind}'`);
-      // Loud, for the reason every other lookup here is: a handle the stage is already holding
-      // is the rules and the stage disagreeing about how many pieces the board has.
-      if (held.has(sp.handle)) throw new Error(`a sprite already answers to ${sp.handle}`);
-      const [x, y] = sp.cells[0];
-      stage.sprites.push({ id: stage.nextId++, kind: want, x, y, ax: x, ay: y, tx: x, ty: y,
-                           depth: sp.depth, seed: (stage.nextId * 2654435761) >>> 0, parent: null,
-                           dying: false, ref: sp.ref, o: sp.o, cells: offsets(sp.cells, x, y),
-                           handle: sp.handle });
-      continue;
-    }
-    const [at] = sp.cells;
-    const [ax, ay] = sp.from ?? at;
+  // Last, because what a sprite already on the stage is coming to rest as is the question these
+  // are asked against: an arrival lands on a handle nothing else is left resting at, and a cell
+  // one sprite is leaving this beat is free for the next to arrive on.
+  for (const e of step.spawned) {
+    // Loud, for the reason every other lookup here is: a handle something is still resting at is
+    // the rules and the stage disagreeing about how many things the board has.
+    const sitting = held.get(e.handle);
+    if (sitting && !sitting.spent && spriteHandle(sitting) === e.handle)
+      throw new Error(`a sprite already answers to ${e.handle}`);
+    const [x, y] = anchorOf(e.cells);
+    const [ax, ay] = e.from ?? [x, y];
     // An arrival with no occupant code is an effect playing itself out — a splash, a shattering
     // — and the board has nothing to hold it with, so it goes when the beat does. Anything else
     // stays unless a removal in this same step says it did not survive the landing.
-    const took = arrivals.get(sp.handle);
-    stage.sprites.push({ id: stage.nextId++, kind: sp.effect === 'pours' ? SPLASH : sp.o,
-                   x: ax, y: ay, ax, ay, tx: at[0], ty: at[1],
-                   // Where it came FROM is where a drawer's body still is.
-                   face: [Math.sign(at[0] - ax), Math.sign(at[1] - ay)],
-                   depth: sp.depth, handle: sp.handle,
-                   seed: (stage.nextId * 2654435761) >>> 0, parent: sp.parent ?? null, dying: false,
-                   spent: sp.o === NONE || took !== undefined, falls: took?.effect === 'falls' });
+    const took = arrivals.get(e.handle);
+    const body = e.lane === CART_LANE || e.lane === BODY_LANE;
+    stage.sprites.push({
+      id: stage.nextId++, kind: kindIn(e.lane, e.o, e.effect),
+      x: ax, y: ay, ax, ay, tx: x, ty: y,
+      // Where it came FROM is where a drawer's body still is.
+      face: [Math.sign(x - ax), Math.sign(y - ay)],
+      depth: laneDepth(e.lane), handle: e.handle,
+      seed: (stage.nextId * 2654435761) >>> 0, parent: e.parent ?? null, dying: false,
+      ref: body ? e.ref : undefined, o: e.lane === BODY_LANE ? e.o : undefined,
+      cells: body ? offsets(e.cells, x, y) : undefined,
+      spent: e.o === NONE || took !== undefined, falls: took?.effect === 'falls' });
   }
 
   if (racTo) {
@@ -364,8 +366,12 @@ export function pileLook(seed) {
 
 /** The furthest any one thing travels in a step, in cells. One is the floor, so a step that
  *  moves nothing still takes a beat. */
-const dist = st => Math.max(1,
-  ...st.moved.map(m => Math.abs(m.to[0] - m.from[0]) + Math.abs(m.to[1] - m.from[1])));
+const dist = st => Math.max(1, ...st.moved.map(m => Math.abs(m.dx) + Math.abs(m.dy)));
+
+/** Whether this step is a cart on the roll: something the board holds as a cart, that comes to
+ *  rest as one. A barrow SET DOWN rests as a cart without ever having been one. */
+const rolls = st => st.moved.some(m =>
+  laneOf(m.handle) === CART_LANE && m.becomes.lane === CART_LANE);
 
 /** Whether anything in this step goes down a grate — which is a beat of its own, after the
  *  travelling is done. Crammed into the same beat it is three frames, which reads as the sprite
@@ -386,9 +392,9 @@ export function timeline(r, cellTime) {
   let i = 0;
   const entry = k => ({ step: r.steps[k], racTo: r.frames[k + 1].rac, board: r.frames[k] });
   while (i < r.steps.length) {
-    if (r.steps[i].piece.some(p => p.kind === 'cart')) {
+    if (rolls(r.steps[i])) {
       const run = [];
-      while (i < r.steps.length && r.steps[i].piece.some(p => p.kind === 'cart')) run.push(entry(i++));
+      while (i < r.steps.length && rolls(r.steps[i])) run.push(entry(i++));
       // `pace` is cells per item — what one beat's worth of `u` buys.
       segs.push({ items: run, cells: run.length, dur: run.length * cellTime, roll: true, pace: 1 });
     } else {

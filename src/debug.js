@@ -4,8 +4,9 @@
 //
 // It takes its element at the boundary the way `progress` takes its store, so what it writes
 // can be read by a plain object in a test.
-import { OCCUPANTS } from './rules.js';
+import { OCCUPANTS, restsOn } from './rules.js';
 import { census } from './stage.js';
+import { CART_LANE, laneDepth } from './handles.js';
 
 // An occupant reads back under the name rules.js gives it, so a line here and a branch there
 // call the same thing the same thing. Derived rather than listed: a code added to the engine
@@ -16,33 +17,29 @@ const named = o => NAME[o] ?? `?${o}`;
 const at = ([x, y]) => `${x},${y}`;
 const cart = n => `cart#${n}`;
 
-// Where a thing came to rest when a cell does not say it: which cart holds it, and how deep in
-// what that cart is carrying.
-const stow = m =>
-  (m.toCart !== undefined ? ` into ${cart(m.toCart)}` : '')
-  + (m.parent != null && m.toCart === undefined ? ` in ${cart(m.parent)}` : '')
-  + (m.depth ? ` @${m.depth}` : '');
+// What a thing is once it lands, where the lane it rests in does not already say it: the code it
+// reads as, the id it takes, which cart holds it, and how deep in what that cart is carrying.
+const rests = m =>
+  (m.becomes.o !== m.o ? ` becomes ${named(m.becomes.o)}` : '')
+  + (m.becomes.lane === CART_LANE && m.becomes.ref !== m.ref ? ` into ${cart(m.becomes.ref)}` : '')
+  + (m.parent != null ? ` in ${cart(m.parent)}` : '')
+  + (laneDepth(m.becomes.lane) ? ` @${laneDepth(m.becomes.lane)}` : '');
 
-/** One traced step, as lines: the piece that travelled, then every mutation it billed. */
+/** What an entry is about, and how much of the board it covers. */
+const span = e => `${e.o === null ? '' : named(e.o)}${e.ref === null ? '' : `#${e.ref}`} ${e.handle}`
+  + (e.cells.length > 1 ? ` ${e.cells.map(at).join(' ')}` : '');
+
+/** One traced step, as lines: every mutation it billed, one lane at a time. */
 const linesOf = step => {
   const out = [];
-  // One piece or several — a tow moves a barrow and what it is towing in the same beat. Same
-  // shape `applyStep` reads, so a step that carries a list is not read as one piece with no name.
-  for (const p of step.piece)
-    out.push(`${p.kind}#${p.ref} rolls ${at([p.dx, p.dy])}` + (p.effect ? ` ${p.effect}` : ''));
   if (step.impact) out.push('impact');
   for (const m of step.moved)
-    out.push(`${named(m.o)} ${m.handle}->${at(m.to)}`
-      + (m.becomes !== undefined ? ` becomes ${named(m.becomes)}` : '')
-      + stow(m));
+    out.push(`${span(m)}->${at(restsOn(m))}` + rests(m) + (m.effect ? ` ${m.effect}` : ''));
   for (const s of step.spawned)
-    out.push(s.ref !== undefined
-      ? `*${s.kind}#${s.ref} ${named(s.o)} ${s.cells.map(at).join(' ')}`
-      : `+${named(s.o)} ${at(s.cells[0])}`
-        + (s.from ? ` from ${at(s.from)}` : '') + (s.parent != null ? ` in ${cart(s.parent)}` : '')
-        + (s.effect ? ` ${s.effect}` : ''));
+    out.push(`+${span(s)}` + (s.from ? ` from ${at(s.from)}` : '')
+      + (s.parent != null ? ` in ${cart(s.parent)}` : '') + (s.effect ? ` ${s.effect}` : ''));
   for (const g of step.gone)
-    out.push(`-${named(g.o ?? g.kind)} ${g.handle}` + (g.effect ? ` ${g.effect}` : ''));
+    out.push(`-${span(g)}` + (g.effect ? ` ${g.effect}` : ''));
   return out;
 };
 

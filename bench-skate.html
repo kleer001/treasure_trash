@@ -484,7 +484,7 @@ function go(dir) {
 
 /** How far it rolled, and whether the last beat was the tip rather than travel. */
 function describe(r) {
-  const rolled = r.steps.filter(st => st.piece && st.piece.kind === 'cart').length;
+  const rolled = r.steps.filter(st => st.moved.some(m => m.handle.endsWith('/cart'))).length;
   if (!rolled) return '';
   const tipped = r.steps.length > rolled;
   return ` · ${rolled} cell${rolled === 1 ? '' : 's'}${tipped ? ', tipped' : ''}`;

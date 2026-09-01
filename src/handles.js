@@ -18,42 +18,48 @@ import { NONE, cell, chainOf, isCart, isMultiCell, cartCells, pieceCells,
 // them. An occupant's lane is how deep in the cell's chain it rides.
 export const CART_LANE = 'cart', BODY_LANE = 'body', RAC_LANE = 'rac';
 export const depthLane = d => String(d);
-/** Which lane a `piece` entry's kind rests in. */
-export const pieceLane = kind => (kind === 'cart' ? CART_LANE : BODY_LANE);
+/** How deep in a cell's contents a lane sits. A cart and a body rest on the cell itself. */
+export const laneDepth = lane => (/^\d+$/.test(lane) ? Number(lane) : 0);
 
 export const handleAt = ([x, y], lane) => `${x},${y}/${lane}`;
+/** Which lane a handle names. */
+export const laneOf = h => h.slice(h.indexOf('/') + 1);
 /** A thing covering several cells is addressed by the first of them. */
 export const anchorOf = cells => rasterOrder(cells)[0];
+/** The same span written the one way, so two readings of it compare. */
+export const spanOf = cells => rasterOrder(cells).map(([x, y]) => `${x},${y}`).join(' ');
 
 /**
  * Every handle a board has, and what stands at each one — carts and bodies first, in raster
- * order, then everything standing on them, down each cell's chain.
+ * order, then everything standing on them, down each cell's chain. Each says what it is in the
+ * vocabulary an account entry uses to name it: the cells it covers, its occupant code and its
+ * piece id, with `null` where a thing has none.
  *
  * A collision throws. Two things sharing a handle is the lanes failing to separate what the
  * board separates, and it is the helper that is wrong, not the board.
  */
 export function handlesOf(state) {
   const out = new Map();
-  const put = (at, lane, what) => {
+  const put = (at, lane, cells, what) => {
     const h = handleAt(at, lane);
     if (out.has(h)) throw new Error(`two things answer to ${h}`);
-    out.set(h, { ...what, handle: h, at, lane });
+    out.set(h, { o: null, ref: null, ck: null, ...what, handle: h, at, lane, cells });
   };
 
-  put([state.rac.x, state.rac.y], RAC_LANE, { what: 'raccoon' });
+  put([state.rac.x, state.rac.y], RAC_LANE, [[state.rac.x, state.rac.y]], { what: 'raccoon' });
 
   const seenCart = new Set(), seenPid = new Set();
   for (let y = 0; y < state.rows; y++) for (let x = 0; x < state.cols; x++) {
     const c = cell(state, x, y);
     if (isCart(c) && !seenCart.has(c.cart)) {
       seenCart.add(c.cart);
-      put(anchorOf(cartCells(state, c.cart)), CART_LANE,
-          { what: 'cart', ref: c.cart, ck: c.ck });
+      const own = cartCells(state, c.cart);
+      put(anchorOf(own), CART_LANE, own, { what: 'cart', ref: c.cart, ck: c.ck });
     }
     if (c.pid !== undefined && !seenPid.has(c.pid)) {
       seenPid.add(c.pid);
-      put(anchorOf(pieceCells(state, c.pid)), BODY_LANE,
-          { what: 'body', ref: c.pid, o: c.o });
+      const own = pieceCells(state, c.pid);
+      put(anchorOf(own), BODY_LANE, own, { what: 'body', ref: c.pid, o: c.o });
     }
   }
   for (let y = 0; y < state.rows; y++) for (let x = 0; x < state.cols; x++) {
@@ -62,7 +68,7 @@ export function handlesOf(state) {
     // here would give it a second handle per cell it covers.
     if (c.o === NONE || isMultiCell(c.o)) continue;
     chainOf(c).forEach((o, depth) =>
-      put([x, y], depthLane(depth), { what: 'occupant', o, depth }));
+      put([x, y], depthLane(depth), [[x, y]], { what: 'occupant', o, depth }));
   }
   return out;
 }

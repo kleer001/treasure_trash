@@ -4,7 +4,11 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, CAN_EMPTY, CAN_FULL, TRASH, BAG, WHEELIE, WHEELIE_EMPTY, FURNITURE } from '../src/rules.js';
+import {
+  explain, moves as movement, arrives as arrival, leaves as removal,
+  CAN_EMPTY, CAN_FULL, TRASH, BAG, WHEELIE, WHEELIE_EMPTY, FURNITURE,
+} from '../src/rules.js';
+import { laneOf, CART_LANE } from '../src/handles.js';
 import { toState } from '../src/format.js';
 import {
   stageFrom, applyStep, advance, settle, rollEase, easeOut, pileLook, bump, NUDGE,
@@ -12,6 +16,8 @@ import {
 } from '../src/stage.js';
 
 const S = (grid, cart, water) => toState({ id: 't', grid, cart, water });
+/** A beat in which the board's own cart travelled. */
+const rolled = step => step.moved.some(m => laneOf(m.handle) === CART_LANE);
 const of = (stage, kind) => stage.sprites.filter(sp => sp.kind === kind);
 const one = (stage, kind) => {
   const m = of(stage, kind);
@@ -108,7 +114,7 @@ test('riding cargo travels with the skateboard, cell for cell', () => {
     applyStep(stage, step, r.frames[i + 1].rac);
     advance(stage, 0.5);
     const cart = one(stage, CART), pile = of(stage, TRASH)[0];
-    if (step.piece.length && pile && pile.parent !== null)
+    if (rolled(step) && pile && pile.parent !== null)
       seen.push([+(pile.x - cart.x).toFixed(3), pile.y - cart.y]);
     settle(stage);
   });
@@ -131,7 +137,7 @@ test('a shed pile stops dead once the skateboard has rolled on', () => {
   r.steps.forEach((step, i) => {
     applyStep(stage, step, r.frames[i + 1].rac);
     advance(stage, 0.5);
-    if (step.piece.length) for (const sp of of(stage, TRASH)) {      // travel only — a tip does move
+    if (rolled(step)) for (const sp of of(stage, TRASH)) {      // travel only — a tip does move
       if (sp.parent !== null) { rode.add(sp.id); continue; }
       if (!rode.has(sp.id)) continue;
       if (!hitOn.has(sp.id)) { hitOn.set(sp.id, i); continue; }   // the beat it was knocked off
@@ -342,9 +348,9 @@ test('what goes down a grate arrives first, then drops', () => {
   // say it was disappearing rather than dropping, and would not say which cell took it.
   const stage = { sprites: [], nextId: 0 };
   applyStep(stage, {
-    moved: [], piece: [], impact: false,
-    spawned: [{ o: BAG, cells: [[3, 1]], from: [1, 1], handle: '3,1/0', depth: 0 }],
-    gone: [{ o: BAG, cells: [[3, 1]], handle: '3,1/0', effect: 'falls' }],
+    moved: [], impact: false,
+    spawned: [arrival({ o: BAG, cells: [[3, 1]], from: [1, 1] })],
+    gone: [removal({ o: BAG, cells: [[3, 1]], effect: 'falls' })],
   });
   const [bag] = stage.sprites;
   assert.equal(bag.falls, true);
@@ -370,9 +376,9 @@ test('a thing that travels into a grate is taken once, not deflated on the way a
   const stage = stageFrom(S(['@-C-E', '-----']), 1);
   const can = one(stage, CAN_FULL);
   applyStep(stage, {
-    moved: [{ o: CAN_FULL, from: [2, 0], to: [3, 0], handle: '2,0/0', depth: 0 }],
-    gone: [{ o: CAN_FULL, cells: [[2, 0]], handle: '2,0/0', effect: 'falls' }],
-    spawned: [], piece: [], impact: false,
+    moved: [movement({ o: CAN_FULL, cells: [[2, 0]], dx: 1, dy: 0 })],
+    gone: [removal({ o: CAN_FULL, cells: [[2, 0]], effect: 'falls' })],
+    spawned: [], impact: false,
   });
   assert.equal(can.falls, true);
   assert.ok(!can.dying, 'the drop is the whole of how it leaves');
@@ -391,9 +397,8 @@ test('a thing that travels into a grate is taken once, not deflated on the way a
 test('a body can be born mid-action, and lands where a rebuilt stage would put it', () => {
   const stage = stageFrom(S(['@---E', '-----']), 1);
   applyStep(stage, {
-    moved: [], gone: [], piece: [], impact: false,
-    spawned: [{ kind: 'furniture', ref: 0, o: FURNITURE, cells: [[1, 1], [2, 1]], from: [1, 1],
-                handle: '1,1/body', depth: 0 }],
+    moved: [], gone: [], impact: false,
+    spawned: [arrival({ lane: 'body', ref: 0, o: FURNITURE, cells: [[1, 1], [2, 1]] })],
   });
   settle(stage);
   const born = one(stage, COUCH);
@@ -407,9 +412,8 @@ test('a body born onto a handle the stage is already holding is loud, not quietl
   const stage = stageFrom(S(['@---E', '-FF--']), 1);
   const ref = one(stage, COUCH).ref;
   assert.throws(() => applyStep(stage, {
-    moved: [], gone: [], piece: [], impact: false,
-    spawned: [{ kind: 'furniture', ref, o: FURNITURE, cells: [[1, 1], [2, 1]], from: [1, 1],
-                handle: '1,1/body', depth: 0 }],
+    moved: [], gone: [], impact: false,
+    spawned: [arrival({ lane: 'body', ref, o: FURNITURE, cells: [[1, 1], [2, 1]] })],
   }), /already answers/);
 });
 
@@ -417,10 +421,10 @@ test('a body swapped for something else leaves the stage', () => {
   const stage = stageFrom(S(['@---E', '-FF--']), 1);
   const ref = one(stage, COUCH).ref;
   applyStep(stage, {
-    moved: [], impact: false,
-    spawned: [{ o: BAG, cells: [[1, 1]], from: [1, 1], handle: '1,1/0', depth: 0 }],
-    piece: [{ kind: 'furniture', ref, dx: 0, dy: 0, handle: '1,1/body' }],
-    gone: [{ kind: 'furniture', ref, cells: [[1, 1], [2, 1]], handle: '1,1/body' }],
+    impact: false,
+    spawned: [arrival({ o: BAG, cells: [[1, 1]], from: [1, 1] })],
+    moved: [movement({ lane: 'body', o: FURNITURE, ref, cells: [[1, 1], [2, 1]], dx: 0, dy: 0 })],
+    gone: [removal({ lane: 'body', o: FURNITURE, ref, cells: [[1, 1], [2, 1]] })],
   });
   settle(stage);
   assert.equal(of(stage, COUCH).length, 0, 'the body is gone');
