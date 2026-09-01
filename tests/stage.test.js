@@ -343,8 +343,8 @@ test('what goes down a grate arrives first, then drops', () => {
   const stage = { sprites: [], nextId: 0 };
   applyStep(stage, {
     moved: [], piece: [], impact: false,
-    spawned: [{ o: BAG, cells: [[3, 1]], from: [1, 1], depth: 0 }],
-    gone: [{ o: BAG, cells: [[3, 1]], depth: 0, effect: 'falls' }],
+    spawned: [{ o: BAG, cells: [[3, 1]], from: [1, 1], handle: '3,1/0', depth: 0 }],
+    gone: [{ o: BAG, cells: [[3, 1]], handle: '3,1/0', effect: 'falls' }],
   });
   const [bag] = stage.sprites;
   assert.equal(bag.falls, true);
@@ -370,8 +370,8 @@ test('a thing that travels into a grate is taken once, not deflated on the way a
   const stage = stageFrom(S(['@-C-E', '-----']), 1);
   const can = one(stage, CAN_FULL);
   applyStep(stage, {
-    moved: [{ o: CAN_FULL, from: [2, 0], to: [3, 0], depth: 0 }],
-    gone: [{ o: CAN_FULL, cells: [[2, 0]], depth: 0, effect: 'falls' }],
+    moved: [{ o: CAN_FULL, from: [2, 0], to: [3, 0], handle: '2,0/0', depth: 0 }],
+    gone: [{ o: CAN_FULL, cells: [[2, 0]], handle: '2,0/0', effect: 'falls' }],
     spawned: [], piece: [], impact: false,
   });
   assert.equal(can.falls, true);
@@ -392,7 +392,8 @@ test('a body can be born mid-action, and lands where a rebuilt stage would put i
   const stage = stageFrom(S(['@---E', '-----']), 1);
   applyStep(stage, {
     moved: [], gone: [], piece: [], impact: false,
-    spawned: [{ kind: 'furniture', ref: 0, o: FURNITURE, cells: [[1, 1], [2, 1]], from: [1, 1], depth: 0 }],
+    spawned: [{ kind: 'furniture', ref: 0, o: FURNITURE, cells: [[1, 1], [2, 1]], from: [1, 1],
+                handle: '1,1/body', depth: 0 }],
   });
   settle(stage);
   const born = one(stage, COUCH);
@@ -402,12 +403,13 @@ test('a body can be born mid-action, and lands where a rebuilt stage would put i
   assert.deepEqual(born.cells, rebuilt.cells, 'and the same footprint, in offsets');
 });
 
-test('a second sprite for one body ref is loud rather than quietly doubled', () => {
+test('a body born onto a handle the stage is already holding is loud, not quietly doubled', () => {
   const stage = stageFrom(S(['@---E', '-FF--']), 1);
   const ref = one(stage, COUCH).ref;
   assert.throws(() => applyStep(stage, {
     moved: [], gone: [], piece: [], impact: false,
-    spawned: [{ kind: 'furniture', ref, o: FURNITURE, cells: [[1, 1], [2, 1]], from: [1, 1], depth: 0 }],
+    spawned: [{ kind: 'furniture', ref, o: FURNITURE, cells: [[1, 1], [2, 1]], from: [1, 1],
+                handle: '1,1/body', depth: 0 }],
   }), /already answers/);
 });
 
@@ -415,9 +417,10 @@ test('a body swapped for something else leaves the stage', () => {
   const stage = stageFrom(S(['@---E', '-FF--']), 1);
   const ref = one(stage, COUCH).ref;
   applyStep(stage, {
-    moved: [], spawned: [{ o: BAG, cells: [[1, 1]], from: [1, 1], depth: 0 }], impact: false,
-    piece: [{ kind: 'furniture', ref, dx: 0, dy: 0 }],
-    gone: [{ kind: 'furniture', ref, cells: [[1, 1], [2, 1]], depth: 0 }],
+    moved: [], impact: false,
+    spawned: [{ o: BAG, cells: [[1, 1]], from: [1, 1], handle: '1,1/0', depth: 0 }],
+    piece: [{ kind: 'furniture', ref, dx: 0, dy: 0, handle: '1,1/body' }],
+    gone: [{ kind: 'furniture', ref, cells: [[1, 1], [2, 1]], handle: '1,1/body' }],
   });
   settle(stage);
   assert.equal(of(stage, COUCH).length, 0, 'the body is gone');

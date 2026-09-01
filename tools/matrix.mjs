@@ -28,15 +28,14 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   explain, cell, terrainOf, DIR_ORDER,
-  cartCells, pieceCells, isBodyEvent, NONE,
+  cartCells, pieceCells, isBodyEvent, carriedAs, NONE,
 } from '../src/rules.js';
 import { toState, toGrid, toWater, toCart } from '../src/format.js';
 import { analyze } from '../src/solver.js';
 import { MAX_STATES } from './metrics.mjs';
-import { stageFrom, applyStep, settle, timeline, census,
-         CART, COUCH, RACCOON } from '../src/stage.js';
-import { handlesOf, handleAt, anchorOf, depthLane,
-         CART_LANE, BODY_LANE, RAC_LANE } from '../src/handles.js';
+import { stageFrom, applyStep, settle, timeline, census, spriteHandle } from '../src/stage.js';
+import { handlesOf, handleAt, anchorOf, depthLane, pieceLane,
+         CART_LANE, RAC_LANE } from '../src/handles.js';
 import { root } from './packs.mjs';
 
 // ---------------------------------------------------------------- what there is to meet
@@ -93,23 +92,16 @@ export const LANES = {
 
 // ---------------------------------------------------------------- the handle invariant
 //
-// The census below compares a sorted SET of sprite shapes, and it reaches its two sides by two
-// different routes: the account describes, the stage searches. What both routes get wrong
-// together it cannot see. These three questions are put to the account against the BOARDS
-// instead, so they hold however the stage arrives at its answer:
+// The census below compares a sorted SET of sprite shapes, so two things that draw alike and are
+// told apart wrongly leave it untouched — and the account and the stage now name a participant
+// the same way, which is what a swap would have to defeat. These three questions are put to the
+// account against the BOARDS instead, so they hold however the stage reaches its answer:
 //
 //   TOTAL       every sprite on a stage answers to a handle the board it came from has;
 //   INJECTIVE   no two sprites on one stage answer to the same handle;
 //   CONTINUOUS  every handle a step names is on the board the step ran on and holds what the
 //               step says it holds, and every handle on the board the step produced either
 //               traces back through the step or is announced by an arrival entry.
-
-/** Where a sprite says it is, said in the vocabulary a board is read in. */
-const spriteHandle = sp =>
-  sp.kind === RACCOON ? handleAt([sp.x, sp.y], RAC_LANE)
-    : sp.kind === CART ? handleAt([sp.x, sp.y], CART_LANE)
-      : sp.kind === COUCH ? handleAt([sp.x, sp.y], BODY_LANE)
-        : handleAt([sp.x, sp.y], depthLane(sp.depth ?? 0));
 
 /** TOTAL and INJECTIVE, of a settled stage against the board it should be holding. */
 export function unresolvedSprites(stage, state) {
@@ -123,18 +115,16 @@ export function unresolvedSprites(stage, state) {
   return bad;
 }
 
-const lane = kind => (kind === 'cart' ? CART_LANE : BODY_LANE);
-// A scoop hands a cart's handle to the cargo it becomes, and setting one down hands it back, so
-// which lane an entry names is not the same at both ends of it.
-const movedFrom = m => (m.fromCart !== undefined
-  ? handleAt(m.from, CART_LANE) : handleAt(m.from, depthLane(m.wasDepth ?? m.depth)));
+// An entry says which thing it is about, and the questions below put that CLAIM to the boards
+// either side of the step. Nothing here takes the stamp as the answer: a stamped handle earns
+// its keep by matching what the board holds at it. Where a thing comes TO is derived instead,
+// off the cells and offsets the entry declares, so the two ends of a move are two statements
+// rather than one restated.
 const movedTo = m => (m.toCart !== undefined
   ? handleAt(m.to, CART_LANE) : handleAt(m.to, depthLane(m.depth)));
-const eventHandle = e => (isBodyEvent(e)
-  ? handleAt(anchorOf(e.cells), lane(e.kind)) : handleAt(anchorOf(e.cells), depthLane(e.depth)));
-const pieceFrom = p => handleAt(anchorOf(p.cells), lane(p.kind));
+const anchorHandle = e => handleAt(anchorOf(e.cells), pieceLane(e.kind));
 const pieceTo = p => handleAt([anchorOf(p.cells)[0] + p.dx, anchorOf(p.cells)[1] + p.dy],
-                              lane(p.kind));
+                              pieceLane(p.kind));
 
 /** What the board holds at this handle, against what the entry claims is there. */
 const mismatch = (roll, h, want) => {
@@ -147,6 +137,23 @@ const mismatch = (roll, h, want) => {
 };
 
 /**
+ * A movement, against the board it set off from. A scoop is the one entry that names something
+ * the board is not holding as an occupant at all: the thing it moves is a CART where it stands,
+ * and the code it moves it as is that cart's kind, ridden as cargo.
+ */
+const movedFault = (roll, m) => {
+  const d = roll.get(m.handle);
+  if (d && d.what === 'cart')
+    return carriedAs(d.ck) === m.o ? null
+      : `the step moves o ${m.o} at ${m.handle}, where a cart rides as ${carriedAs(d.ck)}`;
+  return mismatch(roll, m.handle, { what: 'occupant', o: m.o });
+};
+
+/** A body entry addressed by a footprint it also declares: the two have to be the same body. */
+const anchorFault = e => (e.handle === anchorHandle(e) ? null
+  : `the step names ${e.handle}, whose cells anchor at ${anchorHandle(e)}`);
+
+/**
  * CONTINUOUS, of a traced action. Every fault it can report is the account describing a board
  * that is not the one either side of the step it ran on.
  */
@@ -156,33 +163,35 @@ export function handleFaults(r) {
     const before = handlesOf(r.frames[i]), after = handlesOf(r.frames[i + 1]);
     const say = (what, why) => { if (why) bad.push(`step ${i} ${what}: ${why}`); };
 
-    for (const m of step.moved)
-      say('moved', mismatch(before, movedFrom(m), m.fromCart !== undefined
-        ? { what: 'cart', ref: m.fromCart } : { what: 'occupant', o: m.o }));
+    for (const m of step.moved) say('moved', movedFault(before, m));
     // An arrival the board did not receive is both facts: it arrives, and it is then gone. Such
     // a removal answers to a handle on the board the step PRODUCED rather than the one it ran
     // on, so it is asked of the entry that announced it instead. The before board still gets
     // the first word: a handle it holds is a thing that was already there, and pairing a spawn
     // onto that handle cannot excuse the removal from saying what it took.
     const arrivals = new Map(step.spawned.filter(sp => !isBodyEvent(sp))
-      .map(sp => [eventHandle(sp), sp]));
+      .map(sp => [sp.handle, sp]));
     const fromTheBoard = g => isBodyEvent(g)
-      || before.has(eventHandle(g)) || !arrivals.has(eventHandle(g));
+      || before.has(g.handle) || !arrivals.has(g.handle);
     const asArrived = g => {
-      const { o } = arrivals.get(eventHandle(g));
-      return o === g.o ? null
-        : `the step takes occupant ${g.o} at ${eventHandle(g)}, where ${o} arrived`;
+      const { o } = arrivals.get(g.handle);
+      return o === g.o ? null : `the step takes occupant ${g.o} at ${g.handle}, where ${o} arrived`;
     };
 
-    for (const g of step.gone)
+    for (const g of step.gone) {
+      if (isBodyEvent(g)) say('gone', anchorFault(g));
       say('gone', fromTheBoard(g)
-        ? mismatch(before, eventHandle(g),
+        ? mismatch(before, g.handle,
           isBodyEvent(g) ? { what: g.kind === 'cart' ? 'cart' : 'body', ref: g.ref }
             : { what: 'occupant', o: g.o })
         : asArrived(g));
-    for (const p of step.piece)
-      say('piece', mismatch(before, pieceFrom(p),
+    }
+    for (const sp of step.spawned) if (isBodyEvent(sp)) say('spawned', anchorFault(sp));
+    for (const p of step.piece) {
+      say('piece', anchorFault(p));
+      say('piece', mismatch(before, p.handle,
         { what: p.kind === 'cart' ? 'cart' : 'body', ref: p.ref }));
+    }
 
     // Where each thing on the before board ends up. Standing still is the default; a piece
     // carries whatever is riding on it; a movement entry overrides both; a removal takes it off.
@@ -190,22 +199,22 @@ export function handleFaults(r) {
     const rac = st => handleAt([st.rac.x, st.rac.y], RAC_LANE);
     went.set(rac(r.frames[i]), rac(r.frames[i + 1]));
     for (const p of step.piece) {
-      went.set(pieceFrom(p), pieceTo(p));
+      went.set(p.handle, pieceTo(p));
       if (p.kind !== 'cart') continue;
       for (const d of before.values())
         if (d.what === 'occupant' && p.cells.some(([cx, cy]) => cx === d.at[0] && cy === d.at[1]))
           went.set(d.handle, handleAt([d.at[0] + p.dx, d.at[1] + p.dy], d.lane));
     }
-    for (const m of step.moved) went.set(movedFrom(m), movedTo(m));
-    for (const g of step.gone) if (fromTheBoard(g)) went.delete(eventHandle(g));
+    for (const m of step.moved) went.set(m.handle, movedTo(m));
+    for (const g of step.gone) if (fromTheBoard(g)) went.delete(g.handle);
 
     // An arrival entry with no occupant code is an effect playing itself out — a splash, a
     // shattering — and the board never receives it, so it announces nothing. Neither does one
     // a removal takes off in the same step.
     const announced = step.spawned
       .filter(sp => (isBodyEvent(sp) || sp.o !== NONE)
-        && !step.gone.some(g => !fromTheBoard(g) && eventHandle(g) === eventHandle(sp)))
-      .map(sp => eventHandle(sp));
+        && !step.gone.some(g => !fromTheBoard(g) && g.handle === sp.handle))
+      .map(sp => sp.handle);
     const covered = new Set([...went.values(), ...announced]);
     for (const [h, d] of after)
       if (!covered.has(h)) say('after', `${d.what} ${h} traces to nothing on the board the step`

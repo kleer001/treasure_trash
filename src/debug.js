@@ -19,11 +19,9 @@ const cart = n => `cart#${n}`;
 // Where a thing came to rest when a cell does not say it: which cart holds it, and how deep in
 // what that cart is carrying.
 const stow = m =>
-  (m.fromCart !== undefined ? ` out of ${cart(m.fromCart)}` : '')
-  + (m.toCart !== undefined ? ` into ${cart(m.toCart)}` : '')
+  (m.toCart !== undefined ? ` into ${cart(m.toCart)}` : '')
   + (m.parent != null && m.toCart === undefined ? ` in ${cart(m.parent)}` : '')
-  + (m.wasDepth !== undefined && m.wasDepth !== m.depth ? ` @${m.wasDepth}->${m.depth}`
-    : m.depth ? ` @${m.depth}` : '');
+  + (m.depth ? ` @${m.depth}` : '');
 
 /** One traced step, as lines: the piece that travelled, then every mutation it billed. */
 const linesOf = step => {
@@ -34,7 +32,7 @@ const linesOf = step => {
     out.push(`${p.kind}#${p.ref} rolls ${at([p.dx, p.dy])}` + (p.effect ? ` ${p.effect}` : ''));
   if (step.impact) out.push('impact');
   for (const m of step.moved)
-    out.push(`${named(m.o)} ${at(m.from)}->${at(m.to)}`
+    out.push(`${named(m.o)} ${m.handle}->${at(m.to)}`
       + (m.becomes !== undefined ? ` becomes ${named(m.becomes)}` : '')
       + stow(m));
   for (const s of step.spawned)
@@ -44,8 +42,7 @@ const linesOf = step => {
         + (s.from ? ` from ${at(s.from)}` : '') + (s.parent != null ? ` in ${cart(s.parent)}` : '')
         + (s.effect ? ` ${s.effect}` : ''));
   for (const g of step.gone)
-    out.push(`-${named(g.o ?? g.kind)} ${at(g.cells[0])}` + (g.depth ? ` @${g.depth}` : '')
-      + (g.effect ? ` ${g.effect}` : ''));
+    out.push(`-${named(g.o ?? g.kind)} ${g.handle}` + (g.effect ? ` ${g.effect}` : ''));
   return out;
 };
 

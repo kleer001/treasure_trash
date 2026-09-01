@@ -65,9 +65,9 @@ function audit(label, grid, dir, { cart, water } = {}) {
     // An arrival the board did not receive is both facts: it arrives, and it is then gone. Such
     // a removal is about a thing that was never on the board this step ran on, so the origin
     // claim is not one it makes.
-    const arrived = new Set(step.spawned.map(sp => `${key(sp.cells[0])}/${sp.depth}`));
+    const arrived = new Set(step.spawned.map(sp => sp.handle));
     for (const g of step.gone)
-      if (g.o !== undefined && !arrived.has(`${key(g.cells[0])}/${g.depth}`))
+      if (g.o !== undefined && !arrived.has(g.handle))
         assert.equal(cell(prev, ...g.cells[0]).o, g.o, `${at}: gone says ${g.o} was at ${g.cells[0]}`);
 
     // Something new lands on empty ground, or on ground vacated in this same step — the
@@ -92,7 +92,7 @@ test('a plain step reports no motion but the raccoon', () => {
 test('a tear consumes the bag and throws five piles out of it', () => {
   const r = audit('tear', ['-----', '--$--', '--@--', 'E----'], 'u');
   const [step] = r.steps;
-  assert.deepEqual(step.gone, [{ o: BAG, cells: [[2, 1]], depth: 0 }]);
+  assert.deepEqual(step.gone, [{ o: BAG, cells: [[2, 1]], handle: '2,1/0' }]);
   assert.equal(step.spawned.length, 5);
   for (const sp of step.spawned) assert.deepEqual(sp.from, [2, 1], 'every speck flies out of the bag');
 });
@@ -104,7 +104,7 @@ test('a fan cell over the canal takes what lands on it, and the step says so', (
   assert.equal(step.spawned.filter(sp => sp.cells[0][0] === 2 && sp.cells[0][1] === 0).length, 1,
     'the speck still flies to the canal cell');
   assert.deepEqual(step.gone.filter(g => g.o === TRASH),
-    [{ o: TRASH, cells: [[2, 0]], depth: 0 }], 'and the canal keeps it');
+    [{ o: TRASH, cells: [[2, 0]], handle: '2,0/0' }], 'and the canal keeps it');
 });
 
 test('each two-cell piece moves itself and launches its load from its own cell', () => {
@@ -115,7 +115,8 @@ test('each two-cell piece moves itself and launches its load from its own cell',
     const r = audit(`two-cell ${g}`, ['-----', '-----', `--${g}--`, '--@--', 'E----'], 'u');
     const [step] = r.steps;
     assert.deepEqual(step.moved,
-      [{ o, from: [2, 2], to: [2, 1], depth: 0, ...(becomes && { becomes }) }]);
+      [{ o, from: [2, 2], to: [2, 1], handle: '2,2/0', depth: 0,
+         ...(becomes && { becomes }) }]);
     assert.deepEqual(step.spawned[0].cells, [[2, 0]]);
     assert.deepEqual(step.spawned[0].from, [2, 2], 'the load comes out of the piece');
     assert.equal(step.spawned[0].o, load);
@@ -124,14 +125,16 @@ test('each two-cell piece moves itself and launches its load from its own cell',
 
 test('an empty can is one move and nothing else', () => {
   const r = audit('can', ['-----', '--c--', '--@--', 'E----'], 'u');
-  assert.deepEqual(r.steps[0].moved, [{ o: CAN_EMPTY, from: [2, 1], to: [2, 0], depth: 0 }]);
+  assert.deepEqual(r.steps[0].moved,
+    [{ o: CAN_EMPTY, from: [2, 1], to: [2, 0], handle: '2,1/0', depth: 0 }]);
 });
 
 test('a couch reports one rigid translation, not four cell edits', () => {
   const r = audit('couch', ['-----', '-FF--', '-FF--', '-@---', 'E----'], 'u');
   const [step] = r.steps;
   assert.deepEqual(step.piece,
-    [{ kind: 'furniture', ref: 0, dx: 0, dy: -1, cells: pieceCells(r.frames[0], 0) }]);
+    [{ kind: 'furniture', ref: 0, dx: 0, dy: -1, cells: pieceCells(r.frames[0], 0),
+       handle: '1,1/body' }]);
   assert.deepEqual(step.moved, [], 'a rigid body is one piece, not a pile of moves');
 });
 
@@ -143,11 +146,13 @@ test('a wheelie bin rolls first and dumps after, out of the BIN', () => {
   const r = audit('wheelie', ['-----', '-----', '-----', '--W--', 'E-@--'], 'u');
   assert.equal(r.steps.length, 2, 'the roll and the dump are separate beats');
   const [roll, dump] = r.steps;
-  assert.deepEqual(roll.moved, [{ o: WHEELIE, from: [2, 3], to: [2, 0], depth: 0 }]);
+  assert.deepEqual(roll.moved,
+    [{ o: WHEELIE, from: [2, 3], to: [2, 0], handle: '2,3/0', depth: 0 }]);
   assert.deepEqual(roll.spawned, [], 'it is still carrying the bag the whole way down');
   assert.equal(roll.impact, true, 'and it stopped because something stopped it');
   assert.equal(bagsLeft(r.frames[1]), 1, 'the bag is accounted for throughout, never in limbo');
-  assert.deepEqual(dump.spawned, [{ o: BAG, cells: [[2, 1]], from: [2, 0], depth: 0 }]);
+  assert.deepEqual(dump.spawned,
+    [{ o: BAG, cells: [[2, 1]], from: [2, 0], handle: '2,1/0', depth: 0 }]);
   assert.equal(dump.moved[0].becomes, WHEELIE_EMPTY, 'and it empties as the bag leaves');
   assert.equal(dump.impact, false, 'the dump is the consequence, not another collision');
 });
@@ -254,7 +259,7 @@ test('cargo tipped into the canal travels there and does not survive it', () => 
   assert.equal(tip.moved[0].o, TRASH);
   assert.deepEqual(tip.moved[0].to, [0, 0]);
   // Named where the stage is HOLDING it, which is the cell it set off from.
-  assert.deepEqual(tip.gone, [{ o: TRASH, cells: [tip.moved[0].from], depth: 0 }]);
+  assert.deepEqual(tip.gone, [{ o: TRASH, cells: [tip.moved[0].from], handle: tip.moved[0].handle }]);
 });
 
 test('a tip only ever moves cargo backward, and never past the run the skateboard came through', () => {
@@ -307,9 +312,11 @@ test('a rug that sets a bicycle going reports the bicycle as a BODY', () => {
   assert.deepEqual(step.moved, [], 'a body is never an occupant sprite');
   assert.deepEqual(step.piece, [
     // the rug, stopped against the bicycle
-    { kind: 'furniture', ref: 1, dx: 0, dy: 1, cells: pieceCells(r.frames[0], 1) },
+    { kind: 'furniture', ref: 1, dx: 0, dy: 1, cells: pieceCells(r.frames[0], 1),
+      handle: '1,1/body' },
     // the bicycle it handed off to
-    { kind: 'furniture', ref: 0, dx: 0, dy: 3, cells: pieceCells(r.frames[0], 0) },
+    { kind: 'furniture', ref: 0, dx: 0, dy: 3, cells: pieceCells(r.frames[0], 0),
+      handle: '1,3/body' },
   ]);
 });
 
@@ -332,9 +339,9 @@ test('a grate that takes a BODY takes it in the same lane as everything else', (
                        'd', { water: ['-----', '-----', '-----', '-----', '-OO--', '-----', '-----'] });
   const cells = pieceCells(rolled.frames[0], 0);
   assert.deepEqual(rolled.steps[0].piece,
-                   [{ kind: 'furniture', ref: 0, dx: 0, dy: 2, cells }]);
+                   [{ kind: 'furniture', ref: 0, dx: 0, dy: 2, cells, handle: '1,2/body' }]);
   assert.deepEqual(rolled.steps[0].gone,
-                   [{ kind: 'furniture', ref: 0, effect: 'falls', cells, depth: 0 }]);
+                   [{ kind: 'furniture', ref: 0, effect: 'falls', cells, handle: '1,2/body' }]);
 
   // And what a hand-off passes to a grate, body or not: one lane, whichever sort of thing it is.
   const passed = audit('grate handoff',
@@ -343,7 +350,7 @@ test('a grate that takes a BODY takes it in the same lane as everything else', (
                                       '------', '------'] });
   const tyre = passed.steps[0].moved.find(m => m.to[1] === 5);
   assert.deepEqual(passed.steps[0].gone,
-                   [{ o: tyre.o, cells: [tyre.from], depth: 0, effect: 'falls' }],
+                   [{ o: tyre.o, cells: [tyre.from], effect: 'falls', handle: tyre.handle }],
                    'the tyre it handed off to went down the grate');
 });
 
@@ -354,20 +361,20 @@ test('a grate takes what travelled into it, and the step keeps both halves of th
   // rather than dropped. So the movement entry carries it and the removal takes it down.
   const slid = audit('grate slide', ['-----', '-@C--', 'E----'], 'r', { water: ['-----', '---O-', '-----'] });
   assert.deepEqual(slid.steps[0].moved,
-    [{ o: CAN_FULL, from: [2, 1], to: [3, 1], depth: 0 }]);
+    [{ o: CAN_FULL, from: [2, 1], to: [3, 1], handle: '2,1/0', depth: 0 }]);
   assert.deepEqual(slid.steps[0].gone,
-    [{ o: CAN_FULL, cells: [[2, 1]], depth: 0, effect: 'falls' }]);
+    [{ o: CAN_FULL, cells: [[2, 1]], effect: 'falls', handle: '2,1/0' }]);
 
   const rolled = audit('grate roll', ['------', '-@W---', 'E-----'], 'r', { water: ['------', '----O-', '------'] });
   assert.deepEqual(rolled.steps.flatMap(st => st.moved),
-                   [{ o: WHEELIE, from: [2, 1], to: [4, 1], depth: 0 }]);
+                   [{ o: WHEELIE, from: [2, 1], to: [4, 1], handle: '2,1/0', depth: 0 }]);
   assert.deepEqual(rolled.steps.flatMap(st => st.gone),
-                   [{ o: WHEELIE, cells: [[2, 1]], depth: 0, effect: 'falls' }]);
+                   [{ o: WHEELIE, cells: [[2, 1]], effect: 'falls', handle: '2,1/0' }]);
 
   // And what a broom sweeps in, which travels as a line and loses only its head to the hole.
   const swept = audit('grate sweep', ['------', '@rC---', 'E-----'], 'r', { water: ['------', '---O--', '------'] });
   assert.deepEqual(swept.steps[0].moved.find(m => m.o === CAN_FULL),
-                   { o: CAN_FULL, from: [2, 1], to: [3, 1], depth: 0 });
+                   { o: CAN_FULL, from: [2, 1], to: [3, 1], handle: '2,1/0', depth: 0 });
   assert.deepEqual(swept.steps[0].gone,
-                   [{ o: CAN_FULL, cells: [[2, 1]], depth: 0, effect: 'falls' }]);
+                   [{ o: CAN_FULL, cells: [[2, 1]], effect: 'falls', handle: '2,1/0' }]);
 });

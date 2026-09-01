@@ -2,17 +2,30 @@
 // report. Pure: no canvas, no DOM, no timers. A renderer reads `sprites` and draws them; a
 // clock decides what `u` to pass to `advance`.
 //
-// Identity lives here rather than in the engine: `stateKey` packs occupants per cell, and
-// giving them identity there would split two boards differing only in WHICH can is which into
-// separate states, which the solver would pay for. A sprite persists across an action, owns a
-// fractional position, and can be parented to a cart rather than standing on a square.
+// The board carries no identity: `stateKey` packs occupants per cell, and giving them identity
+// there would split two boards differing only in WHICH can is which into separate states, which
+// the solver would pay for. So a sprite is matched to what an account names by its HANDLE, which
+// both sides read off the board the same way (`handles.js`). A sprite persists across an action,
+// owns a fractional position, and can be parented to a cart rather than standing on a square.
 
 import { NONE, cell, cartCells, pieceCells, isCart, isMultiCell,
          carriedKind, chainOf, isBodyEvent } from './rules.js';
+import { handleAt, depthLane, CART_LANE, BODY_LANE, RAC_LANE } from './handles.js';
 import { mulberry32 } from './rng.js';
 
 /** Multi-cell kinds are their own sprites; every other sprite is keyed by occupant code. */
 export const CART = 'cart', COUCH = 'couch', RACCOON = 'raccoon', SPLASH = 'splash';
+
+/**
+ * Which thing on a board a sprite is, said the way `handles.js` says it, and read off where the
+ * sprite is COMING TO REST. One of the two callers of the handle helper: this side mints the
+ * sprites, the engine names the events, and the two meet in `applyStep` without either of them
+ * searching for the other.
+ */
+export const spriteHandle = sp => handleAt([sp.tx, sp.ty],
+  sp.kind === RACCOON ? RAC_LANE
+    : sp.kind === CART ? CART_LANE
+      : sp.kind === COUCH ? BODY_LANE : depthLane(sp.depth ?? 0));
 
 /**
  * What identifies a sprite for comparison, and the sorted roll of every one on a stage. Ids and
@@ -48,6 +61,7 @@ export function stageFrom(state, seed = 1) {
   const mint = (kind, x, y, extra = {}) => {
     const sp = { id: stage.nextId++, kind, x, y, ax: x, ay: y, tx: x, ty: y, depth: 0,
                  seed: (rnd() * 0x100000000) >>> 0, parent: null, dying: false, ...extra };
+    sp.handle = spriteHandle(sp);
     stage.sprites.push(sp);
     return sp;
   };
@@ -92,16 +106,22 @@ export function stageFrom(state, seed = 1) {
 /** A body's parts keep their places relative to its anchor, so its offsets hold for life. */
 const offsets = (cells, ox, oy) => cells.map(([x, y]) => [x - ox, y - oy]);
 
-/** Where a removal and an arrival meet: the cell and the lane of it they both name. */
-const where = (at, depth) => `${at}/${depth ?? 0}`;
-
-const atCell = (sp, x, y) => sp.ax === x && sp.ay === y;
-// `parent` and `depth` both narrow the match when kind and cell are not enough. A barrow riding
-// in a barrow is the same code as its carrier on the same cell; which of them is inside the
-// other is the only thing that separates them.
-const find = (stage, kind, [x, y], depth = 0) =>
-  stage.sprites.find(sp => sp.kind === kind && !sp.dying && atCell(sp, x, y)
-    && (sp.depth ?? 0) === depth);
+/**
+ * Every sprite the stage is holding, by the handle it answers to. Spent and dying ones are out:
+ * they are drawn until the beat ends and the board has already let go of them, so the handle
+ * they still carry belongs to whatever arrives there next.
+ *
+ * Two live sprites answering to one handle is the stage holding a board no board could be.
+ */
+const holding = stage => {
+  const out = new Map();
+  for (const sp of stage.sprites) {
+    if (sp.dying || sp.spent) continue;
+    if (out.has(sp.handle)) throw new Error(`two sprites answer to ${sp.handle}`);
+    out.set(sp.handle, sp);
+  }
+  return out;
+};
 
 /**
  * Retarget everything for one step of an action. Positions are not applied here — `advance`
@@ -117,13 +137,37 @@ export function applyStep(stage, step, racTo = null) {
     sp.ax = sp.x; sp.ay = sp.y; sp.tx = sp.x; sp.ty = sp.y; sp.nudge = null;
   }
 
+  // Every sprite is resolved BEFORE any of them is changed, and by the handle its entry names
+  // rather than by anything about how it draws. A step can move several things that are alike —
+  // a barrow riding in a barrow is the same code on the same cell as the barrow carrying it —
+  // and it can turn one into another. A handle cares about neither.
+  const held = holding(stage);
+  const claim = e => {
+    const sp = held.get(e.handle);
+    // A step naming a handle the stage is not holding means the rules and the stage disagree
+    // about the board. Nothing downstream would notice: the piece would simply not animate.
+    if (!sp) throw new Error(`no sprite answers to ${e.handle}`);
+    return sp;
+  };
+
   // `piece` is one body or several: a tow moves a barrow and what it is towing in the same
   // beat, and neither is an occupant sprite the `moved` list could name.
-  for (const { kind, ref, dx, dy, effect, blow } of step.piece) {
-    const want = BODY[kind];
-    if (!want) throw new Error(`no sprite kind for piece '${kind}'`);
-    const body = stage.sprites.find(sp => sp.kind === want && sp.ref === ref);
-    if (!body) throw new Error(`no ${want} sprite for piece ${ref}`);
+  const bodies = step.piece.map(claim);
+  const targets = step.moved.map(claim);
+  // An arrival the board did not receive is both facts at once: it arrives, and it is gone. The
+  // sprite such a removal names is the one this step MINTS, so it is settled where it is minted
+  // rather than looked for among the sprites the stage was already holding.
+  const arrivals = new Map();
+  const leaving = step.gone.map(g => {
+    // A body is never minted and taken in the same beat, so one that answers to nothing is the
+    // disagreement `claim` is loud about rather than an arrival that did not survive.
+    if (isBodyEvent(g) || held.has(g.handle)) return claim(g);
+    arrivals.set(g.handle, g);
+    return null;
+  });
+
+  step.piece.forEach(({ kind, dx, dy, effect, blow, ref }, i) => {
+    const body = bodies[i];
     body.tx = body.ax + dx; body.ty = body.ay + dy;
     // The wobble pivots on the CART's bottom edge, not each sprite's: pivot cargo on itself and
     // it spins in place while the cart leans out from under it.
@@ -139,64 +183,15 @@ export function applyStep(stage, step, racTo = null) {
     if (kind === 'cart')
       for (const sp of stage.sprites)
         if (sp.parent === ref) { sp.tx = sp.ax + dx; sp.ty = sp.ay + dy; }
-  }
-
-  // An arrival the board did not receive is both facts at once: it arrives, and it is gone. The
-  // sprite such a removal names is the one this step MINTS, so it is settled where it is minted
-  // rather than looked for among the sprites the stage was already holding.
-  const arriving = new Set(step.spawned.filter(sp => !isBodyEvent(sp))
-    .map(sp => where(sp.cells[0], sp.depth)));
-  const taken = new Map(step.gone.filter(g => !isBodyEvent(g))
-    .map(g => [where(g.cells[0], g.depth), g]));
-
-  // Every sprite is found BEFORE any of them is changed. A step can move several things that
-  // are alike — a barrow riding in a barrow is the same code on the same cell as the barrow
-  // carrying it — and they are told apart by what they are NOW. Resolve them one at a time and
-  // the first entry's changes are what the second entry searches, which finds the wrong one.
-  const claimed = new Set();
-  const targets = step.moved.map(m => {
-    // A step naming a sprite the stage does not hold means the rules and the stage disagree
-    // about the board. Nothing downstream would notice: the piece would simply not animate.
-    //
-    // `fromCart` is the one thing that is not a disagreement: a barrow scooped up stops being a
-    // cart and becomes cargo, so the sprite standing there is a CART and no occupant of that
-    // code exists yet. It is the same object either way, so the sprite is converted rather than
-    // swapped — which is what keeps its draw seed and stops it popping.
-    const sp = m.fromCart !== undefined
-      ? stage.sprites.find(s => s.kind === CART && s.ref === m.fromCart && !s.dying)
-      : find(stage, m.o, m.from, m.wasDepth ?? m.depth);
-    if (!sp) throw new Error(`no ${m.o} sprite at ${m.from} to move to ${m.to}`);
-    // Two entries landing on one sprite is a step describing a board it did not produce: one of
-    // the things it says moved is not on the stage at all, and the other is being moved twice.
-    if (claimed.has(sp.id)) throw new Error(`two moves claim the ${m.o} sprite at ${m.from}`);
-    claimed.add(sp.id);
-    return sp;
-  });
-
-  // Found here, with `moved`, and for the same reason: a removal names where the stage is
-  // HOLDING the thing, and a movement entry is about to change every part of that address.
-  const leaving = step.gone.map(g => {
-    if (isBodyEvent(g)) {
-      const body = stage.sprites.find(s => s.kind === BODY[g.kind] && s.ref === g.ref && !s.spent);
-      if (!body) throw new Error(`no ${g.kind} sprite for piece ${g.ref} to consume`);
-      return body;
-    }
-    if (arriving.has(where(g.cells[0], g.depth))) return null;
-    // Loud for the reason `moved` is: a step naming a sprite the stage does not hold means the
-    // rules and the stage disagree about the board. Passing over it quietly leaves the sprite
-    // drawn where it was consumed, which reads as a rules bug and is found only by playing.
-    const sp = find(stage, g.o, g.cells[0], g.depth);
-    if (!sp) throw new Error(`no ${g.o} sprite at ${g.cells[0]} to consume`);
-    return sp;
   });
 
   step.moved.forEach((m, i) => {
     const sp = targets[i];
-    // Everything that made it a cart goes, `ck` included: a sprite that is cargo now and still
-    // carries a cart kind is a sprite a rebuild of the same board would not produce.
-    if (m.fromCart !== undefined) {
-      sp.kind = m.o; sp.ref = undefined; sp.cells = undefined; sp.ck = undefined;
-    }
+    // Whatever it was, the entry says it is an occupant now — everything that made it a cart
+    // goes, `ck` included, since a sprite that is cargo and still carries a cart kind is one a
+    // rebuild of the same board would not produce. The same object either way, so it is
+    // converted rather than swapped, which keeps its draw seed and stops it popping.
+    sp.kind = m.o; sp.ref = undefined; sp.cells = undefined; sp.ck = undefined;
     // And the way back: set down, it is a barrow again.
     if (m.toCart !== undefined) {
       sp.kind = CART; sp.ref = m.toCart; sp.ck = carriedKind(m.o); sp.cells = [[0, 0]];
@@ -232,14 +227,14 @@ export function applyStep(stage, step, racTo = null) {
     if (sp.ref !== undefined) {
       const want = BODY[sp.kind];
       if (!want) throw new Error(`no sprite kind for piece '${sp.kind}'`);
-      // Loud, for the reason every other lookup here is: two sprites answering to one ref is
-      // the rules and the stage disagreeing about how many pieces the board has.
-      if (stage.sprites.some(s => s.kind === want && s.ref === sp.ref && !s.spent))
-        throw new Error(`a ${sp.kind} sprite already answers to ${sp.ref}`);
+      // Loud, for the reason every other lookup here is: a handle the stage is already holding
+      // is the rules and the stage disagreeing about how many pieces the board has.
+      if (held.has(sp.handle)) throw new Error(`a sprite already answers to ${sp.handle}`);
       const [x, y] = sp.cells[0];
       stage.sprites.push({ id: stage.nextId++, kind: want, x, y, ax: x, ay: y, tx: x, ty: y,
                            depth: sp.depth, seed: (stage.nextId * 2654435761) >>> 0, parent: null,
-                           dying: false, ref: sp.ref, o: sp.o, cells: offsets(sp.cells, x, y) });
+                           dying: false, ref: sp.ref, o: sp.o, cells: offsets(sp.cells, x, y),
+                           handle: sp.handle });
       continue;
     }
     const [at] = sp.cells;
@@ -247,12 +242,12 @@ export function applyStep(stage, step, racTo = null) {
     // An arrival with no occupant code is an effect playing itself out — a splash, a shattering
     // — and the board has nothing to hold it with, so it goes when the beat does. Anything else
     // stays unless a removal in this same step says it did not survive the landing.
-    const took = taken.get(where(at, sp.depth));
+    const took = arrivals.get(sp.handle);
     stage.sprites.push({ id: stage.nextId++, kind: sp.effect === 'pours' ? SPLASH : sp.o,
                    x: ax, y: ay, ax, ay, tx: at[0], ty: at[1],
                    // Where it came FROM is where a drawer's body still is.
                    face: [Math.sign(at[0] - ax), Math.sign(at[1] - ay)],
-                   depth: sp.depth,
+                   depth: sp.depth, handle: sp.handle,
                    seed: (stage.nextId * 2654435761) >>> 0, parent: sp.parent ?? null, dying: false,
                    spent: sp.o === NONE || took !== undefined, falls: took?.effect === 'falls' });
   }
@@ -261,6 +256,11 @@ export function applyStep(stage, step, racTo = null) {
     const rac = stage.sprites.find(s => s.kind === RACCOON);
     if (rac) { rac.tx = racTo.x; rac.ty = racTo.y; }
   }
+
+  // Where each sprite is coming to rest is where the next step will name it, so the handles are
+  // re-read here rather than at the end of the beat: an input that cuts an animation short still
+  // has the rest of the action to land.
+  for (const sp of stage.sprites) sp.handle = spriteHandle(sp);
 }
 
 /**

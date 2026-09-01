@@ -18,6 +18,8 @@ import { NONE, cell, chainOf, isCart, isMultiCell, cartCells, pieceCells,
 // them. An occupant's lane is how deep in the cell's chain it rides.
 export const CART_LANE = 'cart', BODY_LANE = 'body', RAC_LANE = 'rac';
 export const depthLane = d => String(d);
+/** Which lane a `piece` entry's kind rests in. */
+export const pieceLane = kind => (kind === 'cart' ? CART_LANE : BODY_LANE);
 
 export const handleAt = ([x, y], lane) => `${x},${y}/${lane}`;
 /** A thing covering several cells is addressed by the first of them. */

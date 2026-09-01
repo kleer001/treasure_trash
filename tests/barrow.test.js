@@ -140,7 +140,8 @@ test('a tipping barrow is a BODY, not an occupant that moved', () => {
   assert.ok(r.ok, `refused: ${r.reason}`);
   const step = r.steps.at(-1);
   assert.deepEqual(step.piece,
-    [{ kind: 'cart', ref: 0, dx: 0, dy: 1, cells: cartCells(r.frames[0], 0) }]);
+    [{ kind: 'cart', ref: 0, dx: 0, dy: 1, cells: cartCells(r.frames[0], 0),
+       handle: '2,2/cart' }]);
   assert.ok(!step.moved.some(m => m.o === NONE), 'nothing of code NONE is an occupant sprite');
 });
 

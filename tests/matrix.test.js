@@ -158,14 +158,16 @@ test('two entries that swap the handles they name are caught', () => {
   assert.equal(landsWhereTheBoardSays(s, 'r').ok, true, 'the honest run passes');
   const swapped = landsWhereTheBoardSays(s, 'r', st => {
     const [a, b, ...rest] = st.moved;
-    return { ...st, moved: [{ ...a, from: b.from }, { ...b, from: a.from }, ...rest] };
+    return { ...st,
+             moved: [{ ...a, from: b.from, handle: b.handle },
+                     { ...b, from: a.from, handle: a.handle }, ...rest] };
   });
   assert.equal(swapped.ok, false, 'two entries pointing at each other has to be caught');
   assert.match(swapped.why, /the step names o \d+ at \d+,\d+\/\d+, which holds occupant o \d+/);
 });
 
 test('an entry naming the wrong handle is caught where no sprite comparison could', () => {
-  // The stage resolves a body by the piece id the entry carries and never reads its cells, so a
+  // The stage resolves a body by the handle the entry carries and never reads its cells, so a
   // piece entry that names the wrong ones builds exactly the sprites it should. What reads those
   // cells is everything downstream that wants to know WHICH cells an action disturbed.
   const { room } = corridor({ left: 'W', right: { mask: 'PP' } });
@@ -175,7 +177,20 @@ test('an entry naming the wrong handle is caught where no sprite comparison coul
     ...st, piece: st.piece.map(p => ({ ...p, cells: p.cells.map(([x, y]) => [x, y + 1]) })),
   }));
   assert.equal(misnamed.ok, false);
-  assert.match(misnamed.why, /nothing answers to \d+,\d+\/cart/);
+  assert.match(misnamed.why, /whose cells anchor at \d+,\d+\/cart/);
+});
+
+test('a body entry that names a handle no board holds is caught', () => {
+  // The stamp itself, bent: the cells stay honest and the handle moves off them. The board is
+  // what answers, so a handle nothing on it holds is a fault however well the entry reads.
+  const { room } = corridor({ left: 'W', right: { mask: 'PP' } });
+  const s = toState({ ...room, id: 'unheld' });
+  const adrift = landsWhereTheBoardSays(s, 'r', st => ({
+    ...st, piece: st.piece.map(p => ({ ...p, cells: p.cells.map(([x, y]) => [x, y + 1]),
+                                       handle: `${p.cells[0][0]},${p.cells[0][1] + 1}/cart` })),
+  }));
+  assert.equal(adrift.ok, false);
+  assert.match(adrift.why, /nothing answers to \d+,\d+\/cart/);
 });
 
 test('a removal that lies about what it took cannot hide behind an arrival', () => {
@@ -189,7 +204,8 @@ test('a removal that lies about what it took cannot hide behind an arrival', () 
     const g = st.gone.find(e => e.ref === undefined);
     const lie = { ...g, o: g.o + 1 };
     return { ...st, gone: st.gone.map(e => (e === g ? lie : e)),
-             spawned: [...st.spawned, { o: lie.o, cells: g.cells, depth: g.depth }] };
+             spawned: [...st.spawned,
+                       { o: lie.o, cells: g.cells, handle: g.handle, depth: 0 }] };
   });
   assert.equal(disguised.ok, false);
   assert.match(disguised.why, /gone: the step names o \d+ at \d+,\d+\/\d+, which holds occupant/);

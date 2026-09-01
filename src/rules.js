@@ -1,6 +1,12 @@
 // Treasure Trash — the rules. Pure, deterministic, no DOM, no I/O. The game, the solver
 // and the verifier all import this module.
 
+import { handleAt, anchorOf, depthLane, pieceLane, CART_LANE } from './handles.js';
+
+/** The handle of a thing standing `depth` deep in the chain on `at` — how the account names a
+ *  participant that is an occupant of a cell rather than a body of its own. */
+const standing = (at, depth = 0) => handleAt(at, depthLane(depth));
+
 // Occupant codes. `stateKey` encodes each as one printable character, so the list can grow.
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
              // 6 is retired.
@@ -418,12 +424,14 @@ function applyIntoCart(s, next, cid, { file, beyond, out, dx, dy }, o, step) {
     const was = chainOf(cell(s, ...file[j - 1]));
     setChain(cell(next, ...file[j]), was);
     if (step) was.forEach((o, k) =>
-      step.moved.push({ o, from: file[j - 1], to: file[j], parent: cid, depth: k }));
+      step.moved.push({ o, from: file[j - 1], to: file[j], parent: cid, depth: k,
+                        handle: standing(file[j - 1], k) }));
   }
   setChain(cell(next, ...file[0]), [o]);
   if (out.length) {
     const m = {
       o: out[0], from: file[file.length - 1], to: beyond, parent: null,
+      handle: standing(file[file.length - 1]),
       ...(landsAs(out[0]) !== out[0] && { becomes: landsAs(out[0]) }),
     };
     if (step) step.moved.push(m);
@@ -538,8 +546,10 @@ const land = (s, at, ch, step, m = null) => {
   if (!step) return;
   for (let i = 1; i < ch.length; i++) {
     const from = m ? m.from : at;
-    step.moved.push({ o: ch[i], from, to: at, wasDepth: i, depth: i - 1, parent: cart ?? null });
-    if (swallowed) step.gone.push({ o: ch[i], cells: [from], depth: i, effect: 'falls' });
+    step.moved.push({ o: ch[i], from, to: at, depth: i - 1, parent: cart ?? null,
+                      handle: standing(from, i) });
+    if (swallowed)
+      step.gone.push({ o: ch[i], cells: [from], effect: 'falls', handle: standing(from, i) });
   }
 };
 
@@ -547,13 +557,14 @@ const land = (s, at, ch, step, m = null) => {
 // A board says what is where, not what moved where, so a traced action carries a step. The
 // schema is stage.js's contract; the branches that fill it are the spec for what goes in it.
 //
-//   moved    { o, from, to, depth, becomes?, parent?, fromCart?, toCart?, wasDepth? }
-//   spawned  { cells, depth, from?, o?, effect?, parent?, kind?, ref? }
-//   gone     { cells, depth, o?, effect?, kind?, ref? }
+//   moved    { o, from, to, handle, depth, becomes?, parent?, toCart? }
+//   spawned  { cells, handle, depth, from?, o?, effect?, parent?, kind?, ref? }
+//   gone     { cells, handle, o?, effect?, kind?, ref? }
+//   piece    { kind, ref, handle, cells, dx, dy, effect? }
+//   impact   boolean
 //
-// One lane per FACT — a thing moved, arrived, left — and never one lane per kind of thing. An
-// occupant is found by its code and the cell it stands on; a body has neither, and is found by
-// the piece id it carries. Both are the same event, so both go in the same list: a reader
+// One lane per FACT — a thing moved, arrived, left — and never one lane per kind of thing. A
+// body leaving and an occupant leaving are the same event, so both go in the same list: a reader
 // counting what left the board reads `gone` and is right, rather than reading `gone` and then
 // remembering that bodies say it somewhere else.
 //
@@ -569,11 +580,15 @@ const land = (s, at, ch, step, m = null) => {
 // Every entry names `cells`, however many it has. A `piece` entry says which cells a body or a
 // cart moved FROM, so nothing downstream has to rebuild that from the board.
 //
+// Every entry also names `handle` — WHICH thing on the board it is about, in the vocabulary of
+// `handles.js`. A movement and a removal name the thing where the board it is leaving holds it;
+// an arrival names where the thing comes to rest. Nothing downstream searches for the
+// participant, and nothing has to work out that a barrow being scooped up is a cart until the
+// moment it is not.
+//
 // `depth` is how far INSIDE this cell's contents a thing comes to rest: 0 is what stands in the
-// cart slot or on the floor, 1 is what that is carrying, and so on down. `wasDepth` is where the
-// stage is holding it now, and defaults to `depth` — a thing that only changes cells keeps it.
-//   piece    { kind, ref, dx, dy, effect? } | null
-//   impact   boolean
+// cart slot or on the floor, 1 is what that is carrying, and so on down. It is what the stage
+// draws by, and it says nothing about which thing the entry means.
 /**
  * Every piece entry says which cells it moved FROM. A body and a cart travel by id and an
  * offset because the stage draws each of them as one sprite; anything counting cells would
@@ -594,7 +609,13 @@ function settleSteps(frames, steps) {
     // A body is named by its id, so its footprint is read off the frame the step ran on — the
     // only board that id still means anything on.
     for (const g of step.gone) if (isBodyEvent(g)) g.cells = footprintOf(frames[i], g);
-    for (const e of [...step.moved, ...step.gone, ...step.spawned]) e.depth ??= 0;
+    // And its handle with it: a body is one sprite over a whole footprint, and which cell that
+    // footprint is addressed by is a reading of the board rather than anything the branch that
+    // named the id had in hand. Every other participant is an occupant of a known cell, and is
+    // named where it is billed.
+    for (const e of [...step.piece, ...step.gone, ...step.spawned])
+      if (isBodyEvent(e)) e.handle = handleAt(anchorOf(e.cells), pieceLane(e.kind));
+    for (const e of [...step.moved, ...step.spawned]) e.depth ??= 0;
   });
   return steps;
 }
@@ -611,8 +632,8 @@ const takenBy = (c, o) => (isGrate(c) ? { effect: 'falls' } : o === TRASH && c.w
  *  it did not survive. It is named where the stage is HOLDING it, which is where it set off. */
 const tookIt = (step, c, m) => {
   const taken = takenBy(c, m.o);
-  if (step && taken)
-    step.gone.push({ o: m.o, cells: [m.from], depth: m.wasDepth ?? m.depth ?? 0, ...taken });
+  // The same participant as the entry that carried it, so it answers to the same handle.
+  if (step && taken) step.gone.push({ o: m.o, cells: [m.from], handle: m.handle, ...taken });
 };
 
 // --- tipping -------------------------------------------------------------------------------
@@ -648,13 +669,14 @@ function tipOut(s, o, at, dx, dy, step) {
   const c = tipCell(at, dx, dy);
   const target = cell(s, ...c);
   if (t.pours) {
-    if (step) step.spawned.push({ o: NONE, cells: [c], from: at, effect: 'pours' });
+    if (step)
+      step.spawned.push({ o: NONE, cells: [c], from: at, effect: 'pours', handle: standing(c) });
     pour(target);
   } else {
     const taken = takenBy(target, t.drops);
     if (step) {
-      step.spawned.push({ o: t.drops, cells: [c], from: at });
-      if (taken) step.gone.push({ o: t.drops, cells: [c], depth: 0, ...taken });
+      step.spawned.push({ o: t.drops, cells: [c], from: at, handle: standing(c) });
+      if (taken) step.gone.push({ o: t.drops, cells: [c], handle: standing(c), ...taken });
     }
     drop(s, c, [t.drops]);
   }
@@ -771,7 +793,8 @@ function handOff(next, from, dx, dy, step) {
           const took = chainOf(it);
           setChain(it, []);
           setChain(c, took);
-          moved.push({ o: took[0], from: back, to: [...p], parent: cid, depth: 0 });
+          moved.push({ o: took[0], from: back, to: [...p], parent: cid, depth: 0,
+                       handle: standing(back) });
           caught = true;
         } else {
           // Pinned, and nothing could go in either — a barrow struck on its closed back, or a
@@ -816,8 +839,9 @@ function handOff(next, from, dx, dy, step) {
       bodies.push({ kind: 'furniture', ref: pid, dx: j * dx, dy: j * dy });
       if (swallowed) gone.push({ kind: 'furniture', ref: pid, effect: 'falls' });
     } else own.forEach(([x, y], i) => {
-      moved.push({ o: was[i].o, from: [x, y], to: landed[i] });
-      if (swallowed) gone.push({ o: was[i].o, cells: [[x, y]], depth: 0, effect: 'falls' });
+      moved.push({ o: was[i].o, from: [x, y], to: landed[i], handle: standing([x, y]) });
+      if (swallowed)
+        gone.push({ o: was[i].o, cells: [[x, y]], effect: 'falls', handle: standing([x, y]) });
     });
     const lead = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
     p = [lead[0] + (j + 1) * dx, lead[1] + (j + 1) * dy];
@@ -873,7 +897,8 @@ const nameMove = (step, was, cells, dx, dy) => {
   if (c.cart !== undefined) step.piece.push({ kind: 'cart', ref: c.cart, dx, dy });
   else if (isMultiCell(c.o)) step.piece.push({ kind: 'furniture', ref: c.pid, dx, dy });
   else cells.forEach(([x, y], i) =>
-    step.moved.push({ o: was[i].o, from: [x, y], to: [x + dx, y + dy] }));
+    step.moved.push({ o: was[i].o, from: [x, y], to: [x + dx, y + dy],
+                      handle: standing([x, y]) }));
 };
 
 /** Move the whole body standing at `at` by (dx,dy). Its caller has already established that it
@@ -1068,7 +1093,7 @@ function towMove(s, at, dx, dy, done) {
       if (!bodies.some(b => b.kind === 'furniture' && b.ref === c.pid))
         bodies.push({ kind: 'furniture', ref: c.pid, dx, dy });
     } else {
-      moved.push({ o: c.o, from: [x, y], to: [x + dx, y + dy] });
+      moved.push({ o: c.o, from: [x, y], to: [x + dx, y + dy], handle: standing([x, y]) });
     }
   }
   return done(next, PUSH, mkStep({ piece: bodies, moved }));
@@ -1098,13 +1123,13 @@ function openInPlace(next, at, step, clears) {
     const shoved = inWay.o;
     cell(next, ...draw).o = NONE;
     drop(next, past, [shoved]);
-    step.moved.push({ o: shoved, from: draw, to: past });
+    step.moved.push({ o: shoved, from: draw, to: past, handle: standing(draw) });
   }
   // The shut cabinet is gone and a body stands where it and its drawer are: two pieces, not one
   // that grew. `freePid` rather than a count, or the new piece is welded to an old one.
   const open = CAB_OPENS[o], pid = freePid(next);
   for (const p of [at, draw]) { const c = cell(next, ...p); c.o = open; c.pid = pid; }
-  step.gone.push({ o, cells: [at] });
+  step.gone.push({ o, cells: [at], handle: standing(at) });
   step.spawned.push({ kind: 'furniture', ref: pid, o: open,
                       cells: rasterOrder([at, draw]), from: at });
   return null;
@@ -1130,9 +1155,9 @@ function shutCabinet(s, own, at, shut, [px, py], dx, dy, done) {
   next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
   return done(next, PUSH, mkStep({
     piece: [{ kind: 'furniture', ref: pid, dx: px, dy: py }],
-    spawned: [{ o: shut, cells: [at], from: own[0] }],
+    spawned: [{ o: shut, cells: [at], from: own[0], handle: standing(at) }],
     gone: [{ kind: 'furniture', ref: pid },
-           ...(taken ? [{ o: shut, cells: [at], depth: 0, ...taken }] : [])],
+           ...(taken ? [{ o: shut, cells: [at], handle: standing(at), ...taken }] : [])],
   }));
 }
 
@@ -1242,7 +1267,7 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
       if (!isOccupiable(next, ...behind) || !tipFits(next, out[0], behind, -dx, -dy)) continue;
       setChain(cell(next, ...tail), []);
       const m = {
-        o: out[0], from: tail, to: behind, parent: null,
+        o: out[0], from: tail, to: behind, parent: null, handle: standing(tail),
         ...(landsAs(out[0]) !== out[0] && { becomes: landsAs(out[0]) }),
       };
       step.moved.push(m);
@@ -1287,9 +1312,9 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
     const clear = ahead.every(([x, y]) => cartCanEnter(next, x, y, dx, dy, mouth))
       && !files.some(f => isTar(cell(next, ...at(f[0], n))));
     const incoming = clear ? ahead.map(([x, y]) => cargoAt(next, x, y)) : ahead.map(() => []);
-    // Which of them were CARTS before they were cargo. The stage holds a cart sprite for those,
-    // so the step has to say which one turned into what rather than naming an occupant sprite
-    // that does not exist yet.
+    // Which of them were CARTS before they were cargo. The board holds a cart there, so the
+    // entry that takes one aboard has to name the cart lane rather than an occupant lane that
+    // nothing answers to yet.
     const wasCart = ahead.map(([x, y]) => (clear && isScoopable(next, x, y) ? cell(next, x, y).cart : undefined));
     const rolling = clear && files.every((f, i) => !incoming[i].length || canShed(i));
     const taken = rolling ? incoming : ahead.map(() => []);
@@ -1313,22 +1338,28 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
         // to rest exactly as deep in the next slot as it was in this one.
         if (step) it.ch.forEach((o, k) => step.moved.push({
           o, from: at(f[j - 1], n), to: at(f[j], end), parent: cid, depth: k,
+          handle: standing(at(f[j - 1], n), k),
         }));
       }
       load[0] = { ch: taken[i] };
       if (step && taken[i].length) {
+        // A barrow taken aboard was a CART where it stood, and the stage is holding a cart there
+        // — so the head names the cart lane rather than an occupant nothing answers to yet.
         step.moved.push({ o: taken[i][0], from: ahead[i], to: at(f[0], end), parent: cid, depth: 0,
-                          ...(wasCart[i] !== undefined && { fromCart: wasCart[i] }) });
+                          handle: wasCart[i] !== undefined
+                            ? handleAt(ahead[i], CART_LANE) : standing(ahead[i]) });
         // A barrow taken aboard brings its load, and the load comes aboard one level deeper than
         // it was: it was standing in that barrow, and now the barrow is standing in this one.
         for (let k = 1; k < taken[i].length; k++)
           step.moved.push({ o: taken[i][k], from: ahead[i], to: at(f[0], end), parent: cid,
-                            wasDepth: wasCart[i] !== undefined ? k - 1 : k, depth: k });
+                            depth: k,
+                            handle: standing(ahead[i], wasCart[i] !== undefined ? k - 1 : k) });
       }
       if (out.ch.length) {
         if (step) {
           const m = {
             o: out.ch[0], from: at(f[depth - 1], n), to: behind, parent: null,
+            handle: standing(at(f[depth - 1], n)),
             ...(landsAs(out.ch[0]) !== out.ch[0] && { becomes: landsAs(out.ch[0]) }),
           };
           step.moved.push(m);
@@ -1345,7 +1376,7 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
       const o = cell(next, ...from).o;
       cell(next, ...from).o = NONE;
       cell(next, ...to).o = o;
-      if (step) step.moved.push({ o, from, to });
+      if (step) step.moved.push({ o, from, to, handle: standing(from) });
     }
     n = end;
     for (const [[x, y], ch] of spill) {
@@ -1479,6 +1510,7 @@ function decide(s, dir, opts) {
       step.piece = [{ kind: 'cart', ref: target.cart, dx, dy }];
       if (load.length) {
         const m = { o: load[0], from: [tx, ty], to: out, parent: null,
+          handle: standing([tx, ty]),
           ...(landsAs(load[0]) !== load[0] && { becomes: landsAs(load[0]) }) };
         step.moved.push(m);
         tookIt(step, cell(next, ...out), m);
@@ -1523,7 +1555,7 @@ function decide(s, dir, opts) {
     const blockers = fanBlockers(s, tx, ty, dx, dy);
     if (blockers.length) return { ok: false, reason: reasonFor(s, blockers, 'fan'), blame: blockers };
     const next = cloneState(s);
-    const step = mkStep({ gone: [{ o: BAG, cells: [[tx, ty]] }] });
+    const step = mkStep({ gone: [{ o: BAG, cells: [[tx, ty]], handle: standing([tx, ty]) }] });
     // Chairs clear out before anything is laid down, so the trash lands on the cells they left.
     // This is the whole of what the chair changes: the fan stops being only a cost and becomes
     // something you can aim.
@@ -1532,14 +1564,16 @@ function decide(s, dir, opts) {
       const to = chairFlees(s, tx, ty, dx, dy, fx, fy);
       cell(next, fx, fy).o = NONE;
       if (!isGrate(cell(next, ...to))) cell(next, ...to).o = CHAIR;
-      step.moved.push({ o: CHAIR, from: [fx, fy], to });
+      step.moved.push({ o: CHAIR, from: [fx, fy], to, handle: standing([fx, fy]) });
     }
     for (const [fx, fy] of fan(tx, ty, dx, dy)) {
       const c = cell(next, fx, fy);
       // one origin for the whole fan
       const taken = takenBy(c, TRASH);
-      step.spawned.push({ o: TRASH, cells: [[fx, fy]], from: [tx, ty] });
-      if (taken) step.gone.push({ o: TRASH, cells: [[fx, fy]], depth: 0, ...taken });
+      step.spawned.push({ o: TRASH, cells: [[fx, fy]], from: [tx, ty],
+                          handle: standing([fx, fy]) });
+      if (taken)
+        step.gone.push({ o: TRASH, cells: [[fx, fy]], handle: standing([fx, fy]), ...taken });
       layTrash(c);
     }
     cell(next, tx, ty).o = NONE;
@@ -1560,8 +1594,8 @@ function decide(s, dir, opts) {
     if (!isGrate(target1)) target1.ter = GLASS;
     next.rac = { x: tx, y: ty };
     return done(next, PUSH, mkStep({
-      gone: [{ o: PANE, cells: [[tx, ty]] }],
-      spawned: [{ o: NONE, cells: [c1], from: [tx, ty] }],
+      gone: [{ o: PANE, cells: [[tx, ty]], handle: standing([tx, ty]) }],
+      spawned: [{ o: NONE, cells: [c1], from: [tx, ty], handle: standing(c1) }],
     }));
   }
 
@@ -1714,10 +1748,11 @@ function decide(s, dir, opts) {
       // A movement entry each, swallowed or not: what the grate takes still TRAVELS to it, and
       // arriving and then dropping through is not the same as never having gone.
       moved: train.map(([x, y]) => ({
-        o: cell(s, x, y).o, from: [x, y], to: [x + k * dx, y + k * dy],
+        o: cell(s, x, y).o, from: [x, y], to: [x + k * dx, y + k * dy], handle: standing([x, y]),
       })),
       gone: train.filter(([x, y]) => swallowed.some(([sc]) => sc[0] === x && sc[1] === y))
-        .map(([x, y]) => ({ o: cell(s, x, y).o, cells: [[x, y]], depth: 0, effect: 'falls' })),
+        .map(([x, y]) => ({ o: cell(s, x, y).o, cells: [[x, y]], effect: 'falls',
+                            handle: standing([x, y]) })),
       impact: true,
     })];
     const struck = [...passedTo.bodies, ...strike.piece];
@@ -1734,12 +1769,14 @@ function decide(s, dir, opts) {
         moved: [
           ...strike.moved,
           ...(shedAt ? [{ o: WHEELIE, from: [rear[0] + k * dx, rear[1] + k * dy],
-                          to: [rear[0] + k * dx, rear[1] + k * dy], becomes: WHEELIE_EMPTY }] : []),
+                          to: [rear[0] + k * dx, rear[1] + k * dy], becomes: WHEELIE_EMPTY,
+                          handle: standing([rear[0] + k * dx, rear[1] + k * dy]) }] : []),
           ...passedTo.moved,
         ],
       }));
       if (shedAt) steps.at(-1).spawned.push(
-        { o: BAG, cells: [shedAt], from: [rear[0] + k * dx, rear[1] + k * dy] });
+        { o: BAG, cells: [shedAt], from: [rear[0] + k * dx, rear[1] + k * dy],
+          handle: standing(shedAt) });
     }
     for (let i = 1; i < frames.length; i++) frames[i].rac = { ...next.rac };
     return { ok: true, kind: PUSH, next, frames, steps: settleSteps(frames, steps) };
@@ -1806,8 +1843,8 @@ function decide(s, dir, opts) {
       const from = [x, y], to = [x + k * dx, y + k * dy];
       const what = cell(s, x, y).o;
       if (isGrate(cell(next, ...to))) {
-        step.moved.push({ o: what, from, to });
-        step.gone.push({ o: what, cells: [from], depth: 0, effect: 'falls' });
+        step.moved.push({ o: what, from, to, handle: standing(from) });
+        step.gone.push({ o: what, cells: [from], effect: 'falls', handle: standing(from) });
         continue;
       }
       // A pane breaks into the space IN FRONT of it, which a line gives only to its head: every
@@ -1818,19 +1855,20 @@ function decide(s, dir, opts) {
         // It travels and is then gone, which a shoved pane cannot do — the raccoon is standing
         // where it would have to set off from. Swept, the space it breaks into is the space it
         // was going anyway.
-        step.moved.push({ o: PANE, from, to });
-        step.gone.push({ o: PANE, cells: [from] });
+        step.moved.push({ o: PANE, from, to, handle: standing(from) });
+        step.gone.push({ o: PANE, cells: [from], handle: standing(from) });
         cell(next, ...to).ter = GLASS;
         continue;
       }
       // A bag swept onto glass bursts where it lands, which only the head of a line can do.
       if (what === BAG && isGlass(cell(next, ...to))) {
-        step.gone.push({ o: BAG, cells: [from] });
+        step.gone.push({ o: BAG, cells: [from], handle: standing(from) });
         for (const [fx, fy] of fan(to[0], to[1], dx, dy)) {
           if (!isOccupiable(next, fx, fy)) continue;
           const taken = takenBy(cell(next, fx, fy), TRASH);
-          step.spawned.push({ o: TRASH, cells: [[fx, fy]], from: to });
-          if (taken) step.gone.push({ o: TRASH, cells: [[fx, fy]], depth: 0, ...taken });
+          step.spawned.push({ o: TRASH, cells: [[fx, fy]], from: to, handle: standing([fx, fy]) });
+          if (taken)
+            step.gone.push({ o: TRASH, cells: [[fx, fy]], handle: standing([fx, fy]), ...taken });
           layTrash(cell(next, fx, fy));
         }
         continue;
@@ -1839,7 +1877,7 @@ function decide(s, dir, opts) {
       // left behind belongs to whatever is standing there now, which is a different board.
       const c = cell(next, ...to);
       c.o = what; c.hold = cell(s, x, y).hold; c.grip = cell(s, x, y).grip;
-      const m = { o: what, from, to };
+      const m = { o: what, from, to, handle: standing(from) };
       step.moved.push(m);
       if (x === head[0] && y === head[1]) headMoved = m;
     }
@@ -1892,17 +1930,19 @@ function decide(s, dir, opts) {
     const next = cloneState(s);
     // The load leaves the piece, so it flies from the piece's own cell rather than appearing.
     const step = mkStep({
-      moved: [{ o, from: [tx, ty], to: at,
+      moved: [{ o, from: [tx, ty], to: at, handle: standing([tx, ty]),
         ...(lands !== o && { becomes: lands }), ...(into !== null && { parent: into }) }],
-      ...(swallowed && { gone: [{ o, cells: [[tx, ty]], depth: 0, effect: 'falls' }] }),
+      ...(swallowed && { gone: [{ o, cells: [[tx, ty]], effect: 'falls',
+                                  handle: standing([tx, ty]) }] }),
     });
     if (tips && pours) {
-      step.spawned.push({ o: NONE, cells: [c2], from: [tx, ty], effect: 'pours' });
+      step.spawned.push({ o: NONE, cells: [c2], from: [tx, ty], effect: 'pours',
+                          handle: standing(c2) });
       pour(cell(next, c2[0], c2[1]));
     } else if (tips) {
       const taken = takenBy(cell(next, c2[0], c2[1]), drops);
-      step.spawned.push({ o: drops, cells: [c2], from: [tx, ty] });
-      if (taken) step.gone.push({ o: drops, cells: [c2], depth: 0, ...taken });
+      step.spawned.push({ o: drops, cells: [c2], from: [tx, ty], handle: standing(c2) });
+      if (taken) step.gone.push({ o: drops, cells: [c2], handle: standing(c2), ...taken });
       drop(next, c2, [drops]);
     }
     if (shove) applyIntoCart(s, next, into, shove, lands, step);
@@ -1910,7 +1950,8 @@ function decide(s, dir, opts) {
     // Spent making the cell walkable. It still MOVES — the sheet slides onto the hazard and goes
     // down with it — so the step keeps the move and names the sprite where the stage holds it,
     // which is the cell it started from.
-    else if (SLIDES[o].covers && cover(cell(next, ...at))) step.gone.push({ o, cells: [[tx, ty]] });
+    else if (SLIDES[o].covers && cover(cell(next, ...at)))
+      step.gone.push({ o, cells: [[tx, ty]], handle: standing([tx, ty]) });
     else drop(next, at, [lands]);
     const grip = cell(next, tx, ty).grip;
     cell(next, tx, ty).o = NONE;
