@@ -12,10 +12,13 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { run, cases, reachable, meeting, corridor,
+import { run, cases, reachable, meeting, corridor, sweepRooms,
          landsWhereTheBoardSays } from '../tools/matrix.mjs';
+import { generatedRooms } from '../tools/conform.mjs';
+import { actLevels } from '../tools/packs.mjs';
 import { toState } from '../src/format.js';
-import { cell, pieceCells, isCabinetOpen, cabinetFace, DIRS } from '../src/rules.js';
+import { handlesOf } from '../src/handles.js';
+import { cell, pieceCells, isCabinetOpen, cabinetFace, carriedKind, DIRS } from '../src/rules.js';
 
 test('every piece meeting every lane and every other piece lands where it says it does', () => {
   const rows = run();
@@ -97,7 +100,7 @@ test('a step that forgets what moved is caught', () => {
   assert.equal(landsWhereTheBoardSays(s, 'r').ok, true, 'the honest run passes');
   const forgetful = landsWhereTheBoardSays(s, 'r', st => ({ ...st, moved: [] }));
   assert.equal(forgetful.ok, false, 'a step naming nothing has to be caught');
-  assert.match(forgetful.why, /left over|never arrived/);
+  assert.match(forgetful.why, /left over|never arrived|traces to nothing/);
 });
 
 test('a step that moves a sprite to the wrong cell is caught', () => {
@@ -118,4 +121,59 @@ test('a step that forgets a container emptied is caught', () => {
     ...st, moved: st.moved.map(({ becomes, ...m }) => m),
   }));
   assert.equal(silent.ok, false, 'a container that sheds without saying what it becomes');
+});
+
+// --- the handle invariant --------------------------------------------------------------------
+// Three questions the census cannot ask, because the census compares a sorted SET of sprite
+// shapes: two things that draw alike, told apart wrongly, leave that set untouched. These are
+// put to the ACCOUNT against the boards either side of the step it ran on, so they hold however
+// the stage reaches its answer.
+
+test('a barrow riding in a barrow is three handles on one cell, not one', () => {
+  // The case the depth lane exists for. The vehicle and the cargo standing in it are BOTH a
+  // right-facing barrow — same kind, same cell — and what that cargo is itself carrying is on
+  // the same cell again. Nothing but the lane separates them.
+  const { room } = corridor({ left: { mask: 'r', cargo: '>', hold: 'C' } });
+  const roll = handlesOf(toState({ ...room, id: 'stacked' }));
+  const here = [...roll.values()].filter(d => d.at[0] === 2 && d.at[1] === 2);
+  assert.deepEqual(here.map(d => d.handle).sort(), ['2,2/0', '2,2/1', '2,2/cart']);
+  assert.equal(here.find(d => d.handle === '2,2/cart').ck,
+    carriedKind(here.find(d => d.handle === '2,2/0').o),
+    'the cart and its cargo are the same barrow, so the code cannot be what tells them apart');
+});
+
+test('the handle invariant holds over every board the shipped rooms reach', () => {
+  assert.deepEqual(sweepRooms(actLevels().map(l => l.level)), []);
+});
+
+test('and over the generated batch, where the odd pairings are', () => {
+  // The shipped rooms are a thin slice of the interaction space: a level author does not build
+  // the pairings that break identity, because there is no reason to put them in a puzzle.
+  assert.deepEqual(sweepRooms(generatedRooms(40, 7).map(g => g.level)), []);
+});
+
+test('two entries that swap the handles they name are caught', () => {
+  const { room } = corridor({ left: 'C', right: { mask: 'r', cargo: '>', hold: 'C' } });
+  const s = toState({ ...room, id: 'swap' });
+  assert.equal(landsWhereTheBoardSays(s, 'r').ok, true, 'the honest run passes');
+  const swapped = landsWhereTheBoardSays(s, 'r', st => {
+    const [a, b, ...rest] = st.moved;
+    return { ...st, moved: [{ ...a, from: b.from }, { ...b, from: a.from }, ...rest] };
+  });
+  assert.equal(swapped.ok, false, 'two entries pointing at each other has to be caught');
+  assert.match(swapped.why, /the step names o \d+ at \d+,\d+\/\d+, which holds occupant o \d+/);
+});
+
+test('an entry naming the wrong handle is caught where no sprite comparison could', () => {
+  // The stage resolves a body by the piece id the entry carries and never reads its cells, so a
+  // piece entry that names the wrong ones builds exactly the sprites it should. What reads those
+  // cells is everything downstream that wants to know WHICH cells an action disturbed.
+  const { room } = corridor({ left: 'W', right: { mask: 'PP' } });
+  const s = toState({ ...room, id: 'misnamed' });
+  assert.equal(landsWhereTheBoardSays(s, 'r').ok, true, 'the honest run passes');
+  const misnamed = landsWhereTheBoardSays(s, 'r', st => ({
+    ...st, piece: st.piece.map(p => ({ ...p, cells: p.cells.map(([x, y]) => [x, y + 1]) })),
+  }));
+  assert.equal(misnamed.ok, false);
+  assert.match(misnamed.why, /nothing answers to \d+,\d+\/cart/);
 });

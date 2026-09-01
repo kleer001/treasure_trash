@@ -1088,7 +1088,7 @@ function openInPlace(next, at, step, clears) {
 }
 
 /** Board cells in the order a stage reads them, which is where a body's anchor comes from. */
-const rasterOrder = cells => [...cells].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+export const rasterOrder = cells => [...cells].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
 
 /**
  * Both ways an open cabinet shuts. The piece is destroyed and a shut cabinet is put down on `at`:

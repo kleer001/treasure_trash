@@ -28,12 +28,15 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   explain, cell, terrainOf, DIR_ORDER,
-  cartCells, pieceCells,
+  cartCells, pieceCells, isBodyEvent, NONE,
 } from '../src/rules.js';
 import { toState, toGrid, toWater, toCart } from '../src/format.js';
 import { analyze } from '../src/solver.js';
 import { MAX_STATES } from './metrics.mjs';
-import { stageFrom, applyStep, settle, timeline, census } from '../src/stage.js';
+import { stageFrom, applyStep, settle, timeline, census,
+         CART, COUCH, RACCOON } from '../src/stage.js';
+import { handlesOf, handleAt, anchorOf, depthLane,
+         CART_LANE, BODY_LANE, RAC_LANE } from '../src/handles.js';
 import { root } from './packs.mjs';
 
 // ---------------------------------------------------------------- what there is to meet
@@ -88,6 +91,116 @@ export const LANES = {
   grate: 'O', onewayU: '^', onewayD: 'v', onewayL: '<', onewayR: '>',
 };
 
+// ---------------------------------------------------------------- the handle invariant
+//
+// The census below compares a sorted SET of sprite shapes, and it reaches its two sides by two
+// different routes: the account describes, the stage searches. What both routes get wrong
+// together it cannot see. These three questions are put to the account against the BOARDS
+// instead, so they hold however the stage arrives at its answer:
+//
+//   TOTAL       every sprite on a stage answers to a handle the board it came from has;
+//   INJECTIVE   no two sprites on one stage answer to the same handle;
+//   CONTINUOUS  every handle a step names is on the board the step ran on and holds what the
+//               step says it holds, and every handle on the board the step produced either
+//               traces back through the step or is announced by an arrival entry.
+
+/** Where a sprite says it is, said in the vocabulary a board is read in. */
+const spriteHandle = sp =>
+  sp.kind === RACCOON ? handleAt([sp.x, sp.y], RAC_LANE)
+    : sp.kind === CART ? handleAt([sp.x, sp.y], CART_LANE)
+      : sp.kind === COUCH ? handleAt([sp.x, sp.y], BODY_LANE)
+        : handleAt([sp.x, sp.y], depthLane(sp.depth ?? 0));
+
+/** TOTAL and INJECTIVE, of a settled stage against the board it should be holding. */
+export function unresolvedSprites(stage, state) {
+  const roll = handlesOf(state), bad = [], seen = new Map();
+  for (const sp of stage.sprites) {
+    const h = spriteHandle(sp);
+    if (!roll.has(h)) bad.push(`the ${sp.kind} sprite answers to ${h}, which the board has not got`);
+    if (seen.has(h)) bad.push(`the ${sp.kind} and ${seen.get(h)} sprites both answer to ${h}`);
+    seen.set(h, sp.kind);
+  }
+  return bad;
+}
+
+const lane = kind => (kind === 'cart' ? CART_LANE : BODY_LANE);
+// A scoop hands a cart's handle to the cargo it becomes, and setting one down hands it back, so
+// which lane an entry names is not the same at both ends of it.
+const movedFrom = m => (m.fromCart !== undefined
+  ? handleAt(m.from, CART_LANE) : handleAt(m.from, depthLane(m.wasDepth ?? m.depth)));
+const movedTo = m => (m.toCart !== undefined
+  ? handleAt(m.to, CART_LANE) : handleAt(m.to, depthLane(m.depth)));
+const eventHandle = e => (isBodyEvent(e)
+  ? handleAt(anchorOf(e.cells), lane(e.kind)) : handleAt(anchorOf(e.cells), depthLane(e.depth)));
+const pieceFrom = p => handleAt(anchorOf(p.cells), lane(p.kind));
+const pieceTo = p => handleAt([anchorOf(p.cells)[0] + p.dx, anchorOf(p.cells)[1] + p.dy],
+                              lane(p.kind));
+
+/** What the board holds at this handle, against what the entry claims is there. */
+const mismatch = (roll, h, want) => {
+  const d = roll.get(h);
+  if (!d) return `nothing answers to ${h}`;
+  for (const k of Object.keys(want))
+    if (d[k] !== want[k])
+      return `the step names ${k} ${want[k]} at ${h}, which holds ${d.what} ${k} ${d[k]}`;
+  return null;
+};
+
+/**
+ * CONTINUOUS, of a traced action. Every fault it can report is the account describing a board
+ * that is not the one either side of the step it ran on.
+ */
+export function handleFaults(r) {
+  const bad = [];
+  r.steps.forEach((step, i) => {
+    const before = handlesOf(r.frames[i]), after = handlesOf(r.frames[i + 1]);
+    const say = (what, why) => { if (why) bad.push(`step ${i} ${what}: ${why}`); };
+
+    for (const m of step.moved)
+      say('moved', mismatch(before, movedFrom(m), m.fromCart !== undefined
+        ? { what: 'cart', ref: m.fromCart } : { what: 'occupant', o: m.o }));
+    for (const g of step.gone)
+      say('gone', mismatch(before, eventHandle(g),
+        isBodyEvent(g) ? { what: g.kind === 'cart' ? 'cart' : 'body', ref: g.ref }
+          : { what: 'occupant', o: g.o }));
+    for (const p of step.piece)
+      say('piece', mismatch(before, pieceFrom(p),
+        { what: p.kind === 'cart' ? 'cart' : 'body', ref: p.ref }));
+
+    // Where each thing on the before board ends up. Standing still is the default; a piece
+    // carries whatever is riding on it; a movement entry overrides both; a removal takes it off.
+    const went = new Map([...before.keys()].map(h => [h, h]));
+    const rac = st => handleAt([st.rac.x, st.rac.y], RAC_LANE);
+    went.set(rac(r.frames[i]), rac(r.frames[i + 1]));
+    for (const p of step.piece) {
+      went.set(pieceFrom(p), pieceTo(p));
+      if (p.kind !== 'cart') continue;
+      for (const d of before.values())
+        if (d.what === 'occupant' && p.cells.some(([cx, cy]) => cx === d.at[0] && cy === d.at[1]))
+          went.set(d.handle, handleAt([d.at[0] + p.dx, d.at[1] + p.dy], d.lane));
+    }
+    for (const m of step.moved) went.set(movedFrom(m), movedTo(m));
+    for (const g of step.gone) went.delete(eventHandle(g));
+
+    // An arrival entry with no occupant code is an effect playing itself out — a splash, a
+    // shattering — and the board never receives it, so it announces nothing.
+    const announced = step.spawned.filter(sp => isBodyEvent(sp) || sp.o !== NONE)
+      .map(sp => eventHandle(sp));
+    const covered = new Set([...went.values(), ...announced]);
+    for (const [h, d] of after)
+      if (!covered.has(h)) say('after', `${d.what} ${h} traces to nothing on the board the step`
+        + ' ran on, and no entry announces it');
+
+    const landed = new Map();
+    for (const [from, to] of [...went, ...announced.map(h => ['an arrival entry', h])]) {
+      if (!after.has(to)) continue;                 // it did not survive; nothing rests there
+      if (landed.has(to)) say('after', `${landed.get(to)} and ${from} both come to rest at ${to}`);
+      landed.set(to, from);
+    }
+  });
+  return bad;
+}
+
 // ---------------------------------------------------------------- the invariant
 
 /**
@@ -97,23 +210,34 @@ export const LANES = {
  * Returns null when the action is refused — a refusal is a legal answer and moves no sprite.
  */
 export function landsWhereTheBoardSays(s, dir, bend = null) {
-  const r = explain(s, dir, { trace: true });
-  if (!r.ok) return null;
+  const traced = explain(s, dir, { trace: true });
+  if (!traced.ok) return null;
+  // `bend` is how this check is itself checked: a gate nobody has watched fail is a gate nobody
+  // knows the shape of. It takes a step and hands back a wrong one, so a test can put the exact
+  // mistake this is here to catch in front of it. See `tests/matrix.test.js`. It is applied to
+  // the account rather than at the point of use, so the census and the handle questions are
+  // asked of the same bent step.
+  const r = bend ? { ...traced, steps: traced.steps.map(bend) } : traced;
   const stage = stageFrom(s);
   let threw = null;
   try {
     // The same sequence `landMv` uses when an input cuts an animation short: every step
     // applied in order, each one settled before the next names anything.
-    //
-    // `bend` is how this check is itself checked: a gate nobody has watched fail is a gate
-    // nobody knows the shape of. It takes a step and hands back a wrong one, so a test can put
-    // the exact mistake this is here to catch in front of it. See `tests/matrix.test.js`.
     for (const seg of timeline(r, 1))
       for (const it of seg.items) {
-        applyStep(stage, bend ? bend(it.step) : it.step, it.racTo);
+        applyStep(stage, it.step, it.racTo);
         settle(stage);
       }
   } catch (e) { threw = e.message; }
+  // Asked before the throw is reported, because these questions are put to the account against
+  // the boards and a stage that could not resolve a name is downstream of whatever went wrong.
+  // A stage that threw has no settled sprites to ask, and is the one thing skipped.
+  const adrift = [];
+  try {
+    adrift.push(...handleFaults(r), ...unresolvedSprites(stageFrom(r.next), r.next),
+                ...(threw ? [] : unresolvedSprites(stage, r.next)));
+  } catch (e) { adrift.push(`the handles do not resolve: ${e.message}`); }
+  if (adrift.length) return { ok: false, why: adrift.join('; '), r };
   if (threw) return { ok: false, why: `the stage threw: ${threw}`, r };
   const mine = census(stage), theirs = census(stageFrom(r.next));
   if (JSON.stringify(mine) === JSON.stringify(theirs)) return { ok: true, r };
@@ -242,6 +366,27 @@ function crossesTest(s, dir, holes) {
     }
   }
   return false;
+}
+
+/**
+ * The whole invariant, asked of rooms rather than of corridors: every board each one reaches,
+ * every direction. The forced meetings above are one shove each from a board built to stage a
+ * pairing; this is what boards a room actually walks through do with the same questions.
+ */
+export function sweepRooms(rooms, { cap = 200 } = {}) {
+  const bad = [];
+  for (const room of rooms) {
+    let s0;
+    try { s0 = toState({ ...room, id: room.id ?? 'sweep' }); } catch (e) {
+      bad.push(`${room.id}: unreadable — ${e.message}`); continue;
+    }
+    for (const st of reachable(s0, cap))
+      for (const d of DIR_ORDER) {
+        const got = landsWhereTheBoardSays(st, d);
+        if (got && !got.ok) bad.push(`${room.id} ${d}: ${got.why}`);
+      }
+  }
+  return bad;
 }
 
 /** Every board a room can reach, bounded — the invariants are asked of all of them. */
