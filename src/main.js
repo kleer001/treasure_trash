@@ -531,7 +531,7 @@ const comp = createCompositor([
     // that is happening — so how far along it is, is the sprite's to say, not the board's.
     const filling=new Map();
     for(const sp of f.sprites)
-      if(sp.soaks) filling.set(`${Math.round(sp.tx)},${Math.round(sp.ty)}`, sp.soak ?? 1);
+      if(sp.soaks) filling.set(`${Math.round(sp.tx)},${Math.round(sp.ty)}`, sp.fill ?? 1);
     for(let y=0;y<b.rows;y++) for(let x=0;x<b.cols;x++){
       const c=cell(b,x,y); if(c.wall) continue;
       // A filled cell keeps the canal's dark rim, so you can still see where the water was and

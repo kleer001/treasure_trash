@@ -290,6 +290,10 @@ export function applyStep(stage, step, racTo = null) {
  *  drop gets two of the beat's three parts: it is the thing being looked at. */
 const FALL_AT = 1 / 3;
 
+/** When trash that is filling a canal has finished crossing into it and the water starts
+ *  becoming ground. The crossing gets most of the beat: the ground is answering it. */
+const FILL_AT = 0.6;
+
 export function advance(stage, u, cells = 0) {
   for (const sp of stage.sprites) {
     const d = Math.abs(sp.tx - sp.ax) + Math.abs(sp.ty - sp.ay);
@@ -298,7 +302,17 @@ export function advance(stage, u, cells = 0) {
     sp.y = sp.ay + (sp.ty - sp.ay) * su;
     if (sp.nudge) { sp.x += sp.nudge[0] * NUDGE * bump(u); sp.y += sp.nudge[1] * NUDGE * bump(u); }
     if (sp.rattle) sp.tilt = wobble(u) * (sp.rattle[0] || sp.rattle[1]);
-    if (sp.dying) { if (sp.soaks) sp.soak = u; else sp.deflate = 1 - u; }
+    if (sp.dying && !sp.soaks) sp.deflate = 1 - u;
+    // A canal fills in two parts, and the order is what makes it read: the trash CROSSES into
+    // the water, soaking as it goes, and only THEN does the water become ground. Filling while
+    // it is still in flight has the cell answer before the thing that answers it has arrived.
+    if (sp.soaks) {
+      const fly = Math.min(1, u / FILL_AT);
+      sp.x = sp.ax + (sp.tx - sp.ax) * fly;
+      sp.y = sp.ay + (sp.ty - sp.ay) * fly;
+      sp.soak = fly;
+      sp.fill = Math.max(0, Math.min(1, (u - FILL_AT) / (1 - FILL_AT)));
+    }
     // Down a grate is two things in one beat and the order is the whole of what makes it read:
     // it ARRIVES over the grate, and only then goes down it. Shrinking on the way would say it
     // was disappearing rather than falling, and the cell it fell into would not be legible.
