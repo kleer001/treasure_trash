@@ -115,11 +115,15 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
 
     // Open water is drawn darker than anything else on the board, with ripples, so it reads as
     // not-walkable. A filled cell keeps the dark rim and takes the ordinary trash glyph.
-    water(x, y, filled, seed = 0) {
+    water(x, y, filled, seed = 0, fill = 0) {
       const x0 = px(x), y0 = px(y);
-      ctx.fillStyle = filled ? P.bridge : P.canal;
+      // A canal being filled is drawn part of the way to the bridge it is becoming, so the
+      // ground arrives at its new colour with the trash rather than a frame behind it.
+      ctx.fillStyle = filled ? P.bridge : mix(P.canal, P.bridge, fill);
       ctx.fillRect(x0 + 1, y0 + 1, CS - 2, CS - 2);
       if (filled) { api.trash(x, y, { seed, wet: 1 }); return; }
+      ctx.save();
+      ctx.globalAlpha = 1 - fill;                    // the ripples go as the water stops moving
       ctx.strokeStyle = P.ripple; ctx.lineWidth = 2; ctx.lineCap = 'round';
       for (let i = 1; i <= 2; i++) {
         const yy = y0 + CS * (i / 3);
@@ -129,6 +133,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
         ctx.quadraticCurveTo(x0 + (2 * CS) / 3, yy + 4, x0 + CS - 6, yy);
         ctx.stroke();
       }
+      ctx.restore();
     },
 
     // The lanes past water. Each is drawn on the same square the floor would have taken, so the

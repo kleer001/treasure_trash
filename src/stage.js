@@ -226,7 +226,12 @@ export function applyStep(stage, step, racTo = null) {
     // Trash that fills a canal is not destroyed by it — it becomes the crossing. Shrinking it
     // away would say the opposite, so it keeps its size and takes on the water instead, and
     // the bridge the cell has become carries the same soaked colours on.
-    else if (g.effect === 'fills') { sp.dying = true; sp.soaks = true; }
+    else if (g.effect === 'fills') {
+      sp.dying = true; sp.soaks = true;
+      // The cell is about to draw this pile itself, from its own seed. Taking that seed now
+      // is what makes the swap invisible: same three scraps, same places, still soaking.
+      sp.seed = cellSeed(Math.round(sp.tx), Math.round(sp.ty));
+    }
     else if (!isBody(sp)) sp.dying = true;
   });
 
@@ -349,6 +354,10 @@ export const PILE_TONES = 5;
  * have different palettes and cell sizes and must draw the same piles. Largest first, so a
  * renderer drawing in order gets the small pieces on top.
  */
+/** A cell's cosmetic seed. Terrain draws its own pile from this, and a pile ON ITS WAY to
+ *  becoming terrain is reseeded to it, so the handoff changes colour and nothing else. */
+export const cellSeed = (x, y) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
+
 export function pileLook(seed) {
   const rnd = mulberry32(seed >>> 0);
   const tone = Math.floor(rnd() * PILE_TONES);

@@ -19,8 +19,8 @@ import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprit
 import { createCompositor } from './compositor.js';
 // stage owns the objects, their motion and its envelopes
 import {
-  CART, COUCH, RACCOON, SPLASH, advance, applyStep, easeOut, rollEase, settle, stageFrom,
-  timeline,
+  CART, COUCH, RACCOON, SPLASH, advance, applyStep, cellSeed, easeOut, rollEase, settle,
+  stageFrom, timeline,
 } from './stage.js';
 
 const CANF = CAN_FULL, CANE = CAN_EMPTY;
@@ -527,12 +527,17 @@ const comp = createCompositor([
   // from the board the animation is currently on, so a canal fills as the trash lands in it.
   { name:'terrain', draw:(ctx,f)=>{
     const s=f.state, b=f.board;
+    // A canal fills over the beat the trash crosses into it, and the trash is a sprite while
+    // that is happening — so how far along it is, is the sprite's to say, not the board's.
+    const filling=new Map();
+    for(const sp of f.sprites)
+      if(sp.soaks) filling.set(`${Math.round(sp.tx)},${Math.round(sp.ty)}`, sp.soak ?? 1);
     for(let y=0;y<b.rows;y++) for(let x=0;x<b.cols;x++){
       const c=cell(b,x,y); if(c.wall) continue;
       // A filled cell keeps the canal's dark rim, so you can still see where the water was and
       // what it cost to cross.
-      if(c.water)                   SP.water(x,y,false);
-      else if(c.bridge)             SP.water(x,y,true,hash(x,y));
+      if(c.water)                   SP.water(x,y,false,0,filling.get(`${x},${y}`)??0);
+      else if(c.bridge)             SP.water(x,y,true,cellSeed(x,y));
       else if(c.grate)              SP.grate(x,y);
       else if(c.oneway!==undefined) SP.oneway(x,y,c.oneway);
       else if(c.ter===GREASE)       SP.grease(x,y);
@@ -551,7 +556,7 @@ const comp = createCompositor([
     const s=f.state;
     for(const [x,y] of (f.fx.showBurst ? f.fx.cells : []))
       if(inGrid(s,x,y) && !cell(s,x,y).wall)
-        SP.trash(x,y,{ seed:hash(x,y), k:f.ph.burst, src:[f.fx.bx,f.fx.by] });
+        SP.trash(x,y,{ seed:cellSeed(x,y), k:f.ph.burst, src:[f.fx.bx,f.fx.by] });
   }},
 
   ...BANDS.map((name,band)=>({ name, draw:(ctx,f)=>{
@@ -702,7 +707,6 @@ function drawEdgeBar(x,y,dir){
 // Cell coordinates to pixels. The overlays below draw in the same space as the sprites.
 function px(x){return x*CS}
 // A stand-in seed per cell, until main.js runs off the stage and every pile carries its own.
-function hash(x,y){ return ((x*73856093)^(y*19349663))>>>0; }
 
 
 // ---- wire up ----
