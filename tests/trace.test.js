@@ -106,7 +106,7 @@ test('a fan cell over the canal takes what lands on it, and the step says so', (
   assert.equal(step.spawned.filter(sp => sp.cells[0][0] === 2 && sp.cells[0][1] === 0).length, 1,
     'the speck still flies to the canal cell');
   assert.deepEqual(step.gone.filter(g => g.o === TRASH),
-    [leaves({ o: TRASH, cells: [[2, 0]], effect: 'sinks' })],
+    [leaves({ o: TRASH, cells: [[2, 0]], effect: 'fills' })],
     'and the canal keeps it, saying how');
 });
 
@@ -262,7 +262,7 @@ test('cargo tipped into the canal travels there and does not survive it', () => 
   assert.deepEqual(restsOn(tip.moved[0]), [0, 0]);
   // Named where the stage is HOLDING it, which is the cell it set off from.
   assert.deepEqual(tip.gone, [{ o: TRASH, ref: null, cells: tip.moved[0].cells,
-                                handle: tip.moved[0].handle, effect: 'sinks' }]);
+                                handle: tip.moved[0].handle, effect: 'fills' }]);
 });
 
 test('a tip only ever moves cargo backward, and never past the run the skateboard came through', () => {

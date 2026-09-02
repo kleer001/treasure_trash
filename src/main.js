@@ -497,9 +497,9 @@ function paintSprite(sp, f){
   }
   else if(sp.kind === SPLASH) SP.splash(sp.x, sp.y);
   else drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
-    seed: sp.seed, face: sp.face,
+    seed: sp.seed, face: sp.face, wet: sp.soaks ? (sp.soak ?? 1) : 0,
     // a bag mid-refusal deflates where it stands; a torn one deflates as its fan grows
-    k: sp.dying ? (sp.deflate ?? 1)
+    k: sp.dying && !sp.soaks ? (sp.deflate ?? 1)
       : ph && fx.bx===Math.round(sp.x) && fx.by===Math.round(sp.y) ? 1-ph.burst : 1,
   });
 }

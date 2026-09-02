@@ -223,6 +223,10 @@ export function applyStep(stage, step, racTo = null) {
     // goes, so deflating it as well would take it twice. A body is one sprite over its whole
     // footprint and simply stops being drawn; an occupant deflates where it was taken.
     if (g.effect === 'falls') sp.falls = true;
+    // Trash that fills a canal is not destroyed by it — it becomes the crossing. Shrinking it
+    // away would say the opposite, so it keeps its size and takes on the water instead, and
+    // the bridge the cell has become carries the same soaked colours on.
+    else if (g.effect === 'fills') { sp.dying = true; sp.soaks = true; }
     else if (!isBody(sp)) sp.dying = true;
   });
 
@@ -289,7 +293,7 @@ export function advance(stage, u, cells = 0) {
     sp.y = sp.ay + (sp.ty - sp.ay) * su;
     if (sp.nudge) { sp.x += sp.nudge[0] * NUDGE * bump(u); sp.y += sp.nudge[1] * NUDGE * bump(u); }
     if (sp.rattle) sp.tilt = wobble(u) * (sp.rattle[0] || sp.rattle[1]);
-    if (sp.dying) sp.deflate = 1 - u;
+    if (sp.dying) { if (sp.soaks) sp.soak = u; else sp.deflate = 1 - u; }
     // Down a grate is two things in one beat and the order is the whole of what makes it read:
     // it ARRIVES over the grate, and only then goes down it. Shrinking on the way would say it
     // was disappearing rather than falling, and the cell it fell into would not be legible.

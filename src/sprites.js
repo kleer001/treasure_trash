@@ -14,6 +14,10 @@ export const PALETTE = {
   ink: '#1a1a1a', grn: '#2e9e5b',
   floor: '#fff', floorLine: '#e6e6e2', outline: '#fff',
   canal: '#2e6f8e', bridge: '#7fb7c4', ripple: 'rgba(255,255,255,.45)',
+  // Trash that filled a canal is the same trash, soaked: one blue family, the dry lightness
+  // order kept, and the darkest lifted so it does not sink into the water it is sitting in.
+  // The outline goes off white so a pale scrap keeps an edge against the bridge it now is.
+  wetOutline: '#d3e3ea',
   grease: '#6b6a4e', greaseSheen: 'rgba(190,215,120,.55)',
   tar: '#23232a', tarSheen: 'rgba(120,120,140,.35)',
   glass: '#b9d7de', glassEdge: '#5d8a95',
@@ -61,6 +65,21 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
   const CS = cell, PAD = pad, P = { ...PALETTE, ...palette };
   const px = n => n * CS;
   const TONES = [P.red, P.tea, P.yel, P.blu, P.pnk];
+  const WET   = ['#7aa8c8', '#5fb8c9', '#a8cdd8', '#5d8fc0', '#8fa6cc'];
+  /** Two hex colours, `t` of the way from the first to the second. Takes `#abc` and `#aabbcc`
+   *  alike — the palette is written in both, and a shorthand read as longhand yields NaN, which
+   *  canvas ignores in favour of whatever colour it was already holding. */
+  const ch = c => {
+    const h = c.length < 7 ? c.replace(/^#(.)(.)(.)$/, '#$1$1$2$2$3$3') : c;
+    return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  };
+  const mix = (a, b, t) => {
+    if (t <= 0) return a;
+    if (t >= 1) return b;
+    const [ar, ag, ab] = ch(a), [br, bg, bb] = ch(b);
+    const v = (u, w) => Math.round(u + (w - u) * t).toString(16).padStart(2, '0');
+    return `#${v(ar, br)}${v(ag, bg)}${v(ab, bb)}`;
+  };
 
   const star = (cx, cy, r) => {
     ctx.beginPath();
@@ -100,7 +119,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       const x0 = px(x), y0 = px(y);
       ctx.fillStyle = filled ? P.bridge : P.canal;
       ctx.fillRect(x0 + 1, y0 + 1, CS - 2, CS - 2);
-      if (filled) { api.trash(x, y, { seed }); return; }
+      if (filled) { api.trash(x, y, { seed, wet: 1 }); return; }
       ctx.strokeStyle = P.ripple; ctx.lineWidth = 2; ctx.lineCap = 'round';
       for (let i = 1; i <= 2; i++) {
         const yy = y0 + CS * (i / 3);
@@ -581,7 +600,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
      * that origin and its resting place, so a burst throws its mess outward across the board
      * instead of fading up in place. At rest the pile is clipped to its own cell.
      */
-    trash(x, y, { seed = 0, k = 1, src = null } = {}) {
+    trash(x, y, { seed = 0, k = 1, src = null, wet = 0 } = {}) {
       if (k <= 0) return;
       const x0 = px(x), y0 = px(y), flying = k < 1 && src;
       ctx.save();
@@ -593,8 +612,8 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
         ctx.save();
         ctx.translate(sx + (tx - sx) * k, sy + (ty - sy) * k);
         ctx.rotate(pc.rot);
-        ctx.fillStyle = TONES[pc.tone];
-        ctx.strokeStyle = P.outline; ctx.lineWidth = 1.5;
+        ctx.fillStyle = mix(TONES[pc.tone], WET[pc.tone], wet);
+        ctx.strokeStyle = mix(P.outline, P.wetOutline, wet); ctx.lineWidth = 1.5;
         scrap(pc.shape, pc.r * CS * Math.max(0.25, k));
         ctx.fill(); ctx.stroke();
         ctx.restore();
@@ -925,8 +944,8 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
  * occupant constants; passing them keeps this file free of any dependency on the rules.
  */
 export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
-  const { k = 1, seed = 0, src = null, face = null } = opts;
-  if (o === codes.TRASH) sprites.trash(x, y, { seed, k, src });
+  const { k = 1, seed = 0, src = null, face = null, wet = 0 } = opts;
+  if (o === codes.TRASH) sprites.trash(x, y, { seed, k, src, wet });
   else if (o === codes.BAG) sprites.bag(x, y, k);
   else if (o === codes.CAN_FULL) sprites.can(x, y, true);
   else if (o === codes.CAN_EMPTY) sprites.can(x, y, false);

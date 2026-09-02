@@ -634,7 +634,8 @@ export const LANDS_ON = {
   [GLASS]:   () => null,                                        // bursts a bag on arrival, and
                                                                 //   what bursts is not what lands
   [COVERED]: () => null,                                        // a covered lane is its cover
-  [WATER]:   o => (o === TRASH ? { effect: 'sinks' } : null),    // open water takes loose trash
+  [WATER]:   o => (o === TRASH ? { effect: 'fills' } : null),    // loose trash BECOMES the
+                                                                //   crossing — see layTrash
 };
 
 const takenBy = (c, o) => {
