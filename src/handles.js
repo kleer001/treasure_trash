@@ -4,30 +4,16 @@
 // it rests in. A thing covering several cells takes the first of them in raster order, so the
 // board settles the address rather than whoever is asking.
 //
-// It is not a counter and it is not stored anywhere. Two readings of the same board give the
-// same handles, and there is no second copy of one that could fall out of step with the board it
-// came from. The price of that is worth knowing before reaching for one: a handle is an ADDRESS
-// rather than an identity, so it says nothing about the same thing on the board before or after
-// the step, and nothing built on it can follow one object across a whole solution.
+// It is not a counter, and every copy of one is derived the same way from the same board, so a
+// stamped handle can be put back to the board it claims to name. The price is worth knowing
+// before reaching for one: a handle is an ADDRESS rather than an identity, so it says nothing
+// about the same thing before or after a step, and nothing built on it can follow one object
+// across a whole solution.
 
-import { NONE, cell, chainOf, isCart, isMultiCell, cartCells, pieceCells,
-         rasterOrder } from './rules.js';
+import { NONE, cell, chainOf, isCart, isMultiCell } from './rules.js';
+import { CART_LANE, BODY_LANE, RAC_LANE, depthLane, handleAt } from './lanes.js';
 
-// The lanes one cell holds at once. A cart, the cargo standing in it, and the load that cargo is
-// itself carrying all rest on the same cell, so the lane rather than the cell is what separates
-// them. An occupant's lane is how deep in the cell's chain it rides.
-export const CART_LANE = 'cart', BODY_LANE = 'body', RAC_LANE = 'rac';
-export const depthLane = d => String(d);
-/** How deep in a cell's contents a lane sits. A cart and a body rest on the cell itself. */
-export const laneDepth = lane => (/^\d+$/.test(lane) ? Number(lane) : 0);
-
-export const handleAt = ([x, y], lane) => `${x},${y}/${lane}`;
-/** Which lane a handle names. */
-export const laneOf = h => h.slice(h.indexOf('/') + 1);
-/** A thing covering several cells is addressed by the first of them. */
-export const anchorOf = cells => rasterOrder(cells)[0];
-/** The same span written the one way, so two readings of it compare. */
-export const spanOf = cells => rasterOrder(cells).map(([x, y]) => `${x},${y}`).join(' ');
+export * from './lanes.js';
 
 /**
  * Every handle a board has, and what stands at each one — carts and bodies first, in raster
@@ -43,32 +29,36 @@ export function handlesOf(state) {
   const put = (at, lane, cells, what) => {
     const h = handleAt(at, lane);
     if (out.has(h)) throw new Error(`two things answer to ${h}`);
-    out.set(h, { o: null, ref: null, ck: null, ...what, handle: h, at, lane, cells });
+    what.handle = h; what.at = at; what.lane = lane; what.cells = cells;
+    what.o ??= null; what.ref ??= null; what.ck ??= null;
+    out.set(h, what);
   };
 
   put([state.rac.x, state.rac.y], RAC_LANE, [[state.rac.x, state.rac.y]], { what: 'raccoon' });
 
-  const seenCart = new Set(), seenPid = new Set();
+  // One pass in raster order, gathering each multi-cell thing's span as its cells are met, so
+  // the first cell collected IS the anchor and nothing has to be sorted or re-scanned. Loose
+  // occupants are held back rather than put down here: a body is one thing at its anchor, and
+  // naming its code per cell would give it a second handle for every cell it covers.
+  const carts = new Map(), bodies = new Map(), loose = [];
   for (let y = 0; y < state.rows; y++) for (let x = 0; x < state.cols; x++) {
     const c = cell(state, x, y);
-    if (isCart(c) && !seenCart.has(c.cart)) {
-      seenCart.add(c.cart);
-      const own = cartCells(state, c.cart);
-      put(anchorOf(own), CART_LANE, own, { what: 'cart', ref: c.cart, ck: c.ck });
+    if (isCart(c)) {
+      const own = carts.get(c.cart);
+      if (own) own.cells.push([x, y]); else carts.set(c.cart, { cells: [[x, y]], ck: c.ck });
     }
-    if (c.pid !== undefined && !seenPid.has(c.pid)) {
-      seenPid.add(c.pid);
-      const own = pieceCells(state, c.pid);
-      put(anchorOf(own), BODY_LANE, own, { what: 'body', ref: c.pid, o: c.o });
+    if (c.pid !== undefined) {
+      const own = bodies.get(c.pid);
+      if (own) own.cells.push([x, y]); else bodies.set(c.pid, { cells: [[x, y]], o: c.o });
     }
+    if (c.o !== NONE && !isMultiCell(c.o)) loose.push([x, y, c]);
   }
-  for (let y = 0; y < state.rows; y++) for (let x = 0; x < state.cols; x++) {
-    const c = cell(state, x, y);
-    // A multi-cell piece is one thing at its anchor, already put down above; naming its code
-    // here would give it a second handle per cell it covers.
-    if (c.o === NONE || isMultiCell(c.o)) continue;
+  for (const [ref, { cells, ck }] of carts)
+    put(cells[0], CART_LANE, cells, { what: 'cart', ref, ck });
+  for (const [ref, { cells, o }] of bodies)
+    put(cells[0], BODY_LANE, cells, { what: 'body', ref, o });
+  for (const [x, y, c] of loose)
     chainOf(c).forEach((o, depth) =>
-      put([x, y], depthLane(depth), [[x, y]], { what: 'occupant', o, depth }));
-  }
+      put([x, y], depthLane(depth), [[x, y]], { what: 'occupant', o }));
   return out;
 }

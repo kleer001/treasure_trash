@@ -1,7 +1,8 @@
 // Treasure Trash — the rules. Pure, deterministic, no DOM, no I/O. The game, the solver
 // and the verifier all import this module.
 
-import { handleAt, anchorOf, depthLane, CART_LANE, BODY_LANE } from './handles.js';
+import { handleAt, anchorOf, depthLane, rasterOrder,
+         CART_LANE, BODY_LANE } from './lanes.js';
 
 // Occupant codes. `stateKey` encodes each as one printable character, so the list can grow.
 export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
@@ -608,7 +609,9 @@ export const arrives = ({ cells, lane = FLOOR, o = null, ref = null, from = null
 });
 
 /** Where a movement's span comes to rest: the cell it is addressed by, shifted. */
-export const restsOn = m => [anchorOf(m.cells)[0] + m.dx, anchorOf(m.cells)[1] + m.dy];
+export const restsOn = m => { const a = anchorOf(m.cells); return [a[0] + m.dx, a[1] + m.dy]; };
+/** The whole span, shifted — every cell a movement comes to rest on. */
+export const spanRestsOn = m => m.cells.map(([x, y]) => [x + m.dx, y + m.dy]);
 
 /** A removal, named where the board that still has it holds the thing. */
 export const leaves = ({ cells, lane, at = 0, o = null, ref = null, ...rest }) => ({
@@ -1152,8 +1155,6 @@ function openInPlace(next, at, step, clears) {
   return null;
 }
 
-/** Board cells in the order a stage reads them, which is where a body's anchor comes from. */
-export const rasterOrder = cells => [...cells].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
 
 /**
  * Both ways an open cabinet shuts. The piece is destroyed and a shut cabinet is put down on `at`:

@@ -499,7 +499,7 @@ function paintSprite(sp, f){
   else drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
     seed: sp.seed, face: sp.face, wet: sp.soaks ? (sp.soak ?? 1) : 0,
     // a bag mid-refusal deflates where it stands; a torn one deflates as its fan grows
-    k: sp.dying && !sp.soaks ? (sp.deflate ?? 1)
+    k: sp.dying ? (sp.deflate ?? 1)
       : ph && fx.bx===Math.round(sp.x) && fx.by===Math.round(sp.y) ? 1-ph.burst : 1,
   });
 }
@@ -706,7 +706,6 @@ function drawEdgeBar(x,y,dir){
 
 // Cell coordinates to pixels. The overlays below draw in the same space as the sprites.
 function px(x){return x*CS}
-// A stand-in seed per cell, until main.js runs off the stage and every pile carries its own.
 
 
 // ---- wire up ----

@@ -16,12 +16,12 @@ import {
   FURNITURE, RUG, LANDS_ON, TERRAINS,
 } from '../src/rules.js';
 import { toState } from '../src/format.js';
-import { anchorOf, laneOf, CART_LANE, BODY_LANE } from '../src/handles.js';
+import { anchorOf, laneOf, isBodyLane, CART_LANE, BODY_LANE } from '../src/handles.js';
 
 const S = (grid, cart, water) => toState({ id: 't', grid, cart, water });
 const key = ([x, y]) => `${x},${y}`;
 /** The movements of things the board gives an id to — one sprite over a whole footprint. */
-const bodies = st => st.moved.filter(m => [CART_LANE, BODY_LANE].includes(laneOf(m.handle)));
+const bodies = st => st.moved.filter(m => isBodyLane(laneOf(m.handle)));
 
 /** Cells whose contents differ — occupant, terrain, or which piece owns them. */
 function changed(a, b) {

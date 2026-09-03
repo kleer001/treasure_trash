@@ -11,7 +11,7 @@
 import { NONE, cell, cartCells, pieceCells, isCart, isMultiCell,
          carriedKind, chainOf } from './rules.js';
 import { handleAt, anchorOf, depthLane, laneDepth, laneOf,
-         CART_LANE, BODY_LANE, RAC_LANE } from './handles.js';
+         CART_LANE, BODY_LANE, RAC_LANE, isBodyLane } from './handles.js';
 import { mulberry32 } from './rng.js';
 
 /** Multi-cell kinds are their own sprites; every other sprite is keyed by occupant code. */
@@ -19,9 +19,8 @@ export const CART = 'cart', COUCH = 'couch', RACCOON = 'raccoon', SPLASH = 'spla
 
 /**
  * Which thing on a board a sprite is, said the way `handles.js` says it, and read off where the
- * sprite is COMING TO REST. One of the two callers of the handle helper: this side mints the
- * sprites, the engine names the events, and the two meet in `applyStep` without either of them
- * searching for the other.
+ * sprite is COMING TO REST. This side mints the sprites and the engine names the events, so the
+ * two meet in `applyStep` without either of them searching for the other.
  */
 export const spriteHandle = sp => handleAt([sp.tx, sp.ty],
   sp.kind === RACCOON ? RAC_LANE
@@ -227,7 +226,7 @@ export function applyStep(stage, step, racTo = null) {
     // away would say the opposite, so it keeps its size and takes on the water instead, and
     // the bridge the cell has become carries the same soaked colours on.
     else if (g.effect === 'fills') {
-      sp.dying = true; sp.soaks = true;
+      sp.soaks = true;
       // The cell is about to draw this pile itself, from its own seed. Taking that seed now
       // is what makes the swap invisible: same three scraps, same places, still soaking.
       sp.seed = cellSeed(Math.round(sp.tx), Math.round(sp.ty));
@@ -250,7 +249,7 @@ export function applyStep(stage, step, racTo = null) {
     // — and the board has nothing to hold it with, so it goes when the beat does. Anything else
     // stays unless a removal in this same step says it did not survive the landing.
     const took = arrivals.get(e.handle);
-    const body = e.lane === CART_LANE || e.lane === BODY_LANE;
+    const body = isBodyLane(e.lane);
     stage.sprites.push({
       id: stage.nextId++, kind: kindIn(e.lane, e.o, e.effect),
       x: ax, y: ay, ax, ay, tx: x, ty: y,
@@ -302,7 +301,7 @@ export function advance(stage, u, cells = 0) {
     sp.y = sp.ay + (sp.ty - sp.ay) * su;
     if (sp.nudge) { sp.x += sp.nudge[0] * NUDGE * bump(u); sp.y += sp.nudge[1] * NUDGE * bump(u); }
     if (sp.rattle) sp.tilt = wobble(u) * (sp.rattle[0] || sp.rattle[1]);
-    if (sp.dying && !sp.soaks) sp.deflate = 1 - u;
+    if (sp.dying) sp.deflate = 1 - u;
     // A canal fills in two parts, and the order is what makes it read: the trash CROSSES into
     // the water, soaking as it goes, and only THEN does the water become ground. Filling while
     // it is still in flight has the cell answer before the thing that answers it has arrived.

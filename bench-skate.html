@@ -361,8 +361,8 @@ import {
 } from './src/rules.js';
 import { toState } from './src/format.js';
 import {
-  CART, COUCH, RACCOON, SPLASH, advance, applyStep, easeOut, rollEase, settle, stageFrom,
-  timeline,
+  CART, COUCH, RACCOON, SPLASH, advance, applyStep, cellSeed, easeOut, rollEase, settle,
+  stageFrom, timeline,
 } from './src/stage.js';
 import { createSprites, drawOccupant, exitArrowDir } from './src/sprites.js';
 
@@ -440,7 +440,6 @@ const CASES = [
 // any dependency on the rules — it draws things, it does not know what they do.
 
 // A stand-in seed for a filled canal cell, which is terrain rather than a sprite.
-const hashCell = (x, y) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
 
 // ---------------------------------------------------------------- state
 let idx = 0, state = null, past = [], log = null, stage = null, board = null;
@@ -582,7 +581,7 @@ function draw() {
   for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) {
     const c = cell(s, x, y);
     if (c.wall) { ctx.fillStyle = wall; ctx.fillRect(x * CS, y * CS, CS, CS); continue; }
-    if (c.water || c.bridge) art.water(x, y, !!c.bridge, hashCell(x, y));
+    if (c.water || c.bridge) art.water(x, y, !!c.bridge, cellSeed(x, y));
     else art.floor(x, y);
     if (c.exit) art.exit(x, y, lit, exitArrowDir(s.cols, s.rows, x, y));
   }

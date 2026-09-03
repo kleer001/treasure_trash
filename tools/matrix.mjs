@@ -27,7 +27,7 @@
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  explain, cell, terrainOf, DIR_ORDER, NONE,
+  explain, cell, terrainOf, restsOn, DIR_ORDER, NONE,
 } from '../src/rules.js';
 import { toState, toGrid, toWater, toCart } from '../src/format.js';
 import { analyze } from '../src/solver.js';
@@ -102,8 +102,8 @@ export const LANES = {
 //               traces back through the step or is announced by an arrival entry.
 
 /** TOTAL and INJECTIVE, of a settled stage against the board it should be holding. */
-export function unresolvedSprites(stage, state) {
-  const roll = handlesOf(state), bad = [], seen = new Map();
+export function unresolvedSprites(stage, state, roll = handlesOf(state)) {
+  const bad = [], seen = new Map();
   for (const sp of stage.sprites) {
     const h = spriteHandle(sp);
     if (!roll.has(h)) bad.push(`the ${sp.kind} sprite answers to ${h}, which the board has not got`);
@@ -119,7 +119,7 @@ export function unresolvedSprites(stage, state) {
 // off the cells and offsets the entry declares, so the two ends of a move are two statements
 // rather than one restated.
 const shift = ([x, y], e) => [x + e.dx, y + e.dy];
-const movedTo = m => handleAt(shift(anchorOf(m.cells), m), m.becomes.lane);
+const movedTo = m => handleAt(restsOn(m), m.becomes.lane);
 
 /**
  * What the board holds at the handle an entry stamped, against what the entry says stands there:
@@ -239,8 +239,9 @@ export function landsWhereTheBoardSays(s, dir, bend = null) {
   // A stage that threw has no settled sprites to ask, and is the one thing skipped.
   const adrift = [];
   try {
-    adrift.push(...handleFaults(r), ...unresolvedSprites(stageFrom(r.next), r.next),
-                ...(threw ? [] : unresolvedSprites(stage, r.next)));
+    const roll = handlesOf(r.next);
+    adrift.push(...handleFaults(r), ...unresolvedSprites(stageFrom(r.next), r.next, roll),
+                ...(threw ? [] : unresolvedSprites(stage, r.next, roll)));
   } catch (e) { adrift.push(`the handles do not resolve: ${e.message}`); }
   if (adrift.length) return { ok: false, why: adrift.join('; '), r };
   if (threw) return { ok: false, why: `the stage threw: ${threw}`, r };
