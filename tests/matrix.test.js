@@ -196,19 +196,22 @@ test('a body entry that names a handle no board holds is caught', () => {
   assert.match(adrift.why, /nothing answers to \d+,\d+\/cart/);
 });
 
-test('a removal that lies about what it took cannot hide behind an arrival', () => {
-  // A removal at a handle the board never held is asked of the entry that announced it, because
-  // there is nothing else to ask. That reading must not extend to a handle the board DOES hold:
-  // pairing a spawn onto one would let a removal agree with itself about a thing it never took.
+test('a removal that names what neither the board nor an arrival had is caught', () => {
+  // One handle can hold two participants across a step: a thing named at the cell it is leaving,
+  // and a thing arriving on that cell behind it. Both can be taken, so a removal there is read by
+  // WHAT it says it took — the arrival's code means the arrival, anything else means the board.
+  //
+  // The limit that leaves, stated rather than papered over: a removal that names the arrival's
+  // code IS the arrival as far as any board-derived reading can tell. Catching a fabricated pair
+  // that agrees with itself needs identity the board does not carry.
   const { room } = corridor({ left: 'C', lane: 'O' });
   const s = toState({ ...room, id: 'disguise' });
   assert.equal(landsWhereTheBoardSays(s, 'r').ok, true, 'the honest run passes');
-  const disguised = landsWhereTheBoardSays(s, 'r', st => {
-    const g = st.gone.find(e => e.ref === null);
-    const lie = { ...g, o: g.o + 1 };
-    return { ...st, gone: st.gone.map(e => (e === g ? lie : e)),
-             spawned: [...st.spawned, arrives({ o: lie.o, cells: g.cells })] };
+  const invented = landsWhereTheBoardSays(s, 'r', st => {
+    const g = st.gone[0];
+    return { ...st, gone: [{ ...g, o: g.o + 1 }],
+             spawned: [...st.spawned, { ...g, o: g.o + 2 }] };
   });
-  assert.equal(disguised.ok, false);
-  assert.match(disguised.why, /gone: the step names o \d+ at \d+,\d+\/\d+, which holds occupant/);
+  assert.equal(invented.ok, false, 'it took something that was never anywhere');
+  assert.match(invented.why, /gone: the step names o \d+ at \d+,\d+\/\d+, which holds occupant/);
 });

@@ -162,10 +162,14 @@ export function applyStep(stage, step, racTo = null) {
   // An arrival the board did not receive is both facts at once: it arrives, and it is gone. The
   // sprite such a removal names is the one this step MINTS, so it is settled where it is minted
   // rather than looked for among the sprites the stage was already holding.
-  const born = new Set(step.spawned.map(e => e.handle));
+  // One handle can hold two things across a step — a sprite leaving the cell it is named at, and
+  // an arrival landing on the cell it left — and either can be the one a removal is about. What
+  // it says it TOOK settles it: the code that arrived means the arrival, anything else means the
+  // sprite the stage is already holding.
+  const born = new Map(step.spawned.map(e => [e.handle, e]));
   const arrivals = new Map();
   const leaving = step.gone.map(g => {
-    if (!held.has(g.handle) && born.has(g.handle)) { arrivals.set(g.handle, g); return null; }
+    if (born.get(g.handle)?.o === g.o) { arrivals.set(g.handle, g); return null; }
     return claim(g);
   });
 

@@ -160,7 +160,11 @@ export function handleFaults(r) {
     // the first word: a handle it holds is a thing that was already there, and pairing a spawn
     // onto that handle cannot excuse the removal from saying what it took.
     const arrivals = new Map(step.spawned.map(sp => [sp.handle, sp]));
-    const fromTheBoard = g => before.has(g.handle) || !arrivals.has(g.handle);
+    // One handle can hold two participants across a step — a chair leaving the cell it is named
+    // at, and trash arriving on the cell it left — and both of them can be taken. The address
+    // cannot tell those apart, so what it is about is settled by WHAT it says it took: a removal
+    // naming the code that arrived is about the arrival, and any other is about the board.
+    const fromTheBoard = g => arrivals.get(g.handle)?.o !== g.o;
     const asArrived = g => {
       const { o } = arrivals.get(g.handle);
       return o === g.o ? null : `the step takes occupant ${g.o} at ${g.handle}, where ${o} arrived`;
@@ -516,7 +520,7 @@ const secondOf = g => (isCart(g)
   : SECOND[g] ?? g);
 
 /** Every case the matrix runs: a piece meeting a lane, and a piece meeting a piece. */
-export function cases() {
+export function cases({ fourth = false } = {}) {
   const out = [];
   const all = { ...PIECES, ...BODIES, ...CARTS };
   const add = (id, what, built) => { if (built) out.push({ id, what, ...built }); };
@@ -538,6 +542,16 @@ export function cases() {
       for (const [ln, lg] of Object.entries(LANES))
         add(`${pn}-into-${qn}-over-${ln}`, `${pn} shoved into ${qn} standing on ${ln}`,
             corridor({ left: pg, right: qg, beyond: lg }));
+    // FOUR at once: the ground a thing is standing on and the ground it is driven onto are two
+    // different questions, and every pairing and every triple collapses them into one. A tyre on
+    // grease shoved over a grate is not a tyre on dry floor shoved over a grate.
+    if (!fourth) continue;
+    for (const [qn, qg] of Object.entries(all))
+      for (const [ln, lg] of Object.entries(LANES))
+        for (const [bn, bg] of Object.entries(LANES))
+          add(`${pn}-into-${qn}-on-${ln}-over-${bn}`,
+              `${pn} shoved into ${qn} standing on ${ln}, driven over ${bn}`,
+              corridor({ left: pg, right: qg, lane: lg, beyond: bg }));
   }
   return out;
 }
@@ -549,9 +563,9 @@ export function cases() {
  * counted as passes: a board that will not build, and a board where the piece never met what it
  * was put there to meet. The second is the one that matters — it looks exactly like a pass.
  */
-export function run(only = null) {
+export function run(only = null, { fourth = false } = {}) {
   const rows = [];
-  for (const c of cases()) {
+  for (const c of cases({ fourth })) {
     if (only && !c.id.includes(only)) continue;
     let s;
     try { s = toState({ ...c.room, id: c.id }); }
@@ -595,7 +609,7 @@ export function pack(rows) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
-  const rows = run(only);
+  const rows = run(only, { fourth: process.argv.includes("--fourth") });
   const tally = rows.reduce((a, r) => ({ ...a, [r.verdict]: (a[r.verdict] ?? 0) + 1 }), {});
   if (process.argv.includes('--list'))
     for (const r of rows) console.log(`${r.verdict.padEnd(12)} ${r.id}${r.why ? ' — ' + r.why : ''}`);

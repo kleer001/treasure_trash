@@ -48,13 +48,17 @@ around it — art, audio, progression, and the solvability indicator.
   like one that works. It watches the single place a landing is decided and reports the gaps in
   two cuts: lanes a site was never put to about a thing it does meet, and things that never reach
   a site at all. Most of what it lists is unstageable; telling those apart is the reading.
-- `node tools/matrix.mjs [--pack|--list]` — the interaction matrix: every piece forced to meet
+- `node tools/matrix.mjs [--pack|--list|--fourth]` — the interaction matrix: every piece forced to meet
   every terrain lane and every other piece, one shove each. What it checks is not the board —
   `conform.mjs` does that — but the ACCOUNT of the move: landing an action on the stage must
   leave the same sprites as building a stage from the board the action produced. That is the one
   invariant behind a body named as an occupant, a container that sheds without saying what it
   becomes, and a piece consumed by a name that finds nothing, none of which a board comparison
   can see. `--pack` writes `levels/matrix.tt`, playable at `index.html?acts=matrix.tt`.
+  It stages a meeting at three depths, and the depth is the point: a PAIR cannot ask what a
+  thing does to another thing on a particular ground, and a TRIPLE cannot ask what it does to
+  something that is itself standing on one. `--fourth` adds that last position — the lane under
+  the thing being met, as against the lane it is driven onto — and costs 37s against 4s.
 - `node tools/sweep.mjs [pack] [roomId...] [--write]` — routes a bench pack for the browser check
   below, and is **for a rules change, not for a room**. It plans keys that force the pieces to
   MEET: every meeting a shove can cause, piece against piece and piece onto terrain lane, filtered
