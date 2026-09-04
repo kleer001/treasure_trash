@@ -403,3 +403,21 @@ test('trash swept into a canal fills it, and the step says which lane took it', 
   assert.equal(terrainOf(cell(r.next, 4, 1)), BRIDGE, 'the canal it filled is floor now');
   assert.equal(cell(r.next, 4, 1).o, NONE, 'and nothing is left standing in it');
 });
+
+
+test('a container the lane takes goes down whole, however it got there', () => {
+  // Shoved straight onto a grate, a full can has always gone down without shedding — the tip is
+  // refused when the landing takes the container. Ejected from a cart onto the same grate it
+  // used to stop and put its bag on the floor first, which is the same can taking two different
+  // routes to two different answers.
+  const shoved = audit('can-onto-grate', ['########', '#@C----#', '#-----E#', '########'], 'r',
+    { water: ['--------', '---O----', '--------', '--------'] });
+  const ejected = audit('can-out-of-barrow', ['##########', '#@CC----E#', '##########'], 'r',
+    { water: ['----------', '----O-----', '----------'], cart: ['----------', '---r------', '----------'] });
+  for (const [what, r] of [['shoved', shoved], ['ejected', ejected]]) {
+    const all = r.steps.flatMap(st => st.spawned);
+    assert.deepEqual(all.filter(sp => sp.o === BAG), [], `${what}: nothing is left on the floor`);
+    assert.ok(r.steps.some(st => st.gone.some(g => g.o === CAN_FULL && g.effect === 'falls')),
+      `${what}: the can went down`);
+  }
+});

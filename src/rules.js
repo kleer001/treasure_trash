@@ -428,9 +428,12 @@ function applyIntoCart(s, next, cid, { file, beyond, out, dx, dy }, o, step) {
     const m = moves({ o: out[0], from: file[file.length - 1], to: beyond, parent: null,
                       becomes: landsAs(out[0]) });
     if (step) step.moved.push(m);
-    tookIt(step, cell(next, ...beyond), m);
+    const taken = tookIt(step, cell(next, ...beyond), m);
     land(next, beyond, out, step, m);
-    tipOut(next, out[0], beyond, dx, dy, step);
+    // A container the lane took goes down whole. It does not stop on the way to shed its load,
+    // which is what a shove straight onto the same lane has always done — `tips` is refused
+    // there for the same reason.
+    if (!taken) tipOut(next, out[0], beyond, dx, dy, step);
   }
 }
 
@@ -667,6 +670,7 @@ const tookIt = (step, c, m) => {
   // The same participant as the entry that carried it, so it answers to the same handle.
   if (step && taken)
     step.gone.push({ handle: m.handle, cells: m.cells, o: m.o, ref: m.ref, ...taken });
+  return taken;
 };
 
 // --- tipping -------------------------------------------------------------------------------
@@ -713,7 +717,11 @@ function tipOut(s, o, at, dx, dy, step) {
     }
     drop(s, c, [t.drops]);
   }
-  if (t.slides !== o) cell(s, ...at).o = t.slides;
+  // What a container turns into on landing lands too, and the lane it landed on gets the same
+  // say over that as it had over the container: writing the emptied code straight onto the cell
+  // puts a can back on a grate that had just taken it.
+  if (t.slides !== o && !takenBy(cell(s, ...at), t.slides, 'emptied where it landed'))
+    cell(s, ...at).o = t.slides;
 }
 
 /** What a container reads as once it has landed and shed. */
@@ -1155,8 +1163,10 @@ function openInPlace(next, at, step, clears) {
         || !travelsInto(next, ...past, f[0], f[1])) return draw;
     const shoved = inWay.o;
     cell(next, ...draw).o = NONE;
+    const cost = takenBy(cell(next, ...past), shoved, 'shoved by a drawer');
     drop(next, past, [shoved]);
     step.moved.push(moves({ o: shoved, from: draw, to: past }));
+    if (cost) step.gone.push(leaves({ o: shoved, cells: [draw], ...cost }));
   }
   // The shut cabinet is gone and a body stands where it and its drawer are: two pieces, not one
   // that grew. `freePid` rather than a count, or the new piece is welded to an old one.
@@ -1593,8 +1603,10 @@ function decide(s, dir, opts) {
       if (!inGrid(s, fx, fy) || cell(s, fx, fy).o !== CHAIR) continue;
       const to = chairFlees(s, tx, ty, dx, dy, fx, fy);
       cell(next, fx, fy).o = NONE;
-      if (!isGrate(cell(next, ...to))) cell(next, ...to).o = CHAIR;
+      const cost = takenBy(cell(next, ...to), CHAIR, 'fled');
+      drop(next, to, [CHAIR]);
       step.moved.push(moves({ o: CHAIR, from: [fx, fy], to }));
+      if (cost) step.gone.push(leaves({ o: CHAIR, cells: [[fx, fy]], ...cost }));
     }
     for (const [fx, fy] of fan(tx, ty, dx, dy)) {
       const c = cell(next, fx, fy);

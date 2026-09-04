@@ -442,7 +442,7 @@ const W = 11, H = 5, ROW = 2, AT = 2;
  * Returns the room and `at`: the cells the thing under test occupies, which is what `meets`
  * takes away to find out whether any of this mattered.
  */
-export function corridor({ left, right = null, lane = '-', vertical = false }) {
+export function corridor({ left, right = null, lane = '-', beyond = '-', vertical = false }) {
   const grid = Array.from({ length: H }, () => Array.from({ length: W }, () => '-'));
   const water = Array.from({ length: H }, () => Array.from({ length: W }, () => '-'));
   const cart = Array.from({ length: H }, () => Array.from({ length: W }, () => '-'));
@@ -487,6 +487,14 @@ export function corridor({ left, right = null, lane = '-', vertical = false }) {
     at = theirs;
   }
   if (lane !== '-') water[ROW][front] = lane;
+  // The lane the thing being MET lands on, which is a different question from the lane the
+  // shove crosses: what a broom sweeps is decided where the swept thing comes to rest, and no
+  // pairing of two things can put a terrain there.
+  const past = Math.max(...at.map(([x]) => x)) + 1;
+  if (beyond !== '-') {
+    if (past >= W - 2) return null;                       // that cell is the door
+    water[ROW][past] = beyond;
+  }
 
   const room = { id: 'm', grid: grid.map(r => r.join('')) };
   if (water.some(r => r.some(c => c !== '-'))) room.water = water.map(r => r.join(''));
@@ -523,6 +531,13 @@ export function cases() {
       for (const [qn, qg] of Object.entries(all))
         add(`${pn}-broadside-into-${qn}`, `${pn} lying across, shoved into ${qn}`,
             corridor({ left: pg, right: qg, vertical: true }));
+    // THREE at once: what a thing does to another thing depends on the ground the second one is
+    // driven onto, and a pairing cannot ask that. A broom sweeping trash is one rule on dry
+    // floor and another over a canal, and neither of the two pairs that make it up says so.
+    for (const [qn, qg] of Object.entries(all))
+      for (const [ln, lg] of Object.entries(LANES))
+        add(`${pn}-into-${qn}-over-${ln}`, `${pn} shoved into ${qn} standing on ${ln}`,
+            corridor({ left: pg, right: qg, beyond: lg }));
   }
   return out;
 }
