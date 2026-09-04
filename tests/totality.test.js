@@ -12,7 +12,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { OCCUPANTS, NONE, isMultiCell } from '../src/rules.js';
-import { toState, toGrid, MULTI_POOLS } from '../src/format.js';
+import { toState, toGrid, MULTI_POOLS, LEGEND } from '../src/format.js';
 import { drawOccupant } from '../src/sprites.js';
 
 /** Every occupant code the engine names, without the helpers that ride along in the same box. */
@@ -88,4 +88,25 @@ test('no two pieces are written with the same character', () => {
     seen.set(ch, name);
   }
   assert.deepEqual(clashes, []);
+});
+
+
+test('every piece is described in the legend a level author reads', () => {
+  // The legend is what tells someone which character to type, so a piece missing from it is a
+  // piece nobody outside the source can use. It is written glyph-first, and a line may cover a
+  // family — the four facings of a cabinet share one — so a glyph counts as described when it
+  // appears among the characters that open a line.
+  const described = new Set(LEGEND.flatMap(line => {
+    const [head] = line.split(' ');
+    return head.split(/[/,]/).filter(Boolean);
+  }));
+  const missing = [];
+  for (const { name, o } of single) {
+    const grid = ['#####', '#-@-#', '#---#', '#--E#', '#####'];
+    const st = toState({ id: 'w', grid });
+    st.cells[1][3].o = o;
+    const ch = toGrid(st)[1][3];
+    if (!described.has(ch)) missing.push(`${name} writes '${ch}', which the legend never mentions`);
+  }
+  assert.deepEqual(missing, []);
 });

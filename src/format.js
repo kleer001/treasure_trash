@@ -138,6 +138,8 @@ export const LEGEND = [
   `skateboards live in their own :cart block — ${SKATE_POOL.join('/')}, two cells each, cargo reads from :grid`,
   'barrows live there too, one cell each — u/d/l/r face up/down/left/right, and the next '
     + 'letters along are further barrows facing the same way',
+  '^/v/</> a barrow being carried, in the grid rather than the cart block — it keeps its facing '
+    + 'while it rides, and a shove that sets it down makes it a cart again',
   ':hold says what a carried barrow has inside it — "x,y glyphs", outermost first',
 ];
 

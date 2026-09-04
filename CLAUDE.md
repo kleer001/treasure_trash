@@ -42,6 +42,13 @@ around it — art, audio, progression, and the solvability indicator.
 - `cargo build --release --manifest-path engine/Cargo.toml` — the sanctioned Rust port, checked
   by `conform.mjs --engine engine/target/release/tt-engine`. Build it before a long discovery
   run: `survey` and `harvest` pick it up automatically. See **One engine**.
+- `node tools/pieces.mjs [--missing]` — what each piece has been declared to be, table by table.
+  A piece is not one record: its code is a rule, its glyph is a file format, its drawing is a
+  sprite sheet, and each lives with the concern that owns it. The codes in particular cannot be
+  gathered — they are handed out and never renumbered, and several predicates read them as
+  contiguous ranges. So this gathers the reading instead. Three columns are owed by every piece
+  and `tests/totality.test.js` says so; the rest are behaviours most pieces do not have, which is
+  why nothing can fail loudly about them.
 - `node tools/landings.mjs [--asked]` — the landing ledger: which `(site, lane, occupant)`
   questions the engine is ever ASKED, and which it never is. Not a comparison and not a gate — a
   board check can only judge boards it is given, so a combination nothing stages reads exactly

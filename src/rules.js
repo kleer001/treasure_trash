@@ -174,7 +174,7 @@ export const rollsAlong = (c, dx, dy) =>
   isRoller(c) && (c.o === TIRE_H ? dx !== 0 : c.o === TIRE_V ? dy !== 0 : true);
 
 // One shove table for the single-cell pushables. Read the entries, not a paraphrase.
-const SLIDES = {
+export const SLIDES = {
   [CAN_FULL]:  { slides: CAN_EMPTY, drops: BAG },
   [BIN]:       { slides: BIN_EMPTY, drops: TRASH },
   [JUG]:       { slides: JUG_EMPTY,  pours: true },
