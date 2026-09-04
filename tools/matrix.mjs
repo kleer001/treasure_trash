@@ -34,6 +34,7 @@ import { analyze } from '../src/solver.js';
 import { MAX_STATES } from './metrics.mjs';
 import { stageFrom, applyStep, settle, timeline, census, spriteHandle } from '../src/stage.js';
 import { handlesOf, handleAt, anchorOf, spanOf, RAC_LANE } from '../src/handles.js';
+import { unnamedOver } from '../src/audit.js';
 import { root } from './packs.mjs';
 
 // ---------------------------------------------------------------- what there is to meet
@@ -244,7 +245,9 @@ export function landsWhereTheBoardSays(s, dir, bend = null) {
   const adrift = [];
   try {
     const roll = handlesOf(r.next);
-    adrift.push(...handleFaults(r), ...unresolvedSprites(stageFrom(r.next), r.next, roll),
+    // `grip` is the one lane the account does not carry: a hold has no sprite and no entry,
+    // so a hook taking hold changes a board nothing announces. Counted, not failed.
+    adrift.push(...unnamedOver(r, { silent: ['grip'] }), ...handleFaults(r), ...unresolvedSprites(stageFrom(r.next), r.next, roll),
                 ...(threw ? [] : unresolvedSprites(stage, r.next, roll)));
   } catch (e) { adrift.push(`the handles do not resolve: ${e.message}`); }
   if (adrift.length) return { ok: false, why: adrift.join('; '), r };

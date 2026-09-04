@@ -16,6 +16,7 @@ import {
   FURNITURE, RUG, LANDS_ON, TERRAINS, terrainOf, BRIDGE,
 } from '../src/rules.js';
 import { toState } from '../src/format.js';
+import { unnamedCells } from '../src/audit.js';
 import { anchorOf, laneOf, isBodyLane, CART_LANE, BODY_LANE } from '../src/handles.js';
 
 const S = (grid, cart, water) => toState({ id: 't', grid, cart, water });
@@ -24,28 +25,6 @@ const key = ([x, y]) => `${x},${y}`;
 const bodies = st => st.moved.filter(m => isBodyLane(laneOf(m.handle)));
 
 /** Cells whose contents differ — occupant, terrain, or which piece owns them. */
-function changed(a, b) {
-  const out = [];
-  for (let y = 0; y < a.rows; y++) for (let x = 0; x < a.cols; x++) {
-    const p = cell(a, x, y), q = cell(b, x, y);
-    if (p.o !== q.o || !!p.water !== !!q.water || !!p.bridge !== !!q.bridge
-        || p.cart !== q.cart || p.pid !== q.pid) out.push(`${x},${y}`);
-  }
-  return out;
-}
-
-/** Every cell some event in this step points at, including both ends of a movement's travel. */
-function named(prev, step) {
-  const t = new Set();
-  step.gone.forEach(g => g.cells.forEach(c => t.add(key(c))));
-  step.spawned.forEach(sp => sp.cells.forEach(c => t.add(key(c))));
-  // Every entry names its whole span, so a couch and a can are read the same way here.
-  step.moved.forEach(m => m.cells.forEach(([x, y]) => {
-    t.add(`${x},${y}`); t.add(`${x + m.dx},${y + m.dy}`);
-  }));
-  return t;
-}
-
 function audit(label, grid, dir, { cart, water } = {}) {
   const s = S(grid, cart, water);
   const r = explain(s, dir, { trace: true });
@@ -54,9 +33,9 @@ function audit(label, grid, dir, { cart, water } = {}) {
 
   r.steps.forEach((step, i) => {
     const prev = r.frames[i], next = r.frames[i + 1], at = `${label} step ${i}`;
-    const t = named(prev, step);
-    for (const k of changed(prev, next))
-      assert.ok(t.has(k), `${at}: cell ${k} changed and no event names it`);
+    for (const c of unnamedCells(prev, next, step))
+      assert.ok(c.lanes.every(k => k === 'grip'),
+        `${at}: cell ${c.at} changed in ${c.lanes.join(',')} and no event names it`);
 
     // The origin claim: whatever a step says moved must have been sitting where it says. A cart
     // is not an occupant of its cell and declares no code, so it makes no such claim.

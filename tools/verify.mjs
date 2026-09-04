@@ -19,6 +19,11 @@ import {
   parseGate, coverGate, winnableWithoutKind,
 } from './metrics.mjs';
 import { actPacks, root } from './packs.mjs';
+import { watchAccounts } from '../src/audit.js';
+
+// Every declared solution is replayed here anyway. Counting what those boards say costs
+// nothing on top of the replay, and it is the only place that sees them all.
+watchAccounts(true);
 
 // Neither end of a solve is free. The walk IN is the room withholding its first decision; the
 // walk OUT is worse, because it comes after the last one — the puzzle is over and the player is
@@ -272,6 +277,14 @@ check('the engine is defined once', strays.length === 0,
   strays.join('; ') || `${Object.keys(MARKS).length} modules, one home each`);
 for (const [path, why] of Object.entries(SANCTIONED))
   console.log(`    · sanctioned second engine: ${path} — ${why}`);
+
+const seen = watchAccounts(false);
+if (seen?.boards) {
+  section('the account covers what the board did');
+  check(`every board a solution walks names what it changed — ${seen.boards} boards`,
+    seen.faults.length === 0, seen.faults.slice(0, 5).join('; ')
+      || `${seen.quiet} hold change(s) the account does not carry, which is a known omission`);
+}
 
 section(failures ? `FAIL — ${failures} check(s)` : 'ALL PASS');
 process.exit(failures ? 1 : 0);

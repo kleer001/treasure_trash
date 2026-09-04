@@ -28,6 +28,7 @@ import {
   isWon, restsOn, spanRestsOn,
 } from '../src/rules.js';
 import { laneOf, isBodyLane } from '../src/handles.js';
+import { watched } from '../src/audit.js';
 
 /** The lanes a thing the board gives an id to rests in. */
 
@@ -170,7 +171,7 @@ export function solveShape(start, actions) {
   let nextTok = 0;
 
   for (const act of actions) {
-    const r = explain(s, act.dir, { trace: true });
+    const r = watched(explain(s, act.dir, { trace: true }));
     if (!r.ok) throw new Error(`solveShape: illegal ${act.kind} ${act.dir}`);
     const [dx, dy] = DIRS[act.dir];
     const target = [s.rac.x + dx, s.rac.y + dy];
@@ -347,7 +348,7 @@ function handledCells(a, onDag) {
   for (const [n, e] of dagWork(a, onDag ?? shortestDag(a))) {
     const [dx, dy] = DIRS[e.dir];
     add([n.state.rac.x + dx, n.state.rac.y + dy]);         // the cell shoved or torn into
-    for (const st of explain(n.state, e.dir, { trace: true }).steps ?? []) {
+    for (const st of watched(explain(n.state, e.dir, { trace: true })).steps ?? []) {
       // Three lanes, and every entry in each of them names the whole span it is about — so a
       // couch and a can are read the same way and neither can be missed by reading half of this.
       for (const m of st.moved)
