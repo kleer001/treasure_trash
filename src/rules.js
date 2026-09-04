@@ -533,7 +533,9 @@ const drop = (s, at, ch) => {
  * down and leave the load drawn where the cart used to be.
  */
 const land = (s, at, ch, step, m = null) => {
-  const swallowed = isGrate(cell(s, ...at));
+  // Asked of the lane BEFORE the drop, because the drop is what can change it: trash that
+  // fills a canal leaves floor behind, and floor takes nothing.
+  const taken = ch.map(o => takenBy(cell(s, ...at), o));
   const { cart } = drop(s, at, ch);
   // Set down, it is a cart again: a new kind, a new id, and cells of its own. The one identity
   // change a code alone cannot carry, which is why `becomes` names all three.
@@ -542,8 +544,7 @@ const land = (s, at, ch, step, m = null) => {
   for (let i = 1; i < ch.length; i++) {
     const from = m ? anchorOf(m.cells) : at;
     step.moved.push(moves({ o: ch[i], from, to: at, at: i, rests: i - 1, parent: cart ?? null }));
-    if (swallowed)
-      step.gone.push(leaves({ o: ch[i], cells: [from], at: i, effect: 'falls' }));
+    if (taken[i]) step.gone.push(leaves({ o: ch[i], cells: [from], at: i, ...taken[i] }));
   }
 };
 
@@ -849,6 +850,7 @@ function handOff(next, from, dx, dy, step) {
     // spans the hole and comes to rest across it. One cell of a body is not a smaller body.
     const landed = own.map(([x, y]) => [x + j * dx, y + j * dy]);
     const swallowed = landed.every(([x, y]) => isGrate(cell(next, x, y)));
+    const takes = landed.map(([x, y], i) => takenBy(cell(next, x, y), was[i].o));
     if (!swallowed) landed.forEach(([x, y], i) => {
       const to = cell(next, x, y);
       to.o = was[i].o; to.pid = was[i].pid;
@@ -858,11 +860,11 @@ function handOff(next, from, dx, dy, step) {
     if (multi) {
       bodies.push(moves({ cells: own, lane: BODY_LANE, o: code, ref: pid,
                           dx: j * dx, dy: j * dy }));
-      if (swallowed)
-        gone.push(leaves({ cells: own, lane: BODY_LANE, o: code, ref: pid, effect: 'falls' }));
+      if (takes[0] && swallowed)
+        gone.push(leaves({ cells: own, lane: BODY_LANE, o: code, ref: pid, ...takes[0] }));
     } else own.forEach(([x, y], i) => {
       moved.push(moves({ o: was[i].o, from: [x, y], to: landed[i] }));
-      if (swallowed) gone.push(leaves({ o: was[i].o, cells: [[x, y]], effect: 'falls' }));
+      if (takes[i]) gone.push(leaves({ o: was[i].o, cells: [[x, y]], ...takes[i] }));
     });
     const lead = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
     p = [lead[0] + (j + 1) * dx, lead[1] + (j + 1) * dy];
@@ -1669,7 +1671,8 @@ function decide(s, dir, opts) {
     for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; c.pid = undefined; }
     // A grate takes the piece only when the whole of it fits inside one; a longer thing spans it.
     const landed = own.map(([x, y]) => [x + k * dx, y + k * dy]);
-    const swallowed = landed.every(([x, y]) => isGrate(cell(next, x, y)));
+    const bodyTakes = landed.map(([x, y]) => takenBy(cell(next, x, y), o));
+    const swallowed = bodyTakes.every(Boolean);
     if (!swallowed) for (const [x, y] of landed) {
       const c = cell(next, x, y);
       c.o = o; c.pid = target.pid;
@@ -1689,7 +1692,7 @@ function decide(s, dir, opts) {
                           dx: k * dx, dy: k * dy }),
                   ...passed.bodies, ...step.moved, ...passed.moved];
     if (swallowed)
-      step.gone.push(leaves({ cells: own, lane: BODY_LANE, o, ref: target.pid, effect: 'falls' }));
+      step.gone.push(leaves({ cells: own, lane: BODY_LANE, o, ref: target.pid, ...bodyTakes[0] }));
     step.gone.push(...passed.gone);
     return done(next, PUSH, step);
   }
@@ -1738,7 +1741,8 @@ function decide(s, dir, opts) {
     const swallowed = [];
     for (const [x, y] of train) {
       const to = [x + k * dx, y + k * dy];
-      if (isGrate(cell(rolled, ...to))) { swallowed.push([[x, y], cell(s, x, y).o]); continue; }
+      const cost = takenBy(cell(rolled, ...to), cell(s, x, y).o);
+      if (cost) { swallowed.push([[x, y], cell(s, x, y).o, cost]); continue; }
       cell(rolled, ...to).o = cell(s, x, y).o;
     }
     // Tested against `rolled`: on a one-cell roll this cell is the bin's own start.
@@ -1767,8 +1771,7 @@ function decide(s, dir, opts) {
       // arriving and then dropping through is not the same as never having gone.
       moved: train.map(([x, y]) =>
         moves({ o: cell(s, x, y).o, from: [x, y], to: [x + k * dx, y + k * dy] })),
-      gone: train.filter(([x, y]) => swallowed.some(([sc]) => sc[0] === x && sc[1] === y))
-        .map(([x, y]) => leaves({ o: cell(s, x, y).o, cells: [[x, y]], effect: 'falls' })),
+      gone: swallowed.map(([[x, y], o, cost]) => leaves({ o, cells: [[x, y]], ...cost })),
       impact: true,
     })];
     // A body arriving and a thing leaving are asked for the same reason the rest of `strike` is: an impact that
@@ -1856,9 +1859,13 @@ function decide(s, dir, opts) {
     for (const [x, y] of [...line].reverse()) {
       const from = [x, y], to = [x + k * dx, y + k * dy];
       const what = cell(s, x, y).o;
-      if (isGrate(cell(next, ...to))) {
+      const cost = takenBy(cell(next, ...to), what);
+      if (cost) {
+        // The lane's own answer on the board too, not just in the account: a grate keeps
+        // nothing, and trash swept into a canal is what fills it.
+        drop(next, to, [what]);
         step.moved.push(moves({ o: what, from, to }));
-        step.gone.push(leaves({ o: what, cells: [from], effect: 'falls' }));
+        step.gone.push(leaves({ o: what, cells: [from], ...cost }));
         continue;
       }
       // A pane breaks into the space IN FRONT of it, which a line gives only to its head: every
@@ -1928,7 +1935,8 @@ function decide(s, dir, opts) {
         if (isTar(cell(s, ...at)) || isGrate(cell(s, ...at))) break;
       }
     }
-    const swallowed = into === null && !blame.length && isGrate(cell(s, ...at));
+    const cost = into === null && !blame.length ? takenBy(cell(s, ...at), o) : null;
+    const swallowed = cost !== null;
     const c2 = [at[0] + dx, at[1] + dy];
     const tips = into === null && !swallowed && (drops !== undefined || pours === true);
 
@@ -1945,7 +1953,7 @@ function decide(s, dir, opts) {
     const step = mkStep({
       moved: [moves({ o, from: [tx, ty], to: at, becomes: lands,
                       ...(into !== null && { parent: into }) })],
-      ...(swallowed && { gone: [leaves({ o, cells: [[tx, ty]], effect: 'falls' })] }),
+      ...(swallowed && { gone: [leaves({ o, cells: [[tx, ty]], ...cost })] }),
     });
     if (tips && pours) {
       step.spawned.push(arrives({ o: NONE, cells: [c2], from: [tx, ty], effect: 'pours' }));

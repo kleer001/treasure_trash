@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import {
   explain, cell, cartCells, pieceCells, bagsLeft, restsOn, moves, arrives, leaves, NONE,
   BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMPTY, JUG, JUG_EMPTY,
-  FURNITURE, RUG, LANDS_ON, TERRAINS,
+  FURNITURE, RUG, LANDS_ON, TERRAINS, terrainOf, BRIDGE,
 } from '../src/rules.js';
 import { toState } from '../src/format.js';
 import { anchorOf, laneOf, isBodyLane, CART_LANE, BODY_LANE } from '../src/handles.js';
@@ -388,4 +388,18 @@ test('every terrain lane answers for itself about what landing on it costs', () 
     assert.equal(typeof LANDS_ON[ter], 'function', `terrain ${ter} states no landing rule`);
   assert.equal(Object.keys(LANDS_ON).length, TERRAINS,
     'the table holds every lane and nothing else');
+});
+
+
+test('trash swept into a canal fills it, and the step says which lane took it', () => {
+  // The broom sweeps what a shove cannot move, so it is the one path that can put trash on a
+  // lane no other action reaches. The lane has to answer for it on the board as well as in the
+  // account: what the canal takes is what it then becomes.
+  const r = audit('sweep-canal', ['######', '#@rx-#', '#E---#', '######'], 'r',
+    { water: ['------', '----~-', '------', '------'] });
+  const step = r.steps.at(-1);
+  assert.deepEqual(step.gone.filter(g => g.o === TRASH),
+    [leaves({ o: TRASH, cells: [[3, 1]], effect: 'fills' })]);
+  assert.equal(terrainOf(cell(r.next, 4, 1)), BRIDGE, 'the canal it filled is floor now');
+  assert.equal(cell(r.next, 4, 1).o, NONE, 'and nothing is left standing in it');
 });
