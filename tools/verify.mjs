@@ -273,6 +273,51 @@ for (const full of walk(root)) {
   for (const [home, mark] of Object.entries(MARKS))
     if (rel !== home && text.includes(mark)) strays.push(`${rel} defines ${home}`);
 }
+// --- putting something on a cell ------------------------------------------------------------
+//
+// Six faults in a row were one shape: a branch wrote an occupant onto a cell and nothing said
+// so. `drop` exists to stop that — it asks the lane what the landing costs and hands the answer
+// back with the write — but a helper can be walked past, and those six walked past it.
+//
+// So the ways of placing an occupant are counted. `setChain` and `layTrash` are the two writes
+// everything else is built from; every other placement is listed here with the reason it is not
+// one of them. A new one fails this check, which is the point: adding a way to put something on
+// a cell should be a decision, not a line.
+const PLACES_BY_HAND = {
+  'c.o = ch.length ? ch[0] : NONE;': 'setChain — the one write, which `drop` and every landing goes through',
+  'else c.o = TRASH;': 'layTrash — the other one, because trash on water is a filled canal rather than a spill',
+  'cell(s, ...at).o = t.slides;': 'what a container turns into where it landed; asks the lane first',
+  'to.o = was[i].o; to.pid = was[i].pid;': 'a run of things rolling, placed together after the whole run is known',
+  'c.o = was[i].o; c.hold = was[i].hold; c.pid = was[i].pid;': 'a cart carrying its load along, cell by cell',
+  'for (const p of [at, draw]) { const c = cell(next, ...p); c.o = open; c.pid = pid; }':
+    'a cabinet opening into a body across two cells, which is a birth rather than a landing',
+  'cell(next, ...to).o = o;': 'a towed complex moving in lockstep, where the landing was decided for the whole of it',
+  'c.o = o; c.pid = target.pid;': 'a body rolled, placed across its own footprint',
+  'cell(rolled, ...to).o = cell(s, x, y).o;': 'a train rolling, on a board cloned to test whether it may',
+  'cell(next, rear[0] + k * dx, rear[1] + k * dy).o = WHEELIE_EMPTY;': 'a bin becoming empty where it stands',
+  'c.o = what; c.hold = cell(s, x, y).hold; c.grip = cell(s, x, y).grip;': 'a swept line, carried along with what it holds',
+};
+
+{
+  const text = readFileSync(resolve(root, 'src/rules.js'), 'utf8');
+  const unlisted = [];
+  text.split('\n').forEach((line, i) => {
+    const t = line.trim();
+    // A write that CLEARS is not a placement: nothing arrives, so no lane is owed an answer.
+    // Nor is a write to an ACCOUNT entry — `becomes.o` says what a thing turns into as it lands,
+    // which is the step describing the board rather than changing it.
+    if (!/\.o *=[^=]/.test(t) || /\.o *= *(NONE|undefined)\b/.test(t)) return;
+    if (/\.becomes\.o *=/.test(t)) return;
+    if (!(t in PLACES_BY_HAND)) unlisted.push(`src/rules.js:${i + 1} ${t}`);
+  });
+  const gone = Object.keys(PLACES_BY_HAND).filter(k => !text.includes(k));
+  check('an occupant is put on a cell only in the ways that are written down',
+    unlisted.length === 0 && gone.length === 0,
+    [...unlisted.map(u => `not listed: ${u}`),
+     ...gone.map(g => `listed but no longer there: ${g}`)].join('; ')
+      || `${Object.keys(PLACES_BY_HAND).length} ways, each with its reason`);
+}
+
 check('the engine is defined once', strays.length === 0,
   strays.join('; ') || `${Object.keys(MARKS).length} modules, one home each`);
 for (const [path, why] of Object.entries(SANCTIONED))
