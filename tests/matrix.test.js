@@ -22,7 +22,7 @@ import { arrives, cell, pieceCells, isCabinetOpen, cabinetFace,
          carriedKind, DIRS } from '../src/rules.js';
 
 test('every piece meeting every lane and every other piece lands where it says it does', () => {
-  const rows = run();
+  const rows = [...run()];
   const bad = rows.filter(r => r.verdict === 'DISAGREES');
   assert.deepEqual(bad.map(r => `${r.id}: ${r.why}`), []);
 });
@@ -31,8 +31,9 @@ test('the matrix stages what it claims to stage', () => {
   // Counting passes was the first version of this guard, and a pass is exactly what a case that
   // staged nothing looks like — so it counted the number that was lying. What has to be counted
   // is MEETINGS: cases where the piece reached the thing under test.
-  const rows = run();
-  assert.ok(cases().length > 900, `only ${cases().length} cases`);
+  const rows = [...run()];
+  const all = [...cases()];
+  assert.ok(all.length > 900, `only ${all.length} cases`);
   const holes = rows.filter(r => r.verdict === 'NO-MEETING');
   assert.deepEqual(holes.map(r => r.id), [], 'these cases stage nothing');
   const mattered = rows.filter(r => r.mattered).length;
@@ -42,8 +43,8 @@ test('the matrix stages what it claims to stage', () => {
 test('every case gets a verdict, and staging nothing is one of them', () => {
   // The failure mode of a matrix is silence: a case that cannot be constructed, or that stages
   // no meeting, looks exactly like a case that passed. Both have names here.
-  const rows = run();
-  assert.equal(rows.length, cases().length, 'every case has a verdict');
+  const rows = [...run()];
+  assert.equal(rows.length, [...cases()].length, 'every case has a verdict');
   for (const r of rows) assert.ok(
     ['ok', 'refused', 'unbuildable', 'NO-MEETING', 'DISAGREES'].includes(r.verdict),
     `odd verdict ${r.verdict}`);

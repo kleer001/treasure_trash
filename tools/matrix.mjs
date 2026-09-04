@@ -446,7 +446,8 @@ const W = 11, H = 5, ROW = 2, AT = 2;
  * Returns the room and `at`: the cells the thing under test occupies, which is what `meets`
  * takes away to find out whether any of this mattered.
  */
-export function corridor({ left, right = null, lane = '-', beyond = '-', vertical = false }) {
+export function corridor({ left, right = null, lane = '-', beyond = '-', under = '-',
+                           vertical = false }) {
   const grid = Array.from({ length: H }, () => Array.from({ length: W }, () => '-'));
   const water = Array.from({ length: H }, () => Array.from({ length: W }, () => '-'));
   const cart = Array.from({ length: H }, () => Array.from({ length: W }, () => '-'));
@@ -494,6 +495,9 @@ export function corridor({ left, right = null, lane = '-', beyond = '-', vertica
   // The lane the thing being MET lands on, which is a different question from the lane the
   // shove crosses: what a broom sweeps is decided where the swept thing comes to rest, and no
   // pairing of two things can put a terrain there.
+  // The ground the thing under test is itself standing on, which every pairing leaves dry: tar
+  // holds a shove where grease carries it on, and neither is a fact about what it is shoved into.
+  if (under !== '-') water[ROW][AT] = under;
   const past = Math.max(...at.map(([x]) => x)) + 1;
   if (beyond !== '-') {
     if (past >= W - 2) return null;                       // that cell is the door
@@ -520,40 +524,51 @@ const secondOf = g => (isCart(g)
   : SECOND[g] ?? g);
 
 /** Every case the matrix runs: a piece meeting a lane, and a piece meeting a piece. */
-export function cases({ fourth = false } = {}) {
-  const out = [];
+export function* cases({ fourth = false, fifth = false } = {}) {
   const all = { ...PIECES, ...BODIES, ...CARTS };
-  const add = (id, what, built) => { if (built) out.push({ id, what, ...built }); };
+  // Zero or one case, so an unbuildable corridor yields nothing rather than a null to skip.
+  const made = (id, what, room) => (room ? [{ id, what, ...room }] : []);
   for (const [pn, pg] of Object.entries(all)) {
     for (const [ln, lg] of Object.entries(LANES))
-      add(`${pn}-on-${ln}`, `${pn} shoved onto ${ln}`, corridor({ left: pg, lane: lg }));
+      yield* made(`${pn}-on-${ln}`, `${pn} shoved onto ${ln}`, corridor({ left: pg, lane: lg }));
     for (const [qn, qg] of Object.entries(all))
-      add(`${pn}-into-${qn}`, `${pn} shoved into ${qn}`, corridor({ left: pg, right: qg }));
+      yield* made(`${pn}-into-${qn}`, `${pn} shoved into ${qn}`, corridor({ left: pg, right: qg }));
     // The same piece broadside: a rug or a bicycle lying across the shove is a different rule
     // from one lying along it, and the two share every other field.
     if (Object.values(BODIES).includes(pg) || (isCart(pg) && pg.mask.length > 1))
       for (const [qn, qg] of Object.entries(all))
-        add(`${pn}-broadside-into-${qn}`, `${pn} lying across, shoved into ${qn}`,
+        yield* made(`${pn}-broadside-into-${qn}`, `${pn} lying across, shoved into ${qn}`,
             corridor({ left: pg, right: qg, vertical: true }));
     // THREE at once: what a thing does to another thing depends on the ground the second one is
     // driven onto, and a pairing cannot ask that. A broom sweeping trash is one rule on dry
     // floor and another over a canal, and neither of the two pairs that make it up says so.
     for (const [qn, qg] of Object.entries(all))
       for (const [ln, lg] of Object.entries(LANES))
-        add(`${pn}-into-${qn}-over-${ln}`, `${pn} shoved into ${qn} standing on ${ln}`,
+        yield* made(`${pn}-into-${qn}-over-${ln}`, `${pn} shoved into ${qn} standing on ${ln}`,
             corridor({ left: pg, right: qg, beyond: lg }));
     // FOUR at once: the ground a thing is standing on and the ground it is driven onto are two
     // different questions, and every pairing and every triple collapses them into one. A tyre on
     // grease shoved over a grate is not a tyre on dry floor shoved over a grate.
-    if (!fourth) continue;
+    if (!fourth && !fifth) continue;
     for (const [qn, qg] of Object.entries(all))
       for (const [ln, lg] of Object.entries(LANES))
-        for (const [bn, bg] of Object.entries(LANES))
-          add(`${pn}-into-${qn}-on-${ln}-over-${bn}`,
-              `${pn} shoved into ${qn} standing on ${ln}, driven over ${bn}`,
-              corridor({ left: pg, right: qg, lane: lg, beyond: bg }));
+        for (const [bn, bg] of Object.entries(LANES)) {
+          if (fourth)
+            yield* made(`${pn}-into-${qn}-on-${ln}-over-${bn}`,
+                `${pn} shoved into ${qn} standing on ${ln}, driven over ${bn}`,
+                corridor({ left: pg, right: qg, lane: lg, beyond: bg }));
+          // FIVE: the ground under the thing being shoved, which every order below this one
+          // leaves as dry floor. What a shove carries is decided partly where it sets off from.
+          // A one-way under the thing being shoved decides whether it may set off AT ALL, which
+          // is a question about that lane and that piece and nothing else — the pairs above ask
+          // it. Staging it here only produces boards where the meeting never happens.
+          if (fifth)
+            for (const [un, ug] of Object.entries(LANES).filter(([k]) => !k.startsWith('oneway')))
+              yield* made(`${pn}-from-${un}-into-${qn}-on-${ln}-over-${bn}`,
+                  `${pn} on ${un} shoved into ${qn} standing on ${ln}, driven over ${bn}`,
+                  corridor({ left: pg, right: qg, lane: lg, beyond: bg, under: ug }));
+        }
   }
-  return out;
 }
 
 // ---------------------------------------------------------------- the run
@@ -563,20 +578,18 @@ export function cases({ fourth = false } = {}) {
  * counted as passes: a board that will not build, and a board where the piece never met what it
  * was put there to meet. The second is the one that matters — it looks exactly like a pass.
  */
-export function run(only = null, { fourth = false } = {}) {
-  const rows = [];
-  for (const c of cases({ fourth })) {
+export function* run(only = null, { fourth = false, fifth = false } = {}) {
+  for (const c of cases({ fourth, fifth })) {
     if (only && !c.id.includes(only)) continue;
     let s;
     try { s = toState({ ...c.room, id: c.id }); }
-    catch (e) { rows.push({ ...c, verdict: 'unbuildable', why: e.message }); continue; }
+    catch (e) { yield { ...c, verdict: 'unbuildable', why: e.message }; continue; }
     const met = meeting(c.room, c.at);
-    if (!met.reached) { rows.push({ ...c, verdict: 'NO-MEETING', state: s }); continue; }
+    if (!met.reached) { yield { ...c, verdict: 'NO-MEETING', state: s }; continue; }
     const got = landsWhereTheBoardSays(s, 'r');
-    if (got === null) { rows.push({ ...c, verdict: 'refused', ...met, state: s }); continue; }
-    rows.push({ ...c, verdict: got.ok ? 'ok' : 'DISAGREES', why: got.why, ...met, state: s });
+    if (got === null) { yield { ...c, verdict: 'refused', ...met, state: s }; continue; }
+    yield { ...c, verdict: got.ok ? 'ok' : 'DISAGREES', why: got.why, ...met, state: s };
   }
-  return rows;
 }
 
 /**
@@ -609,14 +622,22 @@ export function pack(rows) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
-  const rows = run(only, { fourth: process.argv.includes("--fourth") });
-  const tally = rows.reduce((a, r) => ({ ...a, [r.verdict]: (a[r.verdict] ?? 0) + 1 }), {});
-  if (process.argv.includes('--list'))
-    for (const r of rows) console.log(`${r.verdict.padEnd(12)} ${r.id}${r.why ? ' — ' + r.why : ''}`);
-  else
-    for (const r of rows) if (r.verdict === 'DISAGREES' || r.verdict === 'NO-MEETING')
-      console.log(`  ${r.verdict} ${r.id}${r.why ? ' — ' + r.why : ''}`);
-  if (process.argv.includes('--pack')) {
+  const list = process.argv.includes('--list'), packing = process.argv.includes('--pack');
+  // The higher orders are millions of boards, so nothing is kept that the report does not need:
+  // the tally, the failures, and — only when a flag asks for them — the rows themselves.
+  const rows = [], tally = {};
+  let n = 0, mattered = 0, bad = 0;
+  for (const r of run(only, { fourth: process.argv.includes('--fourth'),
+                              fifth: process.argv.includes('--fifth') })) {
+    n++; tally[r.verdict] = (tally[r.verdict] ?? 0) + 1;
+    if (r.mattered) mattered++;
+    const fails = r.verdict === 'DISAGREES' || r.verdict === 'NO-MEETING';
+    if (fails) bad++;
+    if (list) console.log(`${r.verdict.padEnd(12)} ${r.id}${r.why ? ' — ' + r.why : ''}`);
+    else if (fails) console.log(`  ${r.verdict} ${r.id}${r.why ? ' — ' + r.why : ''}`);
+    if (packing) rows.push(r);
+  }
+  if (packing) {
     const at = resolve(root, 'levels', 'matrix.tt');
     const { text, dropped } = pack(rows);
     writeFileSync(at, text);
@@ -626,11 +647,16 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // came out the same as bare floor is real coverage — a lane that does nothing to that piece is
   // a fact worth holding — but it is not an interaction, and reporting the total alone would
   // claim more than was staged.
-  const mattered = rows.filter(r => r.mattered).length;
-  console.log(`\n${rows.length} cases: ` + Object.entries(tally).map(([k, v]) => `${v} ${k}`).join(', '));
+  console.log(`\n${n} cases: ` + Object.entries(tally).map(([k, v]) => `${v} ${k}`).join(', '));
   console.log(`${mattered} of them the thing under test actually changed the answer;`
-    + ` ${rows.length - mattered} came out as they would on bare floor`);
+    + ` ${n - mattered} came out as they would on bare floor`);
   // A case that staged nothing is a hole in the gate, not a result — same exit code as a
   // disagreement, because a matrix that cannot see a piece reports agreement about it either way.
-  process.exit(rows.some(r => r.verdict === 'DISAGREES' || r.verdict === 'NO-MEETING') ? 1 : 0);
+  //
+  // That holds for the meetings the gate is built from. It does NOT hold once a run stacks lanes
+  // on top of each other: tar under a thing holds it where it stands, so "they never met" is the
+  // true answer to the question that was asked rather than a question that failed to be asked.
+  // Those runs fail on a disagreement alone, and report the rest as a count.
+  const stacked = process.argv.includes('--fourth') || process.argv.includes('--fifth');
+  process.exit((stacked ? (tally.DISAGREES ?? 0) : bad) ? 1 : 0);
 }

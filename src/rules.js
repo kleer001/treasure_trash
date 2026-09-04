@@ -1815,8 +1815,14 @@ function decide(s, dir, opts) {
           ...passedTo.moved,
         ],
       }));
-      if (shedAt)
+      if (shedAt) {
+        // The bag lands on whatever the bin was standing on, and that lane gets its say: `drop`
+        // already keeps nothing over a hole, so without this the stage goes on holding a bag
+        // the board let straight through.
+        const cost = takenBy(cell(next, ...shedAt), BAG, 'shed behind a bin');
         steps.at(-1).spawned.push(arrives({ o: BAG, cells: [shedAt], from: rearTo }));
+        if (cost) steps.at(-1).gone.push(leaves({ o: BAG, cells: [shedAt], ...cost }));
+      }
     }
     for (let i = 1; i < frames.length; i++) frames[i].rac = { ...next.rac };
     return { ok: true, kind: PUSH, next, frames, steps };

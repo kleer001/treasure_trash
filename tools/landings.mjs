@@ -45,7 +45,7 @@ export function askedOver(rooms, { cap = 200 } = {}) {
     }
     // The forced meetings too: they stage pairings no level author would build, which is
     // exactly where a landing nobody thought of turns up.
-    matrixRun();
+    for (const _ of matrixRun()) { /* drained: the watcher is the point, not the rows */ }
     for (const c of matrixCases()) {
       const built = corridor(c);
       if (!built) continue;

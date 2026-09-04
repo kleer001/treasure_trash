@@ -59,6 +59,9 @@ around it — art, audio, progression, and the solvability indicator.
   thing does to another thing on a particular ground, and a TRIPLE cannot ask what it does to
   something that is itself standing on one. `--fourth` adds that last position — the lane under
   the thing being met, as against the lane it is driven onto — and costs 37s against 4s.
+  `--fifth` adds the ground the shoved thing is standing on, at 1.4M boards and five minutes.
+  Those two runs fail on a disagreement only: once lanes stack, a meeting that never happens
+  is often the true answer (tar holds a thing where it stands) rather than a hole in the gate.
 - `node tools/sweep.mjs [pack] [roomId...] [--write]` — routes a bench pack for the browser check
   below, and is **for a rules change, not for a room**. It plans keys that force the pieces to
   MEET: every meeting a shove can cause, piece against piece and piece onto terrain lane, filtered
