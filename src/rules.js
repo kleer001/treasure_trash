@@ -512,18 +512,24 @@ export const freeCart = s => {
  * `ch` is a chain, and what comes back is what the STEP has to say about it: the id of the cart
  * the head became, when it became one.
  */
-const drop = (s, at, ch) => {
+const drop = (s, at, ch, site = 'set down') => {
   const c = cell(s, ...at);
-  if (isGrate(c)) return {};
+  // The lane is asked HERE, and its answer comes back with the write. These were two acts at ten
+  // call sites, each having to remember to perform both, against the same cell and the same
+  // code; six of them had drifted apart by the time anyone looked. One answer per item in the
+  // chain, because a grate takes whatever arrives and water takes only some of it, so a load can
+  // be treated differently at each depth.
+  const taken = ch.map(o => takenBy(c, o, site));
+  if (isGrate(c)) return { taken };
   const head = ch[0];
-  if (head === TRASH) { layTrash(c); return {}; }
+  if (head === TRASH) { layTrash(c); return { taken }; }
   if (isCarriedBarrow(head)) {
     c.cart = freeCart(s); c.ck = carriedKind(head);
     setChain(c, ch.slice(1));
-    return { cart: c.cart };
+    return { cart: c.cart, taken };
   }
   setChain(c, ch);
-  return {};
+  return { taken };
 };
 
 /**
@@ -538,8 +544,7 @@ const drop = (s, at, ch) => {
 const land = (s, at, ch, step, m = null) => {
   // Asked of the lane BEFORE the drop, because the drop is what can change it: trash that
   // fills a canal leaves floor behind, and floor takes nothing.
-  const taken = ch.map(o => takenBy(cell(s, ...at), o, 'set down'));
-  const { cart } = drop(s, at, ch);
+  const { cart, taken } = drop(s, at, ch);
   // Set down, it is a cart again: a new kind, a new id, and cells of its own. The one identity
   // change a code alone cannot carry, which is why `becomes` names all three.
   if (cart !== undefined && m) m.becomes = { lane: CART_LANE, o: null, ref: cart };
@@ -710,12 +715,11 @@ function tipOut(s, o, at, dx, dy, step) {
       step.spawned.push(arrives({ o: NONE, cells: [c], from: at, effect: 'pours' }));
     pour(target);
   } else {
-    const taken = takenBy(target, t.drops, 'tipped out');
+    const { taken } = drop(s, c, [t.drops], 'tipped out');
     if (step) {
       step.spawned.push(arrives({ o: t.drops, cells: [c], from: at }));
-      if (taken) step.gone.push(leaves({ o: t.drops, cells: [c], ...taken }));
+      if (taken[0]) step.gone.push(leaves({ o: t.drops, cells: [c], ...taken[0] }));
     }
-    drop(s, c, [t.drops]);
   }
   // What a container turns into on landing lands too, and the lane it landed on gets the same
   // say over that as it had over the container: writing the emptied code straight onto the cell
@@ -1163,10 +1167,9 @@ function openInPlace(next, at, step, clears) {
         || !travelsInto(next, ...past, f[0], f[1])) return draw;
     const shoved = inWay.o;
     cell(next, ...draw).o = NONE;
-    const cost = takenBy(cell(next, ...past), shoved, 'shoved by a drawer');
-    drop(next, past, [shoved]);
+    const { taken } = drop(next, past, [shoved], 'shoved by a drawer');
     step.moved.push(moves({ o: shoved, from: draw, to: past }));
-    if (cost) step.gone.push(leaves({ o: shoved, cells: [draw], ...cost }));
+    if (taken[0]) step.gone.push(leaves({ o: shoved, cells: [draw], ...taken[0] }));
   }
   // The shut cabinet is gone and a body stands where it and its drawer are: two pieces, not one
   // that grew. `freePid` rather than a count, or the new piece is welded to an old one.
@@ -1191,14 +1194,13 @@ function shutCabinet(s, own, at, shut, [px, py], dx, dy, done) {
   for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; c.pid = undefined; }
   // Through `drop`, not straight into the cell: a body spans a hole and one cell does not, so
   // folding back to one cell over a grate is a cabinet standing on nothing.
-  const taken = takenBy(cell(next, ...at), shut, 'cabinet shut');
-  drop(next, at, [shut]);
+  const { taken } = drop(next, at, [shut], 'cabinet shut');
   next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
   return done(next, PUSH, mkStep({
     moved: [moves({ cells: own, lane: BODY_LANE, o: was, ref: pid, dx: px, dy: py })],
     spawned: [arrives({ o: shut, cells: [at], from: own[0] })],
     gone: [leaves({ cells: own, lane: BODY_LANE, o: was, ref: pid }),
-           ...(taken ? [leaves({ o: shut, cells: [at], ...taken })] : [])],
+           ...(taken[0] ? [leaves({ o: shut, cells: [at], ...taken[0] })] : [])],
   }));
 }
 
@@ -1603,10 +1605,9 @@ function decide(s, dir, opts) {
       if (!inGrid(s, fx, fy) || cell(s, fx, fy).o !== CHAIR) continue;
       const to = chairFlees(s, tx, ty, dx, dy, fx, fy);
       cell(next, fx, fy).o = NONE;
-      const cost = takenBy(cell(next, ...to), CHAIR, 'fled');
-      drop(next, to, [CHAIR]);
+      const { taken } = drop(next, to, [CHAIR], 'fled');
       step.moved.push(moves({ o: CHAIR, from: [fx, fy], to }));
-      if (cost) step.gone.push(leaves({ o: CHAIR, cells: [[fx, fy]], ...cost }));
+      if (taken[0]) step.gone.push(leaves({ o: CHAIR, cells: [[fx, fy]], ...taken[0] }));
     }
     for (const [fx, fy] of fan(tx, ty, dx, dy)) {
       const c = cell(next, fx, fy);
@@ -1774,9 +1775,10 @@ function decide(s, dir, opts) {
 
     const next = opts.trace ? cloneState(rolled) : rolled;
     const shedAt = back && !swallowed.length ? back : null;
+    let shedTaken = null;
     if (shedAt) {
       cell(next, rear[0] + k * dx, rear[1] + k * dy).o = WHEELIE_EMPTY;
-      drop(next, shedAt, [BAG]);
+      shedTaken = drop(next, shedAt, [BAG], 'shed behind a bin').taken[0];
     }
 
     // IMPACT. The train stopped; if what stopped it rolls, the motion carries on into it and
@@ -1819,9 +1821,8 @@ function decide(s, dir, opts) {
         // The bag lands on whatever the bin was standing on, and that lane gets its say: `drop`
         // already keeps nothing over a hole, so without this the stage goes on holding a bag
         // the board let straight through.
-        const cost = takenBy(cell(next, ...shedAt), BAG, 'shed behind a bin');
         steps.at(-1).spawned.push(arrives({ o: BAG, cells: [shedAt], from: rearTo }));
-        if (cost) steps.at(-1).gone.push(leaves({ o: BAG, cells: [shedAt], ...cost }));
+        if (shedTaken) steps.at(-1).gone.push(leaves({ o: BAG, cells: [shedAt], ...shedTaken }));
       }
     }
     for (let i = 1; i < frames.length; i++) frames[i].rac = { ...next.rac };
@@ -1892,7 +1893,7 @@ function decide(s, dir, opts) {
       if (cost) {
         // The lane's own answer on the board too, not just in the account: a grate keeps
         // nothing, and trash swept into a canal is what fills it.
-        drop(next, to, [what]);
+        drop(next, to, [what], 'swept');
         step.moved.push(moves({ o: what, from, to }));
         step.gone.push(leaves({ o: what, cells: [from], ...cost }));
         continue;
@@ -1988,10 +1989,9 @@ function decide(s, dir, opts) {
       step.spawned.push(arrives({ o: NONE, cells: [c2], from: [tx, ty], effect: 'pours' }));
       pour(cell(next, c2[0], c2[1]));
     } else if (tips) {
-      const taken = takenBy(cell(next, c2[0], c2[1]), drops, 'tipped');
+      const { taken } = drop(next, c2, [drops], 'tipped');
       step.spawned.push(arrives({ o: drops, cells: [c2], from: [tx, ty] }));
-      if (taken) step.gone.push(leaves({ o: drops, cells: [c2], ...taken }));
-      drop(next, c2, [drops]);
+      if (taken[0]) step.gone.push(leaves({ o: drops, cells: [c2], ...taken[0] }));
     }
     if (shove) applyIntoCart(s, next, into, shove, lands, step);
     else if (SLIDES[o].soaks) { soak(cell(next, ...at)); drop(next, at, [lands]); }
