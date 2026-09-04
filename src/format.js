@@ -98,7 +98,7 @@ const cabinetShape = axis => (n, cells) => {
   const along = axis === 'v' ? b[0] === a[0] && b[1] === a[1] + 1 : b[1] === a[1] && b[0] === a[0] + 1;
   return along ? null : 'lies across its own facing; its drawer is the cell the facing points at';
 };
-const MULTI_POOLS = [
+export const MULTI_POOLS = [
   { pool: FURN_POOL, o: FURNITURE, what: 'furniture', bad: n => (n < 2 ? 'is a single cell; use a can, or give it a second cell' : null) },
   { pool: BIKE_POOL, o: BICYCLE, what: 'bicycle', bad: n => (n !== 2 ? `covers ${n} cell${n === 1 ? '' : 's'}; a bicycle is exactly two` : null) },
   { pool: RUG_POOL, o: RUG, what: 'rug', bad: n => (n < 2 ? 'is a single cell; a rug is at least two' : null) },
