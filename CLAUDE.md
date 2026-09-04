@@ -42,6 +42,12 @@ around it — art, audio, progression, and the solvability indicator.
 - `cargo build --release --manifest-path engine/Cargo.toml` — the sanctioned Rust port, checked
   by `conform.mjs --engine engine/target/release/tt-engine`. Build it before a long discovery
   run: `survey` and `harvest` pick it up automatically. See **One engine**.
+- `node tools/landings.mjs [--asked]` — the landing ledger: which `(site, lane, occupant)`
+  questions the engine is ever ASKED, and which it never is. Not a comparison and not a gate — a
+  board check can only judge boards it is given, so a combination nothing stages reads exactly
+  like one that works. It watches the single place a landing is decided and reports the gaps in
+  two cuts: lanes a site was never put to about a thing it does meet, and things that never reach
+  a site at all. Most of what it lists is unstageable; telling those apart is the reading.
 - `node tools/matrix.mjs [--pack|--list]` — the interaction matrix: every piece forced to meet
   every terrain lane and every other piece, one shove each. What it checks is not the board —
   `conform.mjs` does that — but the ACCOUNT of the move: landing an action on the stage must

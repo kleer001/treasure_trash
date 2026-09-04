@@ -535,7 +535,7 @@ const drop = (s, at, ch) => {
 const land = (s, at, ch, step, m = null) => {
   // Asked of the lane BEFORE the drop, because the drop is what can change it: trash that
   // fills a canal leaves floor behind, and floor takes nothing.
-  const taken = ch.map(o => takenBy(cell(s, ...at), o));
+  const taken = ch.map(o => takenBy(cell(s, ...at), o, 'set down'));
   const { cart } = drop(s, at, ch);
   // Set down, it is a cart again: a new kind, a new id, and cells of its own. The one identity
   // change a code alone cannot carry, which is why `becomes` names all three.
@@ -642,17 +642,28 @@ export const LANDS_ON = {
                                                                 //   crossing — see layTrash
 };
 
-const takenBy = (c, o) => {
-  if (isGrate(c)) return { effect: 'falls' };                    // a grate takes anything at all
+/**
+ * Every landing question the engine asks, when something is listening. Null in the game and
+ * in the solver — offline tooling sets it to find out which questions never get ASKED, which
+ * is a thing no board comparison can report: a combination nothing stages looks exactly like
+ * a combination that works.
+ */
+let landingWatcher = null;
+export const watchLandings = fn => { landingWatcher = fn; };
+
+const takenBy = (c, o, site) => {
+  const grate = isGrate(c);
   const lane = LANDS_ON[terrainOf(c)];
-  if (!lane) throw new Error(`no landing rule for terrain ${terrainOf(c)}`);
-  return lane(o);
+  if (!grate && !lane) throw new Error(`no landing rule for terrain ${terrainOf(c)}`);
+  const taken = grate ? { effect: 'falls' } : lane(o);   // a grate takes anything at all
+  landingWatcher?.(site, grate ? 'grate' : terrainOf(c), o, taken);
+  return taken;
 };
 
 /** A thing that travels and is then taken keeps both facts: `m` says it travelled, and this says
  *  it did not survive. It is named where the stage is HOLDING it, which is where it set off. */
 const tookIt = (step, c, m) => {
-  const taken = takenBy(c, m.o);
+  const taken = takenBy(c, m.o, 'travelled');
   // The same participant as the entry that carried it, so it answers to the same handle.
   if (step && taken)
     step.gone.push({ handle: m.handle, cells: m.cells, o: m.o, ref: m.ref, ...taken });
@@ -695,7 +706,7 @@ function tipOut(s, o, at, dx, dy, step) {
       step.spawned.push(arrives({ o: NONE, cells: [c], from: at, effect: 'pours' }));
     pour(target);
   } else {
-    const taken = takenBy(target, t.drops);
+    const taken = takenBy(target, t.drops, 'tipped out');
     if (step) {
       step.spawned.push(arrives({ o: t.drops, cells: [c], from: at }));
       if (taken) step.gone.push(leaves({ o: t.drops, cells: [c], ...taken }));
@@ -850,7 +861,7 @@ function handOff(next, from, dx, dy, step) {
     // spans the hole and comes to rest across it. One cell of a body is not a smaller body.
     const landed = own.map(([x, y]) => [x + j * dx, y + j * dy]);
     const swallowed = landed.every(([x, y]) => isGrate(cell(next, x, y)));
-    const takes = landed.map(([x, y], i) => takenBy(cell(next, x, y), was[i].o));
+    const takes = landed.map(([x, y], i) => takenBy(cell(next, x, y), was[i].o, 'rolled'));
     if (!swallowed) landed.forEach(([x, y], i) => {
       const to = cell(next, x, y);
       to.o = was[i].o; to.pid = was[i].pid;
@@ -1170,7 +1181,7 @@ function shutCabinet(s, own, at, shut, [px, py], dx, dy, done) {
   for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; c.pid = undefined; }
   // Through `drop`, not straight into the cell: a body spans a hole and one cell does not, so
   // folding back to one cell over a grate is a cabinet standing on nothing.
-  const taken = takenBy(cell(next, ...at), shut);
+  const taken = takenBy(cell(next, ...at), shut, 'cabinet shut');
   drop(next, at, [shut]);
   next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
   return done(next, PUSH, mkStep({
@@ -1588,7 +1599,7 @@ function decide(s, dir, opts) {
     for (const [fx, fy] of fan(tx, ty, dx, dy)) {
       const c = cell(next, fx, fy);
       // one origin for the whole fan
-      const taken = takenBy(c, TRASH);
+      const taken = takenBy(c, TRASH, 'torn open');
       step.spawned.push(arrives({ o: TRASH, cells: [[fx, fy]], from: [tx, ty] }));
       if (taken) step.gone.push(leaves({ o: TRASH, cells: [[fx, fy]], ...taken }));
       layTrash(c);
@@ -1671,7 +1682,7 @@ function decide(s, dir, opts) {
     for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; c.pid = undefined; }
     // A grate takes the piece only when the whole of it fits inside one; a longer thing spans it.
     const landed = own.map(([x, y]) => [x + k * dx, y + k * dy]);
-    const bodyTakes = landed.map(([x, y]) => takenBy(cell(next, x, y), o));
+    const bodyTakes = landed.map(([x, y]) => takenBy(cell(next, x, y), o, 'rolled body'));
     const swallowed = bodyTakes.every(Boolean);
     if (!swallowed) for (const [x, y] of landed) {
       const c = cell(next, x, y);
@@ -1741,7 +1752,7 @@ function decide(s, dir, opts) {
     const swallowed = [];
     for (const [x, y] of train) {
       const to = [x + k * dx, y + k * dy];
-      const cost = takenBy(cell(rolled, ...to), cell(s, x, y).o);
+      const cost = takenBy(cell(rolled, ...to), cell(s, x, y).o, 'train');
       if (cost) { swallowed.push([[x, y], cell(s, x, y).o, cost]); continue; }
       cell(rolled, ...to).o = cell(s, x, y).o;
     }
@@ -1859,7 +1870,7 @@ function decide(s, dir, opts) {
     for (const [x, y] of [...line].reverse()) {
       const from = [x, y], to = [x + k * dx, y + k * dy];
       const what = cell(s, x, y).o;
-      const cost = takenBy(cell(next, ...to), what);
+      const cost = takenBy(cell(next, ...to), what, 'swept');
       if (cost) {
         // The lane's own answer on the board too, not just in the account: a grate keeps
         // nothing, and trash swept into a canal is what fills it.
@@ -1886,7 +1897,7 @@ function decide(s, dir, opts) {
         step.gone.push(leaves({ o: BAG, cells: [from] }));
         for (const [fx, fy] of fan(to[0], to[1], dx, dy)) {
           if (!isOccupiable(next, fx, fy)) continue;
-          const taken = takenBy(cell(next, fx, fy), TRASH);
+          const taken = takenBy(cell(next, fx, fy), TRASH, 'burst by sweep');
           step.spawned.push(arrives({ o: TRASH, cells: [[fx, fy]], from: to }));
           if (taken) step.gone.push(leaves({ o: TRASH, cells: [[fx, fy]], ...taken }));
           layTrash(cell(next, fx, fy));
@@ -1935,7 +1946,7 @@ function decide(s, dir, opts) {
         if (isTar(cell(s, ...at)) || isGrate(cell(s, ...at))) break;
       }
     }
-    const cost = into === null && !blame.length ? takenBy(cell(s, ...at), o) : null;
+    const cost = into === null && !blame.length ? takenBy(cell(s, ...at), o, 'slid') : null;
     const swallowed = cost !== null;
     const c2 = [at[0] + dx, at[1] + dy];
     const tips = into === null && !swallowed && (drops !== undefined || pours === true);
@@ -1959,7 +1970,7 @@ function decide(s, dir, opts) {
       step.spawned.push(arrives({ o: NONE, cells: [c2], from: [tx, ty], effect: 'pours' }));
       pour(cell(next, c2[0], c2[1]));
     } else if (tips) {
-      const taken = takenBy(cell(next, c2[0], c2[1]), drops);
+      const taken = takenBy(cell(next, c2[0], c2[1]), drops, 'tipped');
       step.spawned.push(arrives({ o: drops, cells: [c2], from: [tx, ty] }));
       if (taken) step.gone.push(leaves({ o: drops, cells: [c2], ...taken }));
       drop(next, c2, [drops]);
