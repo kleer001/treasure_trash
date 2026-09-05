@@ -273,96 +273,62 @@ for (const full of walk(root)) {
   for (const [home, mark] of Object.entries(MARKS))
     if (rel !== home && text.includes(mark)) strays.push(`${rel} defines ${home}`);
 }
-// --- asking the lane -------------------------------------------------------------------------
+// --- the two halves of putting something on a cell ---------------------------------------
 //
-// The other half of the same story. Placing is counted below; this counts the ASKING, because a
-// site that asks the lane and then puts the thing down itself still has two acts to keep in step
-// — `drop` fused them for the ten landings that go through it, and these are the ones that
-// cannot. Each is here with the reason it asks without placing.
+// A branch that changes the board and says nothing about it is the fault this engine kept
+// producing. `drop` fuses the two acts for the landings that go through it; these enumerate the
+// ones that cannot, so a new way of doing either is a decision rather than a line.
+//
+// Keyed on the source line itself, which is brittle to reformatting on purpose: the point is to
+// stop and look, and a line that changed is a line worth looking at. The tag beside each says
+// which of a few shapes it is — the reasoning belongs at the site, where it moves with the code.
+
 const ASKS_THE_LANE = {
-  'const taken = ch.map(o => takenBy(c, o, site));':
-    'drop itself — the one that answers with the write, which every landing goes through',
-  "const taken = takenBy(c, m.o, 'travelled');":
-    'a thing already carried to the cell by another entry; the placing was done by `land`',
-  "if (t.slides !== o && !takenBy(cell(s, ...at), t.slides, 'emptied where it landed'))":
-    'what a container turns into, which lands on the cell the container is already on',
-  "const takes = landed.map(([x, y], i) => takenBy(cell(next, x, y), was[i].o, 'rolled'));":
-    'a run of things, asked cell by cell before any of them is placed',
-  "const taken = takenBy(c, TRASH, 'torn open');":
-    'trash that does not exist yet: the answer decides whether it is ever laid',
-  "const bodyTakes = landed.map(([x, y]) => takenBy(cell(next, x, y), o, 'rolled body'));":
-    'a body spans a hole unless the whole of it fits in, so every cell answers before any is written',
-  "const cost = takenBy(cell(rolled, ...to), cell(s, x, y).o, 'train');":
-    'asked on a board cloned to find out whether the train may roll at all',
-  "const cost = takenBy(cell(next, ...to), what, 'swept');":
-    'a sweep does not know this is a landing until the lane answers; a no falls through to the '
-    + 'pane and glass branches, which place it themselves',
-  "const taken = takenBy(cell(next, fx, fy), TRASH, 'burst by sweep');":
-    'as above, for the trash a bag bursts into',
-  "const cost = into === null && !blame.length ? takenBy(cell(s, ...at), o, 'slid') : null;":
-    'the answer decides whether the thing tips at all, which is a question about the move rather '
-    + 'than about the landing',
+  'const taken = ch.map(o => takenBy(c, o, site));': 'the drop every landing goes through',
+  "const taken = takenBy(c, m.o, 'travelled');": 'placed by `land`',
+  "if (t.slides !== o && !takenBy(cell(s, ...at), t.slides, 'emptied where it landed'))": 'lands on the cell it is already on',
+  "const takes = landed.map(([x, y], i) => takenBy(cell(next, x, y), was[i].o, 'rolled'));": 'a whole run, before any of it is written',
+  "const taken = takenBy(c, TRASH, 'torn open');": 'about a thing that does not exist yet',
+  "const bodyTakes = landed.map(([x, y]) => takenBy(cell(next, x, y), o, 'rolled body'));": 'a whole span, before any of it is written',
+  "const cost = takenBy(cell(rolled, ...to), cell(s, x, y).o, 'train');": 'on a board cloned to ask whether it may',
+  "const cost = takenBy(cell(next, ...to), what, 'swept');": 'not known to be a landing until answered',
+  "const taken = takenBy(cell(next, fx, fy), TRASH, 'burst by sweep');": 'about a thing that does not exist yet',
+  "const cost = into === null && !blame.length ? takenBy(cell(s, ...at), o, 'slid') : null;": 'a question about the move, not the landing',
 };
 
-{
-  const text = readFileSync(resolve(root, 'src/rules.js'), 'utf8');
-  const unlisted = [], lines = text.split('\n');
-  lines.forEach((line, i) => {
-    const t = line.trim();
-    if (!t.includes('takenBy(') || t.startsWith('const takenBy')) return;
-    if (!(t in ASKS_THE_LANE)) unlisted.push(`src/rules.js:${i + 1} ${t}`);
-  });
-  const gone = Object.keys(ASKS_THE_LANE).filter(k => !lines.some(l => l.trim() === k));
-  check('the lane is asked only where it is written down that it is asked',
-    unlisted.length === 0 && gone.length === 0,
-    [...unlisted.map(u => `not listed: ${u}`),
-     ...gone.map(g => `listed but no longer there: ${g}`)].join('; ')
-      || `${Object.keys(ASKS_THE_LANE).length} askers, one of them the drop every landing uses`);
-}
-
-// --- putting something on a cell ------------------------------------------------------------
-//
-// Six faults in a row were one shape: a branch wrote an occupant onto a cell and nothing said
-// so. `drop` exists to stop that — it asks the lane what the landing costs and hands the answer
-// back with the write — but a helper can be walked past, and those six walked past it.
-//
-// So the ways of placing an occupant are counted. `setChain` and `layTrash` are the two writes
-// everything else is built from; every other placement is listed here with the reason it is not
-// one of them. A new one fails this check, which is the point: adding a way to put something on
-// a cell should be a decision, not a line.
 const PLACES_BY_HAND = {
-  'c.o = ch.length ? ch[0] : NONE;': 'setChain — the one write, which `drop` and every landing goes through',
-  'else c.o = TRASH;': 'layTrash — the other one, because trash on water is a filled canal rather than a spill',
-  'cell(s, ...at).o = t.slides;': 'what a container turns into where it landed; asks the lane first',
-  'to.o = was[i].o; to.pid = was[i].pid;': 'a run of things rolling, placed together after the whole run is known',
-  'c.o = was[i].o; c.hold = was[i].hold; c.pid = was[i].pid;': 'a cart carrying its load along, cell by cell',
-  'for (const p of [at, draw]) { const c = cell(next, ...p); c.o = open; c.pid = pid; }':
-    'a cabinet opening into a body across two cells, which is a birth rather than a landing',
-  'cell(next, ...to).o = o;': 'a towed complex moving in lockstep, where the landing was decided for the whole of it',
-  'c.o = o; c.pid = target.pid;': 'a body rolled, placed across its own footprint',
-  'cell(rolled, ...to).o = cell(s, x, y).o;': 'a train rolling, on a board cloned to test whether it may',
+  'c.o = ch.length ? ch[0] : NONE;': 'setChain — the one write',
+  'else c.o = TRASH;': 'layTrash — the other one',
+  'cell(s, ...at).o = t.slides;': 'what a container turns into where it landed',
+  'to.o = was[i].o; to.pid = was[i].pid;': 'a whole run, placed once it is known',
+  'c.o = was[i].o; c.hold = was[i].hold; c.pid = was[i].pid;': 'a cart carrying its load along',
+  'for (const p of [at, draw]) { const c = cell(next, ...p); c.o = open; c.pid = pid; }': 'a cabinet opening — a birth, not a landing',
+  'cell(next, ...to).o = o;': 'a towed complex, decided for the whole of it',
+  'c.o = o; c.pid = target.pid;': 'a body across its own footprint',
+  'cell(rolled, ...to).o = cell(s, x, y).o;': 'on a board cloned to ask whether it may',
   'cell(next, rear[0] + k * dx, rear[1] + k * dy).o = WHEELIE_EMPTY;': 'a bin becoming empty where it stands',
-  'c.o = what; c.hold = cell(s, x, y).hold; c.grip = cell(s, x, y).grip;': 'a swept line, carried along with what it holds',
+  'c.o = what; c.hold = cell(s, x, y).hold; c.grip = cell(s, x, y).grip;': 'a swept line, with what it holds',
+};
+
+/** One scan, asked twice: which lines match, and are they the ones written down? */
+const onlyAsListed = (lines, what, hits, listed) => {
+  const unlisted = [];
+  lines.forEach((line, i) => { const t = line.trim(); if (hits(t) && !(t in listed)) unlisted.push(`src/rules.js:${i + 1} ${t}`); });
+  const gone = Object.keys(listed).filter(k => !lines.some(l => l.trim() === k));
+  check(what, unlisted.length === 0 && gone.length === 0,
+    [...unlisted.map(u => `not listed: ${u}`), ...gone.map(g => `listed but no longer there: ${g}`)]
+      .join('; ') || `${Object.keys(listed).length} of them, each written down`);
 };
 
 {
-  const text = readFileSync(resolve(root, 'src/rules.js'), 'utf8');
-  const unlisted = [];
-  text.split('\n').forEach((line, i) => {
-    const t = line.trim();
-    // A write that CLEARS is not a placement: nothing arrives, so no lane is owed an answer.
-    // Nor is a write to an ACCOUNT entry — `becomes.o` says what a thing turns into as it lands,
-    // which is the step describing the board rather than changing it.
-    if (!/\.o *=[^=]/.test(t) || /\.o *= *(NONE|undefined)\b/.test(t)) return;
-    if (/\.becomes\.o *=/.test(t)) return;
-    if (!(t in PLACES_BY_HAND)) unlisted.push(`src/rules.js:${i + 1} ${t}`);
-  });
-  const gone = Object.keys(PLACES_BY_HAND).filter(k => !text.includes(k));
-  check('an occupant is put on a cell only in the ways that are written down',
-    unlisted.length === 0 && gone.length === 0,
-    [...unlisted.map(u => `not listed: ${u}`),
-     ...gone.map(g => `listed but no longer there: ${g}`)].join('; ')
-      || `${Object.keys(PLACES_BY_HAND).length} ways, each with its reason`);
+  const lines = readFileSync(resolve(root, 'src/rules.js'), 'utf8').split('\n');
+  onlyAsListed(lines, 'the lane is asked only where it is written down that it is asked',
+    t => t.includes('takenBy(') && !t.startsWith('const takenBy'), ASKS_THE_LANE);
+  // Clearing a cell is not a placement — nothing arrives, so no lane is owed an answer — and
+  // `becomes.o` is the step describing the board rather than changing it.
+  onlyAsListed(lines, 'an occupant is put on a cell only in the ways that are written down',
+    t => /\.o *=[^=]/.test(t) && !/\.o *= *(NONE|undefined)\b/.test(t) && !/\.becomes\.o *=/.test(t),
+    PLACES_BY_HAND);
 }
 
 check('the engine is defined once', strays.length === 0,

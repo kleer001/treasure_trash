@@ -245,9 +245,7 @@ export function landsWhereTheBoardSays(s, dir, bend = null) {
   const adrift = [];
   try {
     const roll = handlesOf(r.next);
-    // `grip` is the one lane the account does not carry: a hold has no sprite and no entry,
-    // so a hook taking hold changes a board nothing announces. Counted, not failed.
-    adrift.push(...unnamedOver(r, { silent: ['grip'] }), ...handleFaults(r), ...unresolvedSprites(stageFrom(r.next), r.next, roll),
+    adrift.push(...unnamedOver(r).bad, ...handleFaults(r), ...unresolvedSprites(stageFrom(r.next), r.next, roll),
                 ...(threw ? [] : unresolvedSprites(stage, r.next, roll)));
   } catch (e) { adrift.push(`the handles do not resolve: ${e.message}`); }
   if (adrift.length) return { ok: false, why: adrift.join('; '), r };
@@ -553,10 +551,11 @@ export function* cases({ fourth = false, fifth = false } = {}) {
     // different questions, and every pairing and every triple collapses them into one. A tyre on
     // grease shoved over a grate is not a tyre on dry floor shoved over a grate.
     if (!fourth && !fifth) continue;
+    const both = fourth || fifth;
     for (const [qn, qg] of Object.entries(all))
       for (const [ln, lg] of Object.entries(LANES))
         for (const [bn, bg] of Object.entries(LANES)) {
-          if (fourth)
+          if (both)
             yield* made(`${pn}-into-${qn}-on-${ln}-over-${bn}`,
                 `${pn} shoved into ${qn} standing on ${ln}, driven over ${bn}`,
                 corridor({ left: pg, right: qg, lane: lg, beyond: bg }));

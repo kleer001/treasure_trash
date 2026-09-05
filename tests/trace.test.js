@@ -16,7 +16,7 @@ import {
   FURNITURE, RUG, LANDS_ON, TERRAINS, terrainOf, BRIDGE,
 } from '../src/rules.js';
 import { toState } from '../src/format.js';
-import { unnamedCells } from '../src/audit.js';
+import { unnamedCells, UNACCOUNTED } from '../src/audit.js';
 import { anchorOf, laneOf, isBodyLane, CART_LANE, BODY_LANE } from '../src/handles.js';
 
 const S = (grid, cart, water) => toState({ id: 't', grid, cart, water });
@@ -24,7 +24,6 @@ const key = ([x, y]) => `${x},${y}`;
 /** The movements of things the board gives an id to — one sprite over a whole footprint. */
 const bodies = st => st.moved.filter(m => isBodyLane(laneOf(m.handle)));
 
-/** Cells whose contents differ — occupant, terrain, or which piece owns them. */
 function audit(label, grid, dir, { cart, water } = {}) {
   const s = S(grid, cart, water);
   const r = explain(s, dir, { trace: true });
@@ -34,7 +33,7 @@ function audit(label, grid, dir, { cart, water } = {}) {
   r.steps.forEach((step, i) => {
     const prev = r.frames[i], next = r.frames[i + 1], at = `${label} step ${i}`;
     for (const c of unnamedCells(prev, next, step))
-      assert.ok(c.lanes.every(k => k === 'grip'),
+      assert.ok(c.lanes.every(k => UNACCOUNTED.includes(k)),
         `${at}: cell ${c.at} changed in ${c.lanes.join(',')} and no event names it`);
 
     // The origin claim: whatever a step says moved must have been sitting where it says. A cart

@@ -514,11 +514,10 @@ export const freeCart = s => {
  */
 const drop = (s, at, ch, site = 'set down') => {
   const c = cell(s, ...at);
-  // The lane is asked HERE, and its answer comes back with the write. These were two acts at ten
-  // call sites, each having to remember to perform both, against the same cell and the same
-  // code; six of them had drifted apart by the time anyone looked. One answer per item in the
-  // chain, because a grate takes whatever arrives and water takes only some of it, so a load can
-  // be treated differently at each depth.
+  // The lane is asked here and its answer comes back with the write, so a landing cannot be
+  // half done. One answer per item in the chain: a grate takes whatever arrives and water takes
+  // only some of it, so a load can be treated differently at each depth. What the answer does
+  // NOT do is decide the write — the branches below read the cell again for that.
   const taken = ch.map(o => takenBy(c, o, site));
   if (isGrate(c)) return { taken };
   const head = ch[0];
@@ -1889,10 +1888,13 @@ function decide(s, dir, opts) {
     for (const [x, y] of [...line].reverse()) {
       const from = [x, y], to = [x + k * dx, y + k * dy];
       const what = cell(s, x, y).o;
+      // Asked before the drop, and the drop asks again — which doubles this site in the landing
+      // ledger's tally and is the price of the answer being needed before it is known whether
+      // this is a landing at all. A lane that keeps what lands falls through to the branches
+      // below, which place it themselves, so dropping first would place it twice and stepping
+      // back from that means unwriting keys the drop may have added.
       const cost = takenBy(cell(next, ...to), what, 'swept');
       if (cost) {
-        // The lane's own answer on the board too, not just in the account: a grate keeps
-        // nothing, and trash swept into a canal is what fills it.
         drop(next, to, [what], 'swept');
         step.moved.push(moves({ o: what, from, to }));
         step.gone.push(leaves({ o: what, cells: [from], ...cost }));

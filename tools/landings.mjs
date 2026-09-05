@@ -9,18 +9,24 @@
 // a couch cannot be tipped out of a jug — and telling those apart is the reading, which is why
 // this reports rather than gates.
 //
+// Two cuts, because they have different blind spots. The narrow one asks which lanes a site was
+// never put to about a thing it does meet; it cannot see a pairing never staged at all. The
+// coarse one asks which things never reach a site, and that is where such a pairing shows.
+//
 //   node tools/landings.mjs            every shipped room, plus a generated batch
 //   node tools/landings.mjs --asked    the combinations that DID come up
 //   node tools/landings.mjs --rooms N  how many generated rooms to add (default 40)
 
 import { explain, watchLandings, OCCUPANTS, TERRAINS, DIR_ORDER, NONE } from '../src/rules.js';
 import { toState } from '../src/format.js';
-import { reachable, run as matrixRun, cases as matrixCases, corridor } from './matrix.mjs';
+import { reachable, run as matrixRun, LANES } from './matrix.mjs';
 import { generatedRooms } from './conform.mjs';
 import { actLevels } from './packs.mjs';
 
-const LANE_NAME = ['dry', 'water', 'bridge', 'grease', 'tar', 'glass', 'covered'];
-const lanes = () => [...LANE_NAME.slice(0, TERRAINS), 'grate'];
+// The lanes the forced meetings already know how to stage, named the way they name them, so one
+// reader reads one vocabulary and a lane added there is a lane asked about here.
+const lanes = Object.keys(LANES);
+const LANE_NAME = lanes.slice(0, TERRAINS);
 
 /** Occupant code to the name it is written under, for a report a person has to read. */
 const codeName = new Map(Object.entries(OCCUPANTS)
@@ -29,7 +35,7 @@ const codeName = new Map(Object.entries(OCCUPANTS)
 const key = (site, lane, o) => `${site}\t${lane}\t${codeName.get(o) ?? `o${o}`}`;
 
 /** Walk a corpus with the watcher on, and hand back every question it heard. */
-export function askedOver(rooms, { cap = 200 } = {}) {
+function askedOver(rooms, { cap = 200 } = {}) {
   const asked = new Map();
   watchLandings((site, lane, o, taken) => {
     const k = key(site, typeof lane === 'number' ? (LANE_NAME[lane] ?? `ter${lane}`) : lane, o);
@@ -43,16 +49,10 @@ export function askedOver(rooms, { cap = 200 } = {}) {
       try { s0 = toState(room); } catch { continue; }
       for (const st of reachable(s0, cap)) for (const d of DIR_ORDER) explain(st, d, { trace: true });
     }
-    // The forced meetings too: they stage pairings no level author would build, which is
-    // exactly where a landing nobody thought of turns up.
-    for (const _ of matrixRun()) { /* drained: the watcher is the point, not the rows */ }
-    for (const c of matrixCases()) {
-      const built = corridor(c);
-      if (!built) continue;
-      let s0;
-      try { s0 = toState({ ...built.room, id: 'm' }); } catch { continue; }
-      for (const d of DIR_ORDER) explain(s0, d, { trace: true });
-    }
+    // The forced meetings too: they stage pairings no level author would build, which is exactly
+    // where a landing nobody thought of turns up. Drained rather than read — each case explains
+    // itself on the way past, and the questions it asks are what this is here for.
+    for (const _ of matrixRun()) { /* the questions are the point, not the verdicts */ }
   } finally { watchLandings(null); }
   return asked;
 }
@@ -66,15 +66,19 @@ export function askedOver(rooms, { cap = 200 } = {}) {
  * That is the shape the sweep bug had: the broom was asked about trash on dry floor a hundred
  * times and about water never once.
  */
-export function everyQuestion(asked) {
+const metAt = asked => {
   const seen = new Map();                       // site -> occupant names ever asked there
   for (const k of asked.keys()) {
     const [site, , name] = k.split('\t');
     seen.set(site, (seen.get(site) ?? new Set()).add(name));
   }
+  return seen;
+};
+
+function everyQuestion(asked) {
   const out = [];
-  for (const [site, names] of seen)
-    for (const lane of lanes()) for (const name of names) out.push(`${site}\t${lane}\t${name}`);
+  for (const [site, names] of metAt(asked))
+    for (const lane of lanes) for (const name of names) out.push(`${site}\t${lane}\t${name}`);
   return out;
 }
 
@@ -123,11 +127,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // never put to about a thing, and cannot ask about a thing the site never met. So the coarser
   // cut as well — which occupants reach a site at all. This is the cut the sweep bug sat in:
   // nothing in the corpus had ever swept trash anywhere, on any lane.
-  const met = new Map();
-  for (const k of asked.keys()) {
-    const [site, , name] = k.split('\t');
-    met.set(site, (met.get(site) ?? new Set()).add(name));
-  }
+  const met = metAt(asked);
   const everyName = [...codeName.values()];
   console.log('\nNEVER REACHED AT ALL — the site has never decided the landing of these:\n');
   for (const site of sites) {
