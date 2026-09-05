@@ -273,6 +273,53 @@ for (const full of walk(root)) {
   for (const [home, mark] of Object.entries(MARKS))
     if (rel !== home && text.includes(mark)) strays.push(`${rel} defines ${home}`);
 }
+// --- asking the lane -------------------------------------------------------------------------
+//
+// The other half of the same story. Placing is counted below; this counts the ASKING, because a
+// site that asks the lane and then puts the thing down itself still has two acts to keep in step
+// — `drop` fused them for the ten landings that go through it, and these are the ones that
+// cannot. Each is here with the reason it asks without placing.
+const ASKS_THE_LANE = {
+  'const taken = ch.map(o => takenBy(c, o, site));':
+    'drop itself — the one that answers with the write, which every landing goes through',
+  "const taken = takenBy(c, m.o, 'travelled');":
+    'a thing already carried to the cell by another entry; the placing was done by `land`',
+  "if (t.slides !== o && !takenBy(cell(s, ...at), t.slides, 'emptied where it landed'))":
+    'what a container turns into, which lands on the cell the container is already on',
+  "const takes = landed.map(([x, y], i) => takenBy(cell(next, x, y), was[i].o, 'rolled'));":
+    'a run of things, asked cell by cell before any of them is placed',
+  "const taken = takenBy(c, TRASH, 'torn open');":
+    'trash that does not exist yet: the answer decides whether it is ever laid',
+  "const bodyTakes = landed.map(([x, y]) => takenBy(cell(next, x, y), o, 'rolled body'));":
+    'a body spans a hole unless the whole of it fits in, so every cell answers before any is written',
+  "const cost = takenBy(cell(rolled, ...to), cell(s, x, y).o, 'train');":
+    'asked on a board cloned to find out whether the train may roll at all',
+  "const cost = takenBy(cell(next, ...to), what, 'swept');":
+    'a sweep does not know this is a landing until the lane answers; a no falls through to the '
+    + 'pane and glass branches, which place it themselves',
+  "const taken = takenBy(cell(next, fx, fy), TRASH, 'burst by sweep');":
+    'as above, for the trash a bag bursts into',
+  "const cost = into === null && !blame.length ? takenBy(cell(s, ...at), o, 'slid') : null;":
+    'the answer decides whether the thing tips at all, which is a question about the move rather '
+    + 'than about the landing',
+};
+
+{
+  const text = readFileSync(resolve(root, 'src/rules.js'), 'utf8');
+  const unlisted = [], lines = text.split('\n');
+  lines.forEach((line, i) => {
+    const t = line.trim();
+    if (!t.includes('takenBy(') || t.startsWith('const takenBy')) return;
+    if (!(t in ASKS_THE_LANE)) unlisted.push(`src/rules.js:${i + 1} ${t}`);
+  });
+  const gone = Object.keys(ASKS_THE_LANE).filter(k => !lines.some(l => l.trim() === k));
+  check('the lane is asked only where it is written down that it is asked',
+    unlisted.length === 0 && gone.length === 0,
+    [...unlisted.map(u => `not listed: ${u}`),
+     ...gone.map(g => `listed but no longer there: ${g}`)].join('; ')
+      || `${Object.keys(ASKS_THE_LANE).length} askers, one of them the drop every landing uses`);
+}
+
 // --- putting something on a cell ------------------------------------------------------------
 //
 // Six faults in a row were one shape: a branch wrote an occupant onto a cell and nothing said
