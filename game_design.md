@@ -271,13 +271,3 @@ room. The design contract, stated as what a room must survive:
   a single trap eight moves down the obvious line.
 - **Structure:** no large open rectangle (bushy and shallow — expensive to reason about, and it
   buys nothing), no niche walled on three sides.
-
-## 11. Where the design is open
-
-Read off what the code does and does not contain, rather than off anyone's plan:
-
-- **There is no second character.** The act titles mention a crow; nothing in the game implements
-  one. Whatever it is, it has not been decided in code.
-- **Art and audio are placeholder.** Shapes drawn from a palette, three sounds.
-- **Nothing has shipped.** No room, no par, no pack and no build has been released, and no player
-  outside the author has seen one.
