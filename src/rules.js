@@ -519,9 +519,12 @@ const drop = (s, at, ch, site = 'set down') => {
   // only some of it, so a load can be treated differently at each depth. What the answer does
   // NOT do is decide the write — the branches below read the cell again for that.
   const taken = ch.map(o => takenBy(c, o, site));
-  if (isGrate(c)) return { taken };
   const head = ch[0];
+  // Trash writes itself: on a canal it becomes the crossing, on floor it is a spill.
   if (head === TRASH) { layTrash(c); return { taken }; }
+  // And the lane's answer DECIDES the write rather than merely being reported alongside it. A
+  // lane that keeps nothing of what lands is a lane nothing is written onto.
+  if (taken[0]) return { taken };
   if (isCarriedBarrow(head)) {
     c.cart = freeCart(s); c.ck = carriedKind(head);
     setChain(c, ch.slice(1));
@@ -645,8 +648,11 @@ export const LANDS_ON = {
   [GLASS]:   () => null,                                        // bursts a bag on arrival, and
                                                                 //   what bursts is not what lands
   [COVERED]: () => null,                                        // a covered lane is its cover
-  [WATER]:   o => (o === TRASH ? { effect: 'fills' } : null),    // loose trash BECOMES the
-                                                                //   crossing — see layTrash
+  // Trash packs a canal full and becomes the crossing. Everything else the water KEEPS, in
+  // plain sight and out of reach — the raccoon will not wade in after it, and a bag lost in
+  // there still counts, so the room is over. A thing that sank would take the mistake off the
+  // board with it; a thing floating there is the mistake, still being looked at.
+  [WATER]:   o => (o === TRASH ? { effect: 'fills' } : null),
 };
 
 /**
@@ -885,8 +891,8 @@ function handOff(next, from, dx, dy, step) {
     // A grate takes what rolls in only when the WHOLE of it fits inside one; a longer thing
     // spans the hole and comes to rest across it. One cell of a body is not a smaller body.
     const landed = own.map(([x, y]) => [x + j * dx, y + j * dy]);
-    const swallowed = landed.every(([x, y]) => isGrate(cell(next, x, y)));
     const takes = landed.map(([x, y], i) => takenBy(cell(next, x, y), was[i].o, 'rolled'));
+    const swallowed = takes.every(Boolean);
     if (!swallowed) landed.forEach(([x, y], i) => {
       const to = cell(next, x, y);
       to.o = was[i].o; to.pid = was[i].pid;
