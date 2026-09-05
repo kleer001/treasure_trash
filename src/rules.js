@@ -658,7 +658,21 @@ export const LANDS_ON = {
 let landingWatcher = null;
 export const watchLandings = fn => { landingWatcher = fn; };
 
+/**
+ * Every place a landing is decided, by name. Two things read this rather than discovering it:
+ * `takenBy` refuses a name that is not here, so a site cannot arrive unannounced; and the
+ * landing ledger asks about all of them rather than only the ones a corpus happened to reach,
+ * which is how a site nothing stages stops being invisible to the tool built to find it.
+ */
+export const LANDING_SITES = [
+  'burst by sweep', 'cabinet shut', 'emptied where it landed', 'fled', 'rolled', 'rolled body',
+  'set down', 'shed behind a bin', 'shoved by a drawer', 'slid', 'swept', 'tipped', 'tipped out',
+  'torn open', 'train', 'travelled',
+];
+const KNOWN_SITE = new Set(LANDING_SITES);
+
 const takenBy = (c, o, site) => {
+  if (!KNOWN_SITE.has(site)) throw new Error(`landing at an unnamed site: ${site}`);
   const grate = isGrate(c);
   const lane = LANDS_ON[terrainOf(c)];
   if (!grate && !lane) throw new Error(`no landing rule for terrain ${terrainOf(c)}`);

@@ -17,7 +17,8 @@
 //   node tools/landings.mjs --asked    the combinations that DID come up
 //   node tools/landings.mjs --rooms N  how many generated rooms to add (default 40)
 
-import { explain, watchLandings, OCCUPANTS, TERRAINS, DIR_ORDER, NONE } from '../src/rules.js';
+import { explain, watchLandings, OCCUPANTS, TERRAINS, DIR_ORDER, NONE,
+         LANDING_SITES } from '../src/rules.js';
 import { toState } from '../src/format.js';
 import { reachable, run as matrixRun, LANES } from './matrix.mjs';
 import { generatedRooms } from './conform.mjs';
@@ -88,7 +89,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const rooms = [...actLevels().map(l => l.level), ...generatedRooms(n, 7).map(g => g.level)];
 
   const asked = askedOver(rooms);
-  const sites = [...new Set([...asked.keys()].map(k => k.split('\t')[0]))].sort();
+  // Every site the engine declares, not only the ones a corpus reached — a site nothing stages
+  // is the emptiest column there is, and discovering the list from what was asked would leave
+  // it out of the report altogether.
+  const sites = [...LANDING_SITES].sort();
+  const never = sites.filter(site => ![...asked.keys()].some(k => k.startsWith(`${site}\t`)));
 
   if (process.argv.includes('--asked')) {
     console.log(`${asked.size} combinations asked, over ${rooms.length} rooms\n`);
@@ -109,6 +114,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   console.log(`${rooms.length} rooms, ${sites.length} landing sites. ${asked.size} of `
     + `${every.length} plausible combinations asked; ${missing.length} never came up.\n`);
+  if (never.length) console.log(`REACHED BY NOTHING — ${never.length} site(s) the corpus never `
+    + `even arrived at: ${never.join(', ')}\n`);
   // A lane that takes nothing answers the same for every occupant, so a gap there is a gap in
   // one answer. Water and the grate are the ones where the occupant changes the reply.
   console.log('NEVER ASKED — read as a to-do list, not a failure list:\n');
