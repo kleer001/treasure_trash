@@ -275,3 +275,21 @@ test('glyphs round-trip through the serialiser, water layer and all', () => {
   assert.deepEqual(toGrid(S(g, w)), g);
   assert.deepEqual(toWater(S(g, w)), w);
 });
+
+test('a slider still travelling hands its motion on, and one that is not does not', () => {
+  // Momentum is what decides this, not what the piece is. A can carried three cells by a slick
+  // arrives moving and passes it on exactly as a rolling tyre does; the same can shoved a single
+  // cell on dry floor has nothing to give away, and a piece that bulldozed from a standing shove
+  // would be a different game.
+  const skated = explain(toState({ id: 'a', grid: ['#########', '#@c--o-E#', '#########'],
+                                   water: ['---------', '--%%%----', '---------'] }), 'r');
+  assert.ok(skated.ok);
+  assert.equal(toGrid(skated.next)[1], '#-@-c-oE#', 'the can stops where it stopped; the tyre rolls on');
+
+  const rolled = explain(toState({ id: 'b', grid: ['#########', '#@o--o-E#', '#########'] }), 'r');
+  assert.equal(toGrid(rolled.next)[1], '#-@-o-oE#', 'which is the shape a tyre hand-off already had');
+
+  // Shoved rather than carried: it never reaches the tyre at all.
+  const shoved = explain(toState({ id: 'c', grid: ['#########', '#@co---E#', '#########'] }), 'r');
+  assert.equal(shoved.ok, false, 'a standing shove has no momentum to hand on');
+});

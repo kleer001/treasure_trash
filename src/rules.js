@@ -1975,12 +1975,17 @@ function decide(s, dir, opts) {
     // going, and every bill — the tip, the cart it lands in, the grate that takes it — is
     // settled where it comes to rest rather than where it was pushed.
     let at = c1;
+    const setOff = at;
     if (into === null && !blame.length && !SLIDES[o].soaks) {
       while (isGrease(cell(s, ...at)) && travelsInto(s, at[0] + dx, at[1] + dy, dx, dy)) {
         at = [at[0] + dx, at[1] + dy];
         if (isTar(cell(s, ...at)) || isGrate(cell(s, ...at))) break;
       }
     }
+    // Whether it is still TRAVELLING when it arrives, which is the whole of what decides the
+    // hand-off below. Not what it is: a can shoved a single cell on dry floor has no motion to
+    // give away, and the same can carried three cells by a slick does.
+    const carried = at !== setOff;
     const cost = into === null && !blame.length ? takenBy(cell(s, ...at), o, 'slid') : null;
     const swallowed = cost !== null;
     const c2 = [at[0] + dx, at[1] + dy];
@@ -2017,6 +2022,14 @@ function decide(s, dir, opts) {
     else if (SLIDES[o].covers && cover(cell(next, ...at)))
       step.gone.push(leaves({ o, cells: [[tx, ty]] }));
     else drop(next, at, [lands]);
+    // Something moving that meets something movable passes the motion on, and a slick surface
+    // carries motion rather than eating it — so a thing still travelling when it arrives hands
+    // off exactly as a rolling tyre does. It stops where it stopped either way; this is what
+    // happens to whatever stopped it.
+    const passed = carried && !swallowed && !shove
+      ? handOff(next, [at[0] + dx, at[1] + dy], dx, dy, step)
+      : null;
+
     const grip = cell(next, tx, ty).grip;
     cell(next, tx, ty).o = NONE;
     cell(next, tx, ty).grip = undefined;
