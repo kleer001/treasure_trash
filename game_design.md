@@ -24,8 +24,16 @@ decide to take it back.
 
 ## 3. The board
 
-One screen. A grid of an alley, seen from above. Walls, floor, terrain, the raccoon, an exit,
-and the junk.
+One screen. A **Cartesian grid** of an alley, seen from above: square cells, x running across and
+y running down from the top-left corner. Walls, floor, terrain, the raccoon, an exit, and the junk.
+
+Everything is **four-connected** — up, down, left, right. There are no diagonals anywhere in the
+game, for the raccoon or for anything he shoves.
+
+Time is **discrete and untimed**. One press is one whole action: there are no half moves, no
+partial cells, and nothing on the board moves on its own between presses. What you see travelling
+across the screen is animation catching up — the board has already arrived. You can think as long
+as you like.
 
 You have exactly three things you can do, and all three are the same press — a direction:
 
