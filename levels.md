@@ -1,7 +1,8 @@
 # LEVELS — Treasure Trash
 
-Index of the shipped pack. **The rooms themselves live in
-[`levels/act1.tt`](./levels/act1.tt)** — grids, masks and every declared field. This file is
+Index of the shipped packs. **The rooms themselves live in
+[`levels/act0.tt`](./levels/act0.tt), [`levels/act1.tt`](./levels/act1.tt) and
+[`levels/act2.tt`](./levels/act2.tt)** — grids, masks and every declared field. This file is
 not a second copy of them; it is the list, and the solve strings `tools/verify.mjs`
 cross-checks against the data.
 
@@ -9,6 +10,42 @@ Nothing here describes what the pieces do. That is `src/rules.js`, and it moves.
 
 Solves are extended LURD: lowercase = move, UPPERCASE = push, UPPERCASE + `!` = pounce-tear.
 The token count is the par.
+
+## Act 0 — the teaching rooms
+
+One room per verb, then one per piece, in the order a player meets them. Each holds its exit
+shut until its lesson is done — the claim is `:gate` in the pack, and `tools/verify.mjs`
+proves it by taking the lesson away and requiring the room to become unsolvable.
+
+| Room | Name | Par | Solve |
+|---|---|---|---|
+| T1 | Doorway | 3 | `rrr` |
+| T2 | Held Up | 3 | `D!ur` |
+| T3 | Shove | 4 | `RRdd` |
+| T4 | No Room | 4 | `ldRd` |
+| T5 | The Fan | 5 | `ruL!ru` |
+| T6 | Take It Back | 3 | `U!dd` |
+| T7 | Set Down | 7 | `RurDR!lu` |
+| T8 | Spent | 3 | `R!lu` |
+| T9 | Recycling | 2 | `Ru` |
+| T10 | Nowhere To Put It | 4 | `urDu` |
+| T11 | Bridged | 8 | `RRRRdrru` |
+| T12 | Down The Drain | 4 | `Rrrr` |
+| T13 | Laid Over | 6 | `RRrrrr` |
+| T14 | Mopped Up | 8 | `RRRRdrru` |
+| T15 | Free Wheeling | 3 | `Rrd` |
+| T16 | Coupled | 4 | `Rrrd` |
+| T17 | Handed On | 4 | `RrRd` |
+| T18 | No Difference | 5 | `Rrrrd` |
+| T19 | Two Cells, One Thing | 5 | `dRRRd` |
+| T20 | Unrolled | 5 | `dRrrd` |
+| T21 | End On | 4 | `RRRd` |
+| T22 | Along Its Length | 4 | `Rrrd` |
+| T23 | Taken Whole | 4 | `RRrd` |
+| T24 | Spanning | 6 | `RRRRRd` |
+| T25 | Handed Along | 5 | `Rrrrd` |
+
+## Act 1 — the verbs
 
 | Room | Name | Par | Solve |
 |---|---|---|---|

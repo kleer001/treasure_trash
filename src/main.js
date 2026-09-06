@@ -746,7 +746,7 @@ document.getElementById('controls').addEventListener('click',e=>{
 // real game before it belongs in a shipped act: the bench pages import `src/` and prove the
 // rules, but only this path exercises input, refusal painting, the HUD and the sprites. Inert
 // in the built artifact, which has no query string and serves its packs from inside itself.
-const ACTS = new URLSearchParams(location.search).get('acts')?.split(',') ?? ['act1.tt', 'act2.tt'];
+const ACTS = new URLSearchParams(location.search).get('acts')?.split(',') ?? ['act0.tt', 'act1.tt', 'act2.tt'];
 // Which rooms came from which act. The pack names itself; the file name is the fallback so a
 // pack with no `:pack` line still gets a heading rather than an empty one.
 // Short enough to sit on one line beside the room range: the pack's own trailing name, with

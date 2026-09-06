@@ -1,4 +1,4 @@
-:pack   Treasure Trash — the teaching rooms, chapter 1, par solutions
+:pack   Treasure Trash — Act 0 (the teaching rooms) par solutions
 :format 1
 ;
 ; LURD, extended:  lowercase = move   UPPERCASE = push   UPPERCASE+! = pounce-tear
