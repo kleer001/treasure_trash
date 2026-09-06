@@ -1,7 +1,7 @@
 // Treasure Trash — the rules. Pure, deterministic, no DOM, no I/O. The game, the solver
 // and the verifier all import this module.
 
-import { handleAt, anchorOf, depthLane, rasterOrder,
+import { handleAt, anchorOf, depthLane, rasterOrder, isBodyLane, laneOf,
          CART_LANE, BODY_LANE } from './lanes.js';
 
 // Occupant codes. `stateKey` encodes each as one printable character, so the list can grow.
@@ -871,9 +871,29 @@ function handOff(next, from, dx, dy, step) {
     // buys; a cart that hoovered whatever a stray impact sent it over would be the cascade all
     // over again, in a piece nobody was pushing. Anything it meets is what stops it.
     if (isCart(c)) {
-      const cid = c.cart, own = cartCells(next, cid);
+      // A cart is shoved by whatever set it going, and by the SAME mover the raccoon's own shove
+      // uses — so what it swallows, sheds and stops against cannot come out differently for the
+      // push having arrived down a train instead of off a paw. A piece that read who pushed it
+      // and behaved two ways was a rule nobody could hold in their head.
+      const cid = c.cart;
+      const own = cartCells(next, cid);
+      const wasRac = { ...next.rac };
+      const r = shoveCart(next, cid, [...p], dx, dy, true);
+      if (r.ok) {
+        for (let yy = 0; yy < next.rows; yy++)
+          for (let xx = 0; xx < next.cols; xx++) next.cells[yy][xx] = r.next.cells[yy][xx];
+        // The raccoon is not behind this one; he is wherever the beat left him.
+        next.rac = wasRac;
+        for (const st of r.steps ?? []) {
+          for (const m of st.moved) (isBodyLane(laneOf(m.handle)) ? bodies : moved).push(m);
+          if (step) step.spawned.push(...st.spawned);
+          gone.push(...st.gone);
+        }
+        // Wherever it came to rest, the run is spent: a cart is what stops a cascade.
+        break;
+      }
       const ownKey = new Set(own.map(([x, y]) => `${x},${y}`));
-      const shut = (x, y) => !ownKey.has(`${x},${y}`) && !cartCanEnter(next, x, y, dx, dy, false);
+      const shut = (x, y) => !ownKey.has(`${x},${y}`) && !cartCanEnter(next, x, y, dx, dy, true);
       let j = 0;
       while (!own.some(([x, y]) => shut(x + (j + 1) * dx, y + (j + 1) * dy))) {
         j++;

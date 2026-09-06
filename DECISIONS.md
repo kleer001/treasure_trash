@@ -25,6 +25,15 @@ cannot name the person has not been given a decision, and the honest move is to 
 
 ---
 
+## 2026-09-06 — 6ad59c5449569c50
+
+**decided-by:** kleer001
+
+A cart does not read who pushed it. One set rolling by a collision is shoved by the same mover
+the raccoon's own shove uses, so it takes in, sheds and stops against exactly what it would have
+under a paw. The rule it replaces made a piece behave two ways depending on how the push
+arrived, which the owner rejected outright.
+
 ## 2026-09-06 — a6564140aa1dac1f
 
 **decided-by:** kleer001

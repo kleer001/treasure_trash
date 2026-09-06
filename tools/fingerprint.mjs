@@ -19,9 +19,33 @@ import { explain, stateKey, DIR_ORDER } from '../src/rules.js';
 import { toState } from '../src/format.js';
 import { cases } from './matrix.mjs';
 
+// Pieces that travel, and everything worth striking with them. A staged meeting puts two things
+// side by side, so the shove that follows is DIRECT — which leaves the whole hand-off half of
+// the engine unseen: a knock only happens when something rolls a distance first and passes its
+// motion on. This battery puts a gap in, so it does.
+const ROLLERS = ['o', 'W', 'w', 'h'];
+const STRUCK = ['c', 'C', '$', 'x', 'b', 'B', 'w', 'W', 'j', 'i', 's', 'd', 'g', 'o', 'O', 'h',
+                'r', 'a', 'e', 'k', 'm', 'f', 'l', 'p', 'q', 'F', 'Y', 'U'];
+
+function* cascades() {
+  for (const roll of ROLLERS) {
+    for (const hit of STRUCK) {
+      yield { id: `cascade ${roll}->${hit}`,
+              room: { grid: [`@${roll}--${hit}---#`, 'E-------#'] } };
+      // and the same blow arriving at a cart, which is the case that went unseen
+      yield { id: `cascade ${roll}->cart`,
+              room: { grid: [`@${roll}--${hit}---#`, 'E-------#'],
+                      cart: ['------PP#', '--------#'] } };
+    }
+    // a loaded cart struck, and a cart struck with something beyond it to roll onto
+    yield { id: `cascade ${roll}->laden cart`,
+            room: { grid: [`@${roll}--c--c-#`, 'E-------#'], cart: ['----PP---', '---------'] } };
+  }
+}
+
 export function fingerprint() {
   const h = createHash('sha256');
-  for (const c of cases()) {
+  for (const c of [...cases(), ...cascades()]) {
     let s;
     try { s = toState({ ...c.room, id: c.id }); } catch { h.update(`${c.id} unbuildable\n`); continue; }
     // Every direction, not only the one the meeting is staged along: a rule that changes what a

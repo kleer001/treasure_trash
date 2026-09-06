@@ -141,11 +141,17 @@ test('a cart pushed onto a shut cabinet takes it aboard', () => {
   assert.ok(isCart(cell(r.next, at, 1)), 'and it is riding in the cart rather than standing');
 });
 
-test('a cart that rolls up against its back knocks it open and stops there', () => {
+test('a cart set rolling by a knock takes it aboard, the same as a cart he pushed', () => {
+  // The spec above is the same cabinet meeting the same cart off the raccoon's own paw. A cart
+  // does not read who pushed it, so the two answers are one answer — a rolling deck scoops the
+  // cabinet rather than striking it. What still knocks a cabinet open by impact is anything that
+  // has no mouth to take it with: the rolling tyre and the swept line, both pinned above.
   const s = S(['-@o-----m-E', '-----------'], null, ['----PP-----', '-----------']);
   const r = explain(s, 'r');
   assert.ok(r.ok, `refused: ${r.reason}`);
-  assert.equal(toGrid(r.next)[0].slice(8), 'JJE', 'struck by a knocked cart, it opened');
+  const at = toGrid(r.next)[0].indexOf('m');
+  assert.ok(at >= 0, 'the cabinet is still on the board, still shut');
+  assert.ok(isCart(cell(r.next, at, 0)), 'and riding in the cart that rolled onto it');
 });
 
 // Both states are on the lanes, and neither is written for the cabinet: one cell is taken by a
