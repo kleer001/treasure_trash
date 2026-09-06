@@ -128,8 +128,7 @@ const rollsBody = (o, cells, dx, dy) => {
  *  bicycle, and what stops it when the two lie across each other. */
 export const rollsHere = (s, x, y, dx, dy) => {
   const c = cell(s, x, y);
-  if (isCart(c)) return !isHeavyCart(s, c.cart)
-    && (!isBarrow(cartKindOf(c)) || barrowRollsAlong(cartKindOf(c), dx, dy));
+  if (isCart(c)) return !isBarrow(cartKindOf(c)) || barrowRollsAlong(cartKindOf(c), dx, dy);
   if (isMultiCell(c.o)) return rollsBody(c.o, pieceCells(s, c.pid), dx, dy);
   return rollsAlong(c, dx, dy);
 };
@@ -827,11 +826,9 @@ function sinkCart(s, cid, step, site, heldAt = null) {
 }
 
 /**
- * WEIGHT. A wheeled thing is heavy while it is CARRYING objects — a cart or a barrow with
- * something riding in it. A wheelie bin is light full or empty: its trash is a state of the bin
- * rather than cargo, and nothing rides in it. The tyre, the bicycle and the chair can hold nothing
- * and so are never heavy. Weight decides distance and nothing else: heavy moves one cell, light
- * rolls.
+ * Whether a wheeled thing is CARRYING anything. It does not decide distance: a cart is on
+ * wheels and a load does not shorten a roll. What it decides is capacity — a one-cell barrow
+ * with something in it has no room to scoop more — and what a pinned cart sheds out the back.
  */
 export const isHeavyCart = (s, cid) =>
   cartCells(s, cid).some(([x, y]) => chainOf(cell(s, x, y)).length > 0);
@@ -1283,17 +1280,7 @@ function openCabinet(s, at, done) {
  */
 function strikeBack(next, at, dx, dy, step) {
   if (!inGrid(next, ...at)) return;
-  // A heavy thing takes the blow without going anywhere: the board is unchanged, so the solver
-  // never sees this and it costs nothing in the state graph — but the stage has to be told, or a
-  // knock that visibly does nothing reads as the game ignoring the press.
-  const c = cell(next, ...at);
-  if (isCart(c) && isHeavyCart(next, c.cart)) {
-    if (step) step.moved.push(moves({ cells: cartCells(next, c.cart), lane: CART_LANE,
-                                      ref: c.cart, dx: 0, dy: 0,
-                                      effect: 'rattles', blow: [dx, dy] }));
-    return;
-  }
-  const o = c.o;
+  const o = cell(next, ...at).o;
   if (!isCabinetClosed(o)) return;
   const f = DIRS[cabinetFace(o)];
   if (dx !== f[0] || dy !== f[1]) return;
@@ -1498,11 +1485,11 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
     if (!rolling) { stoppedAt = ahead; break; }
     // A grate ends a roll the way tar does, and the cart is already gone if the whole of it fit.
     if (files.some(f => endsTravel(cell(next, ...at(f[0], n))))) { stoppedAt = null; break; }
-    // A heavy thing has moved its one cell, and a barrow has done its one thing. Nothing stopped
-    // either of them, so nothing wears a blow. Grease is the exception it always is: on a slick a
-    // thing keeps going, whatever it weighs.
+    // A barrow has done its one thing: it is AIMED, and takes in only what it was already
+    // touching. A cart is not stopped by what it is carrying — it is on wheels, and a load does
+    // not shorten a roll. Grease is the exception it always is.
     const slick = files.some(f => isGrease(cell(next, ...at(f[0], n))));
-    if (!slick && (heavy || (barrow && taken.some(ch => ch.length)))) break;
+    if (!slick && barrow && taken.some(ch => ch.length)) break;
   }
   if (trace && lastRoll >= 0) steps[lastRoll].impact = true;
 

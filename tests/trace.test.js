@@ -148,12 +148,13 @@ test('a cart reports one translation per cell of travel', () => {
   assert.equal(travel.at(-1).impact, true, 'the last cell of travel is the collision');
   assert.equal(r.steps.length, 5, 'four advances and the tip that follows them');
 
-  // A LOADED cart is heavy: one translation, and no roll to be stopped at the end of, so there
-  // is no tip to report either.
-  const heavy = audit('cart-heavy', ['@cc--#', 'E-----'], 'r', { cart: ['-PP---', '------'] });
-  assert.equal(heavy.steps.length, 1, 'one cell, one step');
-  assert.deepEqual(heavy.steps[0].moved.filter(m => m.o !== null), [],
-    'its load went with it, so nothing but the cart itself is named');
+  // A LOADED cart rolls like any other — wheels do not care what is in the tub — so it reports
+  // a translation per cell of travel, exactly as the empty one above does.
+  const laden = audit('cart-laden', ['@cc--#', 'E-----'], 'r', { cart: ['-PP---', '------'] });
+  assert.equal(laden.steps.length, 3, 'a translation per cell of travel');
+  for (const st of laden.steps.filter(s => bodies(s).length))
+    assert.deepEqual(st.moved.filter(m => m.o !== null), [],
+      'its load goes with it, so nothing but the cart itself is named');
 });
 
 test('swallowing and shedding are changes of parent, not of position', () => {

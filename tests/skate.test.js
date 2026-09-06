@@ -37,13 +37,13 @@ test('shoved with nowhere to go, a loaded skateboard sheds out the back', () => 
     'end-on there is no file he is not behind, so nothing can come off');
 });
 
-test('a heavy skateboard swallows what it is flush with, and the old load comes out the back', () => {
-  // Carrying something makes it heavy, so it takes one cell — but the mouth still works, and
-  // taking a new thing in is what pushes the old one out. That is the skateboard's other way of being
-  // emptied, and the only one that needs no wall.
+test('a loaded skateboard swallows what it is flush with, and the old load comes out the back', () => {
+  // A load does not shorten a roll — it is on wheels — so it runs its whole lane with its mouth
+  // open, and taking a new thing in is what pushes the old one out. That is the skateboard's
+  // other way of being emptied, and the only one that needs no wall.
   const next = act(['@ccc--#', 'E------'], ['-PP----', '-------'], 'r');
-  assert.deepEqual(toGrid(next), ['@ccc--#', 'E------'], 'one shed behind, two aboard');
-  assert.deepEqual(toCart(next), ['--PP---', '-------'], 'one cell on');
+  assert.deepEqual(toGrid(next), ['@c-cc-#', 'E------'], 'one shed behind, two riding on');
+  assert.deepEqual(toCart(next), ['----PP-', '-------'], 'and it rolled to the wall');
 });
 
 test('broadside, each file swallows its own and displaces its own', () => {
