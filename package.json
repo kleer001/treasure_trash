@@ -7,6 +7,9 @@
   "scripts": {
     "test": "node --test",
     "test_rules": "node --test $(grep -L 'node:fs' tests/*.test.js)",
+    "gate": "node tools/gate.mjs",
+    "fingerprint": "node tools/fingerprint.mjs",
+    "staging": "node tools/staging.mjs",
     "start": "./run.sh"
   }
 }

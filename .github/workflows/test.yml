@@ -14,6 +14,10 @@ jobs:
       # fine on the machine it was written on.
       - if: hashFiles('package-lock.json') != ''
         run: npm ci
+      # Seconds, and it fails in one line naming the cause. First, because when the rules move
+      # under the level data everything after this goes red for reasons that read as unrelated.
+      - name: Gate — the rules are decided, and the solutions still replay
+        run: node tools/gate.mjs
       - run: npm test
       # npm test checks the rules; this checks the level data. A rules change can leave
       # the tests green and silently invalidate a declared par.
