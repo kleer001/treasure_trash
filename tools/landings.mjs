@@ -33,7 +33,11 @@ const LANE_NAME = lanes.slice(0, TERRAINS);
 const codeName = new Map(Object.entries(OCCUPANTS)
   .filter(([, v]) => typeof v === 'number').map(([k, v]) => [v, k]));
 
-const key = (site, lane, o) => `${site}\t${lane}\t${codeName.get(o) ?? `o${o}`}`;
+// A CART is asked about too, and it has no occupant code — it is the one thing on the board
+// named by its lane rather than by a code, so `null` is its name here. Without this row a cart
+// meeting a lane reads as no question at all, which is the gap this whole tool exists to show.
+const key = (site, lane, o) =>
+  `${site}\t${lane}\t${o === null ? 'a cart' : codeName.get(o) ?? `o${o}`}`;
 
 /** Walk a corpus with the watcher on, and hand back every question it heard. */
 function askedOver(rooms, { cap = 200 } = {}) {

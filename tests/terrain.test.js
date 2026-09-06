@@ -5,9 +5,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { explain, step, bagsLeft } from '../src/rules.js';
-import { toState, toGrid, toWater } from '../src/format.js';
+import { toState, toGrid, toWater, toCart } from '../src/format.js';
 
-const S = (grid, water) => toState({ id: 't', grid, water });
+const S = (grid, water, cart) => toState({ id: 't', grid, water, cart });
 const push = (s, dir) => { const r = explain(s, dir); assert.ok(r.ok, `refused: ${r.reason}`); return r.next; };
 const refuse = (s, dir) => { const r = explain(s, dir); assert.ok(!r.ok, 'expected a refusal'); return r.reason; };
 
@@ -117,6 +117,46 @@ test('a grate takes a body only when the whole of it fits in one', () => {
   const one = S(room, ['-----', '-----', '-----', '-----', '-O---', '-----', '-----']);
   assert.deepEqual(toGrid(push(one, 'd')),
                    ['#####', '#----', '#@---', '#----', '#UU--', '#---E', '#####']);
+});
+
+// A cart is a thing the player shoves like any other, so the lane answers it like any other:
+// the grate takes what comes to rest wholly inside it, load and all. `drop` already said so for
+// a barrow SET DOWN on one; these are the other ways a cart arrives.
+
+test('a barrow rolled onto a grate goes down, load and all', () => {
+  const s = S(['@--#E'], ['--O--'], ['-r---']);
+  assert.equal(bagsLeft(S(['@$-#E'], ['-----'], ['-r---'])), 1, 'the fixture can hold a bag at all');
+  const after = push(s, 'r');
+  assert.equal(toCart(after), null, 'the barrow is gone');
+});
+
+test('a loaded barrow takes its cargo down with it', () => {
+  const s = S(['@$-#E'], ['--O--'], ['-r---']);
+  assert.equal(bagsLeft(s), 1);
+  const after = push(s, 'r');
+  assert.equal(toCart(after), null, 'the barrow is gone');
+  assert.equal(bagsLeft(after), 0, 'and the bag went with it');
+});
+
+test('a grate takes a cart only when the whole of it fits in one', () => {
+  // The same rule a body gets, and for the same reason: half a skateboard is not a smaller
+  // skateboard, it is a board nothing can read.
+  // A cart stops the moment its leading cell reaches a grate, exactly as a body does — so a
+  // two-cell cart comes to rest wholly inside grates only when the pair overlaps where it
+  // started. Spanning one hole it rides over it; over both it goes down.
+  const spans = S(['@----#E'], ['----O--'], ['-PP----']);
+  assert.equal(toCart(push(spans, 'r'))[0], '---PP--', 'one grate cell under two: it spans and rests');
+
+  const falls = S(['@----#E'], ['--OO---'], ['-PP----']);
+  assert.equal(toCart(push(falls, 'r')), null, 'two grate cells under two: it goes down');
+});
+
+test('a cart stops when it reaches a grate rather than rolling over it', () => {
+  // Tar already ends a cart's travel; a grate ends it the same way — entered, and then fallen
+  // through. Without this a light barrow would cross the hole and only sink where it happened
+  // to stop.
+  const s = S(['@----E'], ['---O--'], ['-r----']);
+  assert.equal(toCart(push(s, 'r')), null, 'it went down the hole it reached');
 });
 
 test('the raccoon crosses a grate that swallows objects', () => {

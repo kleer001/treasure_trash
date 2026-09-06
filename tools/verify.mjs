@@ -294,6 +294,7 @@ const ASKS_THE_LANE = {
   "const cost = takenBy(cell(next, ...to), what, 'swept');": 'not known to be a landing until answered',
   "const taken = takenBy(cell(next, fx, fy), TRASH, 'burst by sweep');": 'about a thing that does not exist yet',
   "const cost = into === null && !blame.length ? takenBy(cell(s, ...at), o, 'slid') : null;": 'a question about the move, not the landing',
+  'const takes = own.map(([x, y]) => takenBy(cell(s, x, y), null, site));': 'a whole cart, which has no occupant code of its own',
 };
 
 const PLACES_BY_HAND = {

@@ -243,6 +243,11 @@ export const isGlass = c => c.ter === GLASS;
 // Static lanes. Out of `stateKey` for the reason `wall` always was.
 export const isGrate = c => c.grate === true;
 
+/** Where travel ends: held fast, or fallen through. Entered either way — a thing reaches the
+ *  cell and then stops, which is why this is asked of where it IS and not of where it is going.
+ *  One name because a cart, a body and a train all have to end travel in the same places. */
+export const endsTravel = c => isTar(c) || isGrate(c);
+
 /** One-way cells bind the raccoon and objects alike, so the test needs the direction of travel
  *  and cannot sit in `isOccupiable` with the rest. */
 export const mayEnter = (s, x, y, dx, dy) => {
@@ -674,9 +679,14 @@ export const LANDING_SITES = [
   'burst by sweep', 'cabinet shut', 'emptied where it landed', 'fled', 'rolled', 'rolled body',
   'set down', 'shed behind a bin', 'shoved by a drawer', 'slid', 'swept', 'tipped', 'tipped out',
   'torn open', 'train', 'travelled',
+  // The three ways a cart arrives somewhere under its own weight. `drop` already covers the
+  // fourth — a barrow SET DOWN out of another cart — under 'set down'.
+  'cart rolled', 'cart knocked', 'cart tipped',
 ];
 const KNOWN_SITE = new Set(LANDING_SITES);
 
+/** `o` is the occupant code that is landing, or `null` for a CART — a cart is a thing the lanes
+ *  answer for like any other, and it has no code of its own. Only the canal reads `o` at all. */
 const takenBy = (c, o, site) => {
   if (!KNOWN_SITE.has(site)) throw new Error(`landing at an unnamed site: ${site}`);
   const grate = isGrate(c);
@@ -788,6 +798,35 @@ const translateCart = (s, cid, k, dx, dy) => {
 };
 
 /**
+ * A cart that has come to rest wholly inside grates goes down, load and all — the same rule a
+ * body gets, and the one `drop` already applies to a barrow set down on one. A longer cart spans
+ * the hole, because half a skateboard is not a smaller skateboard.
+ *
+ * Written once because three paths move a cart and none of them may answer this differently.
+ * Returns whether the cart is gone.
+ */
+function sinkCart(s, cid, step, site, heldAt = null) {
+  const own = cartCells(s, cid);
+  if (!own.length) return false;
+  const takes = own.map(([x, y]) => takenBy(cell(s, x, y), null, site));
+  if (!takes.every(Boolean)) return false;
+  const loads = own.map(([x, y]) => chainOf(cell(s, x, y)));
+  for (const [x, y] of own) {
+    const c = cell(s, x, y);
+    setChain(c, []); c.cart = undefined; c.ck = undefined; c.grip = undefined;
+  }
+  // A cart that travelled and was then taken says both, and the removal names where the stage
+  // is HOLDING it — the cells it set off from — the way `tookIt` does for an occupant.
+  const at = heldAt ?? own;
+  if (step) {
+    step.gone.push(leaves({ cells: at, lane: CART_LANE, ref: cid, ...takes[0] }));
+    at.forEach(([x, y], i) => (loads[i] ?? []).forEach((o, k) =>
+      step.gone.push(leaves({ o, cells: [[x, y]], at: k, ...takes[i] }))));
+  }
+  return true;
+}
+
+/**
  * WEIGHT. A wheeled thing is heavy while it is CARRYING objects — a cart or a barrow with
  * something riding in it. A wheelie bin is light full or empty: its trash is a state of the bin
  * rather than cargo, and nothing rides in it. The tyre, the bicycle and the chair can hold nothing
@@ -841,7 +880,7 @@ function handOff(next, from, dx, dy, step) {
       let j = 0;
       while (!own.some(([x, y]) => shut(x + (j + 1) * dx, y + (j + 1) * dy))) {
         j++;
-        if (own.some(([x, y]) => isTar(cell(next, x + j * dx, y + j * dy)))) break;
+        if (own.some(([x, y]) => endsTravel(cell(next, x + j * dx, y + j * dy)))) break;
       }
       if (j === 0) {
         // Pinned, and the momentum has to go SOMEWHERE. It moved the thing on wheels while there
@@ -870,6 +909,8 @@ function handOff(next, from, dx, dy, step) {
       }
       translateCart(next, cid, j, dx, dy);
       bodies.push(moves({ cells: own, lane: CART_LANE, ref: cid, dx: j * dx, dy: j * dy }));
+      // Down the hole, and the momentum goes with it: there is nothing left to hand on to.
+      if (sinkCart(next, cid, step, 'cart knocked', own)) break;
       const head = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
       p = [head[0] + (j + 1) * dx, head[1] + (j + 1) * dy];
       continue;
@@ -1445,11 +1486,18 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
       land(next, [x, y], ch, step, m);
       tipOut(next, ch[0], [x, y], -dx, -dy, step);
     }
+    // Entered, and then fallen through. Asked after the beat is written, so the cart is judged
+    // where it came to rest; `endsTravel` below is what stopped it there in the first place.
+    const sank = rolling
+      && sinkCart(next, cid, step, 'cart rolled', cartCells(s, cid).map(q => at(q, n - 1)));
     if (trace && (rolling || step.moved.length)) {
       frames.push(cloneState(next)); steps.push(step);
       if (rolling) lastRoll = steps.length - 1;
     }
+    if (sank) { stoppedAt = null; break; }
     if (!rolling) { stoppedAt = ahead; break; }
+    // A grate ends a roll the way tar does, and the cart is already gone if the whole of it fit.
+    if (files.some(f => endsTravel(cell(next, ...at(f[0], n))))) { stoppedAt = null; break; }
     // A heavy thing has moved its one cell, and a barrow has done its one thing. Nothing stopped
     // either of them, so nothing wears a blow. Grease is the exception it always is: on a slick a
     // thing keeps going, whatever it weighs.
@@ -1566,6 +1614,7 @@ function decide(s, dir, opts) {
       setChain(cell(next, tx, ty), []);
       const landed = cell(next, ...to);
       landed.cart = target.cart; landed.ck = kind; setChain(landed, []);
+      sinkCart(next, target.cart, step, 'cart tipped', cartCells(s, target.cart));
       // Named in the CART lane: an occupant entry on this cell would name a sprite of code NONE,
       // which the stage does not hold and cannot animate.
       step.moved.push(moves({ cells: cartCells(s, target.cart), lane: CART_LANE,
