@@ -5,7 +5,7 @@
 :moves  LLLLLdllluU!d
 
 :solution L32
-:moves  LLLLLdllluluurrdDRRdLullU!dDu
+:moves  LLLLLdllUluluurrdDRRdLullU!dDu
 
 :solution L33
 :moves  ulDllLldllluluurrdDrrdLullU!dDu
@@ -26,7 +26,7 @@
 :moves  UuLLdR!lllllluRdrr
 
 :solution L39
-:moves  rUruRrrdLrrrrULLddrU!d
+:moves  rUruRrrdLrrrUrULLddrU!d
 
 :solution L40
 :moves  RrrrrrdrrUulD!uUl
@@ -44,7 +44,7 @@
 :moves  RuLrrrrdLddrUl
 
 :solution L45
-:moves  RuLdlUrrrrrdLullllDrdrrrddrUl
+:moves  RuLdlUrrrrrdLLLLulDDDurrrrddrUl
 
 :solution L46
 :moves  DrrrrruRu
@@ -83,10 +83,10 @@
 :moves  dDrdddLluRdrRlURluuluRl
 
 :solution L58
-:moves  luUluRul
+:moves  luluuRDuul
 
 :solution L59
-:moves  luURruLulDul
+:moves  luURlluRurDrDrdLuLLDuul
 
 :solution L60
-:moves  luURrurrrrDullllLulDul
+:moves  luURlluRurDrDrrrrDLulllLLDuul

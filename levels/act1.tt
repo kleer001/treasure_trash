@@ -355,10 +355,10 @@ E----
 :level  L19
 :name   Nothing Else Moves It
 :teach  spilled trash — no shove will touch it, and a skateboard takes on whatever it rolls over
-:par    9
-:traps  1
+:par    17
+:traps  3
 :solves 1
-:solve  LdllluRR!l
+:solve  LdllluuRRRRllldR!l
 :note   The bag is one square from the door and he still cannot burst it: the spill next to it stands in the blast. The skateboard is the only thing in the room that will pick that spill up.
 :grid
 -----
@@ -395,10 +395,10 @@ E-x--
 :level  L21
 :name   Still on the Deck
 :teach  the exit stays dark while the skateboard is carrying rubbish
-:par    10
-:traps  1
-:solves 1
-:solve  LdlUrrruL!r
+:par    15
+:traps  3
+:solves 3
+:solve  LullDurrddrruL!r
 :note   The first shove puts the spill on the deck and it stays there while he walks. Burst the bag, stand on the door with the spill still aboard, and nothing happens: set it down first.
 :grid
 ----#
@@ -435,10 +435,10 @@ Ec--#
 :level  L23
 :name   Bin on the Deck
 :teach  a bin costs nothing to put on the deck; the cost arrives where the skateboard sets it down
-:par    6
-:traps  4
-:solves 1
-:solve  uRRD!ul
+:par    16
+:traps  8
+:solves 4
+:solve  uRRdRRdllluurD!ul
 :note   The bin stands on the square he has to strike from, and the door is behind him, so it goes right. Onto the deck it goes for free — and the trash turns up later, on the cell the skateboard backs out of.
 :grid
 EB---
@@ -454,10 +454,10 @@ EB---
 :level  L24
 :name   Jug on the Deck
 :teach  the same rule with a jug — free going on, and what it sheds lands where the skateboard puts it down
-:par    6
-:traps  4
+:par    7
+:traps  5
 :solves 1
-:solve  uRRD!ul
+:solve  uRRlD!ul
 :note   Put a jug where the bin was and nothing changes: the same six moves, the same free shove onto the deck, the same bill arriving on the cell the skateboard backs out of. What lands there is water instead of trash.
 :grid
 Ej---
@@ -514,7 +514,7 @@ Ej---
 :name   Can on the Deck
 :teach  a full can keeps its bag while it rides — and sheds it where the skateboard sets it down
 :par    8
-:traps  2
+:traps  1
 :solves 1
 :solve  LullDR!lu
 :note   The skateboard runs over the can on its way to the wall and carries it a square. Setting it down is what pops the bag out, so the square the skateboard stopped on is the square he has to work from.
@@ -533,7 +533,7 @@ Ej---
 :name   Carried, Not Rolled
 :teach  the deck is the only way to shift a wheelie bin without rolling it
 :par    10
-:traps  5
+:traps  34
 :solves 1
 :solve  ULlullDR!lu
 :note   Roll the bin from where it stands and it runs the top row, where its bag is no use to him. So the skateboard takes it down a row first, and only then is it rolled.

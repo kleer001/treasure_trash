@@ -31,12 +31,12 @@ The token count is the par.
 | L16 | Wet the Landing | 6 | `UruU!ll` |
 | L17 | Both Ends | 7 | `uurDR!lu` |
 | L18 | Out of the Way | 6 | `ddRU!dl` |
-| L19 | Nothing Else Moves It | 9 | `LdllluRR!l` |
+| L19 | Nothing Else Moves It | 17 | `LdllluuRRRRllldR!l` |
 | L20 | Out the Back | 6 | `DldRR!l` |
-| L21 | Still on the Deck | 10 | `LdlUrrruL!r` |
+| L21 | Still on the Deck | 15 | `LullDurrddrruL!r` |
 | L22 | Load It Yourself | 5 | `uRD!ul` |
-| L23 | Bin on the Deck | 6 | `uRRD!ul` |
-| L24 | Jug on the Deck | 6 | `uRRD!ul` |
+| L23 | Bin on the Deck | 16 | `uRRdRRdllluurD!ul` |
+| L24 | Jug on the Deck | 7 | `uRRlD!ul` |
 | L25 | No Room to Follow | 4 | `rRU!d` |
 | L26 | Two Boards | 12 | `ddlUruuLD!uru` |
 | L27 | Can on the Deck | 8 | `LullDR!lu` |
@@ -79,20 +79,20 @@ The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 | Room | Name | Par | Solve |
 |---|---|---|---|
 | L31 | The Long Aisle | 12 | `LLLLLdllluU!d` |
-| L32 | Something at the Back | 28 | `LLLLLdllluluurrdDRRdLullU!dDu` |
+| L32 | Something at the Back | 29 | `LLLLLdllUluluurrdDRRdLullU!dDu` |
 | L33 | Both Bins Out | 30 | `ulDllLldllluluurrdDrrdLullU!dDu` |
 | L34 | The Back Lot | 11 | `UurrruurrDu` |
 | L35 | Filling Up | 17 | `UurrrddrUluuurrDu` |
 | L36 | Full House | 21 | `UllUrrrrrddrUluuurrDu` |
 | L37 | Moving Day | 14 | `uulDldRD!uullLd` |
 | L38 | Second Thoughts | 17 | `UuLLdR!lllllluRdrr` |
-| L39 | Third Time Around | 21 | `rUruRrrdLrrrrULLddrU!d` |
+| L39 | Third Time Around | 22 | `rUruRrrdLrrrUrULLddrU!d` |
 | L40 | Rolling Stock | 16 | `RrrrrrdrrUulD!uUl` |
 | L41 | Bin in the Road | 18 | `RurrRdrrdrrUulD!uUl` |
 | L42 | Traffic | 30 | `RrruLullDurrdL!rrRdrrdrrUulD!uUl` |
 | L43 | The Small Yard | 12 | `RurrrdLddrUl` |
 | L44 | Getting Crowded | 14 | `RuLrrrrdLddrUl` |
-| L45 | Nowhere to Put It | 29 | `RuLdlUrrrrrdLullllDrdrrrddrUl` |
+| L45 | Nowhere to Put It | 31 | `RuLdlUrrrrrdLLLLulDDDurrrrddrUl` |
 | L46 | The Corner Jug | 9 | `DrrrrruRu` |
 | L47 | Company | 20 | `DrrrrruRDDldRuuuurDl` |
 | L48 | A Crowd | 22 | `DrRdrrruuRDDldRuuuurDl` |
@@ -105,8 +105,8 @@ The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 | L55 | The Door Is Right There | 19 | `dDrdddLluRdrUuuluRl` |
 | L56 | Down and Back | 21 | `dDrdddLluRdrRlUuuluRl` |
 | L57 | Down and Back Twice | 23 | `dDrdddLluRdrRlURluuluRl` |
-| L58 | Short Way Home | 8 | `luUluRul` |
-| L59 | One More First | 12 | `luURruLulDul` |
-| L60 | Last Collection | 22 | `luURrurrrrDullllLulDul` |
+| L58 | Short Way Home | 10 | `luluuRDuul` |
+| L59 | One More First | 23 | `luURlluRurDrDrdLuLLDuul` |
+| L60 | Last Collection | 29 | `luURlluRurDrDrrrrDLulllLLDuul` |
 
 `tools/metrics.mjs` scores a room. Open questions about the pack live in `BREADCRUMB.md`.

@@ -92,7 +92,7 @@
 
 :solution L19
 :label  par
-:moves  LdllluRR!l
+:moves  LdllluuRRRRllldR!l
 :note   Shove the skateboard across the row: it swallows the spill and the bag both, and parks against the door. Walk round, shove it back, and it sets the bag down again and carries the spill clear of the blast.
 
 :solution L20
@@ -102,7 +102,7 @@
 
 :solution L21
 :label  par
-:moves  LdlUrrruL!r
+:moves  LullDurrddrruL!r
 :note   Shove the skateboard onto the spill, walk under it and shove it up to set the spill down clear of the door, then go round and burst the bag from the door.
 
 :solution L22
@@ -112,12 +112,12 @@
 
 :solution L23
 :label  par
-:moves  uRRD!ul
+:moves  uRRdRRdllluurD!ul
 :note   Step onto the door, shove the bin onto the deck for free, roll the deck clear, and the bin lands with its trash behind it.
 
 :solution L24
 :label  par
-:moves  uRRD!ul
+:moves  uRRlD!ul
 :note   The bin's room with a jug in its place, and the bin's solution solves it.
 
 :solution L25

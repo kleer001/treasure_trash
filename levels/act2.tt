@@ -9,7 +9,7 @@
 :level  L31
 :name   The Long Aisle
 :par    12
-:traps  1
+:traps  3
 :solves 1
 :solve  LLLLLdllluU!d
 :note   Set 1 of 10, opener. One long aisle, a skateboard sitting in the middle of it, and the work waiting at both ends.
@@ -30,10 +30,10 @@ b--#####-#
 
 :level  L32
 :name   Something at the Back
-:par    28
-:traps  62
-:solves 8
-:solve  LLLLLdllluluurrdDRRdLullU!dDu
+:par    29
+:traps  57
+:solves 20
+:solve  LLLLLdllUluluurrdDRRdLullU!dDu
 :note   Set 1, rung 2. Same board; the far bin arrives full. The aisle now has to be walked with something to put down.
 :grid
 ---#######
@@ -53,7 +53,7 @@ B--#####-#
 :level  L33
 :name   Both Bins Out
 :par    30
-:traps  8
+:traps  6
 :solves 8
 :solve  ulDllLldllluluurrdDrrdLullU!dDu
 :note   Set 1, rung 3. Both bins full, and the order the aisle is cleared in is the whole room.
@@ -184,10 +184,10 @@ PP-------
 
 :level  L39
 :name   Third Time Around
-:par    21
-:traps  141
-:solves 1
-:solve  rUruRrrdLrrrrULLddrU!d
+:par    22
+:traps  136
+:solves 2
+:solve  rUruRrrdLrrrUrULLddrU!d
 :note   Set 3, rung 3. Same cast once more, with the exit and the raccoon now on opposite sides of it.
 :grid
 --####---
@@ -252,7 +252,7 @@ PP-------
 :level  L43
 :name   The Small Yard
 :par    12
-:traps  6
+:traps  68
 :solves 1
 :solve  RurrrdLddrUl
 :note   Set 5 of 10, opener. The smallest room in the act, with a bin already parked against the exit.
@@ -274,7 +274,7 @@ PP-------
 :level  L44
 :name   Getting Crowded
 :par    14
-:traps  5
+:traps  22
 :solves 1
 :solve  RuLrrrrdLddrUl
 :note   Set 5, rung 2. The top bin fills. In a room this size one full container is most of the floor.
@@ -295,10 +295,10 @@ PP-------
 
 :level  L45
 :name   Nowhere to Put It
-:par    29
-:traps  7
-:solves 16
-:solve  RuLdlUrrrrrdLullllDrdrrrddrUl
+:par    31
+:traps  11
+:solves 1
+:solve  RuLdlUrrrrrdLLLLulDDDurrrrddrUl
 :note   Set 5, rung 3. Both fill, and the room stops having a spare square at all.
 :grid
 #-#####
@@ -340,7 +340,7 @@ j------B
 :level  L47
 :name   Company
 :par    20
-:traps  8
+:traps  28
 :solves 1
 :solve  DrrrrruRDDldRuuuurDl
 :note   Set 6, rung 2. A second bin, and where the jug is emptied stops being a free choice.
@@ -362,7 +362,7 @@ j------B
 :level  L48
 :name   A Crowd
 :par    22
-:traps  8
+:traps  28
 :solves 1
 :solve  DrRdrrruuRDDldRuuuurDl
 :note   Set 6, rung 3. A third. Where the water goes has to be settled before the first bin moves.
@@ -560,10 +560,10 @@ E$--B---$FF
 
 :level  L58
 :name   Short Way Home
-:par    8
-:traps  22
-:solves 2
-:solve  luUluRul
+:par    10
+:traps  1291
+:solves 6
+:solve  luluuRDuul
 :note   Set 10 of 10, opener. The shortest par in the act: a bin and an empty wheelie sharing one narrow shelf.
 :grid
 E--#####
@@ -582,10 +582,10 @@ E--#####
 
 :level  L59
 :name   One More First
-:par    12
-:traps  21
-:solves 3
-:solve  luURruLulDul
+:par    23
+:traps  1719
+:solves 1
+:solve  luURlluRurDrDrdLuLLDuul
 :note   Set 10, rung 2. A bin behind him at the mouth of the corridor, so the way out is also the way back.
 :grid
 E--#####
@@ -604,10 +604,10 @@ B-@####-
 
 :level  L60
 :name   Last Collection
-:par    22
-:traps  28
-:solves 9
-:solve  luURrurrrrDullllLulDul
+:par    29
+:traps  2501
+:solves 2
+:solve  luURlluRurDrDrrrrDLulllLLDuul
 :note   Set 10, rung 3. A third at the far end, and the act closes by asking for the whole floor.
 :grid
 E--#####
