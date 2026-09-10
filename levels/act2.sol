@@ -83,10 +83,10 @@
 :moves  dDrdddLluRdrRlURluuluRl
 
 :solution L58
-:moves  luluuRDuul
+:moves  uluuRDuul
 
 :solution L59
-:moves  luURlluRurDrDrdLuLLDuul
+:moves  uURlluRurDrDrdLuLLDuul
 
 :solution L60
-:moves  luURlluRurDrDrrrrDLulllLLDuul
+:moves  uURlluRurDrDrrrrDLulllLLDuul

@@ -560,17 +560,17 @@ E$--B---$FF
 
 :level  L58
 :name   Short Way Home
-:par    10
+:par    9
 :traps  1291
 :solves 6
-:solve  luluuRDuul
-:note   Set 10 of 10, opener. The shortest par in the act: a bin and an empty wheelie sharing one narrow shelf.
+:solve  uluuRDuul
+:note   Set 10 of 10, opener. A bin and an empty wheelie sharing one narrow shelf, and the shortest way home in the act.
 :grid
 E--#####
 --------
 -Bw-----
 --#####-
---@####-
+-@-####-
 :end
 :cart
 --------
@@ -582,17 +582,17 @@ E--#####
 
 :level  L59
 :name   One More First
-:par    23
+:par    22
 :traps  1719
 :solves 1
-:solve  luURlluRurDrDrdLuLLDuul
+:solve  uURlluRurDrDrdLuLLDuul
 :note   Set 10, rung 2. A bin behind him at the mouth of the corridor, so the way out is also the way back.
 :grid
 E--#####
 --------
 -Bw-----
 --#####-
-B-@####-
+B@-####-
 :end
 :cart
 --------
@@ -604,17 +604,17 @@ B-@####-
 
 :level  L60
 :name   Last Collection
-:par    29
+:par    28
 :traps  2501
 :solves 2
-:solve  luURlluRurDrDrrrrDLulllLLDuul
+:solve  uURlluRurDrDrrrrDLulllLLDuul
 :note   Set 10, rung 3. A third at the far end, and the act closes by asking for the whole floor.
 :grid
 E--#####
 --------
 -Bw----B
 --#####-
-B-@####-
+B@-####-
 :end
 :cart
 --------

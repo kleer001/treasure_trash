@@ -105,8 +105,8 @@ The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 | L55 | The Door Is Right There | 19 | `dDrdddLluRdrUuuluRl` |
 | L56 | Down and Back | 21 | `dDrdddLluRdrRlUuuluRl` |
 | L57 | Down and Back Twice | 23 | `dDrdddLluRdrRlURluuluRl` |
-| L58 | Short Way Home | 10 | `luluuRDuul` |
-| L59 | One More First | 23 | `luURlluRurDrDrdLuLLDuul` |
-| L60 | Last Collection | 29 | `luURlluRurDrDrrrrDLulllLLDuul` |
+| L58 | Short Way Home | 9 | `uluuRDuul` |
+| L59 | One More First | 22 | `uURlluRurDrDrdLuLLDuul` |
+| L60 | Last Collection | 28 | `uURlluRurDrDrrrrDLulllLLDuul` |
 
 `tools/metrics.mjs` scores a room. Open questions about the pack live in `BREADCRUMB.md`.
