@@ -97,8 +97,8 @@
 
 :solution L20
 :label  par
-:moves  DldRR!l
-:note   Shove the skateboard down onto the bag, walk round to its left, then shove it across: the bag comes out beside the door and the spill goes with the skateboard.
+:moves  RrurrDulllldR!l
+:note   Shove the skateboard clear of the bag and it runs the length of the row into the spill and takes it aboard. Come round above it and shove down: the deck has the wall behind it, cannot roll, and drops the spill out the back. Then walk to the door and burst the bag across the empty floor.
 
 :solution L21
 :label  par

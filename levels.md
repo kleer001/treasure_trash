@@ -32,7 +32,7 @@ The token count is the par.
 | L17 | Both Ends | 7 | `uurDR!lu` |
 | L18 | Out of the Way | 6 | `ddRU!dl` |
 | L19 | Nothing Else Moves It | 17 | `LdllluuRRRRllldR!l` |
-| L20 | Out the Back | 6 | `DldRR!l` |
+| L20 | Out the Back | 14 | `RrurrDulllldR!l` |
 | L21 | Still on the Deck | 15 | `LullDurrddrruL!r` |
 | L22 | Load It Yourself | 5 | `uRD!ul` |
 | L23 | Bin on the Deck | 16 | `uRRdRRdllluurD!ul` |

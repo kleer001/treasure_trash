@@ -374,22 +374,22 @@ E$x-@
 :level  L20
 :name   Out the Back
 :teach  a load rides on the deck until the next shove puts it out the back
-:par    6
-:traps  2
+:par    14
+:traps  1
 :solves 1
-:solve  DldRR!l
-:note   The bag sits in the corner and the spill stands in its blast. One shove down takes the bag aboard; one shove across sets it down by the door and carries the spill off the same trip.
+:solve  RrurrDulllldR!l
+:note   The skateboard is parked in the bag's blast, so it has to be moved before anything can be burst — and the only way to move it sends it into the spill, which it picks up. A deck with rubbish aboard cannot be walked to the door. Shove one that has nowhere left to roll and the load comes off behind it.
 :grid
--@###
----##
-E-x--
-#$---
+-----
+-----
+E$---
+@---x
 :end
 :cart
 -----
--P---
--P---
 -----
+-----
+-PP--
 :end
 
 :level  L21
