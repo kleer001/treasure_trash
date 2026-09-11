@@ -74,13 +74,13 @@
 :moves  DDlU!dllllluRllDlluR!l
 
 :solution L55
-:moves  dDrdddLluRdrUuuluuRRRRlldl
+:moves  UluuRRRRlldddddlUl
 
 :solution L56
-:moves  dDrdddLluRdrRlUuuluuRRRRlldl
+:moves  UluuRRRRlldddddRllUl
 
 :solution L57
-:moves  dDrdddLluRdrRlURluuluuRRRRlldl
+:moves  UluuRRRRllddddRldRllUl
 
 :solution L58
 :moves  uUluRul

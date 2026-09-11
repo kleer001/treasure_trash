@@ -102,9 +102,9 @@ The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 | L52 | Crossing the Floor | 14 | `DlllllllDlluR!l` |
 | L53 | Something in the Path | 18 | `DDlllllluRllDlluR!l` |
 | L54 | And a Bag Besides | 20 | `DDlU!dllllluRllDlluR!l` |
-| L55 | The Door Is Right There | 26 | `dDrdddLluRdrUuuluuRRRRlldl` |
-| L56 | Down and Back | 28 | `dDrdddLluRdrRlUuuluuRRRRlldl` |
-| L57 | Down and Back Twice | 30 | `dDrdddLluRdrRlURluuluuRRRRlldl` |
+| L55 | The Door Is Right There | 18 | `UluuRRRRlldddddlUl` |
+| L56 | Down and Back | 20 | `UluuRRRRlldddddRllUl` |
+| L57 | Down and Back Twice | 22 | `UluuRRRRllddddRldRllUl` |
 | L58 | Short Way Home | 7 | `uUluRul` |
 | L59 | One More First | 19 | `uURruLdldlUURURuull` |
 | L60 | Last Collection | 30 | `uURruLulDrrrrrrDLulllllDDDuuul` |

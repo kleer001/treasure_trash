@@ -488,74 +488,74 @@ E$--B---$FF
 
 :level  L55
 :name   The Door Is Right There
-:par    26
-:traps  4
-:solves 24
-:solve  dDrdddLluRdrUuuluuRRRRlldl
-:note   Set 9 of 10, opener. The only rotated H in the act — the neck runs top to bottom. The exit is one step from the start and unusable until the far end is clear.
+:par    18
+:traps  14
+:solves 8
+:solve  UluuRRRRlldddddlUl
+:note   Set 9 of 10, opener. The only rotated H in the act — the neck runs top to bottom. The exit is three steps from the start and unusable until the far end is clear.
 :grid
-###@----
-###E---B
+###-----
+###----B
 ###--###
-###--###
-##------
+###-@###
+##E-----
 --------
 :end
 :cart
 --------
+----P---
+----P---
+---Q----
+---Q----
 --------
----P----
----P----
---------
---QQ----
 :end
 
 :level  L56
 :name   Down and Back
-:par    28
-:traps  9
-:solves 48
-:solve  dDrdddLluRdrRlUuuluuRRRRlldl
+:par    20
+:traps  47
+:solves 8
+:solve  UluuRRRRlldddddRllUl
 :note   Set 9, rung 2. A bin at the bottom of the lower chamber, so the trip down is no longer optional.
 :grid
-###@----
-###E---B
+###-----
+###----B
 ###--###
-###--###
-##------
+###-@###
+##E-----
 -----B--
 :end
 :cart
 --------
+----P---
+----P---
+---Q----
+---Q----
 --------
----P----
----P----
---------
---QQ----
 :end
 
 :level  L57
 :name   Down and Back Twice
-:par    30
-:traps  16
-:solves 96
-:solve  dDrdddLluRdrRlURluuluuRRRRlldl
+:par    22
+:traps  93
+:solves 8
+:solve  UluuRRRRllddddRldRllUl
 :note   Set 9, rung 3. Two down there now, and they are in each other's way.
 :grid
-###@----
-###E---B
+###-----
+###----B
 ###--###
-###--###
-##---B--
+###-@###
+##E--B--
 -----B--
 :end
 :cart
 --------
+----P---
+----P---
+---Q----
+---Q----
 --------
----P----
----P----
---------
---QQ----
 :end
 
 :level  L58
