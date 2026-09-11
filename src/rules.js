@@ -128,8 +128,9 @@ const rollsBody = (o, cells, dx, dy) => {
  *  bicycle, and what stops it when the two lie across each other. */
 export const rollsHere = (s, x, y, dx, dy) => {
   const c = cell(s, x, y);
-  if (isCart(c)) return !isHeavyCart(s, c.cart)
-    && (!isBarrow(cartKindOf(c)) || barrowRollsAlong(cartKindOf(c), dx, dy));
+  if (isCart(c)) return isBarrow(cartKindOf(c))
+    ? !isHeavyCart(s, c.cart) && barrowRollsAlong(cartKindOf(c), dx, dy)
+    : skateRollsAlong(s, c.cart, dx, dy);
   if (isMultiCell(c.o)) return rollsBody(c.o, pieceCells(s, c.pid), dx, dy);
   return rollsAlong(c, dx, dy);
 };
@@ -345,6 +346,17 @@ export const barrowRollsAlong = (k, dx, dy) => {
   const f = DIRS[barrowFace(k)];
   return f !== undefined && (dx !== 0) === (f[0] !== 0);
 };
+
+/**
+ * A skateboard's wheels point along its deck. Shoved that way it rolls until something stops it.
+ * Shoved across the deck it goes one cell: the wheels do not turn, and it is not a rug.
+ *
+ * The axis comes off the footprint, the way a rug's and a bicycle's do, so a deck laid the other
+ * way answers the other way with no second field to keep in step. What rides on the deck is not
+ * asked. A load changes what the skateboard carries and nothing about how it travels.
+ */
+export const skateRollsAlong = (s, cid, dx, dy) =>
+  longAxis(cartCells(s, cid)) === (dx !== 0 ? 'x' : 'y');
 
 export const isClearFloor = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).water && !isGlass(cell(s, x, y))
@@ -1242,11 +1254,12 @@ function openCabinet(s, at, done) {
  */
 function strikeBack(next, at, dx, dy, step) {
   if (!inGrid(next, ...at)) return;
-  // A heavy thing takes the blow without going anywhere: the board is unchanged, so the solver
+  // A heavy BARROW takes the blow without going anywhere: the board is unchanged, so the solver
   // never sees this and it costs nothing in the state graph — but the stage has to be told, or a
-  // knock that visibly does nothing reads as the game ignoring the press.
+  // knock that visibly does nothing reads as the game ignoring the press. A skateboard has no
+  // such state: it is never heavy, so a struck one is a struck empty one whatever it carries.
   const c = cell(next, ...at);
-  if (isCart(c) && isHeavyCart(next, c.cart)) {
+  if (isCart(c) && isBarrow(cartKindOf(c)) && isHeavyCart(next, c.cart)) {
     if (step) step.moved.push(moves({ cells: cartCells(next, c.cart), lane: CART_LANE,
                                       ref: c.cart, dx: 0, dy: 0,
                                       effect: 'rattles', blow: [dx, dy] }));
@@ -1268,11 +1281,13 @@ function strikeBack(next, at, dx, dy, step) {
 function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
   const kind = cartKindOf(cell(s, ...entry));
   const barrow = isBarrow(kind);
-  // WEIGHT, read once here and not again. A cart carrying objects is heavy and moves one cell;
-  // empty, it is light and rolls. Reading it per beat instead would turn the cart into a barrow:
-  // it would start light, take in the first thing it passed, go heavy mid-roll and stop, which is
-  // one item per shove and leaves the two pieces with no difference worth a code.
+  // WEIGHT, and it is a BARROW's question alone. A barrow carrying something is heavy and moves
+  // one cell; empty, it is light and rolls. Read once here and not again: read per beat, a barrow
+  // would start light, take in the first thing it passed, go heavy mid-roll and stop.
   const heavy = isHeavyCart(s, cid);
+  // A skateboard asks its wheels instead, so what it carries never decides how far it goes. One
+  // cell across the deck, a roll along it.
+  const oneCell = barrow ? heavy : !skateRollsAlong(s, cid, dx, dy);
   // A barrow is AIMED where a cart is open-mouthed, and that is the whole difference between
   // them. A cart keeps its mouth open for the length of its roll. A barrow takes in only what it
   // was ALREADY touching when the shove began, only along its facing, and only while empty — so
@@ -1311,15 +1326,16 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
     if (out === NONE || cell(s, ...first[i]).o === NONE) return;
     if (!tipFits(s, out, back, -dx, -dy)) blame.push(tipsInto(out, back, -dx, -dy));
   });
-  // Heavy and going nowhere, a SKATEBOARD slops one item out the back rather than refusing: shove it
-  // at a wall and the load comes off, which is the only way a cart is emptied deliberately. Never
-  // out of the file the raccoon is pushing — he is standing exactly where it would land — so a
-  // cart pinned with nothing free behind either file is genuinely stuck.
+  // Going nowhere, a SKATEBOARD slops one item out the back rather than refusing: shove it at a
+  // wall and the load comes off, which is the only way a cart is emptied deliberately. Never out
+  // of the file the raccoon is pushing — he is standing exactly where it would land — so a cart
+  // pinned with nothing free behind either file is genuinely stuck. An empty deck sheds nothing
+  // and falls through to the refusal below.
   //
   // A barrow has no such shed. Shoved along its line there is no unambiguous side to dump toward,
   // and shoved across it the raccoon is where the load would go; what a barrow scooped stays in
   // it until it is tipped, which is the whole of what scooping buys over a cart.
-  if (blame.length && heavy && !barrow) {
+  if (blame.length && !barrow) {
     const next = cloneState(s);
     const step = mkStep();
     for (const f of files) {
@@ -1450,11 +1466,11 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
       if (rolling) lastRoll = steps.length - 1;
     }
     if (!rolling) { stoppedAt = ahead; break; }
-    // A heavy thing has moved its one cell, and a barrow has done its one thing. Nothing stopped
-    // either of them, so nothing wears a blow. Grease is the exception it always is: on a slick a
-    // thing keeps going, whatever it weighs.
+    // A thing limited to one cell has moved it, and a barrow has done its one thing. Nothing
+    // stopped either of them, so nothing wears a blow. Grease is the exception it always is: on a
+    // slick a thing keeps going, whatever decides its distance on dry floor.
     const slick = files.some(f => isGrease(cell(next, ...at(f[0], n))));
-    if (!slick && (heavy || (barrow && taken.some(ch => ch.length)))) break;
+    if (!slick && (oneCell || (barrow && taken.some(ch => ch.length)))) break;
   }
   if (trace && lastRoll >= 0) steps[lastRoll].impact = true;
 

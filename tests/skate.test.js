@@ -24,8 +24,7 @@ test('the raccoon follows the skateboard in, exactly as he follows a can', () =>
 });
 
 test('shoved with nowhere to go, a loaded skateboard sheds out the back', () => {
-  // A skateboard carrying anything is HEAVY: one cell a shove, and no roll to be stopped at the end
-  // of. So the shed has one occasion left — a shove it cannot take — and one place to go, which
+  // The shed has one occasion — a shove the skateboard cannot take — and one place to go, which
   // is the cell behind. Never the cell behind the file he is pushing: he is standing in it.
   //
   // That makes a loaded skateboard end-on in a one-wide corridor a thing you cannot empty by shoving,
@@ -37,13 +36,13 @@ test('shoved with nowhere to go, a loaded skateboard sheds out the back', () => 
     'end-on there is no file he is not behind, so nothing can come off');
 });
 
-test('a heavy skateboard swallows what it is flush with, and the old load comes out the back', () => {
-  // Carrying something makes it heavy, so it takes one cell — but the mouth still works, and
-  // taking a new thing in is what pushes the old one out. That is the skateboard's other way of being
-  // emptied, and the only one that needs no wall.
+test('a loaded skateboard swallows what it is flush with, and the old load comes out the back', () => {
+  // The mouth works for the length of the roll, and taking a new thing in is what pushes the old
+  // one out. That is the skateboard's other way of being emptied, and the only one that needs no
+  // wall. What it is already carrying does not shorten the roll.
   const next = act(['@ccc--#', 'E------'], ['-PP----', '-------'], 'r');
-  assert.deepEqual(toGrid(next), ['@ccc--#', 'E------'], 'one shed behind, two aboard');
-  assert.deepEqual(toCart(next), ['--PP---', '-------'], 'one cell on');
+  assert.deepEqual(toGrid(next), ['@c-cc-#', 'E------'], 'shed behind as it went, and took up again');
+  assert.deepEqual(toCart(next), ['----PP-', '-------'], 'and it ran to the wall, loaded or not');
 });
 
 test('broadside, each file swallows its own and displaces its own', () => {
@@ -54,10 +53,12 @@ test('broadside, each file swallows its own and displaces its own', () => {
   assert.deepEqual(toCart(next), ['--P-', '--P-', '----'], 'and the skateboard is one cell on');
 });
 
-test('broadside swallows two things in one shove, and sets both down again behind it', () => {
+test('broadside swallows one per file, on the single cell the shove is worth', () => {
+  // Across the deck the shove is worth one cell, so the mouth passes over exactly one column and
+  // each file takes up what stood in it.
   const next = act(['@-c-FE', '--c-F-'], ['-P----', '-P----'], 'r');
   assert.deepEqual(toGrid(next), ['-@c-FE', '--c-F-']);
-  assert.deepEqual(toCart(next), ['---P--', '---P--']);
+  assert.deepEqual(toCart(next), ['--P---', '--P---']);
 });
 
 test('a pile shed mid-roll lands on the cell it was picked up from', () => {
@@ -70,27 +71,23 @@ test('a pile shed mid-roll lands on the cell it was picked up from', () => {
   assert.equal(trashHeld(next), 1, 'one of the three piles drove off aboard');
 });
 
-test('an EMPTY skateboard is light, so it rolls the run and hoovers as it goes', () => {
-  // Weight is read once, when the shove begins. That is what keeps the skateboard a skateboard: it starts
-  // empty, takes the whole run, and is heavy only from the NEXT shove. Read it per cell instead
-  // and it would fill on the first thing it passed and stop, which is the barrow's rule.
+test('shoved along its deck a skateboard rolls the run and hoovers as it goes', () => {
+  // The mouth stays open for the length of the roll. Stop it at the first thing it passed and it
+  // would be a barrow, which takes one thing per shove.
   const next = act(['@---c-c-#', 'E--------'], ['-PP------', '---------'], 'r');
   assert.deepEqual(toGrid(next), ['-@---cc-#', 'E--------'], 'one aboard, the one before it shed');
   assert.deepEqual(toCart(next), ['------PP-', '---------'], 'and it ran to the wall');
 });
 
-test('a skateboard against a wall is not a sealed box', () => {
-  // Free play's shape: a broadside skateboard shoved up, one clear cell of runway before the bag and
-  // one after it. It swallows the bag in passing, hits the wall a cell later, and the load
-  // slides back out into the run it vacated. This is the whole reason the rule has to hold for
-  // what it just picked up: nothing can stand on a wall, so a skateboard that reaches one can never
-  // be shoved again. Whatever it swallowed on the way in would be out of the game for good, and
-  // a bag pinned to a wall line can never be torn either — the fan needs two rows.
+test('shoved broadside onto a bag, the skateboard takes it up and stops there', () => {
+  // Across the deck the shove is worth one cell, so it reaches the bag and goes no further. The
+  // bag rides; it is not carried off down the column and out of reach. Emptying it again at a
+  // wall is the shed above, which needs a shove the skateboard cannot take.
   const next = act(['###', '---', '-$-', '---', 'E@-'],
                    ['---', '---', '---', '-PP', '---'], 'u');
-  assert.deepEqual(toGrid(next), ['###', '---', '-$-', '-@-', 'E--'], 'the bag is back on the floor');
-  assert.deepEqual(toCart(next), ['---', '-PP', '---', '---', '---'], 'and the skateboard stays at the wall');
-  assert.equal(bagsLeft(next), 1, 'still unopened — but reachable again');
+  assert.deepEqual(toGrid(next), ['###', '---', '-$-', '-@-', 'E--'], 'the bag is aboard, one cell up');
+  assert.deepEqual(toCart(next), ['---', '---', '-PP', '---', '---'], 'and the deck moved its one cell');
+  assert.equal(bagsLeft(next), 1, 'still unopened');
 });
 
 test('what stopped it does not change whether it unloads', () => {
@@ -286,11 +283,12 @@ test('a container displaced out the far side of a deck sheds where it lands', ()
   assert.equal(cell(next, 3, 0).cart, undefined, 'the old one is on the floor');
 });
 
-test('a skateboard sets its load down on the floor, and the landing is where it sheds', () => {
+test('a skateboard shoved broadside onto a bin takes it up where it stands', () => {
+  // One cell across the deck puts the mouth over the bin and stops there, so the bin rides rather
+  // than being set down again. Setting one down is the shed, and the shed needs a refused shove.
   const next = act(['E-B-@', '-----'], ['---P-', '---P-'], 'l');
-  assert.deepEqual(toGrid(next), ['E-bx@', '-----'],
-    'the bin went in at cell 2, came back out there, and shed into the cell the skateboard left');
-  assert.equal(cell(next, 2, 0).cart, undefined, 'it is on the floor, not aboard');
+  assert.deepEqual(toGrid(next), ['E-B@-', '-----'], 'the bin is aboard where it already stood');
+  assert.equal(cell(next, 2, 0).cart, 0, 'and it is on the deck, not on the floor');
 });
 
 test('he stops a container emptying onto the square he is standing on', () => {
@@ -314,4 +312,28 @@ test('a skateboard will not swallow when the load it would push out has nowhere 
 test('a fan still cannot throw trash into a skateboard', () => {
   assert.equal(refused(['-----', '--$--', '--@--', 'E----'],
                        ['-PP--', '-----', '-----', '-----'], 'u'), 'fan');
+});
+
+// --- the wheels decide the distance, not the load -------------------------------------------
+
+test('an empty skateboard shoved across its deck goes one cell, not to the wall', () => {
+  // The deck stands upright in column 1. The shove comes from the side, so the wheels point the
+  // wrong way and it travels one cell. A rug would slide the whole run; a skateboard is not one.
+  const next = act(['E----', '@----', '-----'], ['-P---', '-P---', '-----'], 'r');
+  assert.deepEqual(toCart(next), ['--P--', '--P--', '-----']);
+  assert.deepEqual(next.rac, { x: 1, y: 1 });
+});
+
+test('a loaded skateboard shoved along its deck rolls, exactly as an empty one does', () => {
+  const empty  = act(['@----', 'E----'], ['-PP--', '-----'], 'r');
+  const loaded = act(['@c---', 'E----'], ['-PP--', '-----'], 'r');
+  assert.deepEqual(toCart(empty), ['---PP', '-----']);
+  assert.deepEqual(toCart(loaded), toCart(empty), 'the load must not shorten the roll');
+});
+
+test('the deck answers to its own footprint, so the same shove differs by how it lies', () => {
+  const along  = act(['@----', 'E----'], ['-PP--', '-----'], 'r');
+  const across = act(['E----', '@----'], ['-P---', '-P---'], 'r');
+  assert.deepEqual(toCart(along),  ['---PP', '-----'], 'along the deck it rolls');
+  assert.deepEqual(toCart(across), ['--P--', '--P--'], 'across it, one cell');
 });

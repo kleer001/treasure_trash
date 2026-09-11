@@ -148,11 +148,13 @@ test('a cart reports one translation per cell of travel', () => {
   assert.equal(travel.at(-1).impact, true, 'the last cell of travel is the collision');
   assert.equal(r.steps.length, 5, 'four advances and the tip that follows them');
 
-  // A LOADED cart is heavy: one translation, and no roll to be stopped at the end of, so there
-  // is no tip to report either.
-  const heavy = audit('cart-heavy', ['@cc--#', 'E-----'], 'r', { cart: ['-PP---', '------'] });
-  assert.equal(heavy.steps.length, 1, 'one cell, one step');
-  assert.deepEqual(heavy.steps[0].moved.filter(m => m.o !== null), [],
+  // A LOADED cart rolls as an empty one does, so it reports the same translation per cell and
+  // the same tip at the end. What it carries travels with it and is never named a second time.
+  const loaded = audit('cart-loaded', ['@cc--#', 'E-----'], 'r', { cart: ['-PP---', '------'] });
+  const carried = loaded.steps.filter(st => bodies(st).length);
+  assert.equal(carried.length, 2, 'two advances, the same as empty over the same floor');
+  assert.equal(carried.at(-1).impact, true, 'the last cell of travel is the collision');
+  assert.deepEqual(carried[0].moved.filter(m => m.o !== null), [],
     'its load went with it, so nothing but the cart itself is named');
 });
 
@@ -267,11 +269,14 @@ test('a tip only ever moves cargo backward, and never past the run the skateboar
 });
 
 test('a broadside cart reports both files in one step', () => {
-  // Empty, so it is light and takes the whole run — and both files swallow on the same beat.
-  const r = audit('cart-wide', ['@--c-FE', '---c-F-'], 'r', { cart: ['-P-----', '-P-----'] });
+  // Across the deck the shove is worth one cell, so there is one step — and both files swallow
+  // in it.
+  const r = audit('cart-wide', ['@-c-FE', '--c-F-'], 'r', { cart: ['-P----', '-P----'] });
   const swallows = r.steps.flatMap(st => st.moved).filter(m => m.parent !== undefined && m.parent !== null);
   assert.equal(swallows.length, 2, 'two lead cells, two things aboard');
-  assert.deepEqual(bodies(r.steps[0])[0].ref, bodies(r.steps[1])[0].ref, 'the same cart both steps');
+  assert.equal(r.steps.length, 1, 'one cell of travel is one step');
+  const refs = new Set(bodies(r.steps[0]).map(b => b.ref));
+  assert.equal(refs.size, 1, 'one cart, named once for the whole footprint');
 });
 
 test('nothing is traced unless it is asked for', () => {
