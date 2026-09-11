@@ -92,8 +92,8 @@
 
 :solution L19
 :label  par
-:moves  LdllluuRRRRllldR!l
-:note   Shove the skateboard across the row: it swallows the spill and the bag both, and parks against the door. Walk round, shove it back, and it sets the bag down again and carries the spill clear of the blast.
+:moves  LdllluurRRRllldR!l
+:note   Shove the skateboard left onto the spill so it rides. Walk round and drive it back across the row until it meets the wall and sets the spill down clear of the blast. Then burst the bag from the door.
 
 :solution L20
 :label  par
@@ -122,28 +122,28 @@
 
 :solution L25
 :label  par
-:moves  rRU!d
-:note   Step onto the door, shove the skateboard, stay put because the can lands in the way, and burst the bag upward from where you are standing.
+:moves  rRlU!d
+:note   Step right and shove the skateboard. The square it left is not empty, so you stay where you are. Burst the bag upward from there and step down to the door.
 
 :solution L26
 :label  par
-:moves  ddlUruuLD!uru
-:note   Down and round to get under the near skateboard, shove it up into the far one, then work the bag back out and burst it on the way to the door.
+:moves  ddlUlUdrruuLD!uru
+:note   Drop below the lower skateboard and shove it up until it meets the upper one. Come round over the top, shove the bag left, and burst it downward on the way to the door.
 
 :solution L27
 :label  par
-:moves  LullDR!lu
-:note   Shove the skateboard over the can, walk round to the bag it dropped, and burst it back toward the door.
+:moves  dLLLrruullDR!lu
+:note   Shove the skateboard left three times to carry the can clear. Walk round above it and shove down to set the can on the floor. Burst the bag toward the door.
 
 :solution L28
 :label  par
-:moves  ULlullDR!lu
-:note   Lift the bin down a row with the skateboard, roll it along that row, then burst the bag it leaves behind.
+:moves  UULlullDR!lu
+:note   Shove the deck up under the wheelie and take it aboard. Drive it left along the top row, set it down, and burst the bag by the door.
 
 :solution L29
 :label  par
-:moves  dlUruulLrrddlUddlU!d
-:note   Drive the skateboard into the couch early, then work the bag down the shaft the walls leave you and burst it at the bottom.
+:moves  dlUUruulLrrddlUddlU!d
+:note   Drive the skateboard up into the couch so it parks where the couch leaves it. Then work the bag down the shaft the walls leave you and burst it at the bottom.
 
 :solution L30
 :label  par

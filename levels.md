@@ -31,17 +31,17 @@ The token count is the par.
 | L16 | Wet the Landing | 6 | `UruU!ll` |
 | L17 | Both Ends | 7 | `uurDR!lu` |
 | L18 | Out of the Way | 6 | `ddRU!dl` |
-| L19 | Nothing Else Moves It | 17 | `LdllluuRRRRllldR!l` |
+| L19 | Nothing Else Moves It | 17 | `LdllluurRRRllldR!l` |
 | L20 | Out the Back | 14 | `RrurrDulllldR!l` |
 | L21 | Still on the Deck | 15 | `LullDurrddrruL!r` |
 | L22 | Load It Yourself | 5 | `uRD!ul` |
 | L23 | Bin on the Deck | 16 | `uRRdRRdllluurD!ul` |
 | L24 | Jug on the Deck | 7 | `uRRlD!ul` |
-| L25 | No Room to Follow | 4 | `rRU!d` |
-| L26 | Two Boards | 12 | `ddlUruuLD!uru` |
-| L27 | Can on the Deck | 8 | `LullDR!lu` |
-| L28 | Carried, Not Rolled | 10 | `ULlullDR!lu` |
-| L29 | The Couch Stops It | 19 | `dlUruulLrrddlUddlU!d` |
+| L25 | No Room to Follow | 5 | `rRlU!d` |
+| L26 | Two Boards | 16 | `ddlUlUdrruuLD!uru` |
+| L27 | Can on the Deck | 14 | `dLLLrruullDR!lu` |
+| L28 | Carried, Not Rolled | 11 | `UULlullDR!lu` |
+| L29 | The Couch Stops It | 20 | `dlUUruulLrrddlUddlU!d` |
 | L30 | He Stops the Pour | 10 | `UdlluuRD!ul` |
 
 Trap and solve counts are declared per level in `act1.tt` and verified there. Run
@@ -79,34 +79,34 @@ The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 | Room | Name | Par | Solve |
 |---|---|---|---|
 | L31 | The Long Aisle | 12 | `LLLLLdllluU!d` |
-| L32 | Something at the Back | 29 | `LLLLLdllUluluurrdDRRdLullU!dDu` |
-| L33 | Both Bins Out | 30 | `ulDllLldllluluurrdDrrdLullU!dDu` |
-| L34 | The Back Lot | 11 | `UurrruurrDu` |
-| L35 | Filling Up | 17 | `UurrrddrUluuurrDu` |
-| L36 | Full House | 21 | `UllUrrrrrddrUluuurrDu` |
+| L32 | Something at the Back | 29 | `LLLLLdllluluurrdDrrdLullU!dDDu` |
+| L33 | Both Bins Out | 31 | `ulDllLldllluluurrdDrrdLullU!dDDu` |
+| L34 | The Back Lot | 11 | `UUrrruurrDu` |
+| L35 | Filling Up | 17 | `UUrrrddrUluuurrDu` |
+| L36 | Full House | 23 | `UUdllUrrrrrddrUluuurrDu` |
 | L37 | Moving Day | 14 | `uulDldRD!uullLd` |
-| L38 | Second Thoughts | 17 | `UuLLdR!lllllluRdrr` |
+| L38 | Second Thoughts | 18 | `UUULLdR!lllllluRdrr` |
 | L39 | Third Time Around | 22 | `rUruRrrdLrrrUrULLddrU!d` |
 | L40 | Rolling Stock | 16 | `RrrrrrdrrUulD!uUl` |
 | L41 | Bin in the Road | 18 | `RurrRdrrdrrUulD!uUl` |
 | L42 | Traffic | 30 | `RrruLullDurrdL!rrRdrrdrrUulD!uUl` |
 | L43 | The Small Yard | 12 | `RurrrdLddrUl` |
 | L44 | Getting Crowded | 14 | `RuLrrrrdLddrUl` |
-| L45 | Nowhere to Put It | 31 | `RuLdlUrrrrrdLLLLulDDDurrrrddrUl` |
-| L46 | The Corner Jug | 9 | `DrrrrruRu` |
-| L47 | Company | 20 | `DrrrrruRDDldRuuuurDl` |
-| L48 | A Crowd | 22 | `DrRdrrruuRDDldRuuuurDl` |
+| L45 | Nowhere to Put It | 25 | `LddlUruruLdLrrurrdLrddrUl` |
+| L46 | The Corner Jug | 10 | `DrrrrruRRu` |
+| L47 | Company | 19 | `DrrrrrRddrUluuRurDl` |
+| L48 | A Crowd | 21 | `DrRdrrruRddrUluuRurDl` |
 | L49 | Behind the Couch | 10 | `UrDrrRulll` |
 | L50 | Heavier | 14 | `UrrdrRulllldRu` |
 | L51 | Heavier Still | 26 | `UrrdrRurrruurDldllllllldRu` |
 | L52 | Crossing the Floor | 14 | `DlllllllDlluR!l` |
 | L53 | Something in the Path | 18 | `DDlllllluRllDlluR!l` |
 | L54 | And a Bag Besides | 20 | `DDlU!dllllluRllDlluR!l` |
-| L55 | The Door Is Right There | 19 | `dDrdddLluRdrUuuluRl` |
-| L56 | Down and Back | 21 | `dDrdddLluRdrRlUuuluRl` |
-| L57 | Down and Back Twice | 23 | `dDrdddLluRdrRlURluuluRl` |
-| L58 | Short Way Home | 9 | `uluuRDuul` |
-| L59 | One More First | 22 | `uURlluRurDrDrdLuLLDuul` |
-| L60 | Last Collection | 28 | `uURlluRurDrDrrrrDLulllLLDuul` |
+| L55 | The Door Is Right There | 26 | `dDrdddLluRdrUuuluuRRRRlldl` |
+| L56 | Down and Back | 28 | `dDrdddLluRdrRlUuuluuRRRRlldl` |
+| L57 | Down and Back Twice | 30 | `dDrdddLluRdrRlURluuluuRRRRlldl` |
+| L58 | Short Way Home | 7 | `uUluRul` |
+| L59 | One More First | 19 | `uURruLdldlUURURuull` |
+| L60 | Last Collection | 30 | `uURruLulDrrrrrrDLulllllDDDuuul` |
 
 `tools/metrics.mjs` scores a room. Open questions about the pack live in `BREADCRUMB.md`.

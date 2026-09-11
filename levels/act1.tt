@@ -358,7 +358,7 @@ E----
 :par    17
 :traps  3
 :solves 1
-:solve  LdllluuRRRRllldR!l
+:solve  LdllluurRRRllldR!l
 :note   The bag is one square from the door and he still cannot burst it: the spill next to it stands in the blast. The skateboard is the only thing in the room that will pick that spill up.
 :grid
 -----
@@ -473,10 +473,10 @@ Ej---
 :level  L25
 :name   No Room to Follow
 :teach  he steps on behind a skateboard only when the square it left is empty
-:par    4
+:par    5
 :traps  0
 :solves 1
-:solve  rRU!d
+:solve  rRlU!d
 :note   The can the skateboard picks up comes straight back out onto the square he would have stepped into, so he keeps the door — and the door is the only square the bag can be burst from.
 :grid
 #---#
@@ -492,10 +492,10 @@ Ej---
 :level  L26
 :name   Two Boards
 :teach  a skateboard stops dead against another skateboard, and sets its load down where it stopped
-:par    12
-:traps  3
-:solves 1
-:solve  ddlUruuLD!uru
+:par    16
+:traps  5
+:solves 2
+:solve  ddlUlUdrruuLD!uru
 :note   Shove the near skateboard up and it does not run to the wall — the far one is in the way, so it stops a square short, and the bag it picked up on the way comes back out behind it, one square nearer than it was.
 :grid
 #--E#
@@ -513,10 +513,10 @@ Ej---
 :level  L27
 :name   Can on the Deck
 :teach  a full can keeps its bag while it rides — and sheds it where the skateboard sets it down
-:par    8
+:par    14
 :traps  1
-:solves 1
-:solve  LullDR!lu
+:solves 3
+:solve  dLLLrruullDR!lu
 :note   The skateboard runs over the can on its way to the wall and carries it a square. Setting it down is what pops the bag out, so the square the skateboard stopped on is the square he has to work from.
 :grid
 -E--#
@@ -532,10 +532,10 @@ Ej---
 :level  L28
 :name   Carried, Not Rolled
 :teach  the deck is the only way to shift a wheelie bin without rolling it
-:par    10
-:traps  34
+:par    11
+:traps  19
 :solves 1
-:solve  ULlullDR!lu
+:solve  UULlullDR!lu
 :note   Roll the bin from where it stands and it runs the top row, where its bag is no use to him. So the skateboard takes it down a row first, and only then is it rolled.
 :grid
 E--W--
@@ -551,10 +551,10 @@ E--W--
 :level  L29
 :name   The Couch Stops It
 :teach  a couch stops a skateboard dead, so where the couch is left decides where the skateboard parks
-:par    19
-:traps  6
+:par    20
+:traps  12
 :solves 1
-:solve  dlUruulLrrddlUddlU!d
+:solve  dlUUruulLrrddlUddlU!d
 :note   The skateboard runs at the couch and parks against it, and that parking square is the whole room: reach it the wrong way round and the bag can no longer be freed. The first move already has a way to get this wrong.
 :grid
 -FF--
