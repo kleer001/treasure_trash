@@ -99,6 +99,38 @@ test('a magnet takes hold of something already held, and the first hold survives
   assert.ok(s, 'board builds');
 });
 
+test('metal already held stays put, and a loose magnet goes to it', () => {
+  const s = S(['@q-c-p--E']);
+  assert.equal(toGrid(s)[0], '@qcp----E', 'the can came to the first magnet; the second came to the can');
+  assert.equal(held(s), 3, 'one group of three');
+});
+
+test('a magnet something holds does not go to an anchor; it holds it where it stands', () => {
+  const s = S(['----l--', 'qq--c--', '@-----E']);
+  assert.deepEqual(toGrid(s).slice(0, 2), ['----l--', 'qq--c--'], 'nothing moved');
+  assert.equal(s.cells[1][1].grip, 3, 'the held magnet has the can at three');
+  assert.equal(held(s), 4, 'both chains, and nothing torn off either');
+});
+
+// A step names each thing once, and the stage resolves every entry before it moves any.
+test('a magnet shoved into reach of an anchor goes to it on the next beat, not the same one', () => {
+  const s = S(['-------', 'q-c----', '----p--', '----@-E']);
+  assert.equal(toGrid(s)[1], 'qc-----');
+  const r = explain(s, 'u', { trace: true });
+  assert.ok(r.ok, `refused: ${r.reason}`);
+  assert.equal(toGrid(r.next)[1], 'qcp----', 'it went to the can');
+  assert.deepEqual(r.steps.map(st => st.moved.map(m => [anchorOf(m.cells), restsOn(m)])),
+    [[[[4, 2], [4, 1]]], [[[4, 1], [2, 1]]]], 'the shove, then the walk');
+});
+
+// The downward magnet is read before the can arrives in its field.
+test('a field that something is drawn into after its magnet was asked still takes it', () => {
+  const s = S(['-l---', '-----', 'c-sp-', '@---E']);
+  assert.deepEqual(toGrid(s).slice(0, 3), ['-----', '-l---', '-csp-'],
+    'the can stopped against the sponge, under the first magnet, and that magnet came down to it');
+  assert.equal(held(s), 3);
+});
+
 test('a grate takes a magnet, and there is no field left to resolve', () => {
   // It never lands, so nothing resolves — and whatever it was holding is let go, because the
   // thing that held it is gone.

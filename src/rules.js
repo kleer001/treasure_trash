@@ -270,7 +270,6 @@ export const barrowScoops = (k, dx, dy) => {
 };
 
 // --- the magnet ------------------------------------------------------------------------------
-// `MAGNET_REACH`, `METAL`, `magnetResolve` and `settleAtRest` are the whole of it.
 
 // What a magnet takes hold of. The sponge's absence is deliberate: an unlimited cleaner that
 // could be fetched back from anywhere would have no bound at all.
@@ -1003,6 +1002,35 @@ const drawIn = (next, at, dx, dy, max) => {
   return k;
 };
 
+/** Whether the body at `at` is in a hold besides `holder`'s: gripping something, or gripped by
+ *  someone else. */
+const anchored = (s, at, holder) =>
+  bodyCells(s, at).some(([x, y]) => cell(s, x, y).grip !== undefined)
+  || holdersOf(s, ...at).some(([x, y]) => x !== holder[0] || y !== holder[1]);
+
+/**
+ * Close the gap from the magnet at `m` to the metal at `at` by up to `max`. Returns where the
+ * magnet stands after, and by how much the gap closed.
+ *
+ * Whichever end moves is one nothing else holds, so closing a gap never breaks another hold.
+ * That is what lets `settleMagnets` run to closure: each pass only adds to what is held.
+ *
+ * `mayWalk` is false for a magnet that has already moved this step. A step names each thing
+ * once, so its walk waits for the settle.
+ */
+function closeGap(next, m, at, max, step, mayWalk) {
+  const f = DIRS[magnetFace(cell(next, ...m).o)];
+  if (!anchored(next, at, m)) {
+    const drew = drawIn(next, at, -f[0], -f[1], max);
+    if (drew) slideBody(next, at, -f[0] * drew, -f[1] * drew, step);
+    return [m, drew];
+  }
+  if (!mayWalk || holdersOf(next, ...m).length) return [m, 0];
+  const went = drawIn(next, m, f[0], f[1], max);
+  if (went) slideBody(next, m, f[0] * went, f[1] * went, step);
+  return [[m[0] + f[0] * went, m[1] + f[1] * went], went];
+}
+
 /**
  * Everything a magnet does. First the chain it already has follows or lets go, then it takes hold
  * of whatever is now in reach.
@@ -1046,9 +1074,9 @@ function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
       cell(next, mx, my).grip = undefined;
     } else {
       // It closes the gap by up to two, and stops when it is alongside.
-      const drew = drawIn(next, at, -f[0], -f[1], Math.min(2, g - 1));
+      const [to, drew] = closeGap(next, [mx, my], at, Math.min(2, g - 1), step, !(dx || dy));
       if (drew) {
-        slideBody(next, at, -f[0] * drew, -f[1] * drew, step);
+        [mx, my] = to;
         cell(next, mx, my).grip = g - drew;
         wrote = true;
       }
@@ -1064,23 +1092,13 @@ function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
     const c = cell(next, ...p);
     if (c.o === NONE && !isCart(c)) continue;
     if (!isMetal(c)) continue;
-    const drew = drawIn(next, p, -f[0], -f[1], k - 1);
-    if (drew) slideBody(next, p, -f[0] * drew, -f[1] * drew, step);
-    cell(next, mx, my).grip = k - drew;
+    const [to, drew] = closeGap(next, [mx, my], p, k - 1, step, !(dx || dy));
+    cell(next, ...to).grip = k - drew;
     return true;
   }
   return wrote;
 }
 
-/**
- * A field does not wait to be pushed. Every magnet on the board is asked again after the action
- * lands, in raster order, so anything that has come into a field is taken and anything that has
- * left one is let go — and a magnet that has never been shoved holds what is beside it.
- *
- * One pass. A piece drawn to one magnet can land in another's field, and the second magnet takes
- * it only if the sweep reaches it later in the order; a board settled to closure would need a
- * loop, and a loop is a rule nobody can read off the board.
- */
 /**
  * A board as it is once its fields have taken hold — what a room LOOKS like before anyone has
  * touched it. A magnet holds whatever is in its field, and a field that waited for the first
@@ -1091,15 +1109,36 @@ function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
  * built from the board this leaves rather than played into.
  */
 export function settleAtRest(s) {
-  settleMagnets(s, mkStep());
+  settleMagnets(s, false);
   return s;
 }
 
-function settleMagnets(next, step) {
-  let wrote = false;
-  for (let y = 0; y < next.rows; y++) for (let x = 0; x < next.cols; x++)
-    if (isMagnet(cell(next, x, y).o)) wrote = magnetResolve(next, x, y, step) || wrote;
-  return wrote;
+/**
+ * Every magnet, asked again until a whole pass changes nothing. A thing moved into one field can
+ * come to rest in another's, and a pass that has already gone by that magnet has to be run again.
+ * Raster order still decides one thing: which of two loose magnets reaches the same loose metal
+ * first.
+ *
+ * Returns one `{ step, frame }` per pass that changed anything, `frame` only when `trace` asks.
+ * A pass is a step because a step names each thing once, and across passes a thing can move
+ * twice.
+ */
+function settleMagnets(next, trace) {
+  const passes = [];
+  // `closeGap` is why this ends; the bound is how a board that breaks it says so.
+  for (let n = 0; n <= next.rows * next.cols; n++) {
+    // Found before any is asked, so a magnet that walks on down the raster is not asked twice.
+    const magnets = [];
+    for (let y = 0; y < next.rows; y++) for (let x = 0; x < next.cols; x++)
+      if (isMagnet(cell(next, x, y).o)) magnets.push([x, y]);
+    const step = mkStep();
+    let changed = false;
+    for (const [x, y] of magnets)
+      if (isMagnet(cell(next, x, y).o)) changed = magnetResolve(next, x, y, step) || changed;
+    if (!changed) return passes;
+    passes.push({ step, frame: trace ? cloneState(next) : null });
+  }
+  throw new Error('the magnets did not settle');
 }
 
 /** The barrow has come to rest; if what stopped it is a piece too big to scoop, hook it. */
@@ -1514,10 +1553,11 @@ export function explain(s, dir, opts = {}) {
   // A walk SHARES the board it came from, and a traced action has already handed out its last
   // frame — either way the sweep writes to a copy or it writes to a board somebody else holds.
   const next = opts.trace || r.next.cells === s.cells ? cloneState(r.next) : r.next;
-  const step = mkStep();
-  if (!settleMagnets(next, step)) return r;
+  const passes = settleMagnets(next, opts.trace);
+  if (!passes.length) return r;
   return opts.trace
-    ? (f => ({ ...r, next, frames: f, steps: [...r.steps, step] }))([...r.frames, next])
+    ? { ...r, next, frames: [...r.frames, ...passes.map(p => p.frame)],
+        steps: [...r.steps, ...passes.map(p => p.step)] }
     : { ...r, next };
 }
 
