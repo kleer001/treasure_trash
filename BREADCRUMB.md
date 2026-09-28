@@ -1,35 +1,22 @@
-fresh
+stale
 
 ## Summary
 
-**The build is green and the skateboard has a new rule.** Every gate passes: `npm test` 425/425,
-`tools/verify.mjs` ALL PASS over all 61 rooms, `tools/conform.mjs` ALL AGREE, `tools/matrix.mjs`
-16520 cases clean. This is the first green build in months.
-
-Two threads landed. First, the red build was cleared — it was one unsolvable room (L20) plus one
-room whose walk-in exceeded the cap (L58, fixed by re-siting its whole set). Then the owner
-played the skateboard ladder room by room and found a real rules fault, which was catalogued,
-implemented and paid for across the level data.
+**The build is green, the anchor rule is in, and holds are drawn.** Every gate passes:
+`npm test` 429/429, `tools/verify.mjs` ALL PASS over all 61 rooms, `tools/conform.mjs` ALL AGREE,
+`tools/matrix.mjs` 16520 cases clean.
 
 **The skateboard rule, as the owner ruled it.** A deck rolls freely ALONG its long axis and moves
 exactly ONE CELL across it — the wheels do not turn, and it is not a rug. That one cell comes from
 the axis, never from the load. A load changes what the deck carries and nothing about how it
 travels. Weight stays the barrow's rule alone.
 
-The hold rework (`grip`) is still the older live thread underneath all this; its step 3, the
-anchor rule, has not been touched.
+The hold rework (`grip`) is the live thread. Steps 1-3 (edge on the holder, sharing, the anchor
+rule) and the drawing are done. The scrape is next, and it waits on #69.
 
 ## Todos
 
 ### Parallel
-
-- [ ] #72 **The anchor rule — step 3 of the hold rework.** Capture still drags the metal to the
-      magnet (`magnetResolve`, `src/rules.js`), and `settleMagnets` is still one raster pass with
-      a comment defending it. The owner's rule: metal already held is an ANCHOR, and a loose
-      magnet coming into range travels to IT. Only loose magnets move, they move toward, the reach
-      bounds the distance — so the sweep is monotone, no pass undoes an earlier one, and settle
-      becomes a worklist of the magnets that moved. One place stays order-dependent by design: two
-      loose magnets reaching the same loose metal on the same sweep.
 
 - [ ] #69 **Does a scraped grip stay cleared for the rest of the beat?** Objects do not stop the
       field — a magnet grips through a two-cell couch — so a scraped magnet is usually still
@@ -38,20 +25,17 @@ anchor rule, has not been touched.
       load past a blocker to strip a magnet off it becomes a technique. Same question as the
       barrow's hook; answer it once for both.
 
-- [ ] #70 **The hold is invisible.** The magnet has a sprite; the hold has none — nothing in
-      `stage.js` or `sprites.js` draws it. Survivable while a complex is one magnet and one can.
-      The moment complexes are shared and scrape-able, the player is asked to reason about a
-      structure the screen does not show, and a scrape reads as the game dropping things at
-      random. This is the same omission `src/audit.js` counts as known: `grip` is a lane the
-      account does not carry, because a hold has no sprite and no entry.
-
 - [ ] #51 **The crow is still pinned.** Un-pin and design its powers, or leave it. Naming it lands
       occupant codes, refusals and `stateKey` lanes at once.
 
-- [ ] #65 **The solver's representation change, inside `src/`.** About half of a discovery run's
-      work is `analyze` itself and a sixth is garbage collection: string state keys hashed into a
-      `Map`, one object per node, one per edge, one per back-pointer. Integer keys over a flat
-      edge array plausibly buys another 2-4x. `CLAUDE.md` names it as the thing to spend first.
+- [ ] #74 **`stateKey` is where the solver's time goes, not the graph.** Measured over act1 and
+      act2 (186,591 states, 469,712 edges): `stateKey` is 41% of `analyze`, `explain` 23%, the
+      string hash and `Map` insert 15%, `isWon` 7%, the whole graph layout about 13%. Integer ids
+      over flat edge arrays can buy 1.15x at most, so that idea is dropped. The untested lever:
+      `stateKey` builds its key a character at a time, and key plus hash is 56% of the time. It
+      lives in `src/rules.js`, so any change to it is a rules-file change and gets every gate.
+      GC is under 10%, and most of it is board clones: 60% of the boards `explain` returns are
+      repeats that are thrown away.
 
 - [ ] #66 **Act 3 gets searched with the piece cap off.** `--maxpiece` is the last constraint in
       the chooser nobody has measured. Half buys 24 rooms, 0.8 buys 27, 0.9 buys 30 — on the
@@ -73,11 +57,11 @@ anchor rule, has not been touched.
 
 All four pass. These are the numbers to compare against, not a baseline of known failures.
 
-- `npm test` — 425/425.
+- `npm test` — 429/429.
 - `node tools/verify.mjs` — ALL PASS, 61 rooms (act1 L0–L30, act2 L31–L60, contiguous).
 - `node tools/conform.mjs` — ALL AGREE, 109 rooms, 46512 steps.
 - `node tools/matrix.mjs` — 16520 cases.
-- `npm run test_rules` — 388/388.
+- `npm run test_rules` — 392/392.
 
 ### The skateboard rule, and where it lives
 
@@ -150,10 +134,19 @@ Two things that cost time:
 
 ## Next Step
 
-**The anchor rule, #72.** It is the live design thread, it is the owner's already-stated rule, and
-it is the thing the hold rework has been waiting on since step 2 landed. #69 has to be answered
-before the scrape can land on top of it, and #70 is what makes any of it visible to a player.
+**#69, then the scrape.** The anchor rule and the hold drawing are in. The scrape is the next
+step of the hold rework, and it waits on the owner's answer to #69. #74 is independent of it.
 
-Everything else on the list is independent of it.
+## Context: the hold, as built
+
+- Metal that nothing holds moves only when it is shoved or when a magnet pulls it. A free magnet
+  goes to metal that something holds (owner's ruling). `closeGap` in `src/rules.js` picks the end
+  that moves; `settleMagnets` runs to closure, one step per pass that changes the board.
+- A step names each thing once: `applyStep` resolves every entry before it moves any. So a
+  shoved magnet does not walk in its own shove step; the settle walks it on the next beat.
+- Latent, older than this work and not fixed: a magnet shoved across its field slides its load
+  across and can then pull it in on the same step, which names the load twice.
+- The hold is drawn by the `holds` and `grips` layers in `src/main.js`, read off the beat's
+  board the way the terrain layer is. The account still does not carry `grip`.
 
 /home/menser/Dropbox/ai/code/treasure_trash
