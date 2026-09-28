@@ -44,6 +44,7 @@ export const PALETTE = {
   barrow: '#b9bfc7', barrowEdge: '#7d858f', barrowWell: '#d3d8de',
   barrowHandle: '#e8912f', barrowGrip: '#3a3f46',
   magBody: '#c2352f', magTip: '#dfe3e8', magEdge: '#7d1f1b',
+  holdBand: 'rgba(194,53,47,.28)', holdCore: '#c2352f',
   wheelie: '#3f7d4f', wheelieEdge: '#255034', wheelieRidge: '#2f6a40',
   wheelieLid: '#4f9a63', wheel: '#22252a',
   ply: '#c9a273', plyEdge: '#9c7647', grip: '#ffffff', bolt: '#333a44',
@@ -567,6 +568,27 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.beginPath(); ctx.arc(0, 0, r, gap, gap + Math.PI * 0.12, false); ctx.stroke();
       ctx.beginPath(); ctx.arc(0, 0, r, -gap - Math.PI * 0.12, -gap, false); ctx.stroke();
       ctx.restore();
+    },
+
+    // A hold, centre to centre and drawn under both ends of it: the stretch between the two
+    // drawings is what shows, so two things side by side still show a short band.
+    hold(x0, y0, x1, y1) {
+      const ax = px(x0) + CS / 2, ay = px(y0) + CS / 2, bx = px(x1) + CS / 2, by = px(y1) + CS / 2;
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = P.holdBand; ctx.lineWidth = CS * 0.26;
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+      ctx.strokeStyle = P.holdCore; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+      ctx.restore();
+    },
+
+    // Where a hold takes the thing it holds, drawn over both. Two things flush against each other
+    // cover the band between them, and a barrow towing a couch looks like one merely touching it.
+    grip(x, y) {
+      const cx = px(x) + CS / 2, cy = px(y) + CS / 2;
+      ctx.fillStyle = P.holdCore; ctx.strokeStyle = P.floor; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, CS * 0.075, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     },
 
     // The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864

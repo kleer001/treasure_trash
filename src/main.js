@@ -8,7 +8,7 @@ import {
   FURNITURE,
   MOVE, DIRS,
   explain, isWon, bagsLeft, trashHeld, fan, inGrid, cell, cloneState, isMultiCell, stateKey,
-  GREASE, TAR, GLASS, COVERED, isBarrow, barrowFace, OCCUPANTS as CODES,
+  GREASE, TAR, GLASS, COVERED, isBarrow, barrowFace, gripTarget, OCCUPANTS as CODES,
 } from './rules.js';
 import { parseLevelPack, toState, toGrid } from './format.js';
 import { deadScan } from './solver.js';
@@ -520,6 +520,25 @@ function drawFalling(sp, f){
   ctx.restore();
 }
 
+/**
+ * Every hold as its two ends, holder first. Read off the board the animation is on, as the ground
+ * is; each end rides on the sprite standing there, so a hold stretches and shrinks over the beat
+ * instead of jumping after it.
+ */
+function holdsOn(f){
+  const b=f.board, shift=new Map(), out=[];
+  for(const sp of f.sprites){
+    if(sp.kind===RACCOON) continue;
+    for(const [ox,oy] of sp.cells ?? [[0,0]]) shift.set(`${sp.ax+ox},${sp.ay+oy}`, [sp.x-sp.ax, sp.y-sp.ay]);
+  }
+  const at=(x,y)=>{ const [dx,dy]=shift.get(`${x},${y}`) ?? [0,0]; return [x+dx, y+dy]; };
+  for(let y=0;y<b.rows;y++) for(let x=0;x<b.cols;x++){
+    const t=gripTarget(b,x,y);
+    if(t) out.push([at(x,y), at(...t)]);
+  }
+  return out;
+}
+
 const comp = createCompositor([
   { name:'clear', draw:(ctx,f)=>ctx.clearRect(0,0,f.w,f.h) },
 
@@ -549,6 +568,8 @@ const comp = createCompositor([
     }
   }},
 
+  { name:'holds', draw:(ctx,f)=>{ for(const [a,b] of holdsOn(f)) SP.hold(...a, ...b); } },
+
   // the debris of a burst that is being refused: it flies out, reaches the cell that
   // won't take it, and retracts. None of it is board state.
   { name:'debris', draw:(ctx,f)=>{
@@ -567,6 +588,13 @@ const comp = createCompositor([
   // "where would this land", which has the same answer whether or not the strike is legal.
   // Red belongs to the blocking cell alone, and only once you have tried. Arming narrows
   // the preview to the aimed direction so two adjacent bags do not light ten cells at once.
+  { name:'grips', draw:(ctx,f)=>{
+    for(const [[ax,ay],[bx,by]] of holdsOn(f)){
+      const n=Math.hypot(bx-ax, by-ay) || 1;
+      SP.grip(bx-(bx-ax)/n*0.5, by-(by-ay)/n*0.5);
+    }
+  }},
+
   { name:'fan', draw:(ctx,f)=>{
     const s=f.state, cs=f.cs;
     const red = new Set((f.blocked?.cells ?? []).map(([x,y])=>`${x},${y}`));
