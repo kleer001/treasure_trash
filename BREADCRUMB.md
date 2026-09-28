@@ -1,9 +1,9 @@
-stale
+fresh
 
 ## Summary
 
 **The build is green, the anchor rule is in, and holds are drawn.** Every gate passes:
-`npm test` 429/429, `tools/verify.mjs` ALL PASS over all 61 rooms, `tools/conform.mjs` ALL AGREE,
+`npm test` 431/431, `tools/verify.mjs` ALL PASS over all 61 rooms, `tools/conform.mjs` ALL AGREE,
 `tools/matrix.mjs` 16520 cases clean.
 
 **The skateboard rule, as the owner ruled it.** A deck rolls freely ALONG its long axis and moves
@@ -11,19 +11,18 @@ exactly ONE CELL across it — the wheels do not turn, and it is not a rug. That
 the axis, never from the load. A load changes what the deck carries and nothing about how it
 travels. Weight stays the barrow's rule alone.
 
-The hold rework (`grip`) is the live thread. Steps 1-3 (edge on the holder, sharing, the anchor
-rule) and the drawing are done. The scrape is next, and it waits on #69.
+The hold rework (`grip`) is done as planned: the edge on the holder, sharing, the anchor rule,
+the scrape, and the drawing. **The scrape is built, green and played, but NOT committed** — it
+sits in the working tree (`src/rules.js`, `tests/magnet.test.js`) awaiting the owner's okay.
 
 ## Todos
 
 ### Parallel
 
-- [ ] #69 **Does a scraped grip stay cleared for the rest of the beat?** Objects do not stop the
-      field — a magnet grips through a two-cell couch — so a scraped magnet is usually still
-      looking straight at what it lost. If the settle re-grips on the same beat, scraping is a
-      no-op by construction and nothing on screen ever shows it. If the cut persists, dragging a
-      load past a blocker to strip a magnet off it becomes a technique. Same question as the
-      barrow's hook; answer it once for both.
+- [ ] #75 **Commit and push the scrape once the owner says so.** Working tree only: `src/rules.js`
+      and `tests/magnet.test.js`. Proposed message: `feat(rules): a magnet that cannot follow is
+      scraped off, and stays off for the beat`. Commit path-scoped; leave the deleted
+      `.claude/skills/` copies out.
 
 - [ ] #51 **The crow is still pinned.** Un-pin and design its powers, or leave it. Naming it lands
       occupant codes, refusals and `stateKey` lanes at once.
@@ -57,7 +56,7 @@ rule) and the drawing are done. The scrape is next, and it waits on #69.
 
 All four pass. These are the numbers to compare against, not a baseline of known failures.
 
-- `npm test` — 429/429.
+- `npm test` — 431/431.
 - `node tools/verify.mjs` — ALL PASS, 61 rooms (act1 L0–L30, act2 L31–L60, contiguous).
 - `node tools/conform.mjs` — ALL AGREE, 109 rooms, 46512 steps.
 - `node tools/matrix.mjs` — 16520 cases.
@@ -130,12 +129,20 @@ Two things that cost time:
 - **Close the picker dialog after choosing a room.** Left open it swallows every arrow key, and
   the room silently never advances.
 - **The page holds the level data it fetched at load.** After rewriting a pack, navigate again
-  before replaying, or the browser plays the old rooms.
+  before replaying, or the browser plays the old rooms. The same goes for `__tt.sweep(plan)`: the
+  page must have the plan's pack loaded, or every room reports "no such room in this pack".
+- **A bench pack can live in `tmp/`**: `index.html?acts=../tmp/anchor.tt&debug`. It needs `:par`
+  and `:solve` lines to parse (placeholders are fine; nothing verifies it). `tmp/anchor.tt` holds
+  the magnet bench rooms A1–A4 (anchor, walk, closure, held-magnet) and S1–S2 (scrape, cut beat).
+- **A beat is 110 ms per cell** (`CELL_MS`), too fast for a screenshot to land mid-beat. Freeze
+  the page clock (`performance.now = () => t`) after a press, screenshot, then restore it.
+- **Agent worktrees under `.claude/worktrees/` double the `npm test` count**, because
+  `node --test` finds their specs too.
 
 ## Next Step
 
-**#69, then the scrape.** The anchor rule and the hold drawing are in. The scrape is the next
-step of the hold rework, and it waits on the owner's answer to #69. #74 is independent of it.
+**#75** — ask whether to commit the scrape, then commit it. After that, #74 is the one item that
+needs no decision from the owner; the rest are the owner's calls.
 
 ## Context: the hold, as built
 
@@ -146,6 +153,9 @@ step of the hold rework, and it waits on the owner's answer to #69. #74 is indep
   shoved magnet does not walk in its own shove step; the settle walks it on the next beat.
 - Latent, older than this work and not fixed: a magnet shoved across its field slides its load
   across and can then pull it in on the same step, which names the load twice.
+- A scrape cuts only the fields on what cannot travel, in both directions, never a barrow's hook
+  (`towOrBreak`). A cut magnet takes nothing for the rest of the beat (owner's ruling): the
+  `CUT` mark rides in the `grip` lane, so every mover carries it, and `explain` clears it.
 - The hold is drawn by the `holds` and `grips` layers in `src/main.js`, read off the beat's
   board the way the terrain layer is. The account still does not carry `grip`.
 
