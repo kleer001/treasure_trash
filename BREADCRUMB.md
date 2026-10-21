@@ -46,6 +46,25 @@ sits in the working tree (`src/rules.js`, `tests/magnet.test.js`) awaiting the o
       fewer right answers means more wrong ones. Undo is free and unbounded so it was left as is.
       Soften it only if the owner wants it softened.
 
+- [ ] #76 **Every animation gets animated by hand.** Owner's call: none of the AI video clips
+      (MiniMax H3, every keyframe set and seed) is usable. Each animation is to be animated
+      painstakingly, frame by frame, in code, cell-perfect against the rules. Done that way so
+      far: the bag rip and the recycling box tip, in `art/bench/`. Still to animate:
+      - the raccoon: sitting, crawling forward one cell, pushing a thing. Not a walk cycle.
+      - the can tip.
+      - the jug pour. The jug stands free, not on a cooler.
+      - the pane shatter.
+
+- [ ] #77 **The empty recycling box must record which way it fell.** It is drawn lying on its
+      side toward the push, but the board does not say which way that was, and the renderer
+      draws from the board alone. Proposed: four occupant codes for an empty box, one per
+      facing, as the filing cabinet has, with its moves unchanged. A rules-file change, so it
+      waits for the owner's okay.
+
+- [ ] #78 **Object art is straight side views.** The object stills in `tmp/pixelart/out/` were
+      rendered at 55°, 70° and 85° and none was chosen. Standing objects are side elevations
+      with no skew; only the floor and loose trash are top-down.
+
 - [ ] #67 **Parked idea, not approved work: the roller skate.** The one-cell version of the
       skateboard — the slot the barrow already occupies structurally but not fictionally. On the
       record before the vocabulary settles; nobody is asking for it yet.
@@ -143,6 +162,19 @@ Two things that cost time:
 
 **#75** — ask whether to commit the scrape, then commit it. After that, #74 is the one item that
 needs no decision from the owner; the rest are the owner's calls.
+
+## Context: the pixel art
+
+- **The target look** is `art/reference/alley-gold.png`. Its README says how it was made.
+- **The benches** are in `art/bench/` (see its README): the trash catalog, the layout of trash
+  over TRASH cells (layout B is the chosen one), the landing flight, the flying shadow, and the
+  recycling box. Each imports `src/` and checks its first and last frames against stills of the
+  board. The owner's tuned values are the defaults in `art/bench/trash/look.json`.
+- **The recycling box** is a side view: upright with trash heaped over the rim, then lying on its
+  side toward the push. The pieces seen over the rim are the pieces that land, poured as B into
+  the TRASH cell. In the game that continuity goes through the stage's draw seed, not the rules.
+- **The AI work** (ComfyUI stills, H3 clips, `anim.html`, `seeds.html`) is in `tmp/pixelart/`,
+  gitignored. The GPU is used only from 23:00 to 05:00.
 
 ## Context: the hold, as built
 
