@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shadow Bench</title>
+<style>
+  :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --ok: #1d7a3a; --bad: #b3261e; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 0 0 6px; }
+  .bar { position: sticky; top: 0; z-index: 1; background: var(--bg); display: flex; gap: 8px; align-items: center;
+         flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .bar .grp, .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; }
+  button { font: inherit; padding: 3px 9px; border: 1px solid var(--ink); background: #fff; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  canvas { display: block; image-rendering: pixelated; border: 1px solid var(--line); }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  .ctl { display: grid; grid-template-columns: auto 220px auto; gap: 4px 8px; align-items: center; font-size: 13px; }
+  .ctl input { width: 100%; }
+  .ctl .read { min-width: 150px; color: var(--muted); }
+  .opts { display: flex; flex-wrap: wrap; gap: 6px 0; margin-top: 8px; font-size: 13px; }
+  .check { font-weight: 600; font-size: 13px; } .check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
+  .muted { color: var(--muted); font-size: 12px; }
+  .strip { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .strip figure { margin: 0; } .strip figcaption { text-align: center; color: var(--muted); font-size: 12px; }
+  #scrub { width: 260px; }
+</style>
+</head>
+<body>
+<h1>Shadow bench — the shadow a piece casts in the air, from the top of its arc to landing</h1>
+<div class="muted" id="source-read"></div>
+<div class="bar">
+  <span class="grp">Push direction:
+    <button data-dir="u">↑</button><button data-dir="d">↓</button><button data-dir="l">←</button><button data-dir="r">→</button></span>
+  <span class="grp">Room: <button data-room="walled">walled</button><button data-room="open">open</button></span>
+  <span class="grp"><button id="play">pause</button><button id="prev">◀ frame</button><button id="next">frame ▶</button>
+    <input type="range" id="scrub" min="0" step="1"></span>
+  <span class="grp">Playback speed: <button id="slow">−</button><span id="speed-read"></span><button id="fast">+</button></span>
+  <span class="grp">Frame rate: <button data-fps="60">60</button><button data-fps="30">30</button><button data-fps="24">24</button><button data-fps="12">12</button></span>
+  <span class="grp">Zoom: <button id="zoom-out">−</button><span id="zoom-read"></span><button id="zoom-in">+</button></span>
+</div>
+<div class="row">
+  <div><canvas id="view"></canvas><div class="muted" id="frame-read"></div></div>
+  <div style="max-width: 640px">
+    <h2>Shadow in the air</h2>
+    <div class="ctl" id="ctl"></div>
+    <div class="opts">
+      <span class="grp">Shadow drifts toward: <button data-light="s">↓</button><button data-light="se">↘</button><button data-light="e">→</button></span>
+      <span class="grp">Transparency: <button data-blend="smooth">smooth</button><button data-blend="steps">quarter steps</button><button data-blend="dither">dither</button></span>
+    </div>
+    <p class="muted">At height 0 the shadow is the landed one. It grows wider, softer, rounder and fainter up to the
+      height set above, and stays so higher up. A power below 1 widens the shadow soon after the piece
+      leaves the ground; a power above 1 keeps it tight until the piece is high.</p>
+    <div class="check" id="check-start"></div>
+    <div class="check" id="check-end"></div>
+  </div>
+</div>
+<h2 style="margin-top:14px">One piece at each height</h2>
+<div class="grp">Piece: <button id="piece-prev">◀</button><span id="piece-read"></span><button id="piece-next">▶</button></div>
+<div class="strip" id="strip"></div>
+<script type="module">
+import { BAG } from '../../src/rules.js';
+import { createTrash, drawPile } from './trash/pile.js';
+import { createFlight, TEAR, FLOOR } from './trash/flight.js';
+import { load, loadSpread, save as store, SPREAD, FLIGHT, flightDefaults, SHADE, shadowDefaults } from './trash/settings.js';
+
+const SLIDERS = {
+  spread: ['Widest spread past the piece', 0, 10, 0.5, v => `${v} px`],
+  faint: ['Faintest strength', 0, 100, 5, v => `${v}%`],
+  height: ['Height of the widest, faintest shadow', 2, 40, 1, v => `${v} px`],
+  curve: ['How the shadow follows height', 3, 30, 1, v => `power ${(v / 10).toFixed(1)}`],
+  soft: ['Soft edge at the widest', 0, 6, 0.5, v => `${v} px`],
+  round: ['Roundness at the widest', 0, 100, 5, v => `${v}%`],
+  slant: ['Drift with height', 0, 10, 1, v => `${v} px per 10 px of height`],
+};
+const HEIGHTS = [0, 1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 24, 30];
+
+const [A, D, LOOK] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const ui = load(SHADE, shadowDefaults(LOOK));
+const save = () => store(SHADE, ui);
+const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
+const STYLE = { outline: LOOK.outline, shadow: LOOK.shadow };
+const F = createFlight({ T, A, STYLE, OBJ: { [BAG]: A.bag } });
+let S = loadSpread(LOOK);                               // the Trash Spread page's settings; its B panel lays the piles
+let FL = load(FLIGHT, flightDefaults(LOOK));                // the Landing Bench's timing
+
+const canvasOf = (w, h = w) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const pixels = (c, W) => c.getContext('2d').getImageData(0, 0, W, W).data;
+function differ(a, b) { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++; return n; }
+function report(id, ok, text) { const el = document.getElementById(id); el.textContent = text; el.className = 'check ' + (ok ? 'ok' : 'bad'); }
+
+let B, P, W, END, FRAMES, cache = new Map(), clock = 0, shown = -1;
+const view = document.getElementById('view'), scrub = document.getElementById('scrub');
+const msOf = j => j * 1000 / ui.fps;
+
+function build() {
+  B = F.setup(ui.dir, ui.room, S); W = B.W; P = F.plan(B, FL);
+  END = F.endOf(FL);
+  FRAMES = Math.floor((END + FL.hold) * ui.fps / 1000) + 1;
+  scrub.max = FRAMES - 1;
+  const a = canvasOf(W), b = canvasOf(W), f0 = canvasOf(W), fN = canvasOf(W);
+  F.still(a.getContext('2d'), B, B.s, []); F.still(b.getContext('2d'), B, B.r.next, B.pieces);
+  F.frameAt(f0.getContext('2d'), B, P, 0, ui.cast); F.frameAt(fN.getContext('2d'), B, P, END, ui.cast);
+  const n0 = differ(pixels(f0, W), pixels(a, W)), n1 = differ(pixels(fN, W), pixels(b, W));
+  report('check-start', !n0, `first frame vs board before the tear: ${n0} px differ`);
+  report('check-end', !n1, `frame at ${END} ms vs board after the tear: ${n1} px differ`);
+  clock = Math.min(clock, (FRAMES - 1) * 1000 / ui.fps);
+  redraw();
+}
+
+/** Drop the drawn frames and the strip, after a change to the shadow or the zoom. */
+function redraw() { cache = new Map(); shown = -1; bar(); strip(); show(); }
+
+function show() {
+  const j = Math.min(FRAMES - 1, Math.floor(clock * ui.fps / 1000 + 1e-6));
+  if (j === shown) return;
+  shown = j;
+  if (!cache.has(j)) { const c = canvasOf(W); F.frameAt(c.getContext('2d'), B, P, msOf(j), ui.cast); cache.set(j, c); }
+  const z = ui.zoom;
+  if (view.width !== W * z) view.width = view.height = W * z;
+  const g = view.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(cache.get(j), 0, 0, W * z, W * z);
+  scrub.value = j;
+  const t = msOf(j), since = t - TEAR;
+  const air = P.filter(q => since >= q.launch && since < q.land).length, down = P.filter(q => since >= q.land).length;
+  document.getElementById('frame-read').textContent = `frame ${j} of ${FRAMES - 1} · ${Math.round(t)} ms after the push · ${air} in the air · ${down} landed`;
+}
+
+/** The chosen piece over bare floor at each height, landed first. */
+function strip() {
+  const root = document.getElementById('strip'); root.innerHTML = '';
+  const s = T.sprite(ui.piece, 0, 0), TW = 44, TH = 40 + Math.max(...HEIGHTS), z = ui.zoom;
+  const gx = Math.round(TW / 2 - s.w / 2), gy = Math.round(TH - 20 - s.h / 2);
+  for (const h of HEIGHTS) {
+    const c = canvasOf(TW, TH), g = c.getContext('2d');
+    g.fillStyle = FLOOR; g.fillRect(0, 0, TW, TH);
+    if (h) F.drawFlying(g, TW, TH, [{ s, gx, gy, hc: h, h }], ui.cast);
+    else drawPile(g, T, { pieces: [{ name: ui.piece, alt: 0, turn: 0, layer: D.items[ui.piece].size, x: gx, y: gy }] }, 0, 0, STYLE);
+    const big = canvasOf(TW * z, TH * z), bg = big.getContext('2d');
+    bg.imageSmoothingEnabled = false; bg.drawImage(c, 0, 0, TW * z, TH * z);
+    const fig = document.createElement('figure');
+    fig.append(big); fig.insertAdjacentHTML('beforeend', `<figcaption>${h ? `${h} px up` : 'landed'}</figcaption>`);
+    root.append(fig);
+  }
+  document.getElementById('piece-read').textContent = ui.piece.replace(/_/g, ' ');
+}
+
+let last = null;
+function tick(now) {
+  if (ui.playing && last !== null) {
+    clock += (now - last) * ui.speed / 100;
+    if (clock >= FRAMES * 1000 / ui.fps) clock = 0;
+    show();
+  }
+  last = now;
+  requestAnimationFrame(tick);
+}
+
+const ctl = document.getElementById('ctl');
+ctl.innerHTML = Object.entries(SLIDERS).map(([k, [label, lo, hi, step]]) =>
+  `<label for="c-${k}">${label}</label><input type="range" id="c-${k}" min="${lo}" max="${hi}" step="${step}"><span class="read" id="c-${k}-read"></span>`).join('');
+for (const k in SLIDERS) document.getElementById(`c-${k}`).oninput = e => { ui.cast[k] = Number(e.target.value); save(); redraw(); };
+
+function bar() {
+  for (const [k, v] of [['dir', ui.dir], ['room', ui.room], ['light', ui.cast.light], ['blend', ui.cast.blend]])
+    document.querySelectorAll(`[data-${k}]`).forEach(b => b.setAttribute('aria-pressed', b.dataset[k] === v));
+  document.querySelectorAll('[data-fps]').forEach(b => b.setAttribute('aria-pressed', Number(b.dataset.fps) === ui.fps));
+  document.getElementById('play').textContent = ui.playing ? 'pause' : 'play';
+  document.getElementById('speed-read').textContent = `${ui.speed}%`;
+  document.getElementById('zoom-read').textContent = `${ui.zoom}×`;
+  for (const k in SLIDERS) { document.getElementById(`c-${k}`).value = ui.cast[k]; document.getElementById(`c-${k}-read`).textContent = SLIDERS[k][4](ui.cast[k]); }
+  document.getElementById('source-read').textContent = `Piles: B from the Trash Spread page. Flight: the Landing Bench — landings ${FL.first}–${FL.last} ms after the tear, ` +
+    `arc ${FL.arc} px for an average flight. Landed shadow: "${LOOK.shadow}" from trash/look.json.`;
+}
+const step = j => { ui.playing = false; clock = (Math.max(0, Math.min(FRAMES - 1, j)) + 0.5) * 1000 / ui.fps; save(); bar(); show(); };
+document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => { ui.dir = b.dataset.dir; save(); build(); });
+document.querySelectorAll('[data-room]').forEach(b => b.onclick = () => { ui.room = b.dataset.room; save(); build(); });
+document.querySelectorAll('[data-fps]').forEach(b => b.onclick = () => { ui.fps = Number(b.dataset.fps); save(); build(); });
+document.querySelectorAll('[data-light]').forEach(b => b.onclick = () => { ui.cast.light = b.dataset.light; save(); redraw(); });
+document.querySelectorAll('[data-blend]').forEach(b => b.onclick = () => { ui.cast.blend = b.dataset.blend; save(); redraw(); });
+document.getElementById('play').onclick = () => { ui.playing = !ui.playing; save(); bar(); };
+document.getElementById('prev').onclick = () => step(shown - 1);
+document.getElementById('next').onclick = () => step(shown + 1);
+scrub.oninput = () => step(Number(scrub.value));
+document.getElementById('slow').onclick = () => { ui.speed = Math.max(10, ui.speed - 10); save(); bar(); };
+document.getElementById('fast').onclick = () => { ui.speed = Math.min(200, ui.speed + 10); save(); bar(); };
+document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); save(); redraw(); };
+document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zoom + 1); save(); redraw(); };
+const turnPiece = d => { const k = T.names.indexOf(ui.piece); ui.piece = T.names[(k + d + T.names.length) % T.names.length]; save(); strip(); };
+document.getElementById('piece-prev').onclick = () => turnPiece(-1);
+document.getElementById('piece-next').onclick = () => turnPiece(1);
+// The Trash Spread page or the Landing Bench saving in another tab redraws this one.
+window.addEventListener('storage', e => {
+  if (e.key === SPREAD) { S = loadSpread(LOOK); build(); }
+  if (e.key === FLIGHT) { FL = load(FLIGHT, flightDefaults(LOOK)); build(); }
+});
+build(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>

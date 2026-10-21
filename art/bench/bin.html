@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recycling Box Bench</title>
+<style>
+  :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --ok: #1d7a3a; --bad: #b3261e; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 10px 0 6px; }
+  .bar { position: sticky; top: 0; z-index: 1; background: var(--bg); display: flex; gap: 8px; align-items: center;
+         flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .bar .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; }
+  button { font: inherit; padding: 3px 9px; border: 1px solid var(--ink); background: #fff; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  canvas { display: block; image-rendering: pixelated; border: 1px solid var(--line); }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  .ctl { display: grid; grid-template-columns: auto 220px auto; gap: 4px 8px; align-items: center; font-size: 13px; }
+  .ctl input { width: 100%; }
+  .ctl .read { min-width: 150px; color: var(--muted); }
+  .check { font-weight: 600; font-size: 13px; } .check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
+  .muted { color: var(--muted); font-size: 12px; }
+  .strip { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .strip figure { margin: 0; } .strip figcaption { text-align: center; color: var(--muted); font-size: 12px; }
+  #scrub { width: 260px; }
+</style>
+</head>
+<body>
+<h1>Recycling box bench — a full box shoved one cell falls over and pours its trash into the next</h1>
+<div class="muted" id="source-read"></div>
+<div class="bar">
+  <span class="grp">Push direction:
+    <button data-dir="u">↑</button><button data-dir="d">↓</button><button data-dir="l">←</button><button data-dir="r">→</button></span>
+  <span class="grp">Room: <button data-room="walled">walled</button><button data-room="open">open</button></span>
+  <span class="grp"><button id="play">pause</button><button id="prev">◀ frame</button><button id="next">frame ▶</button>
+    <input type="range" id="scrub" min="0" step="1"></span>
+  <span class="grp">Playback speed: <button id="slow">−</button><span id="speed-read"></span><button id="fast">+</button></span>
+  <span class="grp">Frame rate: <button data-fps="60">60</button><button data-fps="30">30</button><button data-fps="24">24</button><button data-fps="12">12</button></span>
+  <span class="grp">Zoom: <button id="zoom-out">−</button><span id="zoom-read"></span><button id="zoom-in">+</button></span>
+</div>
+<div class="row">
+  <div><canvas id="view"></canvas><div class="muted" id="frame-read"></div></div>
+  <div style="max-width: 640px">
+    <h2>Box</h2>
+    <div class="ctl" id="ctl-box"></div>
+    <h2>Flight</h2>
+    <div class="ctl" id="ctl-flight"></div>
+    <p class="muted" id="stats"></p>
+    <div class="check" id="check-window"></div>
+    <div class="check" id="check-leave"></div>
+    <div class="check" id="check-start"></div>
+    <div class="check" id="check-end"></div>
+    <div class="check" id="check-cells"></div>
+    <div class="check" id="check-held"></div>
+  </div>
+</div>
+<h2>Box sprites</h2>
+<div class="strip" id="strip"></div>
+<script type="module">
+import { explain, cell, TRASH, BIN, BIN_EMPTY } from '../../src/rules.js';
+import { createTrash } from './trash/pile.js';
+import { createFlight, C, FLIGHT_SLIDERS } from './trash/flight.js';
+import { pourPile, hash } from './trash/spread.js';
+import { front, rest, frame, restAt, contents } from './trash/box.js';
+import { load, loadSpread, save as store, SPREAD, SHADE, shadowDefaults } from './trash/settings.js';
+
+const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
+const BOX_SLIDERS = {
+  slide: ['Box slides to the edge in', 40, 400, 10, v => `${v} ms`],
+  tip: ['Box falls over in', 80, 600, 10, v => `${v} ms`],
+  pour: ['Trash starts to leave at a tip of', 0, 85, 5, v => `${v}°`],
+};
+const KEY = 'trash-bin';
+const [A, D, LOOK] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const ui = load(KEY, { dir: 'r', room: 'walled', playing: true, speed: 100, zoom: 4, fps: 30, slide: 140, tip: 260, pour: 30,
+  flight: { ...LOOK.flight, launch: 60, first: 120, last: 340 } });
+const save = () => store(KEY, ui);
+
+const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
+const STYLE = { outline: LOOK.outline, shadow: LOOK.shadow };
+const F = createFlight({ T, A, STYLE, OBJ: {} });
+let S = loadSpread(LOOK);                               // the Trash Spread page's settings; its B panel lays the pile
+let CAST = load(SHADE, shadowDefaults(LOOK)).cast;      // the Shadow Bench's shadow
+
+const easeOut = u => 1 - (1 - u) ** 2, easeInOut = u => u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) ** 2;
+const FLAT = () => ui.slide + ui.tip;                                // ms from the push: the box lies on its side
+const POUR = () => ui.slide + ui.tip * Math.sqrt(ui.pour / 90);      // the first piece can leave
+/** How far over the box is `t` ms after the push, in degrees. It falls faster as it goes. */
+const degAt = t => t <= ui.slide ? 0 : t >= FLAT() ? 90 : 90 * ((t - ui.slide) / ui.tip) ** 2;
+
+/** The board: the raccoon behind a full box, ready to push `dir`, the shove `explain()` makes of it,
+ *  what the box holds, and those same pieces poured as B into the TRASH cell the shove makes. A
+ *  walled room puts that cell against the wall. */
+function setup(dir, room) {
+  const [dx, dy] = DIRS[dir], N = room === 'walled' ? 6 : 7, c = Math.floor(N / 2);
+  const along = a => dx > 0 ? [a, c] : dx < 0 ? [N - 1 - a, c] : dy > 0 ? [c, a] : [c, N - 1 - a];
+  const [bx, by] = along(2);
+  const s = F.board(N, room, [[...along(1), '@'], [bx, by, 'B']]);
+  const r = explain(s, dir, { trace: true });
+  const st = r.ok && r.steps[0], mv = st && st.moved.find(m => m.o === BIN && m.becomes?.o === BIN_EMPTY);
+  const sp = st && st.spawned.find(e => e.o === TRASH);
+  if (!mv || !sp) throw new Error(`no tip-out: ${r.reason ?? JSON.stringify(r.steps)}`);
+  const seed = hash(S.seed, bx, by, 31), held = contents(T, seed, S.edges, S.hues), [tx, ty] = sp.cells[0];
+  const lay = (cells, isTrash) => new Map([[`${tx},${ty}`, pourPile(T, S.edges, { C, cell: [tx, ty], given: held, isTrash, seed: S.seed, key: seed })]]);
+  // The box slides until its fall lays it where it rests in the next cell.
+  const O = restAt(bx, by, C), end = restAt(bx + dx, by + dy, C, dir), f90 = frame(dir, 90), at90 = [O[0] + f90.ox, O[1] + f90.oy];
+  if (dx ? at90[1] !== end[1] : at90[0] !== end[0]) throw new Error('the box lands off its cell across the push');
+  const slide = (end[0] - at90[0]) * dx + (end[1] - at90[1]) * dy;
+  const B = { s, r, N, W: N * C, dx, dy, dir, from: [bx, by], O, slide, aimed: [sp.cells[0]], held,
+              ...F.rest(s, r.next, N, lay), wrap: S.wrap };
+  B.sourceOf = (q, launch) => centreAt(B, q, POUR() + launch);
+  return B;
+}
+
+/** The box's upright top-left `t` ms after the push, px. */
+function boxAt(B, t) {
+  const k = Math.round(B.slide * easeOut(Math.min(1, t / ui.slide)));
+  return [B.O[0] + k * B.dx, B.O[1] + k * B.dy];
+}
+/** Where held piece `q`'s centre is `t` ms after the push. */
+function centreAt(B, q, t) {
+  const [ox, oy] = boxAt(B, t), [x, y] = frame(B.dir, degAt(t)).place(q.p.bx, q.p.by, q.p.d);
+  return { x: ox + x, y: oy + y };
+}
+/** The turn piece `q` leaves at: where its spin in the air starts. */
+function startTurn(q) { const { m, k } = T.poseOf(q.p.name, q.p.turn); return T.pose(q.p.name, m, k - q.spin); }
+
+/** The pieces `held` in box frame `fr` at `O`, lowest first, `centre(q)` placing each: only the
+ *  pixels the box does not hide. */
+function drawHeld(ctx, O, fr, held, centre) {
+  for (const q of [...held].sort((a, b) => b.p.by - a.p.by)) {
+    const s = T.sprite(q.p.name, q.p.alt, startTurn(q)), { x, y } = centre(q);
+    const x0 = Math.round(x - s.w / 2), y0 = Math.round(y - s.h / 2);
+    for (const [px, py, col] of s.px) if (fr.shows(x0 + px - O[0], y0 + py - O[1])) { ctx.fillStyle = col; ctx.fillRect(x0 + px, y0 + py, 1, 1); }
+  }
+}
+
+/** The shadow a box drawing `s` at (gx, gy) casts: from the two rows it stands on. */
+const foot = (s, gx, gy) => ({ s: { ...s, px: s.px.filter(p => p[1] >= s.h - 2) }, gx, gy, hc: 0, h: 0 });
+
+/** Things standing on the floor, `[feet, draw]`, drawn from the back row forward. */
+const byFeet = list => list.sort((a, b) => a[0] - b[0]).forEach(([, draw]) => draw());
+
+function frameAt(ctx, B, P, t) {
+  const since = t - POUR(), [dx, dy] = [B.dx, B.dy];
+  F.ground(ctx, B);
+  F.drawTrash(ctx, B, P.filter(q => since >= q.land));
+  F.walls(ctx, B);
+  const O = boxAt(B, t), fr = frame(B.dir, degAt(t)), [gx, gy] = [O[0] + fr.ox, O[1] + fr.oy];
+  const flying = P.filter(q => since >= q.launch && since < q.land).map(q => F.inAir(q, since));
+  F.castShadows(ctx, B.W, B.W, [foot(fr.s, gx, gy), ...flying], CAST);
+  const k = Math.round(C * easeInOut(Math.min(1, t / FLAT()))), [rx, ry] = F.at(A.raccoon, B.from[0] - dx, B.from[1] - dy);
+  byFeet([[gy + fr.s.h, () => { F.drawSpr(ctx, fr.s, gx, gy); drawHeld(ctx, O, fr, P.filter(q => since < q.launch), q => centreAt(B, q, t)); }],
+          [ry + k * dy + A.raccoon.h + 0.5, () => F.drawSpr(ctx, A.raccoon, rx + k * dx, ry + k * dy)]]);
+  F.drawAirborne(ctx, flying);
+}
+
+/** A still of board `s`, drawn from the board, with what the board does not say taken from the
+ *  bench: the way an empty box fell, and the pieces a full one holds or a pile is made of. */
+function still(ctx, B, P, s, trash) {
+  F.ground(ctx, B);
+  F.drawTrash(ctx, B, trash);
+  F.walls(ctx, B);
+  const stand = [];
+  for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++) {
+    const o = cell(s, x, y).o;
+    if (o !== BIN && o !== BIN_EMPTY) continue;
+    const full = o === BIN, spr = full ? front : rest(B.dir), O = restAt(x, y, C, full ? null : B.dir);
+    F.castShadows(ctx, B.W, B.W, [foot(spr, ...O)], CAST);
+    stand.push([O[1] + spr.h, () => {
+      F.drawSpr(ctx, spr, ...O);
+      if (full) drawHeld(ctx, O, frame(B.dir, 0), P, q => ({ x: O[0] + q.p.bx, y: O[1] + q.p.by }));
+    }]);
+  }
+  const [rx, ry] = F.at(A.raccoon, s.rac.x, s.rac.y);
+  byFeet([...stand, [ry + A.raccoon.h + 0.5, () => F.drawSpr(ctx, A.raccoon, rx, ry)]]);
+}
+
+const canvasOf = (w, h = w) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const pixels = (c, W) => c.getContext('2d').getImageData(0, 0, W, W).data;
+function differ(a, b) { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++; return n; }
+function report(id, ok, text) { const el = document.getElementById(id); el.textContent = text; el.className = 'check ' + (ok ? 'ok' : 'bad'); }
+
+let B, P, W, END, FRAMES, cache = new Map(), clock = 0, shown = -1;
+const view = document.getElementById('view'), scrub = document.getElementById('scrub');
+const msOf = j => j * 1000 / ui.fps;
+
+function build() {
+  B = setup(ui.dir, ui.room); W = B.W; P = F.plan(B, ui.flight);
+  END = Math.max(FLAT(), POUR() + ui.flight.last);
+  FRAMES = Math.floor((END + ui.flight.hold) * ui.fps / 1000) + 1;
+  cache = new Map(); shown = -1;
+  scrub.max = FRAMES - 1;
+  const lands = P.map(q => q.land), r = v => Math.round(v), lo = Math.min(...lands), hi = Math.max(...lands);
+  const speeds = P.map(q => q.dist / q.dur * 1000), lastOut = POUR() + Math.max(...P.map(q => q.launch));
+  document.getElementById('stats').textContent = `${P.length} pieces · the box slides ${B.slide} px, then falls · ground speed ${r(Math.min(...speeds))}–${r(Math.max(...speeds))} px a second · ` +
+    `arcs ${r(Math.min(...P.map(q => q.height)))}–${r(Math.max(...P.map(q => q.height)))} px · ${P.filter(q => q.spin).length} spin`;
+  report('check-window', lo >= ui.flight.first - 0.5 && hi <= ui.flight.last + 0.5,
+    `landings ${r(lo)}–${r(hi)} ms after the first piece leaves, window ${ui.flight.first}–${ui.flight.last} ms`);
+  report('check-leave', lastOut <= FLAT(), `last piece leaves the box ${r(lastOut)} ms after the push; the box lies flat at ${FLAT()} ms`);
+  const a = canvasOf(W), b = canvasOf(W), f0 = canvasOf(W), fN = canvasOf(W);
+  still(a.getContext('2d'), B, P, B.s, []); still(b.getContext('2d'), B, P, B.r.next, B.pieces);
+  frameAt(f0.getContext('2d'), B, P, 0); frameAt(fN.getContext('2d'), B, P, END);
+  const n0 = differ(pixels(f0, W), pixels(a, W)), n1 = differ(pixels(fN, W), pixels(b, W));
+  report('check-start', !n0, `first frame vs board before the shove: ${n0} px differ`);
+  report('check-end', !n1, `frame at ${r(END)} ms vs board after the shove: ${n1} px differ`);
+  const aimed = B.aimed.map(c => c.join(',')).sort().join(' '), held = B.cells.map(c => c.join(',')).sort().join(' ');
+  report('check-cells', aimed === held, `trash aimed at ${aimed} · trash on the board ${held}`);
+  report('check-held', B.pieces.length === B.held.length, `${B.held.length} pieces in the box · ${B.pieces.length} of them in the pile`);
+  clock = Math.min(clock, (FRAMES - 1) * 1000 / ui.fps);
+  bar(); strip(); show();
+}
+
+function show() {
+  const j = Math.min(FRAMES - 1, Math.floor(clock * ui.fps / 1000 + 1e-6));
+  if (j === shown) return;
+  shown = j;
+  if (!cache.has(j)) { const c = canvasOf(W); frameAt(c.getContext('2d'), B, P, msOf(j)); cache.set(j, c); }
+  const z = ui.zoom;
+  if (view.width !== W * z) view.width = view.height = W * z;
+  const g = view.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(cache.get(j), 0, 0, W * z, W * z);
+  scrub.value = j;
+  const t = msOf(j), since = t - POUR();
+  const inBox = P.filter(q => since < q.launch).length, air = P.filter(q => since >= q.launch && since < q.land).length;
+  document.getElementById('frame-read').textContent =
+    `frame ${j} of ${FRAMES - 1} · ${Math.round(t)} ms after the push · box ${Math.round(degAt(t))}° over · ${inBox} in the box · ${air} in the air · ${P.length - inBox - air} landed`;
+}
+
+/** The box full and upright, falling over toward the push direction, and on its side every way it can lie. */
+function strip() {
+  const root = document.getElementById('strip'); root.innerHTML = '';
+  const z = ui.zoom, size = 44, arrow = d => '↑↓←→'['udlr'.indexOf(d)];
+  const fig = (draw, caption) => {
+    const c = canvasOf(size), g = c.getContext('2d');
+    g.fillStyle = '#896e6e'; g.fillRect(0, 0, size, size); draw(g);
+    const big = canvasOf(size * z), bg = big.getContext('2d'); bg.imageSmoothingEnabled = false; bg.drawImage(c, 0, 0, size * z, size * z);
+    const f = document.createElement('figure'); f.append(big);
+    f.insertAdjacentHTML('beforeend', `<figcaption>${caption}</figcaption>`); root.append(f);
+  };
+  const O = [11 - 8 * B.dx, 16 - 6 * B.dy];
+  for (const deg of [0, 20, 40, 60, 80, 90]) fig(g => {
+    const fr = frame(B.dir, deg);
+    F.drawSpr(g, fr.s, O[0] + fr.ox, O[1] + fr.oy);
+    drawHeld(g, O, fr, P, q => { const [x, y] = fr.place(q.p.bx, q.p.by, q.p.d); return { x: O[0] + x, y: O[1] + y }; });
+  }, `${deg}° over ${arrow(B.dir)}`);
+  for (const d of ['u', 'd', 'l', 'r']) fig(g => { const s = rest(d); F.drawSpr(g, s, Math.floor((size - s.w) / 2), size - s.h - 6); },
+    `fallen ${arrow(d)}`);
+}
+
+let last = null;
+function tick(now) {
+  if (ui.playing && last !== null) {
+    clock += (now - last) * ui.speed / 100;
+    if (clock >= FRAMES * 1000 / ui.fps) clock = 0;
+    show();
+  }
+  last = now;
+  requestAnimationFrame(tick);
+}
+
+function sliders(id, defs, obj) {
+  document.getElementById(id).innerHTML = Object.entries(defs).map(([k, [label, lo, hi, step]]) =>
+    `<label for="${id}-${k}">${label}</label><input type="range" id="${id}-${k}" min="${lo}" max="${hi}" step="${step}"><span class="read" id="${id}-${k}-read"></span>`).join('');
+  for (const k in defs) document.getElementById(`${id}-${k}`).oninput = e => {
+    const o = obj(); o[k] = Number(e.target.value);
+    if (k === 'first' && o.last < o.first) o.last = o.first;
+    if (k === 'last' && o.first > o.last) o.first = o.last;
+    save(); build();
+  };
+}
+sliders('ctl-box', BOX_SLIDERS, () => ui);
+sliders('ctl-flight', FLIGHT_SLIDERS, () => ui.flight);
+
+function bar() {
+  for (const [k, v] of [['dir', ui.dir], ['room', ui.room]]) document.querySelectorAll(`[data-${k}]`).forEach(b => b.setAttribute('aria-pressed', b.dataset[k] === v));
+  document.querySelectorAll('[data-fps]').forEach(b => b.setAttribute('aria-pressed', Number(b.dataset.fps) === ui.fps));
+  document.getElementById('play').textContent = ui.playing ? 'pause' : 'play';
+  document.getElementById('speed-read').textContent = `${ui.speed}%`;
+  document.getElementById('zoom-read').textContent = `${ui.zoom}×`;
+  for (const [id, defs, o] of [['ctl-box', BOX_SLIDERS, ui], ['ctl-flight', FLIGHT_SLIDERS, ui.flight]])
+    for (const k in defs) { document.getElementById(`${id}-${k}`).value = o[k]; document.getElementById(`${id}-${k}-read`).textContent = defs[k][4](o[k]); }
+  document.getElementById('source-read').textContent = `Box contents: their count from B on the Trash Spread page, poured as B into the trash cell. ` +
+    `Shadows: the Shadow Bench. Pile look: trash/look.json. The way the empty box fell is the bench's push direction: the board does not record it.`;
+}
+const step = j => { ui.playing = false; clock = (Math.max(0, Math.min(FRAMES - 1, j)) + 0.5) * 1000 / ui.fps; save(); bar(); show(); };
+document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => { ui.dir = b.dataset.dir; save(); build(); });
+document.querySelectorAll('[data-room]').forEach(b => b.onclick = () => { ui.room = b.dataset.room; save(); build(); });
+document.querySelectorAll('[data-fps]').forEach(b => b.onclick = () => { ui.fps = Number(b.dataset.fps); save(); build(); });
+document.getElementById('play').onclick = () => { ui.playing = !ui.playing; save(); bar(); };
+document.getElementById('prev').onclick = () => step(shown - 1);
+document.getElementById('next').onclick = () => step(shown + 1);
+scrub.oninput = () => step(Number(scrub.value));
+document.getElementById('slow').onclick = () => { ui.speed = Math.max(10, ui.speed - 10); save(); bar(); };
+document.getElementById('fast').onclick = () => { ui.speed = Math.min(200, ui.speed + 10); save(); bar(); };
+document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); save(); bar(); strip(); shown = -1; show(); };
+document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zoom + 1); save(); bar(); strip(); shown = -1; show(); };
+// The Trash Spread page or the Shadow Bench saving in another tab redraws this one.
+window.addEventListener('storage', e => {
+  if (e.key === SPREAD) { S = loadSpread(LOOK); build(); }
+  if (e.key === SHADE) { CAST = load(SHADE, shadowDefaults(LOOK)).cast; build(); }
+});
+build(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>

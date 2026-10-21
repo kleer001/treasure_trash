@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bag Rip Bench</title>
+<style>
+  :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --ok: #1d7a3a; --bad: #b3261e; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 18px 0 4px; }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .bar .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; }
+  button { font: inherit; padding: 4px 10px; border: 1px solid var(--ink); background: #fff; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  canvas { display: block; image-rendering: pixelated; border: 1px solid var(--line); }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  .row figure { margin: 0; } figcaption { color: var(--muted); font-size: 12px; }
+  .check { font-weight: 600; } .check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
+  .strip { display: flex; gap: 6px; flex-wrap: wrap; }
+  .strip figure { margin: 0; } .strip figcaption { text-align: center; }
+  .muted { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>Bag rip — the real tear from src/rules.js; each TRASH cell lands as its catalog pile</h1>
+<div class="bar">
+  <span class="grp">Push direction:
+    <button data-dir="u">↑</button><button data-dir="d">↓</button><button data-dir="l">←</button><button data-dir="r">→</button></span>
+  <span class="grp">Room: <button data-room="walled">walled</button><button data-room="open">open</button></span>
+  <span class="grp"><button id="play">pause</button><button id="prev">◀ frame</button><button id="next">frame ▶</button></span>
+  <span class="grp">Speed: <button id="slow">−</button><span id="speed-read"></span><button id="fast">+</button></span>
+  <span class="grp">Spinning pieces: <input type="range" id="spin" min="0" max="100" step="5"><span id="spin-read"></span></span>
+  <span class="grp">Zoom: <button id="zoom-out">−</button><span id="zoom-read"></span><button id="zoom-in">+</button></span>
+  <button id="cells">rule cells</button>
+</div>
+<div class="row">
+  <figure><canvas id="ref"></canvas><figcaption>hand-drawn reference: src/sprites.js, as the game draws it</figcaption></figure>
+  <figure><canvas id="view"></canvas><figcaption id="frame-read"></figcaption></figure>
+  <div>
+    <div class="check" id="check-start"></div>
+    <div class="check" id="check-end"></div>
+    <div class="check" id="check-cells"></div>
+    <p class="muted">Each check compares a pixel frame against a still drawn from the board that
+      <code>explain()</code> returns. 0 px differ means the animation starts and ends on the rule's board.</p>
+    <p class="muted">Pile look: trash/look.json. Each piece flies at full size on an arc over its
+      ground shadow; a spinning piece turns in 45° steps and lands in its resting turn.</p>
+  </div>
+</div>
+<h2>Pixel frames</h2><div class="strip" id="strip"></div>
+<h2>Hand-drawn reference frames</h2><div class="strip" id="strip-ref"></div>
+<script type="module">
+import { explain, TRASH, BAG, cell } from '../../src/rules.js';
+import { toState } from '../../src/format.js';
+import { cellSeed } from '../../src/stage.js';
+import { createSprites } from '../../src/sprites.js';
+import { mulberry32 } from '../../src/rng.js';
+import { createTrash, pileLayout, settle, drawPile, SHADOW } from './trash/pile.js';
+import { wallTile } from './trash/room.js';
+
+const C = 24;                                          // logical px per cell
+const FLOOR = '#896e6e', SEAM = '#584c62';
+const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
+// One entry per frame: how long it holds, and where the motion is on that frame.
+//   lunge  raccoon offset toward the bag, px     body  bag sprite, or none once it has burst
+//   k      the spill's clock, 0..1; each piece lands at its own point on it
+const FRAMES = [
+  { ms: 160, lunge: 0,  body: 'bag' },
+  { ms: 80,  lunge: 3,  body: 'bag', nudge: 1 },
+  { ms: 80,  lunge: 6,  body: 'open' },
+  { ms: 160, lunge: 6,  body: 'burst', k: 0.08 },
+  { ms: 60,  lunge: 10, k: 0.3 },
+  { ms: 60,  lunge: 15, k: 0.5 },
+  { ms: 60,  lunge: 20, k: 0.68 },
+  { ms: 60,  lunge: C,  k: 0.83 },
+  { ms: 60,  lunge: C,  k: 0.94 },
+  { ms: 680, lunge: C,  k: 1 },
+];
+// Where on the spill's clock a piece lands, and how high its arc peaks in px, by size class.
+// Heavy pieces land first and low; bits fly high and land last.
+const ARC = { hero: [0.62, 0.72, 3, 5], mid: [0.74, 0.88, 5, 8], bit: [0.86, 1, 7, 11] };
+
+const KEY = 'bag-rip-bench';
+const ui = { dir: 'u', room: 'walled', playing: true, speed: 100, zoom: 4, cells: false, spin: 50 };
+try { const saved = JSON.parse(localStorage.getItem(KEY) || '{}'); for (const k in ui) if (k in saved) ui[k] = saved[k]; } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(ui)); } catch {} };
+
+const [A, D, LOOK] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
+const LAY = { min: LOOK.min, max: LOOK.max, spill: LOOK.spill, C }, STYLE = { outline: LOOK.outline, shadow: LOOK.shadow };
+
+function drawSpr(ctx, spr, x, y) {
+  for (const [px, py, col] of spr.px) { ctx.fillStyle = col; ctx.fillRect(x + px, y + py, 1, 1); }
+}
+// A sprite stands centred on its cell, its feet one pixel above the cell's bottom edge.
+const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
+
+function floor(ctx, N) {
+  ctx.fillStyle = FLOOR; ctx.fillRect(0, 0, N * C, N * C);
+  ctx.fillStyle = SEAM;
+  for (let k = 0; k < N; k++) { ctx.fillRect(k * C + C - 1, 0, 1, N * C); ctx.fillRect(0, k * C + C - 1, N * C, 1); }
+}
+function walls(ctx, B) {
+  for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++) if (cell(B.s, x, y).wall) wallTile(ctx, x, y, C);
+}
+
+/** How piece `i` of the pile on cell (x, y) flies: when it lands, how high it arcs, how many
+ *  eighths it turns on the way. Drawn from the cell, so every frame agrees. */
+function flight(x, y, i, piece) {
+  const rnd = mulberry32((cellSeed(x, y) ^ Math.imul(i + 1, 2654435761)) >>> 0);
+  const [l0, l1, h0, h1] = ARC[piece.size], r = [rnd(), rnd(), rnd(), rnd(), rnd()];
+  const spin = r[2] * 100 < ui.spin ? (2 + Math.floor(r[3] * 5)) * (r[4] < 0.5 ? -1 : 1) : 0;
+  return { land: l0 + r[0] * (l1 - l0), height: h0 + r[1] * (h1 - h0), spin };
+}
+
+/** A piece in the air at t (0..1) of its own flight: its sprite at its ground position, and its height. */
+function inAir(B, x, y, p, fl, t) {
+  const rest = T.sprite(p.name, p.alt, p.turn), { m, k } = T.poseOf(p.name, p.turn);
+  const s = T.sprite(p.name, p.alt, T.pose(p.name, m, k - Math.round(fl.spin * (1 - t))));
+  const sx = B.bx * C + C / 2, sy = B.by * C + C - 1 - A.bag.h / 2;   // out of the bag's middle
+  const rx = x * C + p.x + rest.w / 2, ry = y * C + p.y + rest.h / 2;
+  return { s, gx: Math.round(sx + (rx - sx) * t - s.w / 2), gy: Math.round(sy + (ry - sy) * t - s.h / 2),
+           h: Math.round(fl.height * 4 * t * (1 - t)) };
+}
+
+/** A still of a board, drawn from the board alone. */
+function still(ctx, B, s) {
+  floor(ctx, B.N);
+  for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++)
+    if (cell(s, x, y).o === TRASH) drawPile(ctx, T, B.rest(x, y), x * C, y * C, STYLE);
+  walls(ctx, B);
+  for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++) if (cell(s, x, y).o === BAG) drawSpr(ctx, A.bag, ...at(A.bag, x, y));
+  drawSpr(ctx, A.raccoon, ...at(A.raccoon, s.rac.x, s.rac.y));
+}
+
+function frame(ctx, B, f) {
+  floor(ctx, B.N);
+  const flying = [];
+  if (f.k !== undefined) for (const [x, y] of [...B.cells].sort((a, b) => a[1] - b[1] || a[0] - b[0])) {
+    const pile = B.rest(x, y), down = [];
+    pile.pieces.forEach((p, i) => {
+      const fl = flight(x, y, i, p), t = Math.min(1, f.k / fl.land);
+      if (t >= 1) down.push(p); else flying.push(inAir(B, x, y, p, fl, t));
+    });
+    if (down.length) drawPile(ctx, T, { ...pile, pieces: down }, x * C, y * C, STYLE);
+  }
+  walls(ctx, B);
+  if (f.body) {
+    const spr = A[f.body], [x, y] = at(spr, B.bx, B.by);
+    drawSpr(ctx, spr, x + B.dx * (f.nudge ?? 0), y + B.dy * (f.nudge ?? 0));
+  }
+  for (const a of flying) if (a.h) for (const [px, py] of a.s.px) { ctx.fillStyle = SHADOW; ctx.fillRect(a.gx + px, a.gy + py, 1, 1); }
+  for (const a of flying) drawSpr(ctx, a.s, a.gx, a.gy - a.h);
+  const [rx, ry] = at(A.raccoon, B.bx - B.dx, B.by - B.dy);
+  drawSpr(ctx, A.raccoon, rx + B.dx * f.lunge, ry + B.dy * f.lunge);
+}
+
+/** The same frame as the game draws it today, at display size. */
+function refFrame(ctx, B, f, z) {
+  const SP = createSprites({ ctx, cell: C * z, palette: { floor: FLOOR, floorLine: SEAM } });
+  ctx.fillStyle = SEAM; ctx.fillRect(0, 0, B.N * C * z, B.N * C * z);
+  for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++) SP.floor(x, y);
+  if (f.body) SP.bag(B.bx, B.by, f.body === 'burst' ? 0.6 : 1);
+  if (f.k !== undefined) for (const [x, y] of B.cells) SP.trash(x, y, { seed: cellSeed(x, y), k: f.k, src: [B.bx, B.by] });
+  SP.raccoon(B.bx - B.dx + B.dx * f.lunge / C, B.by - B.dy + B.dy * f.lunge / C);
+}
+
+/** The board: a bag with the raccoon behind it, ready to push `dir`. A walled room puts the
+ *  tear's cells against the walls, so the spill has something to stop on. */
+function setup(dir, room) {
+  const [dx, dy] = DIRS[dir], N = room === 'walled' ? 5 : 7, b = (N - 1) / 2;
+  const rows = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) =>
+    room === 'walled' && (x === 0 || y === 0 || x === N - 1 || y === N - 1) ? '#' : '-'));
+  rows[0][0] = 'E'; rows[b][b] = '$'; rows[b - dy][b - dx] = '@';
+  const s = toState({ id: 'bench', grid: rows.map(r => r.join('')) });
+  const r = explain(s, dir, { trace: true });
+  if (!r.ok || r.kind !== 'tear') throw new Error(`no tear: ${r.reason}`);
+  const spawned = r.steps[0].spawned.filter(e => e.o === TRASH);
+  const [bx, by] = spawned[0].from;
+  const blockedOn = (cx, cy) => (x, y) => {
+    const px = cx * C + x, py = cy * C + y;
+    return px < 0 || py < 0 || px >= N * C || py >= N * C || cell(s, Math.floor(px / C), Math.floor(py / C)).wall;
+  };
+  const memo = new Map();
+  const rest = (x, y) => {
+    const key = `${x},${y}`;
+    if (!memo.has(key)) memo.set(key, settle(T, pileLayout(T, cellSeed(x, y), LAY), blockedOn(x, y)));
+    return memo.get(key);
+  };
+  return { s, r, N, dx, dy, bx, by, rest, cells: spawned.map(e => e.cells[0]) };
+}
+
+const canvasOf = side => { const c = document.createElement('canvas'); c.width = c.height = side; return c; };
+const pixels = (c, W) => c.getContext('2d').getImageData(0, 0, W, W).data;
+function differ(a, b) { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++; return n; }
+
+let B, W, shots, refs, k = 0, due = 0;
+const view = document.getElementById('view'), ref = document.getElementById('ref');
+
+function stripOf(id, cs, side) {
+  const strip = document.getElementById(id); strip.innerHTML = '';
+  cs.forEach((c, i) => {
+    const fig = document.createElement('figure'), small = canvasOf(W * 2);
+    const g = small.getContext('2d'); g.imageSmoothingEnabled = side !== W;
+    g.drawImage(c, 0, 0, W * 2, W * 2);
+    fig.append(small); fig.insertAdjacentHTML('beforeend', `<figcaption>f${i} · ${FRAMES[i].ms} ms</figcaption>`);
+    strip.append(fig);
+  });
+}
+
+function build() {
+  B = setup(ui.dir, ui.room); W = B.N * C;
+  shots = FRAMES.map(f => { const c = canvasOf(W); frame(c.getContext('2d'), B, f); return c; });
+  refs = FRAMES.map(f => { const c = canvasOf(W * ui.zoom); refFrame(c.getContext('2d'), B, f, ui.zoom); return c; });
+  const before = canvasOf(W), after = canvasOf(W);
+  still(before.getContext('2d'), B, B.s); still(after.getContext('2d'), B, B.r.next);
+  const report = (id, n, what) => {
+    const el = document.getElementById(id);
+    el.textContent = `${what}: ${n} px differ`; el.className = 'check ' + (n ? 'bad' : 'ok');
+  };
+  report('check-start', differ(pixels(shots[0], W), pixels(before, W)), 'first frame vs board before the tear');
+  report('check-end', differ(pixels(shots.at(-1), W), pixels(after, W)), 'last frame vs board after the tear');
+  const trashCells = []; for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++) if (cell(B.r.next, x, y).o === TRASH) trashCells.push(`${x},${y}`);
+  const aimed = B.cells.map(c => c.join(',')).sort();
+  const el = document.getElementById('check-cells');
+  el.textContent = `debris targets ${aimed.join(' ')} · trash on the board ${trashCells.sort().join(' ')}`;
+  el.className = 'check ' + (aimed.join() === trashCells.join() ? 'ok' : 'bad');
+  stripOf('strip', shots, W); stripOf('strip-ref', refs, W * ui.zoom);
+  k = Math.min(k, FRAMES.length - 1); due = 0; paint();
+}
+
+function paint() {
+  const z = ui.zoom;
+  for (const [cv, src] of [[view, shots[k]], [ref, refs[k]]]) {
+    if (cv.width !== W * z) { cv.width = cv.height = W * z; }
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+    g.drawImage(src, 0, 0, W * z, W * z);
+    if (ui.cells) {
+      g.strokeStyle = '#ffe680'; g.lineWidth = 2;
+      for (const [x, y] of B.cells) g.strokeRect(x * C * z + 1, y * C * z + 1, C * z - 2, C * z - 2);
+    }
+  }
+  document.getElementById('frame-read').textContent = `pixel version · frame ${k} of ${FRAMES.length - 1} · ${FRAMES[k].ms} ms`;
+}
+
+function tick(t) {
+  if (ui.playing && t >= due) {
+    k = (k + 1) % FRAMES.length; paint();
+    due = t + FRAMES[k].ms * 100 / ui.speed;
+  }
+  requestAnimationFrame(tick);
+}
+
+function bar() {
+  document.querySelectorAll('[data-dir]').forEach(b => b.setAttribute('aria-pressed', b.dataset.dir === ui.dir));
+  document.querySelectorAll('[data-room]').forEach(b => b.setAttribute('aria-pressed', b.dataset.room === ui.room));
+  document.getElementById('play').textContent = ui.playing ? 'pause' : 'play';
+  document.getElementById('speed-read').textContent = `${ui.speed}%`;
+  document.getElementById('zoom-read').textContent = `${ui.zoom}×`;
+  document.getElementById('spin').value = ui.spin;
+  document.getElementById('spin-read').textContent = `${ui.spin}%`;
+  document.getElementById('cells').setAttribute('aria-pressed', ui.cells);
+}
+const on = (id, fn, rebuild = false) => document.getElementById(id).onclick = () => { fn(); save(); bar(); rebuild ? build() : paint(); };
+document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => { ui.dir = b.dataset.dir; save(); bar(); build(); });
+document.querySelectorAll('[data-room]').forEach(b => b.onclick = () => { ui.room = b.dataset.room; save(); bar(); build(); });
+document.getElementById('spin').oninput = e => { ui.spin = Number(e.target.value); save(); bar(); build(); };
+on('play', () => { ui.playing = !ui.playing; });
+on('prev', () => { ui.playing = false; k = (k + FRAMES.length - 1) % FRAMES.length; });
+on('next', () => { ui.playing = false; k = (k + 1) % FRAMES.length; });
+on('slow', () => { ui.speed = Math.max(10, ui.speed - 10); });
+on('fast', () => { ui.speed = Math.min(300, ui.speed + 10); });
+on('zoom-out', () => { ui.zoom = Math.max(1, ui.zoom - 1); }, true);
+on('zoom-in', () => { ui.zoom = Math.min(8, ui.zoom + 1); }, true);
+on('cells', () => { ui.cells = !ui.cells; });
+bar(); build(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>

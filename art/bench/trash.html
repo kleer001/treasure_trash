@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trash Catalog</title>
+<style>
+  :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 20px 0 6px; }
+  .bar { position: sticky; top: 0; z-index: 1; background: var(--bg); display: flex; gap: 8px; align-items: center;
+         flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .bar .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; }
+  button { font: inherit; padding: 3px 9px; border: 1px solid var(--ink); background: #fff; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  canvas { display: block; image-rendering: pixelated; }
+  .items { display: flex; flex-wrap: wrap; gap: 10px; }
+  .card { border: 1px solid var(--line); background: #fff; padding: 4px; }
+  .card .alts { display: flex; gap: 2px; flex-wrap: wrap; max-width: 640px; margin-bottom: 2px; }
+  .card div.name { font-size: 12px; } .card div.meta { font-size: 11px; color: var(--muted); }
+  .muted { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>Trash catalog — item sprites, palette alternates, and seeded piles</h1>
+<div class="muted">Sprites: trash/items.json (palette-indexed). Layout and drawing: trash/pile.js. A pile is a function of its cell's seed.</div>
+<div class="bar">
+  <span class="grp">Zoom: <button id="z-">−</button><span id="z"></span><button id="z+">+</button></span>
+  <span class="grp">Bits per pile, least: <button id="lo-">−</button><span id="lo"></span><button id="lo+">+</button></span>
+  <span class="grp">most: <button id="hi-">−</button><span id="hi"></span><button id="hi+">+</button></span>
+  <span class="grp">Spill past the cell edge: <input type="range" id="spill" min="0" max="50" step="1"><span id="spill-read"></span></span>
+  <span class="grp">Trash under objects: <input type="range" id="under" min="0" max="12" step="1"><span id="under-read"></span></span>
+  <span class="grp">Seed: <button id="s-">−</button><span id="s"></span><button id="s+">+</button></span>
+  <span class="grp">Outline: <button data-outline="none">none</button><button data-outline="pile">pile</button><button data-outline="piece">piece</button></span>
+  <span class="grp">Shadow: <button data-shadow="none">none</button><button data-shadow="drop">drop</button><button data-shadow="base">base</button></span>
+  <span class="grp">Colours: <button data-pal="gold">gold only</button><button data-pal="accents">gold + 5 accents</button></span>
+  <span class="grp">Turns: <button data-diag="quarter">90° only</button><button data-diag="all">90° + 45°</button></span>
+</div>
+<h2>Piles on the alley floor</h2>
+<canvas id="board"></canvas>
+<div class="muted" id="counts"></div>
+<h2>Test room — piles against walls and objects</h2>
+<div class="muted">Walls stop trash at the wall. An object lets trash slide under it by "Trash under objects" pixels, counted in from the object's edge; the object draws on top.</div>
+<canvas id="scene"></canvas>
+<h2>Items</h2>
+<div class="items" id="items"></div>
+<script type="module">
+import { createTrash, pileLayout, settle, drawPile } from './trash/pile.js';
+import { wallTile } from './trash/room.js';
+import { cellSeed } from '../../src/stage.js';
+
+const C = 24, FLOOR = '#896e6e', SEAM = '#584c62';
+const KEY = 'trash-catalog';
+const LOOK = await fetch('trash/look.json').then(r => r.json());
+const ui = { zoom: 4, seed: 0, lo: LOOK.min, hi: LOOK.max, spill: Math.round(LOOK.spill * 100), under: LOOK.under,
+             outline: LOOK.outline, shadow: LOOK.shadow, pal: LOOK.accents ? 'accents' : 'gold', diag: LOOK.diagonals ? 'all' : 'quarter' };
+try { const saved = JSON.parse(localStorage.getItem(KEY) || '{}'); for (const k in ui) if (k in saved) ui[k] = saved[k]; } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(ui)); } catch {} };
+
+const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
+
+const [D, A, O] = await Promise.all(['trash/items.json', 'tear/assets.json', 'trash/objects.json'].map(f => fetch(f).then(r => r.json())));
+
+// The test room. W wall, p pile, @ raccoon; standing objects b bin, c can, j jug, g bag;
+// lying objects C couch (two cells), t tyre, x box. The raccoon walks, so it blocks nothing.
+const ROOM = [
+  'WWWWWWWWW',
+  'Wpp.pCCpW',
+  'Wp.j...pW',
+  'W.bpx.tpW',
+  'W..c..g.W',
+  'W.p..@..W',
+  'WWWWWWWWW',
+];
+const STAND = { b: O.bin, c: O.can, j: O.jug, g: A.bag }, LIE = { C: O.couch, t: O.tyre, x: O.box };
+const RW = ROOM[0].length, RH = ROOM.length;
+const cellsOf = ch => ROOM.flatMap((r, y) => [...r].map((c, x) => c === ch ? [x, y] : null)).filter(Boolean);
+/** Every object in the room as [sprite, x, y]: standing ones on their cell's bottom edge, lying
+ *  ones centred on the run of cells their glyph covers in its row. */
+const OBJECTS = [
+  ...Object.entries(LIE).flatMap(([ch, spr]) => {
+    const runs = [];
+    for (const [x, y] of cellsOf(ch)) { const r = runs.find(r => r.y === y && r.x1 === x - 1); if (r) r.x1 = x; else runs.push({ y, x0: x, x1: x }); }
+    return runs.map(r => [spr, r.x0 * C + Math.floor(((r.x1 - r.x0 + 1) * C - spr.w) / 2), r.y * C + Math.floor((C - spr.h) / 2)]);
+  }),
+  ...Object.entries(STAND).flatMap(([ch, spr]) => cellsOf(ch).map(([x, y]) => [spr, ...at(spr, x, y)])),
+];
+
+/** The object pixels trash may not reach: every object pixel more than `under` pixels in from
+ *  its object's edge. */
+function deepMask(under) {
+  const W = RW * C, H = RH * C;
+  let m = new Uint8Array(W * H);
+  for (const [spr, x0, y0] of OBJECTS) for (const [px, py] of spr.px) m[(y0 + py) * W + x0 + px] = 1;
+  for (let k = 0; k < under; k++) {
+    const e = new Uint8Array(W * H);
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      let all = 1;
+      for (let dy = -1; dy <= 1 && all; dy++) for (let dx = -1; dx <= 1; dx++) if (!m[(y + dy) * W + x + dx]) { all = 0; break; }
+      e[y * W + x] = all;
+    }
+    m = e;
+  }
+  return m;
+}
+
+function floor(g, cols, rows) {
+  g.fillStyle = FLOOR; g.fillRect(0, 0, cols * C, rows * C);
+  g.fillStyle = SEAM;
+  for (let k = 0; k < cols; k++) g.fillRect(k * C + C - 1, 0, 1, rows * C);
+  for (let k = 0; k < rows; k++) g.fillRect(0, k * C + C - 1, cols * C, 1);
+}
+function drawSpr(g, spr, x, y) { for (const [px, py, col] of spr.px) { g.fillStyle = col; g.fillRect(x + px, y + py, 1, 1); } }
+
+/** Draw at logical size into an offscreen canvas, then show it at the zoom. */
+function show(cv, w, h, paint) {
+  const off = document.createElement('canvas'); off.width = w; off.height = h;
+  paint(off.getContext('2d'));
+  cv.width = w * ui.zoom; cv.height = h * ui.zoom;
+  const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(off, 0, 0, cv.width, cv.height);
+}
+
+function render(items = true) {
+  const T = createTrash(D, { accents: ui.pal === 'accents', diagonals: ui.diag === 'all' });
+  const opt = { min: ui.lo, max: ui.hi, C, spill: ui.spill / 100 }, look = { outline: ui.outline, shadow: ui.shadow };
+  const seedOf = (x, y) => cellSeed(x + ui.seed * 131, y);
+
+  // Piles on the inner cells only, so a pile that spills past its cell has floor to spill onto.
+  const cols = 8, rows = 3, counts = [];
+  show(document.getElementById('board'), (cols + 2) * C, (rows + 2) * C, g => {
+    floor(g, cols + 2, rows + 2);
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      const p = pileLayout(T, seedOf(x, y), opt); counts.push(p.pieces.length);
+      drawPile(g, T, p, (x + 1) * C, (y + 1) * C, look);
+    }
+  });
+  document.getElementById('counts').textContent = `bits per pile, row by row: ${counts.join(' ')}`;
+
+  const deep = deepMask(ui.under), W = RW * C;
+  const blockedAt = (cx, cy) => (x, y) => {
+    const bx = cx * C + x, by = cy * C + y;
+    if (bx < 0 || by < 0 || bx >= W || by >= RH * C) return true;
+    return ROOM[Math.floor(by / C)][Math.floor(bx / C)] === 'W' || deep[by * W + bx] === 1;
+  };
+  show(document.getElementById('scene'), RW * C, RH * C, g => {
+    floor(g, RW, RH);
+    for (const [x, y] of cellsOf('p')) drawPile(g, T, settle(T, pileLayout(T, seedOf(x, y), opt), blockedAt(x, y)), x * C, y * C, look);
+    for (const [spr, x, y] of [...OBJECTS].sort((a, b) => a[2] + a[0].h - b[2] - b[0].h)) drawSpr(g, spr, x, y);
+    for (const [x, y] of cellsOf('W')) wallTile(g, x, y, C);
+    for (const [x, y] of cellsOf('@')) drawSpr(g, A.raccoon, ...at(A.raccoon, x, y));
+  });
+
+  const root = document.getElementById('items');
+  if (items) root.innerHTML = '';
+  for (const name of items ? T.names : []) {
+    const it = D.items[name], card = document.createElement('div'); card.className = 'card';
+    // One row of the palettes in the first turn, one row of the turns in the first palette.
+    const row = sprites => {
+      const el = document.createElement('div'); el.className = 'alts';
+      const side = Math.max(...sprites.map(s => Math.max(s.w, s.h))) + 4;
+      for (const s of sprites) {
+        const cv = document.createElement('canvas');
+        show(cv, side, side, g => { g.fillStyle = FLOOR; g.fillRect(0, 0, side, side);
+          drawSpr(g, s, Math.floor((side - s.w) / 2), Math.floor((side - s.h) / 2)); });
+        el.append(cv);
+      }
+      card.append(el);
+    };
+    const turns = T.turns(name);
+    row(it.alts.map((_, k) => T.sprite(name, k)));
+    row([...Array(turns).keys()].map(t => T.sprite(name, 0, t)));
+    card.insertAdjacentHTML('beforeend', `<div class="name">${name.replace(/_/g, ' ')}</div>
+      <div class="meta">${it.size} · ${it.kind} · ${it.px[0].length}×${it.px.length} px · ${it.alts.length} palette${it.alts.length > 1 ? 's' : ''} × ${turns} turn${turns > 1 ? 's' : ''} = ${it.alts.length * turns} variants</div>`);
+    root.append(card);
+  }
+  bar();
+}
+
+function bar() {
+  for (const k of ['zoom', 'lo', 'hi', 'seed']) document.getElementById({ zoom: 'z', lo: 'lo', hi: 'hi', seed: 's' }[k]).textContent =
+    k === 'zoom' ? `${ui.zoom}×` : ui[k];
+  for (const k of ['outline', 'shadow', 'pal']) document.querySelectorAll(`[data-${k}]`).forEach(b => b.setAttribute('aria-pressed', b.dataset[k] === ui[k]));
+  document.querySelectorAll('[data-diag]').forEach(b => b.setAttribute('aria-pressed', b.dataset.diag === ui.diag));
+  document.getElementById('under').value = ui.under;
+  document.getElementById('under-read').textContent = `${ui.under} px`;
+  document.getElementById('spill').value = ui.spill;
+  document.getElementById('spill-read').textContent = `${ui.spill}% of a cell`;
+}
+const step = (id, fn) => document.getElementById(id).onclick = () => { fn(); save(); render(); };
+step('z-', () => { ui.zoom = Math.max(1, ui.zoom - 1); });
+step('z+', () => { ui.zoom = Math.min(10, ui.zoom + 1); });
+step('lo-', () => { ui.lo = Math.max(1, ui.lo - 1); });
+step('lo+', () => { ui.lo = Math.min(ui.hi, ui.lo + 1); });
+step('hi-', () => { ui.hi = Math.max(ui.lo, ui.hi - 1); });
+step('hi+', () => { ui.hi = Math.min(40, ui.hi + 1); });
+step('s-', () => { ui.seed -= 1; });
+step('s+', () => { ui.seed += 1; });
+document.getElementById('spill').oninput = e => { ui.spill = Number(e.target.value); save(); render(false); };
+document.getElementById('under').oninput = e => { ui.under = Number(e.target.value); save(); render(false); };
+document.querySelectorAll('[data-diag]').forEach(b => b.onclick = () => { ui.diag = b.dataset.diag; save(); render(); });
+for (const k of ['outline', 'shadow', 'pal']) document.querySelectorAll(`[data-${k}]`).forEach(b =>
+  b.onclick = () => { ui[k] = b.dataset[k]; save(); render(); });
+render();
+</script>
+</body>
+</html>

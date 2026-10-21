@@ -1,0 +1,1453 @@
+{
+ "legend": {
+  ".": "empty",
+  "1234": "slot A ramp, dark to light",
+  "abcd": "slot B ramp, dark to light",
+  "wxyz": "slot C ramp, dark to light",
+  "k": "ink",
+  "h": "highlight",
+  "turn45": "false on an item whose 45-degree turn does not read"
+ },
+ "ink": "#19152b",
+ "highlight": "#f1eccb",
+ "ramps": {
+  "paper": [
+   "#584c62",
+   "#a8826e",
+   "#d6d3b0",
+   "#f1eccb"
+  ],
+  "news": [
+   "#453d51",
+   "#765c62",
+   "#a8826e",
+   "#d6d3b0"
+  ],
+  "kraft": [
+   "#453d51",
+   "#a8826e",
+   "#ca8b68",
+   "#d9ac87"
+  ],
+  "foam": [
+   "#67819e",
+   "#d6d3b0",
+   "#f1eccb",
+   "#f1eccb"
+  ],
+  "rust": [
+   "#34192b",
+   "#6f383a",
+   "#a84f38",
+   "#ca8b68"
+  ],
+  "blue": [
+   "#19152b",
+   "#244287",
+   "#3169b0",
+   "#7dafb3"
+  ],
+  "slate": [
+   "#262440",
+   "#453d51",
+   "#67819e",
+   "#d6d3b0"
+  ],
+  "teal": [
+   "#2b2d55",
+   "#67819e",
+   "#7dafb3",
+   "#f1eccb"
+  ],
+  "olive": [
+   "#19152b",
+   "#453d51",
+   "#66734e",
+   "#d6d3b0"
+  ],
+  "peach": [
+   "#6f383a",
+   "#a84f38",
+   "#ca8b68",
+   "#d9ac87"
+  ],
+  "brown": [
+   "#34192b",
+   "#6f383a",
+   "#a8826e",
+   "#d9ac87"
+  ],
+  "cream": [
+   "#765c62",
+   "#a8826e",
+   "#d6d3b0",
+   "#f1eccb"
+  ],
+  "black": [
+   "#06050e",
+   "#19152b",
+   "#453d51",
+   "#67819e"
+  ],
+  "plum": [
+   "#19152b",
+   "#34192b",
+   "#46202f",
+   "#765c62"
+  ],
+  "navy": [
+   "#0d0c1a",
+   "#2b2d55",
+   "#244287",
+   "#67819e"
+  ]
+ },
+ "accents": {
+  "yellow": {
+   "gold": "cream",
+   "ramp": [
+    "#6f5a2e",
+    "#b8913a",
+    "#e3c35a",
+    "#f1eccb"
+   ]
+  },
+  "green": {
+   "gold": "olive",
+   "ramp": [
+    "#2c3a2a",
+    "#4f7a3a",
+    "#7fa84e",
+    "#c8d68a"
+   ]
+  },
+  "pink": {
+   "gold": "peach",
+   "ramp": [
+    "#5a2438",
+    "#a84a68",
+    "#d97a92",
+    "#f1c4c4"
+   ]
+  },
+  "orange": {
+   "gold": "peach",
+   "ramp": [
+    "#6f383a",
+    "#b8582a",
+    "#e08a3c",
+    "#f1c48a"
+   ]
+  },
+  "red": {
+   "gold": "rust",
+   "ramp": [
+    "#46202f",
+    "#8c2a2e",
+    "#c8423a",
+    "#e88a6a"
+   ]
+  }
+ },
+ "items": {
+  "banana_peel": {
+   "kind": "food",
+   "size": "hero",
+   "slots": {
+    "A": "yellow",
+    "B": "brown"
+   },
+   "alts": [
+    {},
+    {
+     "A": "cream"
+    },
+    {
+     "A": "brown",
+     "B": "black"
+    }
+   ],
+   "px": [
+    "...343...",
+    "...343...",
+    "...343...",
+    "...343...",
+    "..33b33..",
+    ".334b433.",
+    ".34...43.",
+    "34.....43",
+    "2.......2"
+   ]
+  },
+  "banana": {
+   "kind": "food",
+   "size": "mid",
+   "slots": {
+    "A": "yellow",
+    "B": "brown"
+   },
+   "alts": [
+    {},
+    {
+     "A": "brown",
+     "B": "black"
+    }
+   ],
+   "px": [
+    "b.......b",
+    "34.....43",
+    ".3444443.",
+    "..33333.."
+   ]
+  },
+  "apple_core": {
+   "kind": "food",
+   "size": "mid",
+   "slots": {
+    "A": "red",
+    "B": "cream",
+    "C": "brown"
+   },
+   "alts": [
+    {},
+    {
+     "A": "green"
+    },
+    {
+     "A": "yellow"
+    },
+    {
+     "A": "rust",
+     "B": "kraft"
+    }
+   ],
+   "px": [
+    "..w..",
+    "33333",
+    ".cdc.",
+    ".ckc.",
+    ".cdc.",
+    "33333",
+    "..k.."
+   ]
+  },
+  "fish_bones": {
+   "kind": "food",
+   "size": "hero",
+   "slots": {
+    "A": "cream"
+   },
+   "alts": [
+    {},
+    {
+     "A": "paper"
+    }
+   ],
+   "px": [
+    "2..3.3.3..",
+    ".3.3.3.333",
+    "..444443k3",
+    ".3.3.3.333",
+    "2..3.3.3.."
+   ],
+   "turn45": false
+  },
+  "chicken_bone": {
+   "kind": "food",
+   "size": "mid",
+   "slots": {
+    "A": "cream"
+   },
+   "alts": [
+    {},
+    {
+     "A": "kraft"
+    }
+   ],
+   "px": [
+    "33...33",
+    ".34443.",
+    "33...33"
+   ]
+  },
+  "pizza_slice": {
+   "kind": "food",
+   "size": "hero",
+   "slots": {
+    "A": "peach",
+    "B": "yellow",
+    "C": "red"
+   },
+   "alts": [
+    {},
+    {
+     "C": "olive"
+    },
+    {
+     "C": "black"
+    }
+   ],
+   "px": [
+    "2333332",
+    "3bbxbb3",
+    ".bbbbx.",
+    ".bxbbb.",
+    "..bbb..",
+    "..bxb..",
+    "...b..."
+   ]
+  },
+  "pizza_crust": {
+   "kind": "food",
+   "size": "mid",
+   "slots": {
+    "A": "peach"
+   },
+   "alts": [
+    {},
+    {
+     "A": "brown"
+    }
+   ],
+   "px": [
+    "..3333..",
+    ".344443.",
+    "33....33"
+   ]
+  },
+  "orange_peel": {
+   "kind": "food",
+   "size": "mid",
+   "slots": {
+    "A": "orange",
+    "B": "cream"
+   },
+   "alts": [
+    {},
+    {
+     "A": "yellow"
+    },
+    {
+     "A": "green"
+    }
+   ],
+   "px": [
+    ".33..",
+    "3443.",
+    ".3b43",
+    "..3b3",
+    "...3."
+   ]
+  },
+  "egg_shell": {
+   "kind": "food",
+   "size": "bit",
+   "slots": {
+    "A": "paper",
+    "B": "cream"
+   },
+   "alts": [
+    {},
+    {
+     "A": "kraft"
+    }
+   ],
+   "px": [
+    ".33.",
+    "3bb3",
+    "3bc3",
+    ".3.3"
+   ]
+  },
+  "corn_cob": {
+   "kind": "food",
+   "size": "mid",
+   "slots": {
+    "A": "yellow",
+    "C": "brown"
+   },
+   "alts": [
+    {},
+    {
+     "A": "kraft"
+    }
+   ],
+   "px": [
+    ".343434.",
+    "3434343w",
+    ".343434."
+   ]
+  },
+  "bread_heel": {
+   "kind": "food",
+   "size": "mid",
+   "slots": {
+    "A": "brown",
+    "B": "cream"
+   },
+   "alts": [
+    {},
+    {
+     "B": "kraft"
+    },
+    {
+     "A": "olive",
+     "B": "olive"
+    }
+   ],
+   "px": [
+    ".3333.",
+    "3cddc3",
+    "3cccc3",
+    "3cccc3",
+    ".2222."
+   ]
+  },
+  "lettuce": {
+   "kind": "food",
+   "size": "mid",
+   "layer": "flat",
+   "slots": {
+    "A": "green"
+   },
+   "alts": [
+    {},
+    {
+     "A": "olive"
+    },
+    {
+     "A": "kraft"
+    }
+   ],
+   "px": [
+    ".3.3..",
+    "34343.",
+    ".44433",
+    "3443.3",
+    ".33..."
+   ]
+  },
+  "watermelon_rind": {
+   "kind": "food",
+   "size": "mid",
+   "slots": {
+    "A": "green",
+    "B": "pink",
+    "C": "cream"
+   },
+   "alts": [
+    {}
+   ],
+   "px": [
+    "..bbbb..",
+    ".byyyyb.",
+    "3yyyyyy3",
+    ".333333."
+   ]
+  },
+  "noodles": {
+   "kind": "food",
+   "size": "mid",
+   "slots": {
+    "A": "cream"
+   },
+   "alts": [
+    {},
+    {
+     "A": "yellow"
+    },
+    {
+     "A": "peach"
+    }
+   ],
+   "px": [
+    "3..33.",
+    ".33..3",
+    "3..3.3",
+    ".33.3."
+   ]
+  },
+  "food_chunk": {
+   "kind": "food",
+   "size": "bit",
+   "slots": {
+    "A": "brown"
+   },
+   "alts": [
+    {},
+    {
+     "A": "peach"
+    },
+    {
+     "A": "olive"
+    },
+    {
+     "A": "cream"
+    },
+    {
+     "A": "red"
+    }
+   ],
+   "px": [
+    ".3.",
+    "344",
+    "33."
+   ]
+  },
+  "crumbs": {
+   "kind": "food",
+   "size": "bit",
+   "slots": {
+    "A": "brown"
+   },
+   "alts": [
+    {},
+    {
+     "A": "kraft"
+    }
+   ],
+   "px": [
+    "3.2",
+    "...",
+    ".3."
+   ]
+  },
+  "tea_bag": {
+   "kind": "food",
+   "size": "mid",
+   "slots": {
+    "A": "kraft",
+    "B": "paper"
+   },
+   "alts": [
+    {},
+    {
+     "A": "brown"
+    }
+   ],
+   "px": [
+    ".b..",
+    "..b.",
+    "3333",
+    "3443",
+    "3433",
+    "2332"
+   ]
+  },
+  "takeout_pail": {
+   "kind": "container",
+   "size": "hero",
+   "slots": {
+    "A": "paper",
+    "B": "red",
+    "C": "slate"
+   },
+   "alts": [
+    {},
+    {
+     "B": "blue"
+    }
+   ],
+   "px": [
+    "..xxx..",
+    ".x...x.",
+    "4444444",
+    "3444443",
+    ".3bbb3.",
+    ".34443.",
+    "..333.."
+   ]
+  },
+  "foam_clamshell": {
+   "kind": "container",
+   "size": "hero",
+   "slots": {
+    "A": "foam"
+   },
+   "alts": [
+    {}
+   ],
+   "px": [
+    ".333333.",
+    "34444443",
+    "34444443",
+    "32222223",
+    "34444443",
+    ".333333."
+   ]
+  },
+  "pizza_box": {
+   "kind": "container",
+   "size": "hero",
+   "layer": "flat",
+   "slots": {
+    "A": "kraft",
+    "B": "brown"
+   },
+   "alts": [
+    {},
+    {
+     "A": "paper"
+    }
+   ],
+   "px": [
+    "22222222",
+    "23333332",
+    "2333b332",
+    "233bb332",
+    "23333342",
+    "23333332",
+    "22222222"
+   ]
+  },
+  "coffee_cup": {
+   "kind": "container",
+   "size": "hero",
+   "slots": {
+    "A": "paper",
+    "B": "kraft",
+    "C": "black"
+   },
+   "alts": [
+    {},
+    {
+     "C": "paper"
+    },
+    {
+     "A": "red",
+     "C": "paper"
+    }
+   ],
+   "px": [
+    "..3bb3xw",
+    ".34bb4xw",
+    "334bb4xw",
+    ".34bb4xw",
+    "..3bb3xw"
+   ]
+  },
+  "yogurt_cup": {
+   "kind": "container",
+   "size": "mid",
+   "slots": {
+    "A": "pink",
+    "B": "slate"
+   },
+   "alts": [
+    {},
+    {
+     "A": "blue"
+    },
+    {
+     "A": "yellow"
+    },
+    {
+     "A": "paper"
+    }
+   ],
+   "px": [
+    ".333.",
+    "3bbb3",
+    "3bcb3",
+    "3bbd3",
+    ".333."
+   ]
+  },
+  "juice_box": {
+   "kind": "container",
+   "size": "mid",
+   "slots": {
+    "A": "red",
+    "B": "paper"
+   },
+   "alts": [
+    {},
+    {
+     "A": "orange"
+    },
+    {
+     "A": "green"
+    },
+    {
+     "A": "blue"
+    }
+   ],
+   "px": [
+    "...b.",
+    "..b..",
+    "33333",
+    "34443",
+    "3hhh3",
+    "34443",
+    "33333"
+   ]
+  },
+  "milk_carton": {
+   "kind": "container",
+   "size": "hero",
+   "slots": {
+    "A": "blue",
+    "B": "paper"
+   },
+   "alts": [
+    {},
+    {
+     "A": "red"
+    },
+    {
+     "A": "green"
+    },
+    {
+     "A": "yellow"
+    }
+   ],
+   "px": [
+    "..22..",
+    ".2332.",
+    "244442",
+    "bccccb",
+    "b3333b",
+    "b4444b",
+    "bccccb",
+    "bccccb",
+    "bbbbbb"
+   ]
+  },
+  "egg_carton": {
+   "kind": "container",
+   "size": "mid",
+   "slots": {
+    "A": "slate"
+   },
+   "alts": [
+    {},
+    {
+     "A": "kraft"
+    },
+    {
+     "A": "blue"
+    }
+   ],
+   "px": [
+    ".33.33.",
+    "3443443",
+    "3223223",
+    ".33.33."
+   ]
+  },
+  "fry_carton": {
+   "kind": "container",
+   "size": "mid",
+   "slots": {
+    "A": "red",
+    "B": "yellow"
+   },
+   "alts": [
+    {}
+   ],
+   "px": [
+    ".b.b.",
+    "bcbcb",
+    "33333",
+    "34443",
+    ".333."
+   ]
+  },
+  "burger_wrapper": {
+   "kind": "container",
+   "size": "mid",
+   "layer": "flat",
+   "slots": {
+    "A": "paper",
+    "B": "kraft"
+   },
+   "alts": [
+    {},
+    {
+     "A": "slate"
+    },
+    {
+     "A": "yellow"
+    }
+   ],
+   "px": [
+    ".33..",
+    "3443.",
+    "34b43",
+    ".3443",
+    "..33."
+   ]
+  },
+  "soda_can": {
+   "kind": "can",
+   "size": "hero",
+   "slots": {
+    "A": "red",
+    "B": "slate"
+   },
+   "alts": [
+    {},
+    {
+     "A": "blue"
+    },
+    {
+     "A": "green"
+    },
+    {
+     "A": "black"
+    },
+    {
+     "A": "orange"
+    },
+    {
+     "A": "slate"
+    },
+    {
+     "A": "yellow"
+    }
+   ],
+   "px": [
+    ".333333.",
+    "c44h444d",
+    "c333333d",
+    ".222222."
+   ]
+  },
+  "crushed_can": {
+   "kind": "can",
+   "size": "mid",
+   "slots": {
+    "A": "red",
+    "B": "slate"
+   },
+   "alts": [
+    {},
+    {
+     "A": "blue"
+    },
+    {
+     "A": "green"
+    },
+    {
+     "A": "black"
+    },
+    {
+     "A": "orange"
+    },
+    {
+     "A": "slate"
+    }
+   ],
+   "px": [
+    ".33c..",
+    "3443d.",
+    ".32443",
+    "d3443.",
+    "..c33."
+   ]
+  },
+  "tin_can": {
+   "kind": "can",
+   "size": "mid",
+   "slots": {
+    "A": "red",
+    "B": "slate"
+   },
+   "alts": [
+    {},
+    {
+     "A": "green"
+    },
+    {
+     "A": "blue"
+    },
+    {
+     "A": "yellow"
+    },
+    {
+     "A": "paper"
+    }
+   ],
+   "px": [
+    "c33333c",
+    "d44h44d",
+    "d33333d",
+    "c22222c"
+   ]
+  },
+  "tin_lid": {
+   "kind": "can",
+   "size": "bit",
+   "slots": {
+    "B": "slate"
+   },
+   "alts": [
+    {}
+   ],
+   "px": [
+    ".cd.",
+    "cddc",
+    "dcdc",
+    ".dc."
+   ]
+  },
+  "plastic_bottle": {
+   "kind": "bottle",
+   "size": "hero",
+   "slots": {
+    "A": "teal",
+    "B": "blue",
+    "C": "paper"
+   },
+   "alts": [
+    {},
+    {
+     "B": "red"
+    },
+    {
+     "A": "green",
+     "B": "green"
+    },
+    {
+     "A": "blue",
+     "B": "paper"
+    }
+   ],
+   "px": [
+    ".333333...",
+    "34yyyy433b",
+    "3yyyyy433b",
+    ".333333..."
+   ]
+  },
+  "glass_bottle": {
+   "kind": "bottle",
+   "size": "mid",
+   "slots": {
+    "A": "olive"
+   },
+   "alts": [
+    {},
+    {
+     "A": "brown"
+    },
+    {
+     "A": "teal"
+    }
+   ],
+   "px": [
+    ".33333...",
+    "3444h4333",
+    ".33333..."
+   ]
+  },
+  "glass_shard": {
+   "kind": "bottle",
+   "size": "bit",
+   "slots": {
+    "A": "teal"
+   },
+   "alts": [
+    {},
+    {
+     "A": "olive"
+    },
+    {
+     "A": "brown"
+    }
+   ],
+   "px": [
+    "4..",
+    "h4.",
+    ".33"
+   ]
+  },
+  "bottle_cap": {
+   "kind": "bottle",
+   "size": "bit",
+   "slots": {
+    "A": "red"
+   },
+   "alts": [
+    {},
+    {
+     "A": "blue"
+    },
+    {
+     "A": "yellow"
+    },
+    {
+     "A": "slate"
+    },
+    {
+     "A": "green"
+    }
+   ],
+   "px": [
+    ".3.",
+    "3h3",
+    ".3."
+   ]
+  },
+  "screw_cap": {
+   "kind": "bottle",
+   "size": "bit",
+   "slots": {
+    "A": "blue"
+   },
+   "alts": [
+    {},
+    {
+     "A": "red"
+    },
+    {
+     "A": "paper"
+    },
+    {
+     "A": "green"
+    }
+   ],
+   "px": [
+    "34",
+    "23"
+   ]
+  },
+  "pull_tab": {
+   "kind": "can",
+   "size": "bit",
+   "slots": {
+    "B": "slate"
+   },
+   "alts": [
+    {}
+   ],
+   "px": [
+    "cd.",
+    "c.d",
+    ".cd"
+   ]
+  },
+  "foil_ball": {
+   "kind": "can",
+   "size": "bit",
+   "slots": {
+    "B": "slate"
+   },
+   "alts": [
+    {}
+   ],
+   "px": [
+    "cd.",
+    "dhc",
+    ".dc"
+   ]
+  },
+  "six_pack_ring": {
+   "kind": "bottle",
+   "size": "mid",
+   "slots": {
+    "A": "teal"
+   },
+   "alts": [
+    {}
+   ],
+   "px": [
+    ".3..3..3.",
+    "3.33.33.3",
+    ".3..3..3."
+   ]
+  },
+  "battery": {
+   "kind": "can",
+   "size": "bit",
+   "slots": {
+    "A": "black",
+    "B": "slate",
+    "C": "orange"
+   },
+   "alts": [
+    {},
+    {
+     "A": "blue",
+     "C": "slate"
+    }
+   ],
+   "px": [
+    "dyy333",
+    "dyy222"
+   ]
+  },
+  "paper_ball": {
+   "kind": "paper",
+   "size": "mid",
+   "slots": {
+    "A": "paper"
+   },
+   "alts": [
+    {},
+    {
+     "A": "news"
+    },
+    {
+     "A": "yellow"
+    },
+    {
+     "A": "teal"
+    }
+   ],
+   "px": [
+    ".343.",
+    "34433",
+    "43344",
+    "34423",
+    ".332."
+   ]
+  },
+  "receipt": {
+   "kind": "paper",
+   "size": "mid",
+   "slots": {
+    "A": "paper"
+   },
+   "alts": [
+    {}
+   ],
+   "px": [
+    "44.",
+    "424",
+    "434",
+    "424",
+    "434",
+    ".42",
+    ".4."
+   ]
+  },
+  "newspaper": {
+   "kind": "paper",
+   "size": "mid",
+   "layer": "flat",
+   "slots": {
+    "A": "news"
+   },
+   "alts": [
+    {}
+   ],
+   "px": [
+    "444443",
+    "422424",
+    "444444",
+    "424224",
+    ".44443"
+   ]
+  },
+  "napkin": {
+   "kind": "paper",
+   "size": "mid",
+   "layer": "flat",
+   "slots": {
+    "A": "paper"
+   },
+   "alts": [
+    {},
+    {
+     "A": "kraft"
+    }
+   ],
+   "px": [
+    ".444.",
+    "44344",
+    "43444",
+    ".44.4"
+   ]
+  },
+  "paper_bag": {
+   "kind": "paper",
+   "size": "hero",
+   "layer": "flat",
+   "slots": {
+    "A": "kraft"
+   },
+   "alts": [
+    {},
+    {
+     "A": "paper"
+    }
+   ],
+   "px": [
+    ".3k3k3.",
+    "3kkkkk3",
+    "3444443",
+    "3333333",
+    "3444443",
+    "3444443",
+    "3444443",
+    "3444443",
+    ".22222."
+   ]
+  },
+  "chip_bag": {
+   "kind": "paper",
+   "size": "hero",
+   "slots": {
+    "A": "red",
+    "B": "cream"
+   },
+   "alts": [
+    {},
+    {
+     "A": "blue"
+    },
+    {
+     "A": "green"
+    },
+    {
+     "A": "yellow"
+    },
+    {
+     "A": "plum"
+    },
+    {
+     "A": "orange"
+    }
+   ],
+   "px": [
+    "2.3.3.2",
+    "3444443",
+    "34cdc43",
+    "34ccc43",
+    "3444443",
+    "2.3.3.2"
+   ]
+  },
+  "candy_wrapper": {
+   "kind": "paper",
+   "size": "mid",
+   "slots": {
+    "A": "red"
+   },
+   "alts": [
+    {},
+    {
+     "A": "blue"
+    },
+    {
+     "A": "yellow"
+    },
+    {
+     "A": "green"
+    },
+    {
+     "A": "pink"
+    },
+    {
+     "A": "slate"
+    }
+   ],
+   "px": [
+    "3.333.3",
+    "3344433",
+    "3.333.3"
+   ]
+  },
+  "straw": {
+   "kind": "plastic",
+   "size": "mid",
+   "slots": {
+    "A": "paper",
+    "B": "red"
+   },
+   "alts": [
+    {},
+    {
+     "B": "blue"
+    },
+    {
+     "A": "red",
+     "B": "red"
+    },
+    {
+     "A": "green",
+     "B": "paper"
+    }
+   ],
+   "px": [
+    "3",
+    "c",
+    "3",
+    "c",
+    "3",
+    "c",
+    "3"
+   ]
+  },
+  "fork": {
+   "kind": "plastic",
+   "size": "mid",
+   "slots": {
+    "A": "paper"
+   },
+   "alts": [
+    {},
+    {
+     "A": "black"
+    }
+   ],
+   "px": [
+    "4.4",
+    "444",
+    ".4.",
+    ".4.",
+    ".4.",
+    ".3."
+   ]
+  },
+  "spoon": {
+   "kind": "plastic",
+   "size": "mid",
+   "slots": {
+    "A": "paper"
+   },
+   "alts": [
+    {},
+    {
+     "A": "black"
+    }
+   ],
+   "px": [
+    ".4.",
+    "434",
+    ".4.",
+    ".4.",
+    ".4.",
+    ".3."
+   ]
+  },
+  "chopsticks": {
+   "kind": "plastic",
+   "size": "mid",
+   "slots": {
+    "A": "kraft"
+   },
+   "alts": [
+    {}
+   ],
+   "px": [
+    "4.4",
+    "4.4",
+    "4.4",
+    "3.4",
+    "3.3",
+    "3.3",
+    "3.3",
+    "2.2"
+   ]
+  },
+  "rubber_band": {
+   "kind": "plastic",
+   "size": "bit",
+   "slots": {
+    "A": "peach"
+   },
+   "alts": [
+    {},
+    {
+     "A": "red"
+    },
+    {
+     "A": "blue"
+    }
+   ],
+   "px": [
+    ".33.",
+    "3..3",
+    ".33."
+   ]
+  },
+  "twist_tie": {
+   "kind": "plastic",
+   "size": "bit",
+   "slots": {
+    "A": "green"
+   },
+   "alts": [
+    {},
+    {
+     "A": "red"
+    },
+    {
+     "A": "paper"
+    }
+   ],
+   "px": [
+    "3443"
+   ]
+  },
+  "tp_tube": {
+   "kind": "paper",
+   "size": "mid",
+   "slots": {
+    "A": "kraft"
+   },
+   "alts": [
+    {}
+   ],
+   "px": [
+    ".33333.",
+    "k444443",
+    ".22222."
+   ]
+  },
+  "sock": {
+   "kind": "plastic",
+   "size": "hero",
+   "slots": {
+    "A": "paper",
+    "B": "slate"
+   },
+   "alts": [
+    {},
+    {
+     "A": "black",
+     "B": "slate"
+    },
+    {
+     "A": "red",
+     "B": "paper"
+    },
+    {
+     "A": "blue",
+     "B": "paper"
+    }
+   ],
+   "px": [
+    "333..",
+    "343..",
+    "343..",
+    "343..",
+    "3433.",
+    "34443",
+    ".bbb3"
+   ]
+  },
+  "bag_scrap": {
+   "kind": "plastic",
+   "size": "mid",
+   "layer": "flat",
+   "slots": {
+    "A": "black"
+   },
+   "alts": [
+    {},
+    {
+     "A": "slate"
+    }
+   ],
+   "px": [
+    ".22..",
+    "2342.",
+    ".2322",
+    "..2.2"
+   ]
+  }
+ }
+}

@@ -1,0 +1,14 @@
+{
+  "min": 8,
+  "max": 23,
+  "spill": 0.2,
+  "under": 2,
+  "outline": "none",
+  "shadow": "base",
+  "accents": true,
+  "diagonals": true,
+  "spread": { "seed": 0, "wrap": "spill", "hues": "piece",
+              "edges": { "min": 10, "max": 25, "knit": 6, "spill": 20, "falloff": 20, "rough": 6, "jitter": 100 } },
+  "flight": { "launch": 60, "first": 200, "last": 460, "spread": 30, "far": 60, "heavy": 50, "arc": 8, "spin": 50, "turns": 8, "hold": 700 },
+  "cast": { "spread": 3, "faint": 35, "height": 14, "curve": 10, "soft": 2, "round": 50, "slant": 0, "light": "se", "blend": "smooth" }
+}
