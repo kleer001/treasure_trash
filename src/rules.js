@@ -229,7 +229,8 @@ export const TERRAINS = 7;
 // `water` and `bridge` keep their own flags: the level format, the renderer and every pipeline
 // tool read them by name, and the lanes added since ride in `ter` beside them. One resolver, so
 // no caller has to know which of the two a lane happens to live in.
-export const terrainOf = c => (c.water ? WATER : c.bridge ? BRIDGE : c.ter ?? DRY);
+const terrainFrom = (water, bridge, ter) => (water ? WATER : bridge ? BRIDGE : ter ?? DRY);
+export const terrainOf = c => terrainFrom(c.water, c.bridge, c.ter);
 
 // A cell nothing can be dragged off again. The permanence is the piece.
 export const isTar = c => c.ter === TAR;
@@ -2186,6 +2187,10 @@ const SEP = '#';                        // below 65, which is the floor every la
 
 // One pass with lazy label maps: this runs once per state generated, and most boards have
 // neither furniture nor a cart.
+//
+// Each cell's fields are walked once with for-in rather than read one by one. A cell carries
+// only the fields it uses, so a board holds cells of many shapes, and reading a field a cell
+// does not have is the slow path; measured, the walk halved the cost of a key.
 export const stateKey = s => {
   let kinds = '', pids = '', carts = '', links = '', holds = '';
   let pidLabels = null, cartLabels = null;
@@ -2194,26 +2199,38 @@ export const stateKey = s => {
     const row = s.cells[y];
     for (let x = 0; x < s.cols; x++) {
       const c = row[x];
-      kinds += String.fromCharCode(65 + (c.o * TERRAINS + terrainOf(c)) * 2 + (c.cart !== undefined ? 1 : 0));
-      if (c.pid !== undefined) {
-        pidLabels ??= new Map();
-        if (!pidLabels.has(c.pid)) pidLabels.set(c.pid, pidLabels.size);
-        pids += String.fromCharCode(65 + pidLabels.get(c.pid));
+      let o, water, bridge, ter, cart, pid, grip;
+      for (const k in c) {
+        switch (k) {
+          case 'o': o = c[k]; break;
+          case 'water': water = c[k]; break;
+          case 'bridge': bridge = c[k]; break;
+          case 'ter': ter = c[k]; break;
+          case 'cart': cart = c[k]; break;
+          case 'pid': pid = c[k]; break;
+          case 'grip': grip = c[k]; break;
+        }
       }
-      if (c.cart !== undefined) {
+      kinds += String.fromCharCode(65 + (o * TERRAINS + terrainFrom(water, bridge, ter)) * 2 + (cart !== undefined ? 1 : 0));
+      if (pid !== undefined) {
+        pidLabels ??= new Map();
+        if (!pidLabels.has(pid)) pidLabels.set(pid, pidLabels.size);
+        pids += String.fromCharCode(65 + pidLabels.get(pid));
+      }
+      if (cart !== undefined) {
         cartLabels ??= new Map();
-        if (!cartLabels.has(c.cart)) cartLabels.set(c.cart, cartLabels.size);
-        carts += String.fromCharCode(65 + cartLabels.get(c.cart) * CART_KINDS + cartKindOf(c));
+        if (!cartLabels.has(cart)) cartLabels.set(cart, cartLabels.size);
+        carts += String.fromCharCode(65 + cartLabels.get(cart) * CART_KINDS + cartKindOf(c));
       }
       // What is hooked to what is board state: the same pieces in the same cells, one pair
       // linked and one pair not, are two different boards and play differently.
-      if (c.grip !== undefined) links += String.fromCharCode(78 + c.grip);
+      if (grip !== undefined) links += String.fromCharCode(78 + grip);
       // What a carried barrow is holding, and what THAT is holding. Variable length, so each
       // one is written with its own count — the cells it belongs to are the ones the kinds lane
       // already says hold a carried barrow, in this same order, and every one of them writes a
       // count even when it is nothing. Two boards differing only in what is stowed out of sight
       // are two boards, and without this the solver would take the second for the first.
-      if (isCarriedBarrow(c.o)) {
+      if (isCarriedBarrow(o)) {
         const h = c.hold ?? [];
         holds += String.fromCharCode(65 + h.length);
         for (const o of h) holds += String.fromCharCode(65 + o);
