@@ -16,6 +16,8 @@ Run `./run.sh`, then open a page under `/art/bench/`.
 | `can.html` | The trash can: upright with a bag in it, tipped by a shove, the bag tumbling out into the next cell. |
 | `jug.html` | The water jug: upright and full, tipped by a shove, pouring a puddle that fills the next cell. |
 | `pane.html` | The glass pane: toppled by a shove, shattering into the shards that lie in the next cell. |
+| `water.html` | Trash on water: a bag torn beside a canal; what lands in the water splashes, soaks through and packs the canal into a crossing. |
+| `crossing.html` | The crossing's edge: how far it breaks up into the open water it meets, and in what pattern. The Trash on Water bench reads these settings. |
 | `tear.html` | The bag rip, with mound piles. |
 
 Each page saves its controls in `localStorage` under a `trash-*` key and reads the others'
@@ -41,7 +43,7 @@ bench takes it from its own push direction.
 | `trash/box.js` | The recycling box drawings and what a full box holds. |
 | `trash/can.js` | The trash can drawings, where its bag stands, and the turn of a sprite in the picture. |
 | `trash/jug.js` | The water jug drawings at each water level, and its fall toward the viewer or away, traced from the round solid its rows describe. |
-| `trash/water.js` | A water cell seen from above. |
+| `trash/water.js` | A water cell seen from above, the crossing trash packs it into, the fade where a crossing meets open water, and the colour trash takes on when soaked. |
 | `trash/pane.js` | The pane drawings, and the shards a glass cell holds. |
 | `trash/settings.js` | The saved settings each page reads. |
 | `trash/objects.json` | Room objects cut from pixel-art renders, for the catalog's test room. |

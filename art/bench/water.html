@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trash on Water Bench</title>
+<style>
+  :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --ok: #1d7a3a; --bad: #b3261e; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 0 0 6px; }
+  .bar { position: sticky; top: 0; z-index: 1; background: var(--bg); display: flex; gap: 8px; align-items: center;
+         flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .bar .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; }
+  button { font: inherit; padding: 3px 9px; border: 1px solid var(--ink); background: #fff; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  canvas { display: block; image-rendering: pixelated; border: 1px solid var(--line); }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  .ctl { display: grid; grid-template-columns: auto 220px auto; gap: 4px 8px; align-items: center; font-size: 13px; }
+  .ctl input { width: 100%; }
+  .ctl .read { min-width: 130px; color: var(--muted); }
+  .check { font-weight: 600; font-size: 13px; } .check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
+  .muted { color: var(--muted); font-size: 12px; }
+  #scrub { width: 260px; }
+</style>
+</head>
+<body>
+<h1>Trash on water — a bag torn beside a canal: what lands on the water splashes, soaks and packs the canal into a crossing</h1>
+<div class="muted" id="piles-read"></div>
+<div class="bar">
+  <span class="grp">Push direction:
+    <button data-dir="u">↑</button><button data-dir="d">↓</button><button data-dir="l">←</button><button data-dir="r">→</button></span>
+  <span class="grp">Room: <button data-room="walled">walled</button><button data-room="open">open</button></span>
+  <span class="grp">Canal: <button data-canal="across">across the push</button><button data-canal="along">along the push</button></span>
+  <span class="grp"><button id="play">pause</button><button id="prev">◀ frame</button><button id="next">frame ▶</button>
+    <input type="range" id="scrub" min="0" step="1"></span>
+  <span class="grp">Playback speed: <button id="slow">−</button><span id="speed-read"></span><button id="fast">+</button></span>
+  <span class="grp">Frame rate: <button data-fps="60">60</button><button data-fps="30">30</button><button data-fps="24">24</button><button data-fps="12">12</button></span>
+  <span class="grp">Zoom: <button id="zoom-out">−</button><span id="zoom-read"></span><button id="zoom-in">+</button></span>
+</div>
+<div class="row">
+  <div><canvas id="view"></canvas><div class="muted" id="frame-read"></div></div>
+  <div>
+    <h2>Water</h2>
+    <div class="ctl" id="ctl"></div>
+    <p class="muted" id="stats"></p>
+    <div class="check" id="check-start"></div>
+    <div class="check" id="check-end"></div>
+    <div class="check" id="check-cells"></div>
+    <div class="check" id="check-filled"></div>
+  </div>
+</div>
+<script type="module">
+import { explain, cell, BAG, TRASH } from '../../src/rules.js';
+import { toState } from '../../src/format.js';
+import { createTrash, settle, ORDER } from './trash/pile.js';
+import { createFlight, C, KEYS, TEAR } from './trash/flight.js';
+import { spreadPiles, hash } from './trash/spread.js';
+import { canal, soaked } from './trash/water.js';
+import { load, loadSpread, save as store, SPREAD, FLIGHT, flightDefaults, SHADE, shadowDefaults, CROSSING, crossingDefaults } from './trash/settings.js';
+
+const KEY = 'trash-water';
+const SLIDERS = {
+  splash: ['A splash lasts', 100, 1200, 20, v => `${v} ms`],
+  ring: ['Its ring spreads', 1, 12, 1, v => `${v} px past the piece`],
+  soak: ['A piece soaks through over', 0, 1500, 20, v => `${v} ms from landing`],
+  pack: ['The canal packs into a crossing', 0, 1500, 20, v => `${v} ms after its last piece lands`],
+  hold: ['Hold the last frame', 100, 2000, 50, v => `${v} ms`],
+};
+const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
+const LIGHT = '#7dafb3', SHINE = '#f1eccb', WET_SHADOW = '#2b2d55';
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+
+const [A, D, LOOK] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const ui = load(KEY, { dir: 'r', room: 'open', canal: 'across', playing: true, speed: 100, zoom: 4, fps: 30,
+  splash: 360, ring: 5, soak: 500, pack: 500, hold: 700 });
+const save = () => store(KEY, ui);
+const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
+const F = createFlight({ T, A, STYLE: { outline: LOOK.outline, shadow: LOOK.shadow }, OBJ: { [BAG]: A.bag } });
+let S = loadSpread(LOOK);                                   // the Trash Spread page's settings; its B panel lays the piles
+let FL = load(FLIGHT, flightDefaults(LOOK));                // the Landing Bench's flight
+let CAST = load(SHADE, shadowDefaults(LOOK)).cast;          // the Shadow Bench's shadow
+let EDGE = load(CROSSING, crossingDefaults());              // the Crossing Edge page's crossing
+
+const canvasOf = side => { const c = document.createElement('canvas'); c.width = c.height = side; return c; };
+const pixels = (c, W) => c.getContext('2d').getImageData(0, 0, W, W).data;
+function differ(a, b) { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++; return n; }
+const clamp = v => Math.max(0, Math.min(1, v));
+const hex = (d, i) => '#' + [d[i], d[i + 1], d[i + 2]].map(v => v.toString(16).padStart(2, '0')).join('');
+
+/** The bag with the raccoon behind it, ready to push, and a canal that crosses the push just past
+ *  the bag or runs beside it along the push; the tear `explain()` makes of it; and the piles its
+ *  trash makes, on dry floor and in the water cells the tear filled. */
+function setup() {
+  const [dx, dy] = DIRS[ui.dir], N = ui.room === 'walled' ? 5 : 7, b = (N - 1) / 2, [px, py] = [-dy, dx];
+  const wall = (x, y) => ui.room === 'walled' && (x === 0 || y === 0 || x === N - 1 || y === N - 1);
+  const inCanal = (x, y) => ui.canal === 'across' ? (dx ? x === b + dx : y === b + dy) : (dx ? y === b + py : x === b + px);
+  const put = { [`${b},${b}`]: '$', [`${b - dx},${b - dy}`]: '@', '0,0': 'E' };
+  const grid = [], water = [];
+  for (let y = 0; y < N; y++) {
+    grid.push(Array.from({ length: N }, (_, x) => put[`${x},${y}`] ?? (wall(x, y) ? '#' : '-')).join(''));
+    water.push(Array.from({ length: N }, (_, x) => !wall(x, y) && inCanal(x, y) ? '~' : '-').join(''));
+  }
+  const s = toState({ id: 'bench', grid, water }), r = explain(s, ui.dir, { trace: true });
+  if (!r.ok || r.kind !== 'tear') throw new Error(`no tear: ${r.reason}`);
+  const next = r.next, on = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
+  const kind = (x, y) => !on(x, y) || cell(next, x, y).wall ? 'out' : cell(next, x, y).bridge ? 'filled' : cell(next, x, y).water ? 'water'
+    : cell(next, x, y).o === TRASH ? 'trash' : 'floor';
+  const cells = [], filled = [], dry = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    if (kind(x, y) === 'trash') { cells.push([x, y]); dry.push([x, y]); }
+    if (kind(x, y) === 'filled') { cells.push([x, y]); filled.push([x, y]); }
+  }
+  // Trash on the floor stays off the water, and trash in the water stays in the cell it filled.
+  const piles = spreadPiles(T, 'edges', S.edges, { C, W: N, H: N, cells, isTrash: (x, y) => ['trash', 'filled'].includes(kind(x, y)), seed: S.seed, hues: S.hues });
+  for (const [k, pile] of piles) {
+    const [cx, cy] = k.split(',').map(Number), own = kind(cx, cy), floor = own === 'trash';
+    piles.set(k, settle(T, pile, (x, y) => {
+      const at = kind(Math.floor((cx * C + x) / C), Math.floor((cy * C + y) / C));
+      return floor ? !['trash', 'floor'].includes(at) : at !== 'filled';
+    }));
+  }
+  const isFilled = (x, y) => filled.some(([a, c]) => a === x && c === y);
+  const pieces = cells.flatMap(([x, y]) => (piles.get(`${x},${y}`)?.pieces ?? []).map((p, i) => ({ cx: x, cy: y, i, p, wet: isFilled(x, y) })));
+  const spawned = r.steps[0].spawned.filter(e => e.o === TRASH);
+  const middle = { x: b * C + C / 2, y: b * C + C - 1 - A.bag.h / 2 };
+  // Each water pixel open and packed, and the order it packs in: out from the middle of the cell
+  // that packs it, ragged.
+  const canalPx = [...canal(T, N, C, (x, y) => ({ filled: 'crossing', water: 'water' })[kind(x, y)], EDGE)].map(([k, p]) => {
+    const [x, y] = k.split(',').map(Number), o = p.owner;
+    const order = o && Math.min(0.99, 0.8 * Math.hypot(x + 0.5 - (o[0] + 0.5) * C, y + 0.5 - (o[1] + 0.5) * C) / (C / Math.SQRT2) + 0.2 * hash(x, y, 31) / 4294967296);
+    return { x, y, ...p, order };
+  });
+  return { s, r, next, N, W: N * C, dx, dy, bx: b, by: b, sourceOf: () => middle, aimed: spawned.map(e => e.cells[0]),
+    cells, filled, dry, pieces, water: canalPx, wrap: S.wrap };
+}
+
+let B, P, W, END, FRAMES, PACK, cache = new Map(), clock = 0, shown = -1;
+const view = document.getElementById('view'), scrub = document.getElementById('scrub');
+const msOf = j => j * 1000 / ui.fps;
+const soakOf = (q, since) => ui.soak ? clamp((since - q.land) / ui.soak) : since >= q.land ? 1 : 0;
+/** How far filled cell `[x, y]` has packed `since` ms after the tear: from its first piece landing
+ *  to `pack` ms after its last. */
+const packOf = ([x, y], since) => { const w = PACK.get(`${x},${y}`); return w ? clamp((since - w.first) / Math.max(1, w.last + ui.pack - w.first)) : 0; };
+
+function report(id, ok, text) { const el = document.getElementById(id); el.textContent = text; el.className = 'check ' + (ok ? 'ok' : 'bad'); }
+
+/** The water, each filled cell `since` ms into packing. Returns whether a pixel is still open water. */
+function drawCanal(ctx, since) {
+  const open = new Set();
+  for (const p of B.water) {
+    const filled = p.packed && p.order < packOf(p.owner, since);
+    ctx.fillStyle = filled ? p.packed : p.water; ctx.fillRect(p.x, p.y, 1, 1);
+    if (!filled) open.add(`${p.x},${p.y}`);
+  }
+  return (x, y) => open.has(`${x},${y}`);
+}
+
+/** The pieces `list` that lie in filled cells, each `soak(q)` of the way soaked: ordered dither, so
+ *  a piece goes over pixel by pixel. The ring a pile casts lies on water, so it is the water's. */
+function drawWet(ctx, list, soak) {
+  if (!list.length) return;
+  const off = canvasOf(B.W), g = off.getContext('2d');
+  F.drawTrash(g, { wrap: B.wrap, cells: B.filled }, list);
+  const order = B.wrap === 'cell' ? B.filled.flatMap(([x, y]) => list.filter(q => q.cx === x && q.cy === y))
+    : [...list].sort((a, b) => ORDER[a.p.layer] - ORDER[b.p.layer]);
+  const owner = new Map();
+  for (const q of order) { const s = T.sprite(q.p.name, q.p.alt, q.p.turn); for (const [x, y] of s.px) owner.set(`${q.cx * C + q.p.x + x},${q.cy * C + q.p.y + y}`, q); }
+  const d = g.getImageData(0, 0, B.W, B.W).data;
+  for (let y = 0; y < B.W; y++) for (let x = 0; x < B.W; x++) {
+    const i = (y * B.W + x) * 4;
+    if (!d[i + 3]) continue;
+    const q = owner.get(`${x},${y}`);
+    let col = hex(d, i);
+    if (!q) col = WET_SHADOW;
+    else { const u = soak(q); if (u >= 1 || u * 16 > BAYER[(y & 3) * 4 + (x & 3)] + 0.5) col = soaked(col); }
+    ctx.fillStyle = col; ctx.fillRect(x, y, 1, 1);
+  }
+}
+
+/** Splash rings round the pieces `list` landed in water, `since` ms after the tear, on open water only. */
+function rings(ctx, list, since, open) {
+  for (const q of list) {
+    const e = (since - q.land) / ui.splash, s = T.sprite(q.p.name, q.p.alt, q.p.turn);
+    const r = Math.max(s.w, s.h) / 2 + ui.ring * (1 - (1 - e) ** 2), seen = new Set();
+    for (let a = 0; a < 64; a++) {
+      const x = Math.round(q.rx + r * Math.cos(a * Math.PI / 32) - 0.5), y = Math.round(q.ry + r * Math.sin(a * Math.PI / 32) - 0.5);
+      if (seen.has(`${x},${y}`) || !open(x, y) || (e > 0.6 && (x + y) % 2)) continue;
+      seen.add(`${x},${y}`);
+      ctx.fillStyle = LIGHT; ctx.fillRect(x, y, 1, 1);
+    }
+  }
+}
+/** Drops thrown up by the pieces `list` landing in water: out and back down over the first half of a splash. */
+function drops(ctx, list, since) {
+  for (const q of list) {
+    const e = (since - q.land) / (ui.splash / 2);
+    if (e >= 1) continue;
+    for (let k = 0; k < 4; k++) {
+      const a = hash(q.cx, q.cy, q.i, k) / 4294967296 * Math.PI * 2, far = (3 + ui.ring) * e;
+      ctx.fillStyle = SHINE;
+      ctx.fillRect(Math.round(q.rx + Math.cos(a) * far), Math.round(q.ry + Math.sin(a) * far - 6 * e * (1 - e)), 1, 1);
+    }
+  }
+}
+
+/** The frame `t` ms after the push. */
+function frameAt(ctx, t) {
+  const since = t - TEAR, landed = P.filter(q => since >= q.land);
+  F.ground(ctx, B);
+  const open = drawCanal(ctx, since);
+  const splashing = landed.filter(q => q.wet && since - q.land < ui.splash);
+  rings(ctx, splashing, since, open);
+  F.drawTrash(ctx, { wrap: B.wrap, cells: B.dry }, landed.filter(q => !q.wet));
+  drawWet(ctx, landed.filter(q => q.wet), q => soakOf(q, since));
+  drops(ctx, splashing, since);
+  F.walls(ctx, B);
+  const key = KEYS.findLast(k => k.t <= t);
+  if (key.body) {
+    const spr = A[key.body], [x, y] = F.at(spr, B.bx, B.by);
+    F.drawSpr(ctx, spr, x + B.dx * (key.nudge ?? 0), y + B.dy * (key.nudge ?? 0));
+  }
+  F.drawFlying(ctx, B.W, B.W, P.filter(q => since >= q.launch && since < q.land).map(q => F.inAir(q, since)), CAST);
+  const [rx, ry] = F.at(A.raccoon, B.bx - B.dx, B.by - B.dy);
+  F.drawSpr(ctx, A.raccoon, rx + B.dx * key.lunge, ry + B.dy * key.lunge);
+}
+
+/** A still of board `s`, drawn from the board alone, with the pieces `trash` at rest. */
+function still(ctx, s, trash) {
+  F.ground(ctx, B);
+  const on = (x, y) => x >= 0 && y >= 0 && x < B.N && y < B.N;
+  const kind = (x, y) => !on(x, y) ? null : cell(s, x, y).bridge ? 'crossing' : cell(s, x, y).water ? 'water' : null;
+  for (const [k, p] of canal(T, B.N, C, kind, EDGE)) { const [x, y] = k.split(',').map(Number); ctx.fillStyle = p.packed ?? p.water; ctx.fillRect(x, y, 1, 1); }
+  F.drawTrash(ctx, { wrap: B.wrap, cells: B.dry }, trash.filter(q => !q.wet));
+  drawWet(ctx, trash.filter(q => q.wet), () => 1);
+  F.walls(ctx, B);
+  for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++) if (cell(s, x, y).o === BAG) F.drawSpr(ctx, A.bag, ...F.at(A.bag, x, y));
+  F.drawSpr(ctx, A.raccoon, ...F.at(A.raccoon, s.rac.x, s.rac.y));
+}
+
+function build() {
+  B = setup(); W = B.W; P = F.plan(B, FL);
+  PACK = new Map();
+  for (const q of P.filter(q => q.wet)) {
+    const k = `${q.cx},${q.cy}`, w = PACK.get(k) ?? { first: Infinity, last: -Infinity };
+    PACK.set(k, { first: Math.min(w.first, q.land), last: Math.max(w.last, q.land) });
+  }
+  const wetDone = Math.max(0, ...P.filter(q => q.wet).map(q => q.land + Math.max(ui.soak, ui.splash)), ...[...PACK.values()].map(w => w.last + ui.pack));
+  END = Math.max(F.endOf(FL), TEAR + wetDone);
+  FRAMES = Math.floor((END + ui.hold) * ui.fps / 1000) + 1;
+  cache = new Map(); shown = -1;
+  scrub.max = FRAMES - 1;
+  const n = P.filter(q => q.wet).length, open = B.next.cells.flat().filter(c => c.water).length;
+  document.getElementById('stats').textContent = `${P.length} pieces · ${n} land in the water · ${B.filled.length} water cell${B.filled.length === 1 ? '' : 's'} filled · ` +
+    `${open} left open · the last settles ${Math.round(END)} ms after the push`;
+  const a = canvasOf(W), b = canvasOf(W), f0 = canvasOf(W), fN = canvasOf(W);
+  still(a.getContext('2d'), B.s, []); still(b.getContext('2d'), B.next, B.pieces);
+  frameAt(f0.getContext('2d'), 0); frameAt(fN.getContext('2d'), END);
+  const n0 = differ(pixels(f0, W), pixels(a, W)), n1 = differ(pixels(fN, W), pixels(b, W));
+  report('check-start', !n0, `first frame vs board before the tear: ${n0} px differ`);
+  report('check-end', !n1, `frame at ${Math.round(END)} ms vs board after the tear: ${n1} px differ`);
+  const list = cs => cs.map(c => c.join(',')).sort().join(' ');
+  report('check-cells', list(B.aimed) === list(B.cells), `debris targets ${list(B.aimed)} · trash and crossings on the board ${list(B.cells)}`);
+  const landedIn = list([...new Set(P.filter(q => q.wet).map(q => `${q.cx},${q.cy}`))].map(k => k.split(',')));
+  report('check-filled', landedIn === list(B.filled), `pieces land in water at ${landedIn || 'none'} · cells the rules filled ${list(B.filled) || 'none'}`);
+  clock = Math.min(clock, (FRAMES - 1) * 1000 / ui.fps);
+  bar(); show();
+}
+
+function show() {
+  const j = Math.min(FRAMES - 1, Math.floor(clock * ui.fps / 1000 + 1e-6));
+  if (j === shown) return;
+  shown = j;
+  if (!cache.has(j)) { const c = canvasOf(W); frameAt(c.getContext('2d'), msOf(j)); cache.set(j, c); }
+  const z = ui.zoom;
+  if (view.width !== W * z) view.width = view.height = W * z;
+  const g = view.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(cache.get(j), 0, 0, W * z, W * z);
+  scrub.value = j;
+  const t = msOf(j), since = t - TEAR, wet = P.filter(q => q.wet);
+  document.getElementById('frame-read').textContent = `frame ${j} of ${FRAMES - 1} · ${Math.round(t)} ms after the push · ` +
+    `${wet.filter(q => since >= q.land).length} of ${wet.length} pieces in the water · ${wet.filter(q => soakOf(q, since) >= 1).length} soaked through`;
+}
+
+let last = null;
+function tick(now) {
+  if (ui.playing && last !== null) {
+    clock += (now - last) * ui.speed / 100;
+    if (clock >= FRAMES * 1000 / ui.fps) clock = 0;
+    show();
+  }
+  last = now;
+  requestAnimationFrame(tick);
+}
+
+const ctl = document.getElementById('ctl');
+ctl.innerHTML = Object.entries(SLIDERS).map(([k, [label, lo, hi, step]]) =>
+  `<label for="f-${k}">${label}</label><input type="range" id="f-${k}" min="${lo}" max="${hi}" step="${step}"><span class="read" id="f-${k}-read"></span>`).join('');
+for (const k in SLIDERS) document.getElementById(`f-${k}`).oninput = e => { ui[k] = Number(e.target.value); save(); build(); };
+
+function bar() {
+  document.querySelectorAll('[data-dir]').forEach(b => b.setAttribute('aria-pressed', b.dataset.dir === ui.dir));
+  document.querySelectorAll('[data-room]').forEach(b => b.setAttribute('aria-pressed', b.dataset.room === ui.room));
+  document.querySelectorAll('[data-canal]').forEach(b => b.setAttribute('aria-pressed', b.dataset.canal === ui.canal));
+  document.querySelectorAll('[data-fps]').forEach(b => b.setAttribute('aria-pressed', Number(b.dataset.fps) === ui.fps));
+  document.getElementById('play').textContent = ui.playing ? 'pause' : 'play';
+  document.getElementById('speed-read').textContent = `${ui.speed}%`;
+  document.getElementById('zoom-read').textContent = `${ui.zoom}×`;
+  for (const k in SLIDERS) { document.getElementById(`f-${k}`).value = ui[k]; document.getElementById(`f-${k}-read`).textContent = SLIDERS[k][4](ui[k]); }
+  document.getElementById('piles-read').textContent = `Piles: B from the Trash Spread page. Flight: the Landing Bench, landings ${FL.first}–${FL.last} ms after the tear. ` +
+    `Shadows in the air: the Shadow Bench. The crossing and its edge: the Crossing Edge page. Look: trash/look.json.`;
+}
+const step = j => { ui.playing = false; clock = (Math.max(0, Math.min(FRAMES - 1, j)) + 0.5) * 1000 / ui.fps; save(); bar(); show(); };
+document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => { ui.dir = b.dataset.dir; save(); build(); });
+document.querySelectorAll('[data-room]').forEach(b => b.onclick = () => { ui.room = b.dataset.room; save(); build(); });
+document.querySelectorAll('[data-canal]').forEach(b => b.onclick = () => { ui.canal = b.dataset.canal; save(); build(); });
+document.querySelectorAll('[data-fps]').forEach(b => b.onclick = () => { ui.fps = Number(b.dataset.fps); save(); build(); });
+document.getElementById('play').onclick = () => { ui.playing = !ui.playing; save(); bar(); };
+document.getElementById('prev').onclick = () => step(shown - 1);
+document.getElementById('next').onclick = () => step(shown + 1);
+scrub.oninput = () => step(Number(scrub.value));
+document.getElementById('slow').onclick = () => { ui.speed = Math.max(10, ui.speed - 10); save(); bar(); };
+document.getElementById('fast').onclick = () => { ui.speed = Math.min(200, ui.speed + 10); save(); bar(); };
+document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); save(); bar(); shown = -1; show(); };
+document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zoom + 1); save(); bar(); shown = -1; show(); };
+// Another bench saving in another tab redraws this one.
+window.addEventListener('storage', e => {
+  if (e.key === SPREAD) { S = loadSpread(LOOK); build(); }
+  if (e.key === FLIGHT) { FL = load(FLIGHT, flightDefaults(LOOK)); build(); }
+  if (e.key === SHADE) { CAST = load(SHADE, shadowDefaults(LOOK)).cast; build(); }
+  if (e.key === CROSSING) { EDGE = load(CROSSING, crossingDefaults()); build(); }
+});
+build(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>

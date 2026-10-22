@@ -45,3 +45,8 @@ export function loadSpread(LOOK) {
   if (S.hues !== 'cell') S.hues = 'piece';
   return S;
 }
+
+export const CROSSING = 'trash-crossing';
+/** The Crossing Edge page's defaults. A scrap count saved under the Trash on Water key is kept. */
+export const crossingDefaults = () => ({ zoom: 6, inside: 3, outside: 4, outlast: 2, curve: 9, pattern: 'speckle', scale: 3,
+  bits: load('trash-water', { bits: 24 }).bits });

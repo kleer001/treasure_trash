@@ -37,7 +37,7 @@ export function hash(...v) {
 }
 
 /** Smooth value noise in [0, 1] at world pixel (x, y), on a lattice `scale` px apart. */
-function noise(seed, x, y, scale = 6) {
+export function noise(seed, x, y, scale = 6) {
   const gx = x / scale, gy = y / scale, ix = Math.floor(gx), iy = Math.floor(gy);
   const v = (i, j) => hash(seed, i, j) / 4294967296, s = t => t * t * (3 - 2 * t);
   const fx = s(gx - ix), fy = s(gy - iy);

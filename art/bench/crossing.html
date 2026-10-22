@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crossing Edge</title>
+<style>
+  :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 0 0 6px; }
+  .bar { position: sticky; top: 0; z-index: 1; background: var(--bg); display: flex; gap: 8px; align-items: center;
+         flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .bar .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; }
+  button { font: inherit; padding: 3px 9px; border: 1px solid var(--ink); background: #fff; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  canvas { display: block; image-rendering: pixelated; border: 1px solid var(--line); }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  .ctl { display: grid; grid-template-columns: auto 220px auto; gap: 4px 8px; align-items: center; font-size: 13px; }
+  .ctl input { width: 100%; }
+  .ctl .read { min-width: 150px; color: var(--muted); }
+  .muted { color: var(--muted); font-size: 12px; max-width: 520px; }
+</style>
+</head>
+<body>
+<h1>Crossing edge — where trash packed into a canal meets the open water</h1>
+<div class="bar">
+  <span class="grp">Pattern: <button data-pattern="noise">noise</button><button data-pattern="dither">dither</button><button data-pattern="speckle">speckle</button></span>
+  <span class="grp">Zoom: <button id="zoom-out">−</button><span id="zoom-read"></span><button id="zoom-in">+</button></span>
+</div>
+<div class="row">
+  <canvas id="view"></canvas>
+  <div>
+    <h2>Fade</h2>
+    <div class="ctl" id="ctl"></div>
+    <p class="muted">The Trash on Water bench draws its crossings from these settings, and redraws when they change here.</p>
+  </div>
+</div>
+<script type="module">
+import { createTrash } from './trash/pile.js';
+import { C, FLOOR, SEAM } from './trash/flight.js';
+import { canal } from './trash/water.js';
+import { load, save as store, CROSSING, crossingDefaults } from './trash/settings.js';
+
+const SLIDERS = {
+  inside: ['Fade into the crossing', 0, 12, 1, v => `${v} px`],
+  outside: ['Fade into the open water', 0, 12, 1, v => `${v} px`],
+  outlast: ['Scraps outlast the sludge by', 0, 8, 1, v => `${v} px`],
+  curve: ['Fade curve', 3, 30, 1, v => `${(v / 10).toFixed(1)} · ${v < 10 ? 'more packed' : v > 10 ? 'more open' : 'even'}`],
+  scale: ['Noise blob size', 1, 8, 1, v => `${v} px`],
+  bits: ['Scraps packed into a crossing', 0, 40, 1, v => `${v}`],
+};
+// A canal with crossings of one and two cells, mid-run and against a bend: ~ water, = crossing.
+const MAP = [
+  '.........',
+  '~~~~==~~~',
+  '......~..',
+  '.~~=~.~..',
+  '.~....=..',
+  '.~~=~~~..',
+  '.........',
+];
+const KIND = { '~': 'water', '=': 'crossing' };
+
+const [D, LOOK] = await Promise.all(['trash/items.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
+const ui = load(CROSSING, crossingDefaults());
+const save = () => store(CROSSING, ui);
+const view = document.getElementById('view'), W = MAP[0].length * C, H = MAP.length * C, N = Math.max(MAP.length, MAP[0].length);
+const kind = (x, y) => KIND[MAP[y]?.[x]] ?? null;
+
+function draw() {
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = FLOOR; g.fillRect(0, 0, W, H);
+  g.fillStyle = SEAM;
+  for (let k = 0; k < N; k++) { g.fillRect(k * C + C - 1, 0, 1, H); g.fillRect(0, k * C + C - 1, W, 1); }
+  for (const [k, p] of canal(T, N, C, kind, ui)) { const [x, y] = k.split(',').map(Number); g.fillStyle = p.packed ?? p.water; g.fillRect(x, y, 1, 1); }
+  view.width = W * ui.zoom; view.height = H * ui.zoom;
+  const v = view.getContext('2d'); v.imageSmoothingEnabled = false; v.drawImage(c, 0, 0, W * ui.zoom, H * ui.zoom);
+}
+
+const ctl = document.getElementById('ctl');
+ctl.innerHTML = Object.entries(SLIDERS).map(([k, [label, lo, hi, step]]) =>
+  `<label for="f-${k}">${label}</label><input type="range" id="f-${k}" min="${lo}" max="${hi}" step="${step}"><span class="read" id="f-${k}-read"></span>`).join('');
+for (const k in SLIDERS) document.getElementById(`f-${k}`).oninput = e => { ui[k] = Number(e.target.value); save(); bar(); draw(); };
+
+function bar() {
+  document.querySelectorAll('[data-pattern]').forEach(b => b.setAttribute('aria-pressed', b.dataset.pattern === ui.pattern));
+  document.getElementById('zoom-read').textContent = `${ui.zoom * 100}%`;
+  for (const k in SLIDERS) { document.getElementById(`f-${k}`).value = ui[k]; document.getElementById(`f-${k}-read`).textContent = SLIDERS[k][4](ui[k]); }
+  document.getElementById('f-scale').disabled = ui.pattern !== 'noise';
+}
+document.querySelectorAll('[data-pattern]').forEach(b => b.onclick = () => { ui.pattern = b.dataset.pattern; save(); bar(); draw(); });
+document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); save(); bar(); draw(); };
+document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(10, ui.zoom + 1); save(); bar(); draw(); };
+bar(); draw();
+</script>
+</body>
+</html>
