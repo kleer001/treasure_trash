@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Water Jug Bench</title>
+<style>
+  :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --ok: #1d7a3a; --bad: #b3261e; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 10px 0 6px; }
+  .bar { position: sticky; top: 0; z-index: 1; background: var(--bg); display: flex; gap: 8px; align-items: center;
+         flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .bar .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; }
+  button { font: inherit; padding: 3px 9px; border: 1px solid var(--ink); background: #fff; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  canvas { display: block; image-rendering: pixelated; border: 1px solid var(--line); }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  .ctl { display: grid; grid-template-columns: auto 220px auto; gap: 4px 8px; align-items: center; font-size: 13px; }
+  .ctl input { width: 100%; }
+  .ctl .read { min-width: 150px; color: var(--muted); }
+  .check { font-weight: 600; font-size: 13px; } .check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
+  .muted { color: var(--muted); font-size: 12px; }
+  .strip { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .strip figure { margin: 0; } .strip figcaption { text-align: center; color: var(--muted); font-size: 12px; }
+  #scrub { width: 260px; }
+</style>
+</head>
+<body>
+<h1>Water jug bench — a full jug shoved one cell falls over and pours a puddle into the next</h1>
+<div class="muted" id="source-read"></div>
+<div class="bar">
+  <span class="grp">Push direction:
+    <button data-dir="u">↑</button><button data-dir="d">↓</button><button data-dir="l">←</button><button data-dir="r">→</button></span>
+  <span class="grp">Room: <button data-room="walled">walled</button><button data-room="open">open</button></span>
+  <span class="grp"><button id="play">pause</button><button id="prev">◀ frame</button><button id="next">frame ▶</button>
+    <input type="range" id="scrub" min="0" step="1"></span>
+  <span class="grp">Playback speed: <button id="slow">−</button><span id="speed-read"></span><button id="fast">+</button></span>
+  <span class="grp">Frame rate: <button data-fps="60">60</button><button data-fps="30">30</button><button data-fps="24">24</button><button data-fps="12">12</button></span>
+  <span class="grp">Zoom: <button id="zoom-out">−</button><span id="zoom-read"></span><button id="zoom-in">+</button></span>
+</div>
+<div class="row">
+  <div><canvas id="view"></canvas><div class="muted" id="frame-read"></div></div>
+  <div style="max-width: 640px">
+    <h2>Jug</h2>
+    <div class="ctl" id="ctl-jug"></div>
+    <p class="muted" id="stats"></p>
+    <div class="check" id="check-leave"></div>
+    <div class="check" id="check-start"></div>
+    <div class="check" id="check-end"></div>
+    <div class="check" id="check-cells"></div>
+  </div>
+</div>
+<h2>Jug sprites</h2>
+<div class="strip" id="strip"></div>
+<script type="module">
+import { explain, cell, JUG as JUG_FULL, JUG_EMPTY } from '../../src/rules.js';
+import { createTrash } from './trash/pile.js';
+import { createFlight, C } from './trash/flight.js';
+import { full, rest, frame, restAt, MOUTH } from './trash/jug.js';
+import { puddle } from './trash/water.js';
+import { load, save as store, SHADE, shadowDefaults } from './trash/settings.js';
+
+const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
+const JUG_SLIDERS = {
+  slide: ['Jug slides to the edge in', 40, 400, 10, v => `${v} ms`],
+  tip: ['Jug falls over in', 80, 600, 10, v => `${v} ms`],
+  pour: ['Water starts to pour at a tip of', 0, 85, 5, v => `${v}°`],
+  fill: ['Puddle fills its cell in', 100, 1500, 20, v => `${v} ms`],
+  hold: ['Hold the last frame for', 0, 1500, 50, v => `${v} ms`],
+};
+const KEY = 'trash-jug';
+const STREAM = '#7dafb3', STREAM_CORE = '#f1eccb';
+const [A, D, LOOK] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const ui = load(KEY, { dir: 'r', room: 'walled', playing: true, speed: 100, zoom: 4, fps: 30, slide: 140, tip: 300, pour: 50, fill: 520, hold: 700 });
+const save = () => store(KEY, ui);
+
+const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
+const F = createFlight({ T, A, STYLE: { outline: LOOK.outline, shadow: LOOK.shadow }, OBJ: {} });
+let CAST = load(SHADE, shadowDefaults(LOOK)).cast;      // the Shadow Bench's shadow
+
+const easeOut = u => 1 - (1 - u) ** 2, easeInOut = u => u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) ** 2;
+const FLAT = () => ui.slide + ui.tip;                                // ms from the push: the jug lies on its side
+const POUR = () => ui.slide + ui.tip * Math.sqrt(ui.pour / 90);      // the water starts to pour
+const END = () => Math.max(FLAT(), POUR() + ui.fill);
+/** How far over the jug is `t` ms after the push, in degrees. It falls faster as it goes. */
+const degAt = t => t <= ui.slide ? 0 : t >= FLAT() ? 90 : 90 * ((t - ui.slide) / ui.tip) ** 2;
+/** How much of the pour is done `t` ms after the push, 0 to 1. */
+const poured = t => Math.max(0, Math.min(1, (t - POUR()) / ui.fill));
+
+/** The board: the raccoon behind a full jug, ready to push `dir`, and the shove `explain()` makes of
+ *  it. A walled room puts the water's cell against the wall. */
+function setup(dir, room) {
+  const [dx, dy] = DIRS[dir], N = room === 'walled' ? 6 : 7, c = Math.floor(N / 2);
+  const along = a => dx > 0 ? [a, c] : dx < 0 ? [N - 1 - a, c] : dy > 0 ? [c, a] : [c, N - 1 - a];
+  const [jx, jy] = along(2);
+  const s = F.board(N, room, [[...along(1), '@'], [jx, jy, 'j']]);
+  const r = explain(s, dir, { trace: true });
+  const st = r.ok && r.steps[0], mv = st && st.moved.find(m => m.o === JUG_FULL && m.becomes?.o === JUG_EMPTY);
+  const sp = st && st.spawned.find(e => e.effect === 'pours');
+  if (!mv || !sp) throw new Error(`no pour: ${r.reason ?? JSON.stringify(r.steps)}`);
+  // The jug slides until its fall lays it where it rests in the next cell.
+  const O = restAt(jx, jy, C), end = restAt(jx + dx, jy + dy, C, dir), fl = frame(dir, 90, 0), atEnd = [O[0] + fl.ox, O[1] + fl.oy];
+  if (dx ? atEnd[1] !== end[1] : atEnd[0] !== end[0]) throw new Error('the jug lands off its cell across the push');
+  const slide = (end[0] - atEnd[0]) * dx + (end[1] - atEnd[1]) * dy;
+  const [wx, wy] = sp.cells[0];
+  // The stream lands just inside the wet cell, on the side the jug lies.
+  const lands = [wx * C + C / 2 - dx * (C / 2 - 5), wy * C + C / 2 - dy * (C / 2 - 5)];
+  const pool = puddle(wx, wy, C, (x, y) => cell(r.next, x, y)?.water);
+  const reach = Math.max(...pool.map(([x, y]) => Math.hypot(x + 0.5 - lands[0], y + 0.5 - lands[1])));
+  return { s, r, N, W: N * C, dx, dy, dir, from: [jx, jy], O, slide, aimed: [wx, wy], lands, pool, reach };
+}
+
+/** The jug's upright top-left `t` ms after the push, px. */
+function jugAt(B, t) {
+  const k = Math.round(B.slide * easeOut(Math.min(1, t / ui.slide)));
+  return [B.O[0] + k * B.dx, B.O[1] + k * B.dy];
+}
+
+/** Water on the floor of board `s`: every wet cell's puddle, where `keep` says so. */
+function wetFloor(ctx, B, s, keep = () => true) {
+  for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++) if (cell(s, x, y).water)
+    for (const [px, py, col] of puddle(x, y, C, (a, b) => cell(s, a, b)?.water)) if (keep(px, py)) { ctx.fillStyle = col; ctx.fillRect(px, py, 1, 1); }
+}
+/** The puddle `B` makes, grown `u` of the way out from where the stream lands. */
+function growing(ctx, B, u) {
+  const r = B.reach * easeOut(u) + 0.01;
+  for (const [x, y, col] of B.pool) if (Math.hypot(x + 0.5 - B.lands[0], y + 0.5 - B.lands[1]) <= r) { ctx.fillStyle = col; ctx.fillRect(x, y, 1, 1); }
+}
+/** The stream from the jug's mouth at (mx, my) to where it lands, two px wide, wavering. */
+function stream(ctx, B, mx, my, t) {
+  const [lx, ly] = B.lands, n = Math.ceil(Math.hypot(lx - mx, ly - my));
+  for (let i = 0; i <= n; i++) {
+    const u = i / Math.max(1, n), sag = 4 * u * (1 - u) * 3;         // it arcs out of the mouth before it falls
+    const x = Math.round(mx + (lx - mx) * u + B.dx * sag), y = Math.round(my + (ly - my) * u - (B.dx ? sag * 0.5 : 0));
+    const w = (i + Math.floor(t / 40)) % 5 === 0 ? 1 : 2;
+    ctx.fillStyle = STREAM; ctx.fillRect(x, y, w, w);
+    if (w === 2) { ctx.fillStyle = STREAM_CORE; ctx.fillRect(x, y, 1, 1); }
+  }
+}
+
+/** The shadow a drawing `s` at (gx, gy) casts: from the two rows it stands on. */
+const foot = (s, gx, gy) => ({ s: { ...s, px: s.px.filter(p => p[1] >= s.h - 2) }, gx, gy, hc: 0, h: 0 });
+/** Things standing on the floor, `[feet, draw]`, drawn from the back row forward. */
+const byFeet = list => list.sort((a, b) => a[0] - b[0]).forEach(([, draw]) => draw());
+
+function frameAt(ctx, B, t) {
+  F.ground(ctx, B);
+  const u = poured(t), pouring = t >= POUR() && u < 1;
+  if (t >= POUR()) growing(ctx, B, u);
+  F.walls(ctx, B);
+  const O = jugAt(B, t), fr = frame(B.dir, degAt(t), 1 - u), [gx, gy] = [O[0] + fr.ox, O[1] + fr.oy];
+  F.castShadows(ctx, B.W, B.W, [foot(fr.s, gx, gy)], CAST);
+  const k = Math.round(C * easeInOut(Math.min(1, t / FLAT()))), [rx, ry] = F.at(A.raccoon, B.from[0] - B.dx, B.from[1] - B.dy);
+  const feet = gy + fr.s.h, stand = [[feet, () => F.drawSpr(ctx, fr.s, gx, gy)],
+    [ry + k * B.dy + A.raccoon.h + 0.5, () => F.drawSpr(ctx, A.raccoon, rx + k * B.dx, ry + k * B.dy)]];
+  if (pouring) {
+    const [mx, my] = fr.place(...MOUTH);
+    stand.push([B.dir === 'u' ? B.lands[1] : Math.max(B.lands[1], feet + 1), () => stream(ctx, B, O[0] + mx, O[1] + my, t)]);
+  }
+  byFeet(stand);
+}
+
+/** A still of board `s`, drawn from the board, with the way an empty jug fell taken from the bench:
+ *  the board does not record it. */
+function still(ctx, B, s) {
+  F.ground(ctx, B);
+  wetFloor(ctx, B, s);
+  F.walls(ctx, B);
+  const stand = [];
+  for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++) {
+    const o = cell(s, x, y).o;
+    if (o !== JUG_FULL && o !== JUG_EMPTY) continue;
+    const spr = o === JUG_FULL ? full : rest(B.dir), O = restAt(x, y, C, o === JUG_FULL ? null : B.dir);
+    F.castShadows(ctx, B.W, B.W, [foot(spr, ...O)], CAST);
+    stand.push([O[1] + spr.h, () => F.drawSpr(ctx, spr, ...O)]);
+  }
+  const [rx, ry] = F.at(A.raccoon, s.rac.x, s.rac.y);
+  byFeet([...stand, [ry + A.raccoon.h + 0.5, () => F.drawSpr(ctx, A.raccoon, rx, ry)]]);
+}
+
+const canvasOf = (w, h = w) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const pixels = (c, W) => c.getContext('2d').getImageData(0, 0, W, W).data;
+function differ(a, b) { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++; return n; }
+function report(id, ok, text) { const el = document.getElementById(id); el.textContent = text; el.className = 'check ' + (ok ? 'ok' : 'bad'); }
+
+let B, W, FRAMES, cache = new Map(), clock = 0, shown = -1;
+const view = document.getElementById('view'), scrub = document.getElementById('scrub');
+const msOf = j => j * 1000 / ui.fps;
+
+function build() {
+  B = setup(ui.dir, ui.room); W = B.W;
+  FRAMES = Math.floor((END() + ui.hold) * ui.fps / 1000) + 1;
+  cache = new Map(); shown = -1;
+  scrub.max = FRAMES - 1;
+  const r = Math.round;
+  document.getElementById('stats').textContent = `the jug slides ${B.slide} px, then falls · water pours from ${r(POUR())} ms to ${r(POUR() + ui.fill)} ms after the push`;
+  report('check-leave', POUR() < FLAT(), `the water starts at ${r(POUR())} ms; the jug lies flat at ${FLAT()} ms`);
+  const a = canvasOf(W), b = canvasOf(W), f0 = canvasOf(W), fN = canvasOf(W);
+  still(a.getContext('2d'), B, B.s); still(b.getContext('2d'), B, B.r.next);
+  frameAt(f0.getContext('2d'), B, 0); frameAt(fN.getContext('2d'), B, END());
+  const n0 = differ(pixels(f0, W), pixels(a, W)), n1 = differ(pixels(fN, W), pixels(b, W));
+  report('check-start', !n0, `first frame vs board before the shove: ${n0} px differ`);
+  report('check-end', !n1, `frame at ${r(END())} ms vs board after the shove: ${n1} px differ`);
+  const wet = [];
+  for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++) if (cell(B.r.next, x, y).water) wet.push(`${x},${y}`);
+  report('check-cells', wet.join(' ') === B.aimed.join(','), `water aimed at ${B.aimed.join(',')} · water on the board at ${wet.join(' ')}`);
+  clock = Math.min(clock, (FRAMES - 1) * 1000 / ui.fps);
+  bar(); strip(); show();
+}
+
+function show() {
+  const j = Math.min(FRAMES - 1, Math.floor(clock * ui.fps / 1000 + 1e-6));
+  if (j === shown) return;
+  shown = j;
+  if (!cache.has(j)) { const c = canvasOf(W); frameAt(c.getContext('2d'), B, Math.min(msOf(j), END())); cache.set(j, c); }
+  const z = ui.zoom;
+  if (view.width !== W * z) view.width = view.height = W * z;
+  const g = view.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(cache.get(j), 0, 0, W * z, W * z);
+  scrub.value = j;
+  const t = msOf(j);
+  document.getElementById('frame-read').textContent =
+    `frame ${j} of ${FRAMES - 1} · ${Math.round(t)} ms after the push · jug ${Math.round(degAt(t))}° over · ${Math.round(100 * poured(t))}% poured`;
+}
+
+/** The jug full and upright, falling over toward the push direction as it drains, and empty on its side every way it can lie. */
+function strip() {
+  const root = document.getElementById('strip'); root.innerHTML = '';
+  const z = ui.zoom, size = 56, arrow = d => '↑↓←→'['udlr'.indexOf(d)];
+  const fig = (draw, caption) => {
+    const c = canvasOf(size), g = c.getContext('2d');
+    g.fillStyle = '#896e6e'; g.fillRect(0, 0, size, size); draw(g);
+    const big = canvasOf(size * z), bg = big.getContext('2d'); bg.imageSmoothingEnabled = false; bg.drawImage(c, 0, 0, size * z, size * z);
+    const f = document.createElement('figure'); f.append(big);
+    f.insertAdjacentHTML('beforeend', `<figcaption>${caption}</figcaption>`); root.append(f);
+  };
+  const O = [20 - 9 * B.dx, B.dy > 0 ? 4 : B.dy < 0 ? 16 : 30];
+  for (const [deg, level] of [[0, 1], [20, 1], [45, 0.9], [60, 0.7], [75, 0.4], [90, 0]]) fig(g => {
+    const fr = frame(B.dir, deg, level);
+    F.drawSpr(g, fr.s, O[0] + fr.ox, O[1] + fr.oy);
+  }, `${deg}° over ${arrow(B.dir)}, ${Math.round(level * 100)}% full`);
+  for (const d of ['u', 'd', 'l', 'r']) fig(g => { const s = rest(d); F.drawSpr(g, s, Math.floor((size - s.w) / 2), size - s.h - 6); },
+    `fallen ${arrow(d)}`);
+}
+
+let last = null;
+function tick(now) {
+  if (ui.playing && last !== null) {
+    clock += (now - last) * ui.speed / 100;
+    if (clock >= FRAMES * 1000 / ui.fps) clock = 0;
+    show();
+  }
+  last = now;
+  requestAnimationFrame(tick);
+}
+
+function sliders(id, defs, obj) {
+  document.getElementById(id).innerHTML = Object.entries(defs).map(([k, [label, lo, hi, step]]) =>
+    `<label for="${id}-${k}">${label}</label><input type="range" id="${id}-${k}" min="${lo}" max="${hi}" step="${step}"><span class="read" id="${id}-${k}-read"></span>`).join('');
+  for (const k in defs) document.getElementById(`${id}-${k}`).oninput = e => { obj()[k] = Number(e.target.value); save(); build(); };
+}
+sliders('ctl-jug', JUG_SLIDERS, () => ui);
+
+function bar() {
+  for (const [k, v] of [['dir', ui.dir], ['room', ui.room]]) document.querySelectorAll(`[data-${k}]`).forEach(b => b.setAttribute('aria-pressed', b.dataset[k] === v));
+  document.querySelectorAll('[data-fps]').forEach(b => b.setAttribute('aria-pressed', Number(b.dataset.fps) === ui.fps));
+  document.getElementById('play').textContent = ui.playing ? 'pause' : 'play';
+  document.getElementById('speed-read').textContent = `${ui.speed}%`;
+  document.getElementById('zoom-read').textContent = `${ui.zoom}×`;
+  for (const k in JUG_SLIDERS) { document.getElementById(`ctl-jug-${k}`).value = ui[k]; document.getElementById(`ctl-jug-${k}-read`).textContent = JUG_SLIDERS[k][4](ui[k]); }
+  document.getElementById('source-read').textContent = `Shadows: the Shadow Bench. The way the empty jug fell is the bench's push direction: the board does not record it.`;
+}
+const step = j => { ui.playing = false; clock = (Math.max(0, Math.min(FRAMES - 1, j)) + 0.5) * 1000 / ui.fps; save(); bar(); show(); };
+document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => { ui.dir = b.dataset.dir; save(); build(); });
+document.querySelectorAll('[data-room]').forEach(b => b.onclick = () => { ui.room = b.dataset.room; save(); build(); });
+document.querySelectorAll('[data-fps]').forEach(b => b.onclick = () => { ui.fps = Number(b.dataset.fps); save(); build(); });
+document.getElementById('play').onclick = () => { ui.playing = !ui.playing; save(); bar(); };
+document.getElementById('prev').onclick = () => step(shown - 1);
+document.getElementById('next').onclick = () => step(shown + 1);
+scrub.oninput = () => step(Number(scrub.value));
+document.getElementById('slow').onclick = () => { ui.speed = Math.max(10, ui.speed - 10); save(); bar(); };
+document.getElementById('fast').onclick = () => { ui.speed = Math.min(200, ui.speed + 10); save(); bar(); };
+document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); save(); bar(); strip(); shown = -1; show(); };
+document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zoom + 1); save(); bar(); strip(); shown = -1; show(); };
+window.addEventListener('storage', e => { if (e.key === SHADE) { CAST = load(SHADE, shadowDefaults(LOOK)).cast; build(); } });
+build(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>
