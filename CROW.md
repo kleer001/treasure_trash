@@ -27,6 +27,8 @@ the line is rewritten.
   it isn't. The 🔎 lines are in.
 - **How much he talks is a setting with three levels: verbose, chatty, quiet.** The game picks
   the level from how often the player skips through his lines. The tuning comes later.
+- **He never has a conversation.** The player acts and he answers. Nothing in the game asks him
+  anything, and the raccoon never speaks.
 - **Story is light.** Short beats at the opening, the act breaks and the ending; mostly implied.
 - **The ending, far in the future:** raccoon heaven. One beautiful screen, pixel-art parallax
   revealing clouds and garbage cans.
@@ -43,7 +45,7 @@ stuck he goes quiet, then wise, and his word order goes a little Yoda.
 
 ### Voice rules
 
-- **5 to 10 words a line.** One line per event. If it needs two, the second one waits for the
+- **Ten words at most.** One line per event. If it needs two, the second one waits for the
   next event.
 - **Gripe, then point, then push.** *"Ugh. Look at the door. Now go."*
 - **He sounds smart because he's specific.** He counts ("third time"), names what moved, knows
@@ -58,7 +60,7 @@ stuck he goes quiet, then wise, and his word order goes a little Yoda.
 - **He calls the raccoon "kid."**
 - **Old-timer grump, not a dialect.** See the "steer clear" note under Art references.
 - **Heaven is "Upstairs."** He talks about it like a tired employee talks about head office.
-- **He never tells his own story.** *"My story? You ain't earned my story."*
+- **He never tells his own story.**
 
 ---
 
@@ -97,6 +99,8 @@ Talking cycles 1 → 2 → 3 → 2 → 1 per syllable, with a gibberish voice bl
 ---
 
 ## Event lines
+
+Each row is something the player does, and what he says back.
 
 Legend:
 
@@ -218,49 +222,47 @@ leaves the ladder.
 
 | # | Event | Line | Signal |
 |---|---|---|---|
-| 61 | The board is lost (step 0) | *[no words: frame 6, he looks away]* | ● |
+| 61 | The board is lost (step 0). The line depends on how many times this room has been lost. | 1st: "Oof. Try again." · 2nd: "Oof. Again. Somethin' different this time." · 3rd: "Third one. Slow down. Read the room." · 4th–5th: "Oof. Think from the door this time, kid." · 6th–9th: "Again. Every one of these teaches you somethin'." · 10th on: "{n} tries. Stubborn. I like stubborn." | ◐ |
 | 62 | Still moving on a lost board (step 1) | "Kid. Stop. Nobody's gettin' out from here." 🔎 | ● |
 | 63 | Still moving (step 2) | "You're polishin' a corpse. Back it up." 🔎 | ● |
 | 64 | Still moving (step 3) | "Back it up. Not one. More than that." 🔎 | ● |
 | 65 | Still moving (step 4, Yoda mode) | "Lost it, you did. {n} moves back." 🔎 | ◐ |
 | 66 | Step 4, the move is shown | "That one. Toward the door, it sprayed." 🔎 | ○ |
-| 67 | First lost board ever | "First dead end. Won't be your last." | ● |
+| 67 | First lost board ever (said in place of #61's line, that once) | "First dead end. Won't be your last." | ● |
 | 68 | Lost because your trash walled off the exit | "Door's walled off. Your own trash did it." 🔎 | ○ |
 | 69 | Lost because a bag can't be reached now | "That bag over there? You'll never reach it." 🔎 | ○ |
 | 70 | Lost because a bag has no room to burst now | "No room left to pop that one. Ever." 🔎 | ○ |
 | 71 | Undid out of a lost board | "There. Alive again. Well, you know what I mean." | ◐ |
-| 72 | Second lost board in the same room | "Dead again. Same spot, or a new one?" | ◐ |
-| 73 | Idle on a lost board | "Starin' won't fix it, kid. Back it up." 🔎 | ◐ |
+| 72 | Idle on a lost board | "Starin' won't fix it, kid. Back it up." 🔎 | ◐ |
 
 ### Idle
 
 | # | Event | Line | Signal |
 |---|---|---|---|
-| 74 | Idle, once per room | "Take your time. Limbo's got plenty of it." | ◐ |
-| 75 | Idle a second time, same room | "Still here. Still waitin'. Still not gettin' older." | ◐ |
+| 73 | Idle, once per room | "Take your time. Limbo's got plenty of it." | ◐ |
+| 74 | Idle a second time, same room | "Still here. Still waitin'. Still not gettin' older." | ◐ |
 
 ### Winning
 
 | # | Event | Line | Signal |
 |---|---|---|---|
-| 76 | At par, no undos, no restarts | "No take-backs? Who taught you that? Oh, me." | ◐ |
-| 77 | At par | "Par. Clean work. Don't let it go to your head." | ● |
-| 78 | Under par | "Under par? Upstairs is gonna hear about this." | ● |
-| 79 | A little over par | "A few extra steps. Nobody died. Again." | ● |
-| 80 | Way over par | "Ugly, but out. Ugly still counts up there." | ● |
-| 81 | After a lot of undos | "Took you {n} tries. Took me {n+1}, once." | ● |
-| 82 | After a lot of restarts | "Restart number {n}, and out. I'll allow it." | ◐ |
-| 83 | Beat your own best | "Better than last time. I noticed. Don't tell." | ● |
-| 84 | After losing the board earlier in the attempt | "Dead twice and still walked out. Not bad." | ◐ |
+| 75 | At par, no undos, no restarts | "No take-backs? Who taught you that? Oh, me." | ◐ |
+| 76 | At par | "Par. Clean work. Don't let it go to your head." | ● |
+| 77 | Under par | "Under par? Upstairs is gonna hear about this." | ● |
+| 78 | A little over par | "A few extra steps. Nobody died. Again." | ● |
+| 79 | Way over par | "Ugly, but out. Ugly still counts up there." | ● |
+| 80 | After a lot of undos | "Took you {n} tries. Took me {n+1}, once." | ● |
+| 81 | After a lot of restarts | "Restart number {n}, and out. I'll allow it." | ◐ |
+| 82 | Beat your own best | "Better than last time. I noticed. Don't tell." | ● |
+| 83 | After losing the board earlier in the attempt | "Dead twice and still walked out. Not bad." | ◐ |
 
 ### Progress
 
 | # | Event | Line | Signal |
 |---|---|---|---|
-| 85 | Finished an act | "That's an act. Upstairs might even notice you." | ◐ |
-| 86 | Left a room unsolved | "Walkin' away? It'll still be here. Trust me." | ◐ |
-| 87 | Back after time away | "Oh, you're back. Thought you'd moved on. Ha." | ○ |
-| 88 | Asked about himself (if a raccoon gesture ever asks) | "My story? You ain't earned my story, kid." | — |
+| 84 | Finished an act | "That's an act. Upstairs might even notice you." | ◐ |
+| 85 | Left a room unsolved | "Walkin' away? It'll still be here. Trust me." | ◐ |
+| 86 | Back after time away | "Oh, you're back. Thought you'd moved on. Ha." | ○ |
 
 ---
 
