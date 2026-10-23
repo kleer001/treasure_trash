@@ -100,169 +100,20 @@ Talking cycles 1 → 2 → 3 → 2 → 1 per syllable, with a gibberish voice bl
 
 ## Event lines
 
-Each row is something the player does, and what he says back.
+The lines are in `dialogue/crow.json`, one entry per event, keyed by the name the game will
+trigger it with. Each row is something the player does, and what he says back.
 
-Legend:
+- `event` says what the player did.
+- `hint` marks a line that tells the player whether the board can still be won.
+- `lines` are the variants he rotates through. `byCount` instead picks the line by how many
+  times the event has happened in this room: each step's `from` is the count it starts at.
+- `then: "teach"` means the room's own `:teach` line follows his.
+- `{n}` and the like are filled in by the game.
 
-- 🔎 **gives a hint.** The line tells the player something about whether the board can still be
-  won.
-- **Signal** is a guess at what the game needs in order to notice the event (Claude, 2026-10-23,
-  from reading `src/main.js` and `src/progress.js`; not checked by building anything):
-  - ● the game already tracks it
-  - ◐ a small new check on things it already tracks
-  - ○ needs new analysis
-- `{n}`, `{piece}` and the like are filled in by the game.
+`lost.step1` to `lost.step4` are a ladder: each step fires only if the player keeps moving on a
+lost board. Undo or restart leaves the ladder.
 
-### Arriving in a room
-
-| # | Event | Line | Signal |
-|---|---|---|---|
-| 1 | The very first room ever | "Hrrk. Another soul. Let's see what you got." | ● |
-| 2 | A room you've never opened | "New alley. Look it over before you move." | ● |
-| 3 | Back in a room you haven't solved | "This one again. It's still got your number." | ● |
-| 4 | Replaying a room you've solved | "Already beat this one. What, showin' off?" | ● |
-| 5 | Replaying a room you solved at par | "You've done this one at par. Again." | ● |
-| 6 | A room that teaches something new | "Oh, this one. Pay attention, I'm sayin' it once." + the room's `:teach` line | ● |
-| 7 | Skipped ahead to a room past your progress | "Skippin' ahead? Bold. This one bites, kid." | ◐ |
-
-### Walking
-
-| # | Event | Line | Signal |
-|---|---|---|---|
-| 8 | A long walk without touching anything | "Sightseein'? The bags ain't gonna tear themselves." | ◐ |
-| 9 | Walked a loop back to the exact same board | "Full circle. Nothin' changed but your mood." | ◐ |
-| 10 | Pacing back and forth | "Back, forth, back, forth. Pick a thought, kid." | ◐ |
-| 11 | Standing at the dark exit, bags left | "Door's still dark. You're early, kid." | ◐ |
-| 12 | Walked to the exit's doorstep, then away | "Close. Wrong order, but close." | ◐ |
-
-### Tearing bags
-
-| # | Event | Line | Signal |
-|---|---|---|---|
-| 13 | First tear of the room | "There it goes. That's yours forever now." | ◐ |
-| 14 | Facing a bag, not moving | "Thinkin' it over? Good. That's the job." | ◐ |
-| 15 | A tear, and the board can still be won | "Good spray. Board's still breathin', kid." 🔎 | ● |
-| 16 | Half the bags torn | "Halfway. Don't get cocky, that's when it goes." | ◐ |
-| 17 | One bag left | "One left. Think where that spray's goin'." | ◐ |
-| 18 | Last bag torn, exit lights | "That's the last one. Now get out." | ◐ |
-| 19 | Last bag torn, but the exit can't be reached | "Door's lit. Shame you bricked yourself in." 🔎 | ● |
-
-### Things moving (rewrite when the piece changes)
-
-| # | Event | Line | Signal |
-|---|---|---|---|
-| 20 | A can coughs up its bag | "Can coughed one up. Now that's two problems." | ◐ |
-| 21 | Something goes down a grate | "Down the grate. No refunds in limbo." | ◐ |
-| 22 | Something gets stuck in tar | "Tar's got it now. Hope you didn't need it." | ◐ |
-| 23 | Glass shatters | "Glass. Hope you weren't plannin' to walk there." | ◐ |
-| 24 | Trash fills a canal | "A bridge made of garbage. Gorgeous. Disgusting. Gorgeous." | ◐ |
-| 25 | Something rolls a long way | "Look at it go. Somebody's gotta stop that." | ◐ |
-| 26 | One roller knocks into another | "Ha! Passed it on, like a bad rumor." | ◐ |
-| 27 | The couch moves | "Couch on the move. Mind your back, kid." | ◐ |
-
-### Refused pushes
-
-First time each reason comes up in a room:
-
-| # | Reason | Line | Signal |
-|---|---|---|---|
-| 28 | `edge` | "That's the end of the alley. Nothin' past it." | ● |
-| 29 | `wall` | "That's brick, kid. Brick wins every time." | ● |
-| 30 | `trash` | "Your own mess. It ain't movin' for you." | ● |
-| 31 | `fan` | "That bag needs elbow room. Try another side." | ● |
-| 32 | `canRoom` | "Where's it supposed to go? Look past it." | ● |
-| 33 | `exit` | "Not on the door! Never on the door, kid!" | ● |
-| 34 | `water` | "Raccoons wash their food, kid. Not their feet." | ● |
-| 35 | `afloat` | "That's out in the canal. Let it go." | ● |
-| 36 | `pour` | "Can't pour that there. Find some dry ground." | ● |
-| 37 | `glass` | "Broken glass. You wanna limp through the afterlife?" | ● |
-| 38 | `tar` | "Tar's got it. Tar don't give back." | ● |
-| 39 | `oneway` | "Wrong way down a one-way. Classic rookie." | ● |
-| 40 | A move pressed while one is still playing | "One thing at a time. You got two paws." | ● |
-
-When it keeps happening:
-
-| # | Event | Line | Signal |
-|---|---|---|---|
-| 41 | Same refusal, third time in a row | "Third time. The wall ain't learnin', kid." | ◐ |
-| 42 | Same refusal, fifth time in a row | "You think it'll change its mind? It won't." | ◐ |
-| 43 | Lots of different refusals, fast | "Easy. You're slappin' at everything. Breathe." | ◐ |
-| 44 | Lots of refusals across the whole room | "{n} noes this room. The alley's tellin' you somethin'." | ◐ |
-
-### Undo
-
-| # | Event | Line | Signal |
-|---|---|---|---|
-| 45 | First undo, ever | "Took it back. No shame. Nobody's countin'." | ● |
-| 46 | Undid the move that lost the board, straight away | "Good catch. You saw that before I did." 🔎 | ◐ |
-| 47 | Undid a move that was fine | "That one was fine, kid. Trust yourself more." 🔎 | ◐ |
-| 48 | Undid, then made the same move again | "Same move again? Bold. Let's see what happens." | ◐ |
-| 49 | That undo-and-redo, third time | "Third time doin' that. It ain't changin', kid." | ◐ |
-| 50 | Undid a long way back | "Way back. Good. Sometimes the mistake's early." | ◐ |
-| 51 | Undid not far enough; still lost | "Still dead. Further back than that, kid." 🔎 | ◐ |
-| 52 | Undid all the way to the start | "Could've just hit restart. But sure, scenic route." | ◐ |
-| 53 | A lot of undos in one room | "{n} undos. I've seen worse. Not many, though." | ● |
-
-### Restart
-
-| # | Event | Line | Signal |
-|---|---|---|---|
-| 54 | First restart | "Again. Fresh eyes this time, kid." | ● |
-| 55 | Restart a few moves in | "Barely even started. Somethin' spook ya?" | ◐ |
-| 56 | Restart deep into a room | "All that work, gone. Sometimes that's right." | ◐ |
-| 57 | Restart while the board could still be won | "Wasn't dead yet. But fine. Again." 🔎 | ◐ |
-| 58 | Restart onto a board that was already lost | "Yeah. That one was done. Again." 🔎 | ● |
-| 59 | Many restarts in one room | "Again. Try startin' from the door this time." | ◐ |
-| 60 | Same opening moves as the last attempt | "Same opening as last time. Expectin' different?" | ◐ |
-
-### Dead ends and soft locks
-
-The ladder: each step fires only if the player keeps moving on a lost board. Undo or restart
-leaves the ladder.
-
-| # | Event | Line | Signal |
-|---|---|---|---|
-| 61 | The board is lost (step 0). The line depends on how many times this room has been lost. | 1st: "Oof. Try again." · 2nd: "Oof. Again. Somethin' different this time." · 3rd: "Third one. Slow down. Read the room." · 4th–5th: "Oof. Think from the door this time, kid." · 6th–9th: "Again. Every one of these teaches you somethin'." · 10th on: "{n} tries. Stubborn. I like stubborn." | ◐ |
-| 62 | Still moving on a lost board (step 1) | "Kid. Stop. Nobody's gettin' out from here." 🔎 | ● |
-| 63 | Still moving (step 2) | "You're polishin' a corpse. Back it up." 🔎 | ● |
-| 64 | Still moving (step 3) | "Back it up. Not one. More than that." 🔎 | ● |
-| 65 | Still moving (step 4, Yoda mode) | "Lost it, you did. {n} moves back." 🔎 | ◐ |
-| 66 | Step 4, the move is shown | "That one. Toward the door, it sprayed." 🔎 | ○ |
-| 67 | First lost board ever (said in place of #61's line, that once) | "First dead end. Won't be your last." | ● |
-| 68 | Lost because your trash walled off the exit | "Door's walled off. Your own trash did it." 🔎 | ○ |
-| 69 | Lost because a bag can't be reached now | "That bag over there? You'll never reach it." 🔎 | ○ |
-| 70 | Lost because a bag has no room to burst now | "No room left to pop that one. Ever." 🔎 | ○ |
-| 71 | Undid out of a lost board | "There. Alive again. Well, you know what I mean." | ◐ |
-| 72 | Idle on a lost board | "Starin' won't fix it, kid. Back it up." 🔎 | ◐ |
-
-### Idle
-
-| # | Event | Line | Signal |
-|---|---|---|---|
-| 73 | Idle, once per room | "Take your time. Limbo's got plenty of it." | ◐ |
-| 74 | Idle a second time, same room | "Still here. Still waitin'. Still not gettin' older." | ◐ |
-
-### Winning
-
-| # | Event | Line | Signal |
-|---|---|---|---|
-| 75 | At par, no undos, no restarts | "No take-backs? Who taught you that? Oh, me." | ◐ |
-| 76 | At par | "Par. Clean work. Don't let it go to your head." | ● |
-| 77 | Under par | "Under par? Upstairs is gonna hear about this." | ● |
-| 78 | A little over par | "A few extra steps. Nobody died. Again." | ● |
-| 79 | Way over par | "Ugly, but out. Ugly still counts up there." | ● |
-| 80 | After a lot of undos | "Took you {n} tries. Took me {n+1}, once." | ● |
-| 81 | After a lot of restarts | "Restart number {n}, and out. I'll allow it." | ◐ |
-| 82 | Beat your own best | "Better than last time. I noticed. Don't tell." | ● |
-| 83 | After losing the board earlier in the attempt | "Dead twice and still walked out. Not bad." | ◐ |
-
-### Progress
-
-| # | Event | Line | Signal |
-|---|---|---|---|
-| 84 | Finished an act | "That's an act. Upstairs might even notice you." | ◐ |
-| 85 | Left a room unsolved | "Walkin' away? It'll still be here. Trust me." | ◐ |
-| 86 | Back after time away | "Oh, you're back. Thought you'd moved on. Ha." | ○ |
+The `piece.*` lines describe what a piece did, so they get rewritten when the piece changes.
 
 ---
 
@@ -374,11 +225,12 @@ Same settings as `alley-gold.png`. Untested drafts.
 
 Noticed by Claude, 2026-10-23. Not decisions.
 
-1. **"{n} moves back" (line 65)** looks cheap: walk the undo history back until a board is not
-   in `deadKeys`; the move after it is the one that lost the room. It fills the gap GAME-SHEET
-   answer #5 names. Line 66 and lines 68–70 need to know *why* the board is lost, which nothing
-   computes today.
-2. **The lines that react to pieces (20–27)** depend on what a move changed. The move's account
-   in the stage looks like the place to read that.
-3. **Frequent events need more than one line.** Refusals, undos and restarts will repeat; each
-   probably wants three or so variants in rotation before it sounds canned.
+1. **"{n} moves back" (`lost.step4`)** looks cheap: walk the undo history back until a board is
+   not in `deadKeys`; the move after it is the one that lost the room. It fills the gap
+   GAME-SHEET answer #5 names. `lost.step4Shown`, `lost.exitWalled`, `lost.bagUnreachable` and
+   `lost.bagNoRoom` need to know *why* the board is lost, which nothing computes today. Neither
+   does `progress.back`, which needs to know when the player last played.
+2. **The `piece.*` lines** depend on what a move changed. The move's account in the stage looks
+   like the place to read that.
+3. **Most events will repeat.** Refusals, undos and restarts each probably want three or so
+   variants in rotation before they sound canned.
