@@ -19,10 +19,14 @@ the line is rewritten.
 - **He is a voice and a portrait, never a piece.** He never touches the board.
 - **No halo.**
 - **He shows up as a talking head:** a square portrait with the beak opening and closing, about
-  six frames, with his text in a panel to the right. It sits at the bottom of the screen or pops
-  up when he speaks.
+  six frames, with his text in a panel to the right. It is always docked at the bottom of the
+  screen; when he's quiet, the beak stays closed.
 - **He seems smart.** He comments on undos, restarts, too many refused pushes, dead ends and
   soft locks, and more. See **Event lines**.
+- **He knows everything and says so.** He may tell the player a board is still winnable, or that
+  it isn't. The 🔎 lines are in.
+- **How much he talks is a setting with three levels: verbose, chatty, quiet.** The game picks
+  the level from how often the player skips through his lines. The tuning comes later.
 - **Story is light.** Short beats at the opening, the act breaks and the ending; mostly implied.
 - **The ending, far in the future:** raccoon heaven. One beautiful screen, pixel-art parallax
   revealing clouds and garbage cans.
@@ -84,7 +88,8 @@ Talking cycles 1 → 2 → 3 → 2 → 1 per syllable, with a gibberish voice bl
 
 ### Behaviour
 
-- Text types out in step with the blips. A keypress finishes the line at once.
+- Text types out in step with the blips. A keypress finishes the line at once, and that skip is
+  what sets how much he talks.
 - **He never takes input away from the board.** Moves keep working while he talks; the board is
   never covered.
 - A new event replaces the line he's on, unless the line on screen is about a lost board.
@@ -95,7 +100,7 @@ Talking cycles 1 → 2 → 3 → 2 → 1 per syllable, with a gibberish voice bl
 
 Legend:
 
-- 🔎 **leaks a hint.** The line tells the player something about whether the board can still be
+- 🔎 **gives a hint.** The line tells the player something about whether the board can still be
   won.
 - **Signal** is a guess at what the game needs in order to notice the event (Claude, 2026-10-23,
   from reading `src/main.js` and `src/progress.js`; not checked by building anything):
@@ -367,14 +372,11 @@ Same settings as `alley-gold.png`. Untested drafts.
 
 Noticed by Claude, 2026-10-23. Not decisions.
 
-1. **The 🔎 lines are a hint system.** Lines 15, 47 and 57 tell the player a board is still
-   winnable, which is more than the board shows today. Whether he's allowed to say so is a design
-   call.
-2. **"{n} moves back" (line 65)** looks cheap: walk the undo history back until a board is not
+1. **"{n} moves back" (line 65)** looks cheap: walk the undo history back until a board is not
    in `deadKeys`; the move after it is the one that lost the room. It fills the gap GAME-SHEET
    answer #5 names. Line 66 and lines 68–70 need to know *why* the board is lost, which nothing
    computes today.
-3. **The lines that react to pieces (20–27)** depend on what a move changed. The move's account
+2. **The lines that react to pieces (20–27)** depend on what a move changed. The move's account
    in the stage looks like the place to read that.
-4. **Frequent events need more than one line.** Refusals, undos and restarts will repeat; each
+3. **Frequent events need more than one line.** Refusals, undos and restarts will repeat; each
    probably wants three or so variants in rotation before it sounds canned.
