@@ -11,10 +11,21 @@ the line is rewritten.
 
 - **He is the coach.** A grizzled old crow: cocky voice, snappy grumpy instructions, impatient
   but encouraging. Part Star Fox wingman, part Yoda.
-- **He is a guardian angel with a chip on his shoulder.**
-- **The raccoon is in raccoon limbo** and has to prove itself worthy by solving every trash
-  puzzle.
+- **He is a guardian angel with a chip on his shoulder.** Where the chip comes from doesn't
+  matter. He's just grumpy, and he's a professional: he would never tell an unproven soul.
+- **The raccoon is dead and in raccoon limbo.** It's implied, never dwelt on. If it ever comes
+  up, this is what every raccoon goes through when it dies. It proves itself worthy by solving
+  every trash puzzle.
 - **He is a voice and a portrait, never a piece.** He never touches the board.
+- **No halo.**
+- **He shows up as a talking head:** a square portrait with the beak opening and closing, about
+  six frames, with his text in a panel to the right. It sits at the bottom of the screen or pops
+  up when he speaks.
+- **He seems smart.** He comments on undos, restarts, too many refused pushes, dead ends and
+  soft locks, and more. See **Event lines**.
+- **Story is light.** Short beats at the opening, the act breaks and the ending; mostly implied.
+- **The ending, far in the future:** raccoon heaven. One beautiful screen, pixel-art parallax
+  revealing clouds and garbage cans.
 
 Everything below this list is still a draft.
 
@@ -22,224 +33,267 @@ Everything below this list is still a draft.
 
 ## Who he is
 
-A scruffy old crow perched on the EXIT sign, wearing a halo he clearly didn't pick. He has
-guarded a lot of souls through a lot of alleys and he has opinions about all of them. He talks in
-short bursts over a squawky radio-style portrait. He gripes first, then hands over the one thing
-you need. When you're really stuck he goes quiet, then wise, and his word order goes a little
-Yoda.
-
-**The chip on his shoulder** has a few possible sources (pick one later, or none):
-
-- **Demoted.** He used to guard something grander (an eagle, a racehorse, a person) and got
-  handed a raccoon.
-- **On probation himself.** He lost a raccoon once. This one is his second chance too.
-- **Old grudge.** In life, a raccoon raided *his* nest. Guess whose soul he got assigned.
+A scruffy old crow who has walked a lot of raccoons through a lot of alleys. He has opinions
+about all of them. He gripes first, then hands over the one thing you need. When you're truly
+stuck he goes quiet, then wise, and his word order goes a little Yoda.
 
 ### Voice rules
 
-- **Short.** About eight words a bark, two lines at most.
+- **5 to 10 words a line.** One line per event. If it needs two, the second one waits for the
+  next event.
 - **Gripe, then point, then push.** *"Ugh. Look at the door. Now go."*
-- **He points at the board; he doesn't explain it.** The board already shows why. He says where
-  to look.
-- **Silence is his default.** Once per new thing, not every time it happens. A coach who never
-  shuts up is Navi.
+- **He sounds smart because he's specific.** He counts ("third time"), names what moved, knows
+  when a move was fine, and knows how far back you went wrong. A vague line ("Hmm, tricky!") is
+  a wasted line.
+- **He never guesses.** If he says the board is lost, it's lost. If he can't tell, he says
+  nothing.
+- **He points; he doesn't explain.** The board already shows why. He says where to look.
+- **Silence is his default.** A coach who never shuts up is Navi.
 - **Yoda mode is rare.** Flipped word order only when the board is lost or the player is truly
   stuck.
-- **He calls the raccoon "kid," and sometimes "Stripes."**
+- **He calls the raccoon "kid."**
 - **Old-timer grump, not a dialect.** See the "steer clear" note under Art references.
-- **Angel talk is all office talk.** He speaks of Heaven like a tired employee: "Upstairs,"
-  "Management," "the paperwork," "my caseload." Never solemn.
-
-### Catchphrase candidates
-
-- **"Think from the door!"**
-- **"Throw it where you ain't walkin'."**
-- **"Not on the door! Never on the door!"**
-- **"Again."** Just the one word, after a restart.
-- **"Upstairs is watchin'. ...Not really. But I am."**
+- **Heaven is "Upstairs."** He talks about it like a tired employee talks about head office.
+- **He never tells his own story.** *"My story? You ain't earned my story."*
 
 ---
 
-## Dialogue trees
+## The talking head
 
-`>` is a branch. `[brackets]` are stage directions or game state. The raccoon never speaks;
-when the player gets a choice, it's a gesture.
+```
+┌────────┬──────────────────────────────────────┐
+│ ▓▓▓▓▓▓ │ Not on the door! Never on the door,  │
+│ ▓(o)▓> │ kid!                                 │
+│ ▓▓▓▓▓▓ │                                      │
+└────────┴──────────────────────────────────────┘
+  square portrait          text panel
+```
 
-### Tree 1 — Arrival in limbo (first room)
+### Frames (about six)
 
+| # | Frame | Used for |
+|---|---|---|
+| 1 | Beak closed | Rest, and between syllables |
+| 2 | Beak half open | Talking |
+| 3 | Beak wide open | Talking, loud lines, the caw |
+| 4 | Blink | Idle, now and then |
+| 5 | Side-eye / squint | Refusals, repeat mistakes, "really?" |
+| 6 | Looking away | The board is lost |
+
+Talking cycles 1 → 2 → 3 → 2 → 1 per syllable, with a gibberish voice blip on each.
+
+### Behaviour
+
+- Text types out in step with the blips. A keypress finishes the line at once.
+- **He never takes input away from the board.** Moves keep working while he talks; the board is
+  never covered.
+- A new event replaces the line he's on, unless the line on screen is about a lost board.
+
+---
+
+## Event lines
+
+Legend:
+
+- 🔎 **leaks a hint.** The line tells the player something about whether the board can still be
+  won.
+- **Signal** is a guess at what the game needs in order to notice the event (Claude, 2026-10-23,
+  from reading `src/main.js` and `src/progress.js`; not checked by building anything):
+  - ● the game already tracks it
+  - ◐ a small new check on things it already tracks
+  - ○ needs new analysis
+- `{n}`, `{piece}` and the like are filled in by the game.
+
+### Arriving in a room
+
+| # | Event | Line | Signal |
+|---|---|---|---|
+| 1 | The very first room ever | "Hrrk. Another soul. Let's see what you got." | ● |
+| 2 | A room you've never opened | "New alley. Look it over before you move." | ● |
+| 3 | Back in a room you haven't solved | "This one again. It's still got your number." | ● |
+| 4 | Replaying a room you've solved | "Already beat this one. What, showin' off?" | ● |
+| 5 | Replaying a room you solved at par | "You've done this one at par. Again." | ● |
+| 6 | A room that teaches something new | "Oh, this one. Pay attention, I'm sayin' it once." + the room's `:teach` line | ● |
+| 7 | Skipped ahead to a room past your progress | "Skippin' ahead? Bold. This one bites, kid." | ◐ |
+
+### Walking
+
+| # | Event | Line | Signal |
+|---|---|---|---|
+| 8 | A long walk without touching anything | "Sightseein'? The bags ain't gonna tear themselves." | ◐ |
+| 9 | Walked a loop back to the exact same board | "Full circle. Nothin' changed but your mood." | ◐ |
+| 10 | Pacing back and forth | "Back, forth, back, forth. Pick a thought, kid." | ◐ |
+| 11 | Standing at the dark exit, bags left | "Door's still dark. You're early, kid." | ◐ |
+| 12 | Walked to the exit's doorstep, then away | "Close. Wrong order, but close." | ◐ |
+
+### Tearing bags
+
+| # | Event | Line | Signal |
+|---|---|---|---|
+| 13 | First tear of the room | "There it goes. That's yours forever now." | ◐ |
+| 14 | Facing a bag, not moving | "Thinkin' it over? Good. That's the job." | ◐ |
+| 15 | A tear, and the board can still be won | "Good spray. Board's still breathin', kid." 🔎 | ● |
+| 16 | Half the bags torn | "Halfway. Don't get cocky, that's when it goes." | ◐ |
+| 17 | One bag left | "One left. Think where that spray's goin'." | ◐ |
+| 18 | Last bag torn, exit lights | "That's the last one. Now get out." | ◐ |
+| 19 | Last bag torn, but the exit can't be reached | "Door's lit. Shame you bricked yourself in." 🔎 | ● |
+
+### Things moving (rewrite when the piece changes)
+
+| # | Event | Line | Signal |
+|---|---|---|---|
+| 20 | A can coughs up its bag | "Can coughed one up. Now that's two problems." | ◐ |
+| 21 | Something goes down a grate | "Down the grate. No refunds in limbo." | ◐ |
+| 22 | Something gets stuck in tar | "Tar's got it now. Hope you didn't need it." | ◐ |
+| 23 | Glass shatters | "Glass. Hope you weren't plannin' to walk there." | ◐ |
+| 24 | Trash fills a canal | "A bridge made of garbage. Gorgeous. Disgusting. Gorgeous." | ◐ |
+| 25 | Something rolls a long way | "Look at it go. Somebody's gotta stop that." | ◐ |
+| 26 | One roller knocks into another | "Ha! Passed it on, like a bad rumor." | ◐ |
+| 27 | The couch moves | "Couch on the move. Mind your back, kid." | ◐ |
+
+### Refused pushes
+
+First time each reason comes up in a room:
+
+| # | Reason | Line | Signal |
+|---|---|---|---|
+| 28 | `edge` | "That's the end of the alley. Nothin' past it." | ● |
+| 29 | `wall` | "That's brick, kid. Brick wins every time." | ● |
+| 30 | `trash` | "Your own mess. It ain't movin' for you." | ● |
+| 31 | `fan` | "That bag needs elbow room. Try another side." | ● |
+| 32 | `canRoom` | "Where's it supposed to go? Look past it." | ● |
+| 33 | `exit` | "Not on the door! Never on the door, kid!" | ● |
+| 34 | `water` | "Raccoons wash their food, kid. Not their feet." | ● |
+| 35 | `afloat` | "That's out in the canal. Let it go." | ● |
+| 36 | `pour` | "Can't pour that there. Find some dry ground." | ● |
+| 37 | `glass` | "Broken glass. You wanna limp through the afterlife?" | ● |
+| 38 | `tar` | "Tar's got it. Tar don't give back." | ● |
+| 39 | `oneway` | "Wrong way down a one-way. Classic rookie." | ● |
+| 40 | A move pressed while one is still playing | "One thing at a time. You got two paws." | ● |
+
+When it keeps happening:
+
+| # | Event | Line | Signal |
+|---|---|---|---|
+| 41 | Same refusal, third time in a row | "Third time. The wall ain't learnin', kid." | ◐ |
+| 42 | Same refusal, fifth time in a row | "You think it'll change its mind? It won't." | ◐ |
+| 43 | Lots of different refusals, fast | "Easy. You're slappin' at everything. Breathe." | ◐ |
+| 44 | Lots of refusals across the whole room | "{n} noes this room. The alley's tellin' you somethin'." | ◐ |
+
+### Undo
+
+| # | Event | Line | Signal |
+|---|---|---|---|
+| 45 | First undo, ever | "Took it back. No shame. Nobody's countin'." | ● |
+| 46 | Undid the move that lost the board, straight away | "Good catch. You saw that before I did." 🔎 | ◐ |
+| 47 | Undid a move that was fine | "That one was fine, kid. Trust yourself more." 🔎 | ◐ |
+| 48 | Undid, then made the same move again | "Same move again? Bold. Let's see what happens." | ◐ |
+| 49 | That undo-and-redo, third time | "Third time doin' that. It ain't changin', kid." | ◐ |
+| 50 | Undid a long way back | "Way back. Good. Sometimes the mistake's early." | ◐ |
+| 51 | Undid not far enough; still lost | "Still dead. Further back than that, kid." 🔎 | ◐ |
+| 52 | Undid all the way to the start | "Could've just hit restart. But sure, scenic route." | ◐ |
+| 53 | A lot of undos in one room | "{n} undos. I've seen worse. Not many, though." | ● |
+
+### Restart
+
+| # | Event | Line | Signal |
+|---|---|---|---|
+| 54 | First restart | "Again. Fresh eyes this time, kid." | ● |
+| 55 | Restart a few moves in | "Barely even started. Somethin' spook ya?" | ◐ |
+| 56 | Restart deep into a room | "All that work, gone. Sometimes that's right." | ◐ |
+| 57 | Restart while the board could still be won | "Wasn't dead yet. But fine. Again." 🔎 | ◐ |
+| 58 | Restart onto a board that was already lost | "Yeah. That one was done. Again." 🔎 | ● |
+| 59 | Many restarts in one room | "Again. Try startin' from the door this time." | ◐ |
+| 60 | Same opening moves as the last attempt | "Same opening as last time. Expectin' different?" | ◐ |
+
+### Dead ends and soft locks
+
+The ladder: each step fires only if the player keeps moving on a lost board. Undo or restart
+leaves the ladder.
+
+| # | Event | Line | Signal |
+|---|---|---|---|
+| 61 | The board is lost (step 0) | *[no words: frame 6, he looks away]* | ● |
+| 62 | Still moving on a lost board (step 1) | "Kid. Stop. Nobody's gettin' out from here." 🔎 | ● |
+| 63 | Still moving (step 2) | "You're polishin' a corpse. Back it up." 🔎 | ● |
+| 64 | Still moving (step 3) | "Back it up. Not one. More than that." 🔎 | ● |
+| 65 | Still moving (step 4, Yoda mode) | "Lost it, you did. {n} moves back." 🔎 | ◐ |
+| 66 | Step 4, the move is shown | "That one. Toward the door, it sprayed." 🔎 | ○ |
+| 67 | First lost board ever | "First dead end. Won't be your last." | ● |
+| 68 | Lost because your trash walled off the exit | "Door's walled off. Your own trash did it." 🔎 | ○ |
+| 69 | Lost because a bag can't be reached now | "That bag over there? You'll never reach it." 🔎 | ○ |
+| 70 | Lost because a bag has no room to burst now | "No room left to pop that one. Ever." 🔎 | ○ |
+| 71 | Undid out of a lost board | "There. Alive again. Well, you know what I mean." | ◐ |
+| 72 | Second lost board in the same room | "Dead again. Same spot, or a new one?" | ◐ |
+| 73 | Idle on a lost board | "Starin' won't fix it, kid. Back it up." 🔎 | ◐ |
+
+### Idle
+
+| # | Event | Line | Signal |
+|---|---|---|---|
+| 74 | Idle, once per room | "Take your time. Limbo's got plenty of it." | ◐ |
+| 75 | Idle a second time, same room | "Still here. Still waitin'. Still not gettin' older." | ◐ |
+
+### Winning
+
+| # | Event | Line | Signal |
+|---|---|---|---|
+| 76 | At par, no undos, no restarts | "No take-backs? Who taught you that? Oh, me." | ◐ |
+| 77 | At par | "Par. Clean work. Don't let it go to your head." | ● |
+| 78 | Under par | "Under par? Upstairs is gonna hear about this." | ● |
+| 79 | A little over par | "A few extra steps. Nobody died. Again." | ● |
+| 80 | Way over par | "Ugly, but out. Ugly still counts up there." | ● |
+| 81 | After a lot of undos | "Took you {n} tries. Took me {n+1}, once." | ● |
+| 82 | After a lot of restarts | "Restart number {n}, and out. I'll allow it." | ◐ |
+| 83 | Beat your own best | "Better than last time. I noticed. Don't tell." | ● |
+| 84 | After losing the board earlier in the attempt | "Dead twice and still walked out. Not bad." | ◐ |
+
+### Progress
+
+| # | Event | Line | Signal |
+|---|---|---|---|
+| 85 | Finished an act | "That's an act. Upstairs might even notice you." | ◐ |
+| 86 | Left a room unsolved | "Walkin' away? It'll still be here. Trust me." | ◐ |
+| 87 | Back after time away | "Oh, you're back. Thought you'd moved on. Ha." | ○ |
+| 88 | Asked about himself (if a raccoon gesture ever asks) | "My story? You ain't earned my story, kid." | — |
+
+---
+
+## Story beats
+
+Light. A line or two at each act break, plus an opening and an ending. Death and limbo are
+implied, never explained.
+
+**Opening**
 ```
 [Black. A flicker. The alley fades in at 3 a.m. Static crackle.]
-[A crow drops onto the EXIT sign. A crooked halo bobs over his head a beat late.]
-CROW: Hrrk. Another one.
-CROW: Don't look at me like that. I didn't pick you neither.
-  > [raccoon looks around, confused]
-      CROW: Yeah. You're dead. Sorta. It's complicated.
-  > [raccoon looks at its own paws]
-      CROW: Still got 'em. Good. You'll need 'em.
-CROW: This is limbo. Raccoon limbo. Don't ask me why there's one.
-CROW: See this sign I'm sittin' on? That's the way out.
-CROW: You get out of every alley, Upstairs lets you through.
-CROW: You don't... [looks around at the alley] ...you live here.
-CROW: Walk to the door.
-  [player walks to the exit]
-  > [short way]
-      CROW: Huh. Ya listen. That's one for the file.
-  > [wandered a lot first]
-      CROW: Scenic route. In the afterlife. Bold.
+[The talking head pops up.]
+CROW: Hrrk. Another one. Don't look at me like that.
+CROW: Everybody comes through here. Every raccoon. Your turn.
+CROW: See that sign? That's the way out. Walk to it.
 ```
 
-### Tree 2 — The first bag
-
+**After Act 1**
 ```
-[Exit is dark. One bag on the board.]
-CROW: Door's dark. Know why?
-CROW: [taps the sign with his beak] Not till the bags are done.
-  [player lines up a tear; the preview shows]
-  CROW: [head tilts, watching]
-  [player tears]
-  > [trash lands away from the route]
-      CROW: HA! Look at that spray. Beautiful.
-  > [trash lands across the route]
-      CROW: ...Proud of yourself?
-        > [player undoes]
-            → Tree 5, first undo
-        > [player keeps going and the board dies]
-            → Tree 4
+CROW: Not bad for a fresh soul. Not good, either.
 ```
 
-### Tree 3 — Refusal barks
-
-Keyed to the refusal reasons the game already gives (the `WHY` table in `src/main.js`), so they
-follow the reason codes rather than restating rules. First line the first time a reason fires in
-a room, second line once if the player keeps at it, then silence: the red cell does the talking.
-
-| Reason | First time | Keeps doing it |
-|---|---|---|
-| `edge` | "That's the end of limbo, kid. Nothin' past it." | "Still the edge." |
-| `wall` | "Brick. Brick wins." | "You're losin' to a wall. In the afterlife." |
-| `trash` | "Your mess." | "Told ya." |
-| `fan` | "Bag needs elbow room." | "Elbow room! Turn around!" |
-| `canRoom` | "Where's it supposed to GO?" | "Nowhere to put it. Think." |
-| `exit` | "Not on the door! Never on the door!" | "THE DOOR, kid." |
-| `water` | "Raccoons wash food, not feet." | "Nope." |
-| `glass` | "Glass. You wanna limp into Heaven?" | "Still glass." |
-| `tar` | "Tar's got it." | "Say goodbye to it." |
-| `oneway` | "Wrong way down a one-way. Classic." | "Other way." |
-| busy (*"two paws"*) | "One thing at a time, hotshot." | — |
-
-### Tree 4 — The board is lost
-
-A hint ladder. Each step fires only if the player keeps moving on a dead board. Undo or restart
-drops straight out of it.
-
+**After Act 2**
 ```
-[the dead-board scan says this board can't be won]
-Step 0: [no words. Crow slowly turns his back. His halo dims.]
-  [a few more moves, still dead]
-Step 1: CROW: Kid. It's done. Nobody's gettin' out from here.
-  [a few more]
-Step 2: CROW: Back it up. Not one. More.
-  [a few more]
-Step 3 (Yoda mode):
-  CROW: Lost it, you did. Three moves back.
-  CROW: The bag by the couch. At the door, you threw it.
-        [the bag that killed it flashes]
-  > [player undoes to before that move]
-      CROW: [turns back around; halo brightens] There. Alive again.
-      CROW: ...Well. Not alive. You know what I mean.
-  > [player restarts]
-      CROW: Again.
+CROW: Nobody comes through here clean. Trick's not buryin' yourself.
 ```
 
-### Tree 5 — Undo and restart (his one miracle)
-
-The lore hook: **undo is his power.** A guardian angel turning back time is the one miracle he's
-allowed, and he's sick of doing it.
-
+**Late game**
 ```
-[first undo, ever]
-CROW: [wing flick; the halo flickers] There. Took it back.
-CROW: That's a miracle, by the way. Don't make it weird.
-
-[lots of undos in a row]
-CROW: Hrrk. You know how much paperwork these are?
-CROW: ...Fine. There's no limit. Just stop lookin' so happy about it.
-
-[restart]
-CROW: Again.
-
-[restart, a lot of times in one room]
-CROW: Again. ...Again. I said it slower that time. Did it help?
-
-[long idle, once per room, then never again]
-CROW: I'm not gettin' any younger.
-CROW: ...I'm not gettin' any older, either. Limbo. Take your time.
+CROW: You wanna know why I'm stuck with you? ...No. You don't.
 ```
 
-### Tree 6 — Win
-
+**Ending (sketch; far future)**
 ```
-[exit reached]
-  > [at par, no undos]
-      CROW: No miracles? Not one?
-      CROW: ...Huh. I'm writin' that down.
-  > [at par]
-      CROW: Not bad. Don't let it go to your head. Halos don't fit big heads.
-  > [over par]
-      CROW: Out's out. Ugly, but out.
-  > [over par, tons of undos]
-      CROW: Forty miracles, kid. Forty.
-      CROW: Took me forty-one, once. Don't tell Management.
-  > [any win, sometimes]
-      CROW: One more alley. One more stamp. [stamps a little card with his beak]
-```
-
-### Tree 7 — New-piece intros
-
-The crow reads the room's own `:teach` line and puts a grumble from a small pool in front of it.
-He never has his own version of what a piece does, so he can never disagree with the room.
-
-Grumble pool (draft): "Hrrk. New junk." / "Oh, this one." / "Upstairs thinks this is funny." /
-"Pay attention, I'm sayin' it once." / "Ugh. Fine."
-
-> **"Oh, this one."** + *the room's `:teach` line*
-
-### Tree 8 — Perch talk between acts
-
-Short scenes, one per act break. Each one gives away a little lore and nothing gets explained.
-
-**After Act 1: the caseload**
-```
-CROW: You know how many raccoons I got?
-CROW: One. You. I used to have a whole flock.
-  > [raccoon tilts head]
-      CROW: Long story. Short version: I lost one.
-  > [raccoon yawns]
-      CROW: Oh, I'm borin' you? In limbo? Where you got all the time there is?
-```
-
-**After Act 2: why the trash**
-```
-CROW: Know why it's trash? Every room. Trash.
-CROW: 'Cause that's what you did. Tore it open, left it, moved on.
-CROW: Up here, they want to see you make a mess and still find the way out.
-CROW: Nobody's clean. The trick is not buryin' yourself.
-```
-
-**Late game: the chip**
-```
-CROW: You wanna know why I'm stuck with you?
-CROW: [long pause] ...No. You don't.
-CROW: Tear the bags.
-```
-
-**Final door (sketch only; the ending is open)**
-```
-[last room. Exit lights. The crow doesn't hop off the sign.]
-CROW: Go on.
-CROW: ...What? You thought I was comin'?
-CROW: I got another one waitin'. Some possum. Ugh.
-CROW: [quieter] You did good, kid.
+[Last exit. The alley falls away. Pixel-art clouds part in parallax layers.]
+[Garbage cans, gleaming, on the clouds. Raccoon heaven.]
+CROW: Go on, kid. They're waitin' on you.
+CROW: ...You did good. Don't tell nobody I said it.
 ```
 
 ---
@@ -251,56 +305,23 @@ CROW: [quieter] You did good, kid.
 - **Build:** small, hunched, a bit lopsided. Older than he admits.
 - **Feathers:** scruffy and mid-molt. One bent primary feather sticking out. A head tuft that
   won't lie flat. Greyed bristles round the beak.
-- **Eyes:** one sharp, one squinting or milky. A permanent "I'm judging you" look.
-- **The halo:** the gag. It's made from alley junk, crooked, and a beat late following his head.
-  Candidates: a soda-can pull ring, a ring from a six-pack holder, a bent bottle cap, a rubber
-  band. It dims and brightens with his mood (dims on a lost board, flares on a win).
-- **Wings:** his own black crow wings, beat-up. Maybe one feather tinted gold, as if he's only
-  partly signed off himself.
-- **Props (one or two, not all):** a coach's whistle on a string; a twig in his beak like a
-  cigar; a little punch-card he stamps on a win.
-- **Where he sits:** on the EXIT sign. When it lights, he hops aside and the door is yours.
+- **Eyes:** one sharp, one squinting or milky. The squint is frame 5.
+- **Props (one, maybe two):** a coach's whistle on a string; a twig in his beak like a cigar.
+- **The portrait reads at a small size.** Big beak, one bright eye, a strong silhouette; the
+  rest can go.
 
 ### Limbo look
 
 - **The alley at 3 a.m., forever.** The current target look (`art/reference/alley-gold.png`)
-  already works for this. Limbo is shown by small wrong details, not by a new palette.
-- **Ideas for wrongness:** the clock on a wall always reads 3:00; no wind but the bags rustle;
-  the sky is the same flat colour every room; a streetlight hums but nothing is out there.
-- **The EXIT sign is the only warm light** that's clearly from somewhere else.
-
-### Animations (minimum set)
-
-| Pose | When |
-|---|---|
-| Idle preen / shuffle, halo bobbing late | Default |
-| Head tilt, one eye on the board | Player is lining up a tear |
-| Back turned, halo dim | Board is lost (Tree 4, Step 0) |
-| Wing over eyes | Repeat refusals |
-| Wing flick, halo flicker | Undo (the miracle) |
-| Beak-tap on sign | Exit still dark |
-| Hop + caw, halo flare | Win |
-| Card stamp | Win, some of the time |
-
-### Talking portrait (the Star Fox part)
-
-```
-┌──────────────────────────────┐
-│   ○    │ Not on the door!     │
-│ ▓▓▓▓▓▓ │ Never on the door!   │
-│ ▓(o)▓> │                      │
-│ ▓▓▓▓▓▓ │                      │
-└──────────────────────────────┘
-  bust, crooked halo, beak flaps per syllable, scanline static on pop-in
-```
-
-Pop in, say it, pop out. Never covers the board.
+  already works for this. Limbo is shown by small wrong details, not a new palette.
+- **Ideas for wrongness:** a wall clock that always reads 3:00; bags that rustle with no wind;
+  the same flat sky every room; a streetlight humming over nothing.
 
 ### Voice
 
 Procedural gibberish blips to fit the game's WebAudio sound: short pitched "kraa" and "hrk"
-syllables, low and gravelly. Grumbles drop in pitch at the end; Yoda lines are slower. A faint
-choir "ahh" under the win line, cut off mid-note, would be the angel joke in sound.
+syllables, low and gravelly, one per syllable. Grumbles drop in pitch at the end; Yoda lines are
+slower.
 
 ### Games and film to look at
 
@@ -311,13 +332,12 @@ choir "ahh" under the win line, cut off mid-note, would be the angel joke in sou
 | **Donkey Kong Country** (1994): Cranky Kong | Grumpy old-timer who complains and still helps | Long rants |
 | **Yoda**, *The Empire Strikes Back* (1980) | Small, hunched, more than he looks; flipped word order | Overusing the flipped word order |
 | **Mickey**, *Rocky* (1976) | Hard on you because he believes in you | — |
-| **Clarence**, *It's a Wonderful Life* (1946) | The guardian angel who still has to earn his own wings | Sentiment without a joke on top |
+| **Clarence**, *It's a Wonderful Life* (1946) | The guardian angel who's also being judged | Sentiment without a joke on top |
 | **Beetlejuice** (1988): the afterlife waiting room | The afterlife as a tired office | — |
-| **The Good Place** (2016–2020) | Moral points, a bureaucratic Heaven, an ethics coach | — |
 | **Kazooie**, *Banjo-Kazooie* (1998) | A sarcastic bird with gibberish voice blips | — |
+| **Undertale** (2015) | Each character gets their own text blips | — |
 | **Kaepora Gaebora**, *Ocarina of Time* (1998) | — | **Don't:** a bird who talks too long and won't let you skip |
 | **Navi**, *Ocarina of Time* | — | **Don't:** "Hey! Listen!" nagging |
-| **Undertale** (2015) | Each character gets their own text blips | — |
 
 **Steer clear:** the crows in Disney's *Dumbo* (1941) are widely recognised as a racist
 caricature. Keep his voice "grumpy old-timer" and don't drift toward anything that echoes them.
@@ -325,39 +345,36 @@ caricature. Keep his voice "grumpy old-timer" and don't drift toward anything th
 ### Real crow behaviour worth using
 
 - **They remember faces,** for years, and teach other crows to scold a face they don't like
-  (University of Washington mask studies). A crow who holds a grudge is just a crow.
+  (University of Washington mask studies). A crow who notices everything is just a crow.
 - **They gather round their dead.** Researchers have recorded crows crowding noisily around a
-  dead crow, which some call crow "funerals." A crow in the afterlife business is less of a
-  stretch than it sounds.
+  dead crow. A crow in the afterlife business is less of a stretch than it sounds.
 - **They use tools,** and city crows drop nuts on roads for cars to crack.
 
 ### Image-gen prompts (matching the `art/reference/` pipeline)
 
 Same settings as `alley-gold.png`. Untested drafts.
 
-> pixel art character portrait of a grizzled old crow with a crooked halo made from a soda can
-> pull ring, scruffy molting black feathers, one bent wing feather, squinting eye, grumpy
-> expression, bust shot inside a radio communication window, dark teal background
+> pixel art character portrait of a grizzled old crow, square frame, scruffy molting black
+> feathers, squinting eye, twig in its beak, grumpy expression, beak slightly open as if
+> talking, dark teal background
 
-> pixel art screenshot of a top-down puzzle video game, a scruffy old crow with a small glowing
-> halo perched on a green EXIT sign above a back-alley door at night, a raccoon below on a square
-> tile grid, trash bags, eerie quiet lighting, a wall clock reading 3:00
+> pixel art sprite sheet of a grizzled old crow head, six square frames in a row: beak closed,
+> beak half open, beak wide open, blinking, side-eye squint, looking away, dark teal background
 
 ---
 
 ## Observations
 
-Noticed by Claude while sketching, 2026-10-23. Not decisions.
+Noticed by Claude, 2026-10-23. Not decisions.
 
-1. **Undo as his miracle** gives a lore reason for a mechanic that already exists, and the dim
-   halo gives the board-is-lost state a picture without a word of HUD text.
-2. **Almost every moment he reacts to already exists:** refusal reasons (`WHY` in
-   `src/main.js`), the lost-board flag (`lost` / `deadKeys`), undo, restart, win, par and each
-   room's `:teach` line. He sits on top of those as presentation.
-3. **"Three moves back" (Tree 4, Step 3)** looks cheap: walk the undo history back until a state
-   is not in `deadKeys`; the move after it is the one that lost the board. That also fills the
-   gap GAME-SHEET answer #5 names.
-4. **Limbo reframes "you walk out empty-pawed."** You can't take anything with you, which is a
-   reason for the GAME-SHEET's open naming question to go either way: the treasure is the soul,
-   or the name drops treasure.
-5. **Act 1's pack name** still reads "(raccoon only, crow pinned)."
+1. **The 🔎 lines are a hint system.** Lines 15, 47 and 57 tell the player a board is still
+   winnable, which is more than the board shows today. Whether he's allowed to say so is a design
+   call.
+2. **"{n} moves back" (line 65)** looks cheap: walk the undo history back until a board is not
+   in `deadKeys`; the move after it is the one that lost the room. It fills the gap GAME-SHEET
+   answer #5 names. Line 66 and lines 68–70 need to know *why* the board is lost, which nothing
+   computes today.
+3. **The lines that react to pieces (20–27)** depend on what a move changed. The move's account
+   in the stage looks like the place to read that.
+4. **Frequent events need more than one line.** Refusals, undos and restarts will repeat; each
+   probably wants three or so variants in rotation before it sounds canned.
