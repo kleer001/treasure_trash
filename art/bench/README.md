@@ -21,6 +21,7 @@ Run `./run.sh`, then open a page under `/art/bench/`.
 | `float.html` | Things afloat: an empty box, can or jug shoved into a canal, or a full can tipped into it or beside it, sinks in, bobs a few times, each bob smaller, and lies still; a shove at a thing afloat is refused. Which way a thing lies comes from what came before and from the stage's `decorAfter`, never from the board. |
 | `skate.html` | The skateboard: rolled along its deck until something stops it, scooted one cell across it, or shoved while pinned so a load slops off the back; loads ride at full size, emptied containers lie as the stage's decoration says, and a deck lying up and down the picture can be seen three ways. |
 | `raccoon.html` | The raccoon: sitting, crawling one cell, and pushing a thing that moves or is held fast, from any facing to any press, drawn by hand from its parts. |
+| `cartoon.html` | The cartoon raccoon: crawling one cell, pushing a thing that moves or is held fast, and sitting idle, from the side, the front and the back, frame by frame, with each frame's hold on a slider. |
 | `tear.html` | The bag rip, with mound piles. |
 
 Each page saves its controls in `localStorage` under a `trash-*` key and reads the others'
@@ -49,6 +50,7 @@ bench takes it from its own push direction.
 | `trash/water.js` | A water cell seen from above, the crossing trash packs it into, the fade where a crossing meets open water, the colour trash takes on when soaked, and the water's colours. |
 | `trash/skate.js` | The deck built as a model of blocks and drawn from it: from the side, or, lying up and down the picture, end on, from 45° above, or with its top at the floor's scale; and where a load stands on it. |
 | `trash/raccoon.js` | The raccoon's front, side and back views cut into parts, the poses and timing of each action, and its turn to face a press. |
+| `trash/cartoon.js` | The cartoon raccoon's parts and every frame of every action in each view, drawn by hand. |
 | `trash/pane.js` | The pane drawings, and the shards a glass cell holds. |
 | `trash/settings.js` | The saved settings each page reads. |
 | `trash/objects.json` | Room objects cut from pixel-art renders, for the catalog's test room. |
