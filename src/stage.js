@@ -9,7 +9,7 @@
 // owns a fractional position, and can be parented to a cart rather than standing on a square.
 
 import { NONE, cell, cartCells, pieceCells, isCart, isMultiCell,
-         carriedKind, chainOf } from './rules.js';
+         carriedKind, chainOf, restsOn, CAN_EMPTY, BIN_EMPTY, JUG_EMPTY } from './rules.js';
 import { handleAt, anchorOf, depthLane, laneDepth, laneOf,
          CART_LANE, BODY_LANE, RAC_LANE, isBodyLane } from './handles.js';
 import { mulberry32 } from './rng.js';
@@ -39,7 +39,7 @@ export const spriteHandle = sp => handleAt([sp.tx, sp.ty],
  */
 export const shapeOf = sp => JSON.stringify([
   sp.kind, sp.tx, sp.ty, sp.parent, sp.ref ?? null, sp.o ?? null, sp.ck ?? null,
-  sp.cells ?? null, sp.depth,
+  sp.cells ?? null, sp.depth, sp.heading, sp.lie,
 ]);
 
 export const census = stage => stage.sprites.map(shapeOf).sort();
@@ -62,14 +62,21 @@ const kindIn = (lane, o, effect) => (lane === CART_LANE ? CART : lane === BODY_L
  * `seed` fixes the cosmetic stream, so a replay of the same room looks identical. Each sprite
  * keeps its own draw seed for life — which is what stops a pile of trash changing colour when
  * a cart carries it somewhere, since today's `drawTrash` derives its specks from the cell.
+ *
+ * `decor` is which way things face, from `decorOf`; null is a room as its file lays it out. The
+ * board cannot say: facing is no rule's business, so it lives in what came before rather than in
+ * the board, and whoever holds the history hands it over.
  */
-export function stageFrom(state, seed = 1) {
+export function stageFrom(state, seed = 1, decor = null) {
   const rnd = mulberry32(seed);
   const stage = { sprites: [], nextId: 0 };
   const mint = (kind, x, y, extra = {}) => {
     const sp = { id: stage.nextId++, kind, x, y, ax: x, ay: y, tx: x, ty: y, depth: 0,
                  seed: (rnd() * 0x100000000) >>> 0, parent: null, dying: false, ...extra };
     sp.handle = spriteHandle(sp);
+    const worn = decor?.get(sp.handle);
+    sp.heading = worn?.heading ?? (kind === RACCOON ? 'd' : null);
+    sp.lie = worn?.lie ?? null;
     stage.sprites.push(sp);
     return sp;
   };
@@ -113,6 +120,58 @@ export function stageFrom(state, seed = 1) {
 
 /** A body's parts keep their places relative to its anchor, so its offsets hold for life. */
 const offsets = (cells, ox, oy) => cells.map(([x, y]) => [x - ox, y - oy]);
+
+// --- which way things face ----------------------------------------------------------------
+//
+// A sprite's `heading` is the way it last went, and the raccoon's is the way he was last pressed,
+// whether or not the press went; he starts a room facing the viewer. A thing that has tipped over
+// has a `lie` as well, and keeps it however it is shoved after: it fell the way its contents went,
+// which is ahead of a shove and behind a deck that set it down as it rolled on.
+
+/** What tips over as it empties, and so lies on its side from then on. */
+const LIES = new Set([CAN_EMPTY, BIN_EMPTY, JUG_EMPTY]);
+/** The way a move of (dx, dy) went. A diagonal goes the way of its longer leg, across on a tie. */
+const wayOf = (dx, dy) => (!dx && !dy ? null
+  : Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'r' : 'l') : (dy > 0 ? 'd' : 'u'));
+
+/** The way a container that emptied in step `step` as movement `m` fell: toward what came out
+ *  of it, which the step spawns from the cell the container started on or the one it landed on. */
+function spilled(step, m) {
+  const [x, y] = anchorOf(m.cells), [lx, ly] = restsOn(m);
+  const out = step.spawned.find(({ from: f }) => f && ((f[0] === x && f[1] === y) || (f[0] === lx && f[1] === ly)));
+  if (!out) {
+    // Down a grate it takes its contents with it, and lies nowhere.
+    if (step.gone.some(g => g.handle === m.handle)) return null;
+    // Anything else that empties and spills nothing is the rules and the stage disagreeing about
+    // where its contents are.
+    throw new Error(`${m.handle} emptied and nothing came out of it`);
+  }
+  const [cx, cy] = anchorOf(out.cells);
+  return wayOf(cx - lx, cy - ly);
+}
+
+/** Turn the raccoon to face `dir`. */
+export function face(stage, dir) {
+  stage.sprites.find(sp => sp.kind === RACCOON).heading = dir;
+}
+
+/** Which way everything on a settled stage faces, by handle: what `stageFrom` takes back. */
+export function decorOf(stage) {
+  const out = new Map();
+  for (const sp of stage.sprites)
+    if (!sp.dying && !sp.spent && (sp.heading || sp.lie)) out.set(sp.handle, { heading: sp.heading, lie: sp.lie });
+  return out;
+}
+
+/** Which way things face after the raccoon is pressed `dir` on `state`, wearing `decor`, where `r`
+ *  is `explain`'s traced answer. Landed on a stage of its own, so it is the stage's bookkeeping of
+ *  who went where that decides it, and nothing else. */
+export function decorAfter(state, decor, dir, r) {
+  const stage = stageFrom(state, 1, decor);
+  face(stage, dir);
+  if (r.ok) r.steps.forEach((step, k) => { applyStep(stage, step, r.frames[k + 1].rac); settle(stage); });
+  return decorOf(stage);
+}
 
 /**
  * Every sprite the stage is holding, by the handle it answers to. Spent and dying ones are out:
@@ -182,7 +241,10 @@ export function applyStep(stage, step, racTo = null) {
     if (sp.kind !== CART) return;
     carriage.set(sp.ref, m);
     const riding = stage.sprites.filter(s => s.parent === sp.ref);
-    for (const load of riding) { load.tx = load.ax + m.dx; load.ty = load.ay + m.dy; }
+    for (const load of riding) {
+      load.tx = load.ax + m.dx; load.ty = load.ay + m.dy;
+      load.heading = wayOf(m.dx, m.dy) ?? load.heading;
+    }
     // The wobble pivots on the CART's bottom edge, not each sprite's: pivot cargo on itself and
     // it spins in place while the cart leans out from under it.
     if (m.effect !== 'rattles') return;
@@ -193,8 +255,11 @@ export function applyStep(stage, step, racTo = null) {
   });
 
   step.moved.forEach((m, i) => {
-    const sp = targets[i], rest = m.becomes;
+    const sp = targets[i], rest = m.becomes, way = wayOf(m.dx, m.dy);
     sp.tx = sp.ax + m.dx; sp.ty = sp.ay + m.dy;
+    if (way) sp.heading = way;
+    // Emptied, it tipped. Already empty, it slides as it lies.
+    if (LIES.has(rest.o) && m.o !== rest.o) sp.lie = spilled(step, m);
     if (rest.lane === CART_LANE) {
       // Set down, it is a barrow again: a cart id of its own, the kind it rode as, and one cell.
       if (sp.kind !== CART) {
@@ -259,6 +324,7 @@ export function applyStep(stage, step, racTo = null) {
       x: ax, y: ay, ax, ay, tx: x, ty: y,
       // Where it came FROM is where a drawer's body still is.
       face: [Math.sign(x - ax), Math.sign(y - ay)],
+      heading: wayOf(x - ax, y - ay), lie: null,
       depth: laneDepth(e.lane), handle: e.handle,
       seed: (stage.nextId * 2654435761) >>> 0, parent: e.parent ?? null, dying: false,
       ref: body ? e.ref : undefined, o: e.lane === BODY_LANE ? e.o : undefined,

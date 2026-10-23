@@ -32,7 +32,7 @@ import {
 import { toState, toGrid, toWater, toCart } from '../src/format.js';
 import { analyze } from '../src/solver.js';
 import { MAX_STATES } from './metrics.mjs';
-import { stageFrom, applyStep, settle, timeline, census, spriteHandle } from '../src/stage.js';
+import { stageFrom, applyStep, settle, timeline, census, spriteHandle, face, decorAfter } from '../src/stage.js';
 import { handlesOf, handleAt, anchorOf, spanOf, RAC_LANE } from '../src/handles.js';
 import { unnamedOver } from '../src/audit.js';
 import { root } from './packs.mjs';
@@ -229,6 +229,7 @@ export function landsWhereTheBoardSays(s, dir, bend = null) {
   // asked of the same bent step.
   const r = bend ? { ...traced, steps: traced.steps.map(bend) } : traced;
   const stage = stageFrom(s);
+  face(stage, dir);
   let threw = null;
   try {
     // The same sequence `landMv` uses when an input cuts an animation short: every step
@@ -250,7 +251,8 @@ export function landsWhereTheBoardSays(s, dir, bend = null) {
   } catch (e) { adrift.push(`the handles do not resolve: ${e.message}`); }
   if (adrift.length) return { ok: false, why: adrift.join('; '), r };
   if (threw) return { ok: false, why: `the stage threw: ${threw}`, r };
-  const mine = census(stage), theirs = census(stageFrom(r.next));
+  // Which way things face is checked against the unbent account: the bend is the mistake.
+  const mine = census(stage), theirs = census(stageFrom(r.next, 1, decorAfter(s, null, dir, traced)));
   if (JSON.stringify(mine) === JSON.stringify(theirs)) return { ok: true, r };
   const extra = mine.filter(k => !theirs.includes(k));
   const missing = theirs.filter(k => !mine.includes(k));

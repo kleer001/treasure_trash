@@ -20,7 +20,7 @@ import { createCompositor } from './compositor.js';
 // stage owns the objects, their motion and its envelopes
 import {
   CART, COUCH, RACCOON, SPLASH, advance, applyStep, cellSeed, easeOut, rollEase, settle,
-  stageFrom, timeline,
+  stageFrom, timeline, face, decorAfter,
 } from './stage.js';
 
 const CANF = CAN_FULL, CANE = CAN_EMPTY;
@@ -79,6 +79,9 @@ function whyText(b){
 }
 
 let LEVELS = [], cur=0, state=null, start=null, history=[], moves=0, won=false;
+// Which way things face: decoration the board does not hold, so it rides beside the board in
+// `history` and comes back with it on undo. Null is the room as its file lays it out.
+let decor=null;
 // One entry per act: { label, from, to } as indices into LEVELS. The picker folds on it.
 const ACT_OF = [], CELLS = [];
 const progress = createProgress(window.localStorage);
@@ -94,7 +97,8 @@ if(dbg){
   // difference a fault.
   window.__tt = createProbe({
     stage: () => stage,
-    refStage: () => stageFrom(state, cur + 1),
+    refStage: () => stageFrom(state, cur + 1, decor),
+    decor: () => decor,
     grid: () => toGrid(state),
     idle: () => !anim && !busy && !fx && !party,
     level: () => LEVELS[cur].id,
@@ -338,7 +342,10 @@ function act(dir){
   }
 
   if(!r.ok){                       // refused — play the whole no, then rewind it
+    // He turns to it all the same. That is not a move, so undo goes back past it.
+    decor = decorAfter(state, decor, dir, r); face(stage, dir);
     dbg?.refused(dir, r);
+    dbg?.decor(decor);
     blocked = { cells:r.blame, reason:r.reason, dir };
     armed = null; startFx(dir, r); render(); return;
   }
@@ -346,9 +353,11 @@ function act(dir){
     armed = dir; blocked = null;    // aimed, not committed
     beep(true); render(); return;
   }
-  const prev = state;
-  history.push(cloneState(state)); state = r.next; moves++;
+  const prev = state, before = decor;
+  decor = decorAfter(state, decor, dir, r); face(stage, dir);
+  history.push({ board: cloneState(state), decor: before }); state = r.next; moves++;
   dbg?.action(moves, dir, prev.rac, r);
+  dbg?.decor(decor);
   blocked = null; armed = null;
   startMv(prev, r);
   if(isWon(state)){ won = true; beat = progress.record(LEVELS[cur].id, moves); startParty(); dbg?.note(`won in ${moves}`); }
@@ -357,13 +366,13 @@ function act(dir){
 }
 function undo(){
   cancelAnim(); busy = false;
-  if(history.length){ state=history.pop(); moves--; won=false; blocked=null; armed=null; rest(); readLost(); render(); dbg?.note(`undo -> ${moves}`); }
+  if(history.length){ ({ board: state, decor } = history.pop()); moves--; won=false; blocked=null; armed=null; rest(); readLost(); render(); dbg?.note(`undo -> ${moves}`); }
 }
 function restart(){ load(cur); }
 function load(i){
   cancelAnim(); busy = false; fxSeen = new Set();         // a new room earns the full explanation again
   cur=(i+LEVELS.length)%LEVELS.length;
-  state=toState(LEVELS[cur]); start=state; history=[]; moves=0; won=false;
+  state=toState(LEVELS[cur]); start=state; history=[]; decor=null; moves=0; won=false;
   blocked=null; armed=null; beat=false;
   startScan();
   dbg?.note(`-- ${pad(LEVELS[cur].id)} ${LEVELS[cur].name ?? ''} --`);
@@ -430,7 +439,7 @@ function pumpScan(deadline){
   scanRaf = askIdle(pumpScan);
 }
 /** The stage at rest on the current board — every jump that is not an action goes through here. */
-function rest(){ anim = null; board = state; stage = stageFrom(state, cur + 1); }
+function rest(){ anim = null; board = state; stage = stageFrom(state, cur + 1, decor); }
 
 // ---- render ----
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');

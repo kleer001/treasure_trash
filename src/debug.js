@@ -71,6 +71,11 @@ export function createDebugLog(el, cap = 240) {
       add(`- ${dir} refused: ${r.reason}`, r.blame.map(b => `blame ${at(b)}`), 'no');
     },
     note(text) { add(text, [], 'mark'); },
+    /** Which way things face after a press: what the board does not hold, so it is told apart. */
+    decor(d) {
+      add('facing', [...(d ?? [])].map(([h, { heading, lie }]) =>
+        `${h} ${heading ?? '-'}${lie ? ` lies ${lie}` : ''}`));
+    },
   };
 }
 
@@ -121,6 +126,8 @@ export function createProbe(read) {
   return {
     check,
     grid: () => read.grid(),
+    /** Which way things face, by handle: `[handle, { heading, lie }]` pairs. */
+    decor: () => [...(read.decor() ?? [])],
     /** Sound is off from the first `walk` on; a person debugging by hand gets it back with this. */
     mute: v => read.mute(v),
     /**
