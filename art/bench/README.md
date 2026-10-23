@@ -18,6 +18,9 @@ Run `./run.sh`, then open a page under `/art/bench/`.
 | `pane.html` | The glass pane: toppled by a shove, shattering into the shards that lie in the next cell. |
 | `water.html` | Trash on water: a bag torn beside a canal; what lands in the water splashes, soaks through and packs the canal into a crossing. |
 | `crossing.html` | The crossing's edge: how far it breaks up into the open water it meets, and in what pattern. The Trash on Water bench reads these settings. |
+| `float.html` | Things afloat: an empty box, can or jug shoved into a canal, or a full can tipped into it or beside it, sinks in, bobs a few times, each bob smaller, and lies still; a shove at a thing afloat is refused. Which way a thing lies comes from what came before and from the stage's `decorAfter`, never from the board. |
+| `skate.html` | The skateboard: rolled along its deck until something stops it, scooted one cell across it, or shoved while pinned so a load slops off the back; loads ride at full size, emptied containers lie as the stage's decoration says, and a deck lying up and down the picture can be seen three ways. |
+| `raccoon.html` | The raccoon: sitting, crawling one cell, and pushing a thing that moves or is held fast, from any facing to any press, drawn by hand from its parts. |
 | `tear.html` | The bag rip, with mound piles. |
 
 Each page saves its controls in `localStorage` under a `trash-*` key and reads the others'
@@ -43,7 +46,9 @@ bench takes it from its own push direction.
 | `trash/box.js` | The recycling box drawings and what a full box holds. |
 | `trash/can.js` | The trash can drawings, where its bag stands, and the turn of a sprite in the picture. |
 | `trash/jug.js` | The water jug drawings at each water level, and its fall toward the viewer or away, traced from the round solid its rows describe. |
-| `trash/water.js` | A water cell seen from above, the crossing trash packs it into, the fade where a crossing meets open water, and the colour trash takes on when soaked. |
+| `trash/water.js` | A water cell seen from above, the crossing trash packs it into, the fade where a crossing meets open water, the colour trash takes on when soaked, and the water's colours. |
+| `trash/skate.js` | The deck built as a model of blocks and drawn from it: from the side, or, lying up and down the picture, end on, from 45° above, or with its top at the floor's scale; and where a load stands on it. |
+| `trash/raccoon.js` | The raccoon's front, side and back views cut into parts, the poses and timing of each action, and its turn to face a press. |
 | `trash/pane.js` | The pane drawings, and the shards a glass cell holds. |
 | `trash/settings.js` | The saved settings each page reads. |
 | `trash/objects.json` | Room objects cut from pixel-art renders, for the catalog's test room. |

@@ -7,6 +7,8 @@ import { hash, noise } from './spread.js';
 import { chooser } from './pile.js';
 
 const EDGE = '#2b2d55', DEEP = '#244287', MID = '#3169b0', LIGHT = '#7dafb3', SHINE = '#f1eccb';
+/** The water's colours: its rim, its shaded edge, its body, its ripples and its brightest glint. */
+export const WATER = { EDGE, DEEP, MID, LIGHT, SHINE };
 const SLUDGE = '#67819e';                     // the packed crossing between its scraps
 const ROUND = 4;                              // px: the radius of a corner where both sides are dry
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];

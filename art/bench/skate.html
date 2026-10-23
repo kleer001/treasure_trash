@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skateboard Bench</title>
+<style>
+  :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --ok: #1d7a3a; --bad: #b3261e; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 0 0 6px; }
+  .bar { position: sticky; top: 0; z-index: 1; background: var(--bg); display: flex; gap: 8px; align-items: center;
+         flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .bar .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; flex-wrap: wrap; }
+  button { font: inherit; padding: 3px 9px; border: 1px solid var(--ink); background: #fff; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  canvas { display: block; image-rendering: pixelated; border: 1px solid var(--line); }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  .ctl { display: grid; grid-template-columns: auto 220px auto; gap: 4px 8px; align-items: center; font-size: 13px; }
+  .ctl input { width: 100%; }
+  .ctl .read { min-width: 130px; color: var(--muted); }
+  .check { font-weight: 600; font-size: 13px; } .check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
+  .muted { color: var(--muted); font-size: 12px; max-width: 560px; }
+  #scrub { width: 260px; }
+</style>
+</head>
+<body>
+<h1>Skateboard — a deck two cells long: it rolls along itself until something stops it, and goes one cell across</h1>
+<div class="bar">
+  <span class="grp">Push direction:
+    <button data-dir="u">↑</button><button data-dir="d">↓</button><button data-dir="l">←</button><button data-dir="r">→</button></span>
+  <span class="grp">Shove: <button data-shove="roll">roll along the deck</button><button data-shove="scoot">scoot across it</button><button data-shove="slop">pinned: slop off the back</button></span>
+  <span class="grp">Room: <button data-room="walled">walled</button><button data-room="open">open</button></span>
+  <span class="grp">Stopper in the roll: <button data-stopper="none">none</button><button data-stopper="pillar">a pillar</button></span>
+</div>
+<div class="bar">
+  <span class="grp">A deck lying up and down the picture, seen: <span id="views"></span></span>
+</div>
+<div class="bar">
+  <span class="grp">Load at the raccoon's end: <span id="pick-near"></span></span>
+  <span class="grp">Load at the far end: <span id="pick-far"></span></span>
+  <span class="grp">In the roll's path: <span id="pick-path"></span></span>
+</div>
+<div class="bar">
+  <span class="grp"><button id="play">pause</button><button id="prev">◀ frame</button><button id="next">frame ▶</button>
+    <input type="range" id="scrub" min="0" step="1"></span>
+  <span class="grp">Playback speed: <button id="slow">−</button><span id="speed-read"></span><button id="fast">+</button></span>
+  <span class="grp">Frame rate: <button data-fps="60">60</button><button data-fps="30">30</button><button data-fps="24">24</button><button data-fps="12">12</button></span>
+  <span class="grp">Zoom: <button id="zoom-out">−</button><span id="zoom-read"></span><button id="zoom-in">+</button></span>
+</div>
+<div class="row">
+  <div><canvas id="view"></canvas><div class="muted" id="frame-read"></div></div>
+  <div>
+    <h2>Motion</h2>
+    <div class="ctl" id="ctl"></div>
+    <p class="muted" id="stats"></p>
+    <div class="check" id="check-start"></div>
+    <div class="check" id="check-end"></div>
+    <div class="check" id="check-cells"></div>
+    <p class="muted">Which way an emptied can or box lies is not on the board. The page takes it, after the shove, from the stage's decoration (<code>decorAfter</code> in <code>src/stage.js</code>), and the still of the board after the shove wears that decoration too.</p>
+  </div>
+</div>
+<script type="module">
+import { explain, cell, isCart, NONE, TRASH, BAG, CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY } from '../../src/rules.js';
+import { toState } from '../../src/format.js';
+import { decorAfter } from '../../src/stage.js';
+import { createTrash, pileLayout, drawPile } from './trash/pile.js';
+import { createFlight, C } from './trash/flight.js';
+import * as CAN from './trash/can.js';
+import * as BOX from './trash/box.js';
+import { deck, standRow, VIEWS } from './trash/skate.js';
+import { load, save as store } from './trash/settings.js';
+
+const KEY = 'trash-skate';
+const SLIDERS = {
+  cell: ['A cell takes, at full speed', 40, 400, 10, v => `${v} ms`],
+  ease: ['It reaches full speed after', 0, 3, 0.25, v => `${v} cell${v === 1 ? '' : 's'}`],
+  bump: ['It knocks back at the stop', 0, 6, 1, v => `${v} px`],
+  bumpMs: ['The knock lasts', 40, 400, 10, v => `${v} ms`],
+  spin: ['A wheel turns, each cell', 0, 4, 1, v => v ? `${v} time${v === 1 ? '' : 's'}` : 'not at all'],
+  scoot: ['A scoot across takes', 80, 800, 10, v => `${v} ms`],
+  slop: ['A load slides off the back over', 80, 900, 10, v => `${v} ms`],
+  contact: ['The raccoon reaches the deck after', 0, 300, 10, v => `${v} ms`],
+  hold: ['Hold the last frame', 100, 2000, 50, v => `${v} ms`],
+};
+const LOADS = { none: null, trash: 'x', bag: '$', can: 'C', box: 'B' };
+const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
+const REACH = 5;                                   // px the raccoon leans into the deck as he shoves
+const SEED = 7;                                    // every pile and every box's heap on this page is laid from it
+
+const [D, A, LOOK] = await Promise.all(['trash/items.json', 'tear/assets.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const ui = load(KEY, { dir: 'r', shove: 'roll', room: 'walled', stopper: 'none', view: 'end', near: 'none', far: 'bag', path: 'trash',
+  playing: true, speed: 100, zoom: 4, fps: 30, cell: 120, ease: 1, bump: 2, bumpMs: 160, spin: 2, scoot: 260, slop: 320, contact: 100, hold: 700 });
+const save = () => store(KEY, ui);
+const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
+const F = createFlight({ T, A, STYLE: { outline: LOOK.outline, shadow: LOOK.shadow }, OBJ: {} });
+const STYLE = { outline: LOOK.outline, shadow: LOOK.shadow };
+const PILE = pileLayout(T, SEED, { min: LOOK.min, max: LOOK.max, C });
+const HEAP = BOX.contents(T, SEED, LOOK.spread.edges, LOOK.spread.hues).sort((a, b) => b.by - a.by);
+
+const clamp = v => Math.max(0, Math.min(1, v));
+const easeOut = u => 1 - (1 - u) ** 2, easeInOut = u => u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) ** 2, smooth = u => u * u * (3 - 2 * u);
+const canvasOf = side => { const c = document.createElement('canvas'); c.width = c.height = side; return c; };
+const pixels = (c, W) => c.getContext('2d').getImageData(0, 0, W, W).data;
+function differ(a, b) { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++; return n; }
+function report(id, ok, text) { const el = document.getElementById(id); el.textContent = text; el.className = 'check ' + (ok ? 'ok' : 'bad'); }
+const deckCells = s => s.cells.flatMap((row, y) => row.flatMap((c, x) => isCart(c) ? [[x, y]] : []));
+const lieOf = cells => new Set(cells.map(c => c[1])).size === 1 ? 'x' : 'y';
+
+/** The board: the deck with the raccoon behind it, ready to shove; the shove `explain()` makes of
+ *  it; and every load's place at each step of it, read off the steps. A roll runs the deck along
+ *  itself past whatever is in its path; a scoot shoves it across; pinned, it is shoved across
+ *  against two pillars. */
+function setup() {
+  const roll = ui.shove === 'roll', N = roll ? 9 : 7, c = Math.floor(N / 2), [dx, dy] = DIRS[ui.dir];
+  const xy = (a, b) => ({ r: [a, b], l: [N - 1 - a, b], d: [b, a], u: [b, N - 1 - a] })[ui.dir];
+  const grid = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) =>
+    ui.room === 'walled' && (x === 0 || y === 0 || x === N - 1 || y === N - 1) ? '#' : '-'));
+  const cart = Array.from({ length: N }, () => Array(N).fill('-'));
+  grid[0][0] = 'E';
+  const put = (a, b, ch) => { const [x, y] = xy(a, b); if (ch) grid[y][x] = ch; };
+  const ride = (a, b, load) => { const [x, y] = xy(a, b); cart[y][x] = 'P'; put(a, b, LOADS[load]); };
+  if (roll) {
+    put(1, c, '@'); ride(2, c, ui.near); ride(3, c, ui.far); put(5, c, LOADS[ui.path]);
+    if (ui.stopper === 'pillar') put(7, c, '#');
+  } else {
+    put(2, c, '@'); ride(3, c, ui.near); ride(3, c - 1, ui.far);
+    if (ui.shove === 'slop') { put(4, c, '#'); put(4, c - 1, '#'); }
+  }
+  const s = toState({ id: 'bench', grid: grid.map(r => r.join('')), cart: cart.map(r => r.join('')) });
+  const r = explain(s, ui.dir, { trace: true });
+  const B = { s, r, N, W: N * C, dx, dy, deck0: deckCells(s), lie: lieOf(deckCells(s)), items: [], steps: [] };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const k = cell(s, x, y);
+    if (k.o !== NONE) B.items.push({ at: { x, y, ride: isCart(k), o: k.o }, segs: [] });
+  }
+  if (!r.ok) return B;
+  r.steps.forEach((st, k) => {
+    const cartMove = st.moved.find(m => m.handle.endsWith('/cart'));
+    const d = cartMove ? [cartMove.dx, cartMove.dy] : [0, 0], rolling = !!(d[0] || d[1]);
+    if (st.gone.length) throw new Error(`step ${k}: ${st.gone.map(g => g.o).join(', ')} taken — not drawn on this page`);
+    const named = st.moved.filter(m => m !== cartMove).map(m => {
+      const [x, y] = m.cells[0], it = B.items.find(i => i.at.x === x && i.at.y === y && i.segs.length === k);
+      if (!it) throw new Error(`step ${k}: nothing at ${x},${y} to move`);
+      return [it, { x: x + m.dx, y: y + m.dy, ride: m.parent !== null && m.parent !== undefined, o: m.becomes.o }];
+    });
+    for (const it of B.items) {
+      if (it.segs.length < k) continue;                 // born later
+      const from = it.at, n = named.find(([i]) => i === it);
+      const to = n ? n[1] : from.ride && rolling ? { ...from, x: from.x + d[0], y: from.y + d[1] } : from;
+      it.segs.push({ from, to, how: n ? 'named' : from.ride && rolling ? 'deck' : 'still' });
+      it.at = to;
+    }
+    for (const e of st.spawned) {
+      const [x, y] = e.cells[0];
+      B.items.push({ at: { x, y, ride: false, o: e.o }, born: { step: k, from: e.from }, segs: Array(k + 1).fill(null) });
+    }
+    B.steps.push({ rolling, d, impact: !!st.impact });
+  });
+  B.decor = decorAfter(s, null, ui.dir, r);
+  for (const it of B.items) it.lie = lieAt(B.decor, it.at.x, it.at.y);
+  return B;
+}
+
+/** The way the thing at (x, y) on the floor or on the deck lies in decoration `decor`: null standing. */
+const lieAt = (decor, x, y) => decor?.get(`${x},${y}/0`)?.lie ?? null;
+
+/** When each step happens: a rolling step while the deck covers its cell, a still one over `slop`
+ *  ms once the roll has stopped. */
+function timing(B) {
+  const t0 = ui.contact, n = B.steps.filter(s => s.rolling).length, across = ui.shove !== 'roll', D = n * C;
+  const v = C / ui.cell, da = Math.min(D, ui.ease * C), ta = da ? 2 * da / v : 0;
+  const run = !n ? 0 : across ? ui.scoot : ta + (D - da) / v;
+  /** How far the deck has gone `t` ms after the push, px, not counting its knock at the stop. */
+  const dist = t => {
+    const u = t - t0;
+    if (u <= 0 || !n) return 0;
+    if (across) return D * easeInOut(clamp(u / ui.scoot));
+    return u >= run ? D : u < ta ? 0.5 * (v / ta) * u * u : da + v * (u - ta);
+  };
+  const stop = t0 + run, knock = n && !across ? ui.bumpMs : 0;
+  const knockAt = t => knock && t > stop && t < stop + knock ? -Math.round(ui.bump * Math.sin(Math.PI * (t - stop) / knock)) : 0;
+  let still = n ? stop + knock * 0.25 : t0;
+  const spans = B.steps.map((st, k) => st.rolling ? null : [still, still += ui.slop]);
+  const progress = (k, t) => B.steps[k].rolling ? clamp((dist(t) - k * C) / C) : clamp((t - spans[k][0]) / ui.slop);
+  const end = Math.max(stop + knock, still, t0 + 200);
+  return { dist, knockAt, progress, end, n, across };
+}
+let TM;
+
+/** Where item `it` is `t` ms after the push: its cell (fractional), how far up on the deck it rides
+ *  (0 on the floor, 1 on the deck), what it is, and how far over it has tipped. Null before it
+ *  exists. */
+function itemAt(B, it, t) {
+  let cur = { ...(it.born ? { ...it.at } : it.segs[0]?.from ?? it.at), a: 0, deg: 0 };
+  if (it.born) {
+    const u = TM.progress(it.born.step, t);
+    if (u < 0.6) return null;
+    const e = easeOut((u - 0.6) / 0.4), [fx, fy] = it.born.from;
+    return { x: fx + (it.at.x - fx) * e, y: fy + (it.at.y - fy) * e, a: 0, o: it.at.o, deg: 0, lie: it.lie };
+  }
+  cur.a = cur.ride ? 1 : 0;
+  for (let k = 0; k < it.segs.length; k++) {
+    const seg = it.segs[k], u = TM.progress(k, t);
+    if (u <= 0) break;
+    const { from, to, how } = seg, fa = from.ride ? 1 : 0, ta = to.ride ? 1 : 0;
+    if (u >= 1) { cur = { ...to, a: ta, deg: 0 }; continue; }
+    const still = !B.steps[k].rolling, m = still ? easeOut(u) : u;
+    let a = fa;
+    if (fa < ta) a = smooth(clamp(u / 0.5));
+    else if (fa > ta) a = still ? (u < 0.45 ? 1 : 1 - ((u - 0.45) / 0.55) ** 2) : 1 - clamp((u - 0.5) / 0.5) ** 2;
+    const tips = to.o !== from.o;
+    return { x: from.x + (to.x - from.x) * m, y: from.y + (to.y - from.y) * m, a, o: from.o, ride: how === 'deck' || fa === ta && fa === 1,
+      tip: tips ? { from, to, u: m, lie: it.lie, emptied: u >= 0.6, deg: 90 * smooth(clamp((u - 0.3) / 0.7)) } : null };
+  }
+  return { ...cur, ride: cur.a === 1, lie: cur.o === it.at.o ? it.lie : null };
+}
+
+/** Sprite pixels `px` at (x, y). */
+const put = (ctx, px, x, y) => { for (const [a, b, col] of px) { ctx.fillStyle = col; ctx.fillRect(x + a, y + b, 1, 1); } };
+const MODULE = { [CAN_FULL]: CAN, [CAN_EMPTY]: CAN, [BIN]: BOX, [BIN_EMPTY]: BOX };
+
+/** A full can, its bag over the rim; or a full box, its heap over the rim: upright, top-left at O. */
+function drawFull(ctx, o, O) {
+  if (o === CAN_FULL) {
+    const [bx, by] = CAN.bagIn(A.bag);
+    put(ctx, A.bag.px, O[0] + bx, O[1] + by); put(ctx, CAN.front.px, ...O);
+    return;
+  }
+  for (const p of HEAP) {
+    const s = T.sprite(p.name, p.alt, p.turn), x0 = Math.round(O[0] + p.bx - s.w / 2), y0 = Math.round(O[1] + p.by - s.h / 2);
+    put(ctx, s.px.filter(([x, y]) => y0 + y < O[1] + 2 && x0 + x > O[0] && x0 + x < O[0] + BOX.BOX.W - 1), x0, y0);
+  }
+  put(ctx, BOX.front.px, ...O);
+}
+
+/** The picture: the floor, the deck with its box's top-left at `box` and its wheels turned `turn`,
+ *  the things `items` (as `itemAt` gives them), and the raccoon at (rx, ry) px. */
+function draw(ctx, B, box, turn, items, [rx, ry]) {
+  F.ground(ctx, B);
+  const standing = [];
+  const lift = (it, foot) => it.a ? Math.round(it.a * (standRow(B.lie, ui.view, foot, box[1]) - foot)) : 0;
+  for (const it of items) {
+    const X = Math.round(it.x * C), Y = Math.round(it.y * C), foot = Y + C - 2, dy = lift(it, foot);
+    if (it.o === TRASH) {
+      if (it.a) standing.push([foot + 0.1, () => drawPile(ctx, T, PILE, X, Y + dy, STYLE)]);
+      else drawPile(ctx, T, PILE, X, Y, STYLE);
+      continue;
+    }
+    if (it.o === BAG) { const [bx, by] = F.at(A.bag, 0, 0); standing.push([foot + (it.a ? 0.1 : 0), () => put(ctx, A.bag.px, X + bx, Y + by + dy)]); continue; }
+    const M = MODULE[it.o];
+    if (!M) throw new Error(`no drawing on this page for occupant ${it.o}`);
+    if (it.tip && !it.tip.lie) {
+      // Emptied where it stands, the deck rolling out from under it: it drops upright, full until
+      // what it held is thrown out of it.
+      const O = M.restAt(0, 0, C), at = [X + O[0], Y + O[1] + dy];
+      standing.push([foot, () => it.tip.emptied ? put(ctx, M.front.px, ...at) : drawFull(ctx, it.o, at)]);
+      continue;
+    }
+    if (it.tip) {
+      const fall = it.tip.lie;
+      // Off the back of the deck and over: the upright thing's top-left goes from where it rode to
+      // where its fall lays it in the cell it lands in.
+      const f = M.frame(fall, Math.round(it.tip.deg)), f90 = M.frame(fall, 90), { from: c0, to: c1 } = it.tip;
+      const [sx, sy] = M.restAt(c0.x, c0.y, C), [ex, ey] = M.restAt(c1.x, c1.y, C, fall), rode = c0.y * C + C - 2;
+      const from = [sx, sy + (c0.ride ? standRow(B.lie, ui.view, rode, box[1]) - rode : 0)], end = [ex - f90.ox, ey - f90.oy];
+      const O = [Math.round(from[0] + (end[0] - from[0]) * it.tip.u), Math.round(from[1] + (end[1] - from[1]) * it.tip.u)];
+      standing.push([foot, () => put(ctx, f.s.px, O[0] + f.ox, O[1] + f.oy)]);
+      continue;
+    }
+    if (it.o === CAN_EMPTY || it.o === BIN_EMPTY) {
+      const [x0, y0] = M.restAt(0, 0, C, it.lie);
+      standing.push([foot, () => put(ctx, (it.lie ? M.rest(it.lie) : M.front).px, X + x0, Y + y0 + dy)]);
+      continue;
+    }
+    const O = M.restAt(0, 0, C);
+    standing.push([foot + (it.a ? 0.1 : 0), () => drawFull(ctx, it.o, [X + O[0], Y + O[1] + dy])]);
+  }
+  F.walls(ctx, B);
+  standing.push([box[1] + C - 2 - 0.25, () => put(ctx, deck(B.lie, ui.view, turn), ...box)]);
+  standing.push([ry + A.raccoon.h + 0.5, () => put(ctx, A.raccoon.px, rx, ry)]);
+  standing.sort((a, b) => a[0] - b[0]).forEach(([, f]) => f());
+}
+
+const boxOf = cells => [Math.min(...cells.map(c => c[0])) * C, Math.min(...cells.map(c => c[1])) * C];
+
+/** A still of board `s`, drawn from the board and decoration `decor` alone: null is the room as
+ *  its file lays it out. */
+function still(ctx, B, s, decor) {
+  const items = [];
+  for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++) {
+    const k = cell(s, x, y);
+    if (k.o !== NONE) items.push({ x, y, a: isCart(k) ? 1 : 0, o: k.o, lie: lieAt(decor, x, y) });
+  }
+  draw(ctx, B, boxOf(deckCells(s)), 0, items, F.at(A.raccoon, s.rac.x, s.rac.y));
+}
+
+/** The frame `t` ms after the push. */
+function frameAt(ctx, B, t) {
+  const p = TM.dist(t) + TM.knockAt(t), { dx, dy } = B;
+  const box0 = boxOf(B.deck0), box = [box0[0] + Math.round(p) * dx, box0[1] + Math.round(p) * dy];
+  const turn = !TM.across && B.lie === 'x' ? Math.round(8 * ui.spin * p * dx / C) : 0;
+  const items = B.items.map(it => itemAt(B, it, t)).filter(Boolean)
+    .map(it => it.ride && TM.knockAt(t) ? { ...it, x: it.x + TM.knockAt(t) * dx / C, y: it.y + TM.knockAt(t) * dy / C } : it);
+  const moved = B.r.ok && (B.r.next.rac.x !== B.s.rac.x || B.r.next.rac.y !== B.s.rac.y);
+  const t0 = ui.contact, lean = t <= 0 ? 0 : t < t0 ? REACH * easeOut(t / t0) : moved ? Math.min(C, REACH + TM.dist(t)) : REACH * (1 - clamp((t - t0) / 200));
+  const [rx, ry] = F.at(A.raccoon, B.s.rac.x, B.s.rac.y);
+  draw(ctx, B, box, turn, items, [rx + Math.round(lean) * dx, ry + Math.round(lean) * dy]);
+}
+
+let B, W, FRAMES, cache = new Map(), clock = 0, shown = -1;
+const view = document.getElementById('view'), scrub = document.getElementById('scrub');
+const msOf = j => j * 1000 / ui.fps;
+
+function build() {
+  B = setup(); W = B.W; TM = timing(B);
+  FRAMES = Math.floor((TM.end + ui.hold) * ui.fps / 1000) + 1;
+  cache = new Map(); shown = -1; scrub.max = FRAMES - 1;
+  const a = canvasOf(W), f0 = canvasOf(W);
+  still(a.getContext('2d'), B, B.s, null); frameAt(f0.getContext('2d'), B, 0);
+  const n0 = differ(pixels(f0, W), pixels(a, W));
+  report('check-start', !n0, `first frame vs board before the shove: ${n0} px differ`);
+  if (!B.r.ok) {
+    FRAMES = 1; scrub.max = 0;
+    report('check-end', false, `the shove is refused (${B.r.reason}): nothing moves`);
+    report('check-cells', false, 'no board after the shove');
+    document.getElementById('stats').textContent = '';
+  } else {
+    const b = canvasOf(W), fN = canvasOf(W);
+    still(b.getContext('2d'), B, B.r.next, B.decor); frameAt(fN.getContext('2d'), B, TM.end);
+    const n1 = differ(pixels(fN, W), pixels(b, W));
+    report('check-end', !n1, `frame at ${Math.round(TM.end)} ms vs board after the shove: ${n1} px differ`);
+    const name = { [TRASH]: 'trash', [BAG]: 'bag', [CAN_FULL]: 'can', [CAN_EMPTY]: 'empty can', [BIN]: 'box', [BIN_EMPTY]: 'empty box' };
+    const said = it => `${name[it.o]}@${it.x},${it.y}${it.ride ? ' on the deck' : ''}`;
+    const drawn = [...B.items.map(it => said(it.at))].sort().join(' · ');
+    const board = [];
+    for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++) { const k = cell(B.r.next, x, y); if (k.o !== NONE) board.push(said({ o: k.o, x, y, ride: isCart(k) })); }
+    const end = B.steps.reduce((cs, st) => cs.map(([x, y]) => [x + st.d[0], y + st.d[1]]), B.deck0);
+    const deckOk = end.map(c => c.join(',')).sort().join(' ') === deckCells(B.r.next).map(c => c.join(',')).sort().join(' ');
+    report('check-cells', deckOk && drawn === board.sort().join(' · '),
+      `deck drawn at ${end.map(c => c.join(',')).join(' ')}, on the board at ${deckCells(B.r.next).map(c => c.join(',')).join(' ')} · drawn: ${drawn || 'nothing'} · on the board: ${board.join(' · ') || 'nothing'}`);
+    const rolled = TM.n;
+    document.getElementById('stats').textContent = `${TM.across ? 'scoots' : 'rolls'} ${rolled} cell${rolled === 1 ? '' : 's'} · ${B.steps.length} step${B.steps.length === 1 ? '' : 's'} from the rules · settles ${Math.round(TM.end)} ms after the push`;
+  }
+  clock = Math.min(clock, (FRAMES - 1) * 1000 / ui.fps);
+  bar(); show();
+}
+
+function show() {
+  const j = Math.min(FRAMES - 1, Math.floor(clock * ui.fps / 1000 + 1e-6));
+  if (j === shown) return;
+  shown = j;
+  if (!cache.has(j)) {
+    const c = canvasOf(W);
+    if (B.r.ok) frameAt(c.getContext('2d'), B, msOf(j)); else still(c.getContext('2d'), B, B.s, null);
+    cache.set(j, c);
+  }
+  const z = ui.zoom;
+  if (view.width !== W * z) view.width = view.height = W * z;
+  const g = view.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(cache.get(j), 0, 0, W * z, W * z);
+  scrub.value = j;
+  document.getElementById('frame-read').textContent = `frame ${j} of ${FRAMES - 1} · ${Math.round(msOf(j))} ms after the push`;
+}
+
+let last = null;
+function tick(now) {
+  if (ui.playing && last !== null) {
+    clock += (now - last) * ui.speed / 100;
+    if (clock >= FRAMES * 1000 / ui.fps) clock = 0;
+    show();
+  }
+  last = now;
+  requestAnimationFrame(tick);
+}
+
+const ctl = document.getElementById('ctl');
+ctl.innerHTML = Object.entries(SLIDERS).map(([k, [label, lo, hi, step]]) =>
+  `<label for="f-${k}">${label}</label><input type="range" id="f-${k}" min="${lo}" max="${hi}" step="${step}"><span class="read" id="f-${k}-read"></span>`).join('');
+for (const k in SLIDERS) document.getElementById(`f-${k}`).oninput = e => { ui[k] = Number(e.target.value); save(); build(); };
+document.getElementById('views').innerHTML = Object.entries(VIEWS).map(([k, label]) => `<button data-view="${k}">${label}</button>`).join('');
+for (const p of ['near', 'far', 'path'])
+  document.getElementById(`pick-${p}`).innerHTML = Object.keys(LOADS).map(k => `<button data-${p}="${k}">${k}</button>`).join('');
+
+const GROUPS = ['dir', 'shove', 'room', 'stopper', 'view', 'near', 'far', 'path'];
+function bar() {
+  for (const g of GROUPS) document.querySelectorAll(`[data-${g}]`).forEach(b => b.setAttribute('aria-pressed', b.dataset[g] === ui[g]));
+  document.querySelectorAll('[data-fps]').forEach(b => b.setAttribute('aria-pressed', Number(b.dataset.fps) === ui.fps));
+  document.getElementById('play').textContent = ui.playing ? 'pause' : 'play';
+  document.getElementById('speed-read').textContent = `${ui.speed}%`;
+  document.getElementById('zoom-read').textContent = `${ui.zoom}×`;
+  for (const k in SLIDERS) { document.getElementById(`f-${k}`).value = ui[k]; document.getElementById(`f-${k}-read`).textContent = SLIDERS[k][4](ui[k]); }
+}
+const step = j => { ui.playing = false; clock = (Math.max(0, Math.min(FRAMES - 1, j)) + 0.5) * 1000 / ui.fps; save(); bar(); show(); };
+for (const g of GROUPS) document.querySelectorAll(`[data-${g}]`).forEach(b => b.onclick = () => { ui[g] = b.dataset[g]; save(); build(); });
+document.querySelectorAll('[data-fps]').forEach(b => b.onclick = () => { ui.fps = Number(b.dataset.fps); save(); build(); });
+document.getElementById('play').onclick = () => { ui.playing = !ui.playing; save(); bar(); };
+document.getElementById('prev').onclick = () => step(shown - 1);
+document.getElementById('next').onclick = () => step(shown + 1);
+scrub.oninput = () => step(Number(scrub.value));
+document.getElementById('slow').onclick = () => { ui.speed = Math.max(10, ui.speed - 10); save(); bar(); };
+document.getElementById('fast').onclick = () => { ui.speed = Math.min(200, ui.speed + 10); save(); bar(); };
+document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); save(); bar(); shown = -1; show(); };
+document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zoom + 1); save(); bar(); shown = -1; show(); };
+window.__skate = { ui, build, get B() { return B; }, get TM() { return TM; }, frameAt: (ctx, t) => frameAt(ctx, B, t), still: (ctx, s, decor) => still(ctx, B, s, decor) };
+build(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>

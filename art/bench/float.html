@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Afloat Bench</title>
+<style>
+  :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --ok: #1d7a3a; --bad: #b3261e; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 10px 0 6px; }
+  .bar { position: sticky; top: 0; z-index: 1; background: var(--bg); display: flex; gap: 8px; align-items: center;
+         flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .bar .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; flex-wrap: wrap; }
+  button { font: inherit; padding: 3px 9px; border: 1px solid var(--ink); background: #fff; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  canvas { display: block; image-rendering: pixelated; border: 1px solid var(--line); }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  .ctl { display: grid; grid-template-columns: auto 200px auto; gap: 4px 8px; align-items: center; font-size: 13px; }
+  .ctl input { width: 100%; }
+  .ctl .read { min-width: 140px; color: var(--muted); }
+  .check { font-weight: 600; font-size: 13px; } .check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
+  .muted { color: var(--muted); font-size: 12px; }
+  .strip { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .strip figure { margin: 0; } .strip figcaption { text-align: center; color: var(--muted); font-size: 12px; }
+  #scrub { width: 260px; }
+</style>
+</head>
+<body>
+<h1>Afloat bench — what the canal keeps: a thing shoved or tipped into the water sinks in, bobs a little and lies still</h1>
+<div class="muted" id="source-read"></div>
+<div class="bar">
+  <span class="grp">Scene:
+    <button data-scene="box">empty box shoved in</button><button data-scene="can">empty can shoved in</button>
+    <button data-scene="jug">empty jug shoved in</button><button data-scene="near">full can tipped into it</button>
+    <button data-scene="far">full can tipped beside it</button><button data-scene="poke">a shove at a box afloat</button></span>
+</div>
+<div class="bar">
+  <span class="grp">Push direction:
+    <button data-dir="u">↑</button><button data-dir="d">↓</button><button data-dir="l">←</button><button data-dir="r">→</button></span>
+  <span class="grp">Room: <button data-room="walled">walled</button><button data-room="open">open</button></span>
+  <span class="grp" id="before-grp">What came before: the empty thing
+    <button data-before="stand">stands where the room put it</button>
+    <button data-before="l">lies ←</button><button data-before="u">lies ↑</button><button data-before="r">lies →</button><button data-before="d">lies ↓</button>
+    <span class="muted">(tipped by an earlier shove)</span></span>
+  <span class="grp">Under the waterline: <button data-under="tint">seen through the water</button><button data-under="hide">hidden</button></span>
+</div>
+<div class="bar">
+  <span class="grp"><button id="play">pause</button><button id="prev">◀ frame</button><button id="next">frame ▶</button>
+    <input type="range" id="scrub" min="0" step="1"></span>
+  <span class="grp">Playback speed: <button id="slow">−</button><span id="speed-read"></span><button id="fast">+</button></span>
+  <span class="grp">Frame rate: <button data-fps="60">60</button><button data-fps="30">30</button><button data-fps="24">24</button><button data-fps="12">12</button></span>
+  <span class="grp">Zoom: <button id="zoom-out">−</button><span id="zoom-read"></span><button id="zoom-in">+</button></span>
+</div>
+<div class="row">
+  <div><canvas id="view"></canvas><div class="muted" id="frame-read"></div></div>
+  <div style="max-width: 640px">
+    <h2>Afloat</h2>
+    <div class="ctl" id="ctl"></div>
+    <p class="muted" id="stats"></p>
+    <div class="check" id="check-rules"></div>
+    <div class="check" id="check-start"></div>
+    <div class="check" id="check-end"></div>
+    <div class="check" id="check-cells"></div>
+    <div class="check" id="check-lie"></div>
+    <p class="muted" id="decor-read"></p>
+    <h2>At rest afloat, every way an empty thing can lie</h2>
+    <div class="strip" id="strip"></div>
+  </div>
+</div>
+<script type="module">
+import { explain, cell, restsOn, NONE, BAG as BAG_CODE, CAN_FULL, CAN_EMPTY, BIN_EMPTY, JUG_EMPTY } from '../../src/rules.js';
+import { toState } from '../../src/format.js';
+import { decorAfter } from '../../src/stage.js';
+import { handleAt, depthLane } from '../../src/lanes.js';
+import { createTrash } from './trash/pile.js';
+import { createFlight, C } from './trash/flight.js';
+import * as Can from './trash/can.js';
+import * as Box from './trash/box.js';
+import * as Jug from './trash/jug.js';
+import { canal, soaked, WATER } from './trash/water.js';
+import { load, save as store, CROSSING, crossingDefaults, SHADE, shadowDefaults } from './trash/settings.js';
+
+const KEY = 'trash-float', CAN_KEY = 'trash-can';
+const SLIDERS = {
+  drop: ['Afloat, it sits lower than on the floor by', 0, 8, 1, v => `${v} px`],
+  depth: ['Rows of it under the waterline', 0, 14, 1, v => `${v} px`],
+  murk: ['Under the waterline, the water covers', 0, 100, 5, v => `${v}% of its pixels`],
+  glint: ['The waterline glints out past it by', 0, 5, 1, v => `${v} px`],
+  slide: ['A shove takes', 80, 800, 10, v => `${v} ms`],
+  plunge: ['It plunges on landing by', 0, 8, 1, v => `${v} px`],
+  amp: ['Its first bob rises and dips by', 0, 4, 1, v => `${v} px`],
+  bobs: ['Bobs after the plunge', 0, 6, 1, v => `${v}`],
+  decay: ['Each bob is smaller than the one before by', 0, 90, 5, v => `${v}%`],
+  settle: ['It lies still after', 200, 3000, 20, v => `${v} ms from landing`],
+  splash: ['A splash lasts', 100, 1200, 20, v => `${v} ms`],
+  ripple: ['Ripples spread', 1, 14, 1, v => `${v} px past it`],
+  squash: ['A ripple is as deep as', 20, 100, 5, v => `${v}% of its width`],
+  hold: ['Hold the last frame for', 100, 3000, 50, v => `${v} ms`],
+  poke: ['A shove at a thing afloat lunges', 0, 12, 1, v => `${v} px`],
+};
+// The scenes, each a push of the thing two cells along it into a canal two cells wide that crosses
+// the push `canal` cells along, or a push at a thing already afloat in it.
+const SCENES = {
+  box: { glyph: 'b', canal: 3, floats: [BIN_EMPTY] },
+  can: { glyph: 'c', canal: 3, floats: [CAN_EMPTY] },
+  jug: { glyph: 'i', canal: 3, floats: [JUG_EMPTY] },
+  near: { glyph: 'C', canal: 3, floats: [CAN_EMPTY, BAG_CODE] },
+  far: { glyph: 'C', canal: 4, floats: [BAG_CODE] },
+  poke: { glyph: 'b', canal: 3, floats: [BIN_EMPTY], afloat: true },
+};
+const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const { EDGE, LIGHT, SHINE } = WATER;
+const ARROW = { l: '←', u: '↑', r: '→', d: '↓' };
+const NAMES = { [BIN_EMPTY]: 'the box', [CAN_EMPTY]: 'the can', [JUG_EMPTY]: 'the jug', [BAG_CODE]: 'the bag', [CAN_FULL]: 'the full can' };
+
+const [A, D, LOOK] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const ui = load(KEY, { scene: 'box', dir: 'r', room: 'walled', before: 'stand', under: 'tint', playing: true, speed: 100, zoom: 4, fps: 30,
+  drop: 3, depth: 5, murk: 50, glint: 2, slide: 220, plunge: 3, amp: 1, bobs: 2, decay: 50, settle: 1000, splash: 420, ripple: 5, squash: 45, hold: 700, poke: 5 });
+const save = () => store(KEY, ui);
+const CAN_DEFAULTS = { slide: 140, tip: 260, pour: 45, out: 320, hop: 6 };
+let CS = load(CAN_KEY, CAN_DEFAULTS);                       // the Trash Can Bench's tip
+let CAST = load(SHADE, shadowDefaults(LOOK)).cast;          // the Shadow Bench's shadow
+let EDGES = load(CROSSING, crossingDefaults());             // the Crossing Edge page's canal
+const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
+const F = createFlight({ T, A, STYLE: { outline: LOOK.outline, shadow: LOOK.shadow }, OBJ: {} });
+
+// The bag's last row is the shadow it stands on: it has none afloat, nor in the air.
+const BAG = A.bag, BAG_AIR = { ...BAG, px: BAG.px.filter(p => p[1] < BAG.h - 1) };
+const [BX, BY] = Can.bagIn(BAG), BAG_MID = [BX + BAG.w / 2, BY + BAG.h / 2], BAG_DEPTH = Can.CAN.R;
+const EMPTY = {
+  [BIN_EMPTY]: { up: Box.front, rest: Box.rest, restAt: Box.restAt },
+  [CAN_EMPTY]: { up: Can.front, rest: Can.rest, restAt: Can.restAt },
+  [JUG_EMPTY]: { up: Jug.frame('r', 0, 0).s, rest: Jug.rest, restAt: Jug.restAt },
+};
+
+const easeOut = u => 1 - (1 - u) ** 2, easeInOut = u => u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) ** 2;
+const clamp = u => Math.max(0, Math.min(1, u));
+const lowest = s => s.px.reduce((m, p) => Math.max(m, p[1]), 0);
+// The can's tip, timed as the Trash Can Bench times it.
+const FLAT = () => CS.slide + CS.tip;
+const POUR = () => CS.slide + CS.tip * Math.sqrt(CS.pour / 90);
+const degAt = t => t <= CS.slide ? 0 : t >= FLAT() ? 90 : 90 * ((t - CS.slide) / CS.tip) ** 2;
+const sense = dir => dir === 'r' ? 1 : dir === 'l' ? -1 : 0;
+
+/** Which way the thing loose in cell (x, y) lies under decoration `decor`, or null standing. The
+ *  board does not say: it is history's, as the stage keeps it. */
+const lieAt = (decor, x, y) => decor?.get(handleAt([x, y], depthLane(0)))?.lie ?? null;
+
+/** Thing `o` at rest on the floor of cell (cx, cy), standing or lying the way `lie` says: its
+ *  sprite `s` and top-left. */
+function dryPose(o, cx, cy, lie) {
+  if (o === BAG_CODE) { const [x, y] = F.at(BAG, cx, cy); return { s: BAG, x, y }; }
+  const e = EMPTY[o], [x, y] = e.restAt(cx, cy, C, lie);
+  return { s: lie ? e.rest(lie) : e.up, x, y };
+}
+/** Thing `o` at rest afloat in cell (cx, cy): lower than on the floor, and `yw`, its first row under water. */
+function floatPose(o, cx, cy, lie) {
+  const p = dryPose(o, cx, cy, lie), s = o === BAG_CODE ? BAG_AIR : p.s, y = p.y + ui.drop;
+  return { s, x: p.x, y, yw: line(s, y) };
+}
+
+/** The board: the raccoon behind the thing, ready to push it `dir`, with a canal two cells wide
+ *  across the push; and the shove `explain()` makes of it. */
+function setup() {
+  const sc = SCENES[ui.scene], dir = ui.dir, [dx, dy] = DIRS[dir], N = 7, c = 3, walled = ui.room === 'walled';
+  const along = a => dx > 0 ? [a, c] : dx < 0 ? [N - 1 - a, c] : dy > 0 ? [c, a] : [c, N - 1 - a];
+  const wall = (x, y) => walled && (x === 0 || y === 0 || x === N - 1 || y === N - 1);
+  const band = new Set();
+  for (const a of [sc.canal, sc.canal + 1]) for (let k = 0; k < N; k++) {
+    const [x, y] = along(a), q = dx ? [x, k] : [k, y];
+    if (!wall(...q)) band.add(q.join(','));
+  }
+  const [rac, from] = sc.afloat ? [along(2), along(3)] : [along(1), along(2)];
+  const put = { '0,0': 'E', [rac.join(',')]: '@', [from.join(',')]: sc.glyph }, grid = [], water = [];
+  for (let y = 0; y < N; y++) {
+    grid.push(Array.from({ length: N }, (_, x) => put[`${x},${y}`] ?? (wall(x, y) ? '#' : '-')).join(''));
+    water.push(Array.from({ length: N }, (_, x) => band.has(`${x},${y}`) ? '~' : '-').join(''));
+  }
+  const s = toState({ id: 'bench', grid, water }), r = explain(s, dir, { trace: true }), next = r.ok ? r.next : s;
+  if (sc.afloat ? r.ok || r.reason !== 'water' : !r.ok) throw new Error(`unexpected verdict: ${r.ok ? r.kind : r.reason}`);
+  // What came before, as the history of the room would leave it: the empty thing tipped by an
+  // earlier shove lies the way that shove went. And what this shove leaves.
+  const decorIn = sc.glyph === 'C' || ui.before === 'stand' ? null
+    : new Map([[handleAt(from, depthLane(0)), { heading: ui.before, lie: ui.before }]]);
+  const decorOut = decorAfter(s, decorIn, dir, r);
+  const afloat = b => {
+    const out = [];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const q = cell(b, x, y); if (q.water && q.o !== NONE) out.push({ o: q.o, cell: [x, y] }); }
+    return out;
+  };
+  const after = afloat(next);
+  if (after.map(f => f.o).sort().join() !== [...sc.floats].sort().join()) throw new Error(`afloat after: ${after.map(f => f.o)}`);
+  // Where the step says each thing that moved or turned up comes to rest.
+  const st = r.ok ? r.steps[0] : null;
+  const aimed = st ? [...st.moved.map(m => ({ o: m.becomes.o, cell: restsOn(m) })), ...st.spawned.map(e => ({ o: e.o, cell: e.cells[0] }))] : afloat(s);
+  const W = N * C, canalPx = canal(T, N, C, (x, y) => band.has(`${x},${y}`) ? 'water' : null, EDGES);
+  const wet = new Set(canalPx.keys()), open = new Set([...canalPx].filter(([, p]) => p.water !== EDGE).map(([k]) => k));
+  const B = { s, r, next, N, W, dx, dy, dir, sc, rac, from, to: [from[0] + dx, from[1] + dy], aimed, after, canalPx, wet, open, decorIn, decorOut };
+  // The full can's tip lays it where it rests in the next cell, as the Trash Can Bench has it.
+  if (sc.glyph === 'C') {
+    const [cx, cy] = from, O = Can.restAt(cx, cy, C), end = Can.restAt(cx + dx, cy + dy, C, dir), f90 = Can.frame(dir, 90);
+    const at90 = [O[0] + f90.ox, O[1] + f90.oy];
+    if (dx ? at90[1] !== end[1] : at90[0] !== end[0]) throw new Error('the can lands off its cell across the push');
+    const spawned = st.spawned.find(e => e.o === BAG_CODE).cells[0], bagEnd = floatPose(BAG_CODE, ...spawned, null);
+    Object.assign(B, { O, slide: (end[0] - at90[0]) * dx + (end[1] - at90[1]) * dy, bagCell: spawned,
+      landing: [bagEnd.x + BAG.w / 2, bagEnd.y + BAG.h / 2], canDrop: ui.scene === 'near' ? ui.drop : 0 });
+  }
+  // Each thing that ends afloat: where it rests, when it reaches the water, how hard it goes in.
+  B.floats = after.map(({ o, cell: [x, y] }) => {
+    const tin = ui.scene === 'poke' ? ui.slide / 2 : o === BAG_CODE ? POUR() + CS.out : ui.scene === 'near' ? FLAT() : ui.slide;
+    return { o, cell: [x, y], pose: floatPose(o, x, y, lieAt(decorOut, x, y)), tin, size: ui.scene === 'poke' ? Math.ceil(ui.plunge / 2) : ui.plunge };
+  });
+  const push = ui.scene === 'near' || ui.scene === 'far' ? Math.max(FLAT(), POUR() + CS.out) : ui.slide;
+  B.END = Math.max(push, ...B.floats.map(f => f.tin + Math.max(ui.settle, ui.splash)));
+  return B;
+}
+
+let B, W, FRAMES, cache = new Map(), clock = 0, shown = -1;
+const view = document.getElementById('view'), scrub = document.getElementById('scrub');
+const msOf = j => j * 1000 / ui.fps;
+const canvasOf = (w, h = w) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const pixels = (c, W) => c.getContext('2d').getImageData(0, 0, W, W).data;
+function differ(a, b) { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++; return n; }
+function report(id, ok, text) { const el = document.getElementById(id); el.textContent = text; el.className = 'check ' + (ok ? 'ok' : 'bad'); }
+
+/** How far through its settling afloat thing `f` is `t` ms after the push: 0 to 1 is its plunge,
+ *  and each unit after that is one bob. */
+const bobAt = (f, t) => (t - f.tin) / (ui.settle / (1 + ui.bobs));
+/** How big bob `k` is next to the first: each one `decay` smaller than the one before. */
+const shrink = k => (1 - ui.decay / 100) ** k;
+/** How far below its rest afloat thing `f` is `t` ms after the push, px: it plunges in and comes
+ *  back up, bobs `bobs` times, each bob smaller, and then lies still. */
+function sway(f, t) {
+  const v = bobAt(f, t);
+  if (v < 0 || v >= 1 + ui.bobs) return 0;
+  if (v < 1) return Math.round(f.size * Math.sin(Math.PI * v));
+  const k = Math.floor(v - 1);
+  return Math.round(-ui.amp * shrink(k) * Math.sin(2 * Math.PI * (v - 1 - k)));
+}
+
+/** A thing to draw: sprite `s` at (x, y), `yw` its first row under water, `keep(x, y)` the pixels
+ *  of it that show, and whether it casts a shadow on the floor. */
+const thing = (s, x, y, { yw = Infinity, keep = () => true, shadow = true } = {}) => ({ s, x, y, yw, keep, shadow });
+/** The first row under water of sprite `s` at top-left row `y`, were it afloat there. */
+const line = (s, y) => y + lowest(s) + 1 - ui.depth;
+/** Whether thing `q` is in the water: the middle of its waterline is. */
+const inWater = q => B.wet.has(`${Math.floor(q.x + q.s.w / 2)},${q.yw}`);
+
+/** Thing `q`, its pixels under the waterline seen through the water where there is water to see
+ *  them through, and hidden where the canal's edge or the floor is in front of them. */
+function drawThing(ctx, q) {
+  const murk = ui.murk / 100 * 16;
+  for (const [px, py, col] of q.s.px) {
+    const x = q.x + px, y = q.y + py;
+    if (!q.keep(x, y)) continue;
+    let c = col;
+    if (y >= q.yw && B.wet.has(`${x},${q.yw}`)) {
+      if (ui.under === 'hide' || !B.wet.has(`${x},${y}`) || murk > BAYER[(y & 3) * 4 + (x & 3)] + 0.5) continue;
+      c = soaked(col);
+    }
+    ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1);
+  }
+}
+/** Things standing on the floor or the water, drawn from the back row forward. */
+const byFeet = (ctx, list) => [...list].sort((a, b) => a.y + lowest(a.s) - (b.y + lowest(b.s))).forEach(q => drawThing(ctx, q));
+
+/** The shadows the things `list` on the floor cast, kept off the water. */
+function shadows(ctx, list) {
+  const casts = list.filter(q => q.shadow && !inWater(q)).map(q => ({ s: { ...q.s, px: q.s.px.filter(p => p[1] >= q.s.h - 2) }, gx: q.x, gy: q.y, hc: 0, h: 0 }));
+  if (!casts.length) return;
+  const off = canvasOf(B.W), g = off.getContext('2d');
+  F.castShadows(g, B.W, B.W, casts, CAST);
+  const d = g.getImageData(0, 0, B.W, B.W);
+  for (const k of B.wet) { const [x, y] = k.split(',').map(Number); d.data[(y * B.W + x) * 4 + 3] = 0; }
+  g.putImageData(d, 0, 0); ctx.drawImage(off, 0, 0);
+}
+
+const dot = (ctx, x, y, col) => { if (B.open.has(`${x},${y}`)) { ctx.fillStyle = col; ctx.fillRect(x, y, 1, 1); } };
+/** The bright line of water each side of thing `q` where it breaks the surface. */
+function glint(ctx, q) {
+  const xs = q.s.px.filter(p => q.y + p[1] === q.yw).map(p => q.x + p[0]);
+  if (!xs.length) return;
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  for (let k = 1; k <= ui.glint; k++) { dot(ctx, x0 - k, q.yw, LIGHT); dot(ctx, x1 + k, q.yw, LIGHT); }
+}
+/** A ripple round thing `q` at the waterline, `e` of the way out, broken up as it fades and `sparse`
+ *  more for each bob after the splash. */
+function ring(ctx, q, e, reach, sparse = 0) {
+  const rx = q.s.w / 2 + 1 + reach * e, ry = rx * ui.squash / 100, cx = q.x + q.s.w / 2, seen = new Set();
+  for (let a = 0; a < 96; a++) {
+    const x = Math.round(cx + rx * Math.cos(a * Math.PI / 48) - 0.5), y = Math.round(q.yw + ry * Math.sin(a * Math.PI / 48) - 0.5);
+    const gap = sparse + (e > 0.55 ? 1 : 0);
+    if (seen.has(`${x},${y}`) || (gap && (x + y) % (gap + 1))) continue;
+    seen.add(`${x},${y}`); dot(ctx, x, y, LIGHT);
+  }
+}
+/** Drops thrown up off the waterline as thing `q` goes in, `e` of the way through their flight. */
+function drops(ctx, q, e, seed) {
+  const cx = q.x + q.s.w / 2, half = q.s.w / 2;
+  for (let k = 0; k < 6; k++) {
+    const side = k % 2 ? 1 : -1, far = (half - 2 + (k >> 1) * 2 + ui.ripple * e) * side, up = (4 + ui.ripple + ((seed + k) % 3)) * 4 * e * (1 - e);
+    ctx.fillStyle = k < 2 ? SHINE : LIGHT;
+    ctx.fillRect(Math.round(cx + far), Math.round(q.yw - up), 1, 1);
+  }
+}
+/** The water's marks round each floating thing `t` ms after the push: its glint, the splash going
+ *  in and a ripple off each bob. Returns the drops, drawn last. */
+function marks(ctx, t, posed) {
+  const after = [];
+  for (const [f, q] of posed) {
+    glint(ctx, q);
+    if (t < f.tin) continue;
+    const e = (t - f.tin) / ui.splash;
+    if (e < 1) { ring(ctx, q, easeOut(e), ui.ripple * 1.5); if (e < 0.5) after.push(() => drops(ctx, q, e * 2, f.cell[0] + f.cell[1])); }
+    const v = bobAt(f, t), k = Math.floor(v - 1);
+    if (v >= 1 && k < ui.bobs) ring(ctx, q, v - 1 - k, ui.ripple * shrink(k), k + 1);
+  }
+  return after;
+}
+
+function base(ctx) {
+  F.ground(ctx, B);
+  for (const [k, p] of B.canalPx) { const [x, y] = k.split(',').map(Number); ctx.fillStyle = p.water; ctx.fillRect(x, y, 1, 1); }
+  F.walls(ctx, B);
+}
+const raccoonAt = (cx, cy, k) => { const [x, y] = F.at(A.raccoon, cx, cy); return thing(A.raccoon, x + B.dx * k, y + B.dy * k, { shadow: false }); };
+
+/** The full can's upright top-left `t` ms after the push, px. */
+function canAt(t) {
+  const k = Math.round(B.slide * easeOut(Math.min(1, t / CS.slide)));
+  return [B.O[0] + k * B.dx, B.O[1] + k * B.dy + Math.round(B.canDrop * degAt(t) / 90)];
+}
+/** Where the bag's centre is, and how far it has turned, while it is still in the can. */
+function inCan(t) {
+  const O = canAt(t), deg = degAt(t), [x, y] = Can.frame(B.dir, deg).place(BAG_MID[0], BAG_MID[1], BAG_DEPTH);
+  return { x: O[0] + x, y: O[1] + y, turn: sense(B.dir) * deg };
+}
+/** Where the bag's centre is and how far it has turned once it has left the can. */
+function leaving(t) {
+  const u = Math.min(1, (t - POUR()) / CS.out), a = inCan(POUR()), [x1, y1] = B.landing, e = easeOut(u);
+  return { x: a.x + (x1 - a.x) * e, y: a.y + (y1 - a.y) * e - CS.hop * 4 * u * (1 - u),
+           turn: a.turn + (sense(B.dir) * 360 - a.turn) * e, landed: u >= 1 };
+}
+const bagThing = (b, opts) => { const s = b.landed ? BAG_AIR : Can.spun(BAG_AIR, b.turn); return thing(s, Math.round(b.x - BAG.w / 2), Math.round(b.y - BAG.h / 2), { shadow: false, ...opts }); };
+
+/** The frame `t` ms after the push. */
+function frameAt(ctx, t) {
+  base(ctx);
+  const list = [], posed = [];
+  const settled = f => { const q = thing(f.pose.s, f.pose.x, f.pose.y + sway(f, t), { yw: f.pose.yw, shadow: false }); posed.push([f, q]); return q; };
+  if (ui.scene === 'poke') {
+    list.push(raccoonAt(...B.rac, Math.round(ui.poke * Math.sin(Math.PI * Math.min(1, t / ui.slide)))));
+    list.push(settled(B.floats[0]));
+  } else if (B.sc.glyph === 'C') {
+    list.push(raccoonAt(...B.rac, Math.round(C * easeInOut(Math.min(1, t / FLAT())))));
+    const canF = B.floats.find(f => f.o === CAN_EMPTY), bagF = B.floats.find(f => f.o === BAG_CODE);
+    const O = canAt(t), fr = Can.frame(B.dir, degAt(t)), gy = O[1] + fr.oy;
+    if (canF && t >= canF.tin) list.push(settled(canF));
+    else list.push(thing(fr.s, O[0] + fr.ox, gy, { yw: canF ? line(fr.s, gy) : Infinity }));
+    if (t < POUR()) list.push(bagThing(inCan(t), { keep: (x, y) => fr.shows(x - O[0], y - O[1]) }));
+    else if (t >= bagF.tin) list.push(settled(bagF));
+    else list.push(bagThing(leaving(t), { keep: (x, y) => !fr.hides(x - O[0], y - O[1]), yw: bagF.pose.yw }));
+  } else {
+    const f = B.floats[0], e = easeInOut(Math.min(1, t / ui.slide));
+    list.push(raccoonAt(...B.rac, Math.round(C * e)));
+    if (t >= f.tin) list.push(settled(f));
+    else {
+      const a = dryPose(f.o, ...B.from, lieAt(B.decorIn, ...B.from)), b = f.pose, y = Math.round(a.y + (b.y - a.y) * e);
+      list.push(thing(a.s, Math.round(a.x + (b.x - a.x) * e), y, { yw: line(a.s, y) }));
+    }
+  }
+  shadows(ctx, list);
+  const last = marks(ctx, t, posed);
+  byFeet(ctx, list);
+  last.forEach(d => d());
+}
+
+/** A still of board `s`, drawn from the board, with the way each thing lies taken from decoration
+ *  `decor`: the board does not record it. */
+function still(ctx, s, decor) {
+  base(ctx);
+  const list = [], posed = [];
+  for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++) {
+    const o = cell(s, x, y).o;
+    if (o === NONE) continue;
+    if (cell(s, x, y).water) { const p = floatPose(o, x, y, lieAt(decor, x, y)), q = thing(p.s, p.x, p.y, { yw: p.yw, shadow: false }); list.push(q); posed.push([{ tin: -Infinity }, q]); }
+    else if (o === CAN_FULL) {
+      const [cx, cy] = Can.restAt(x, y, C), shows = Can.frame(B.dir, 0).shows;
+      list.push(thing(Can.front, cx, cy), bagThing({ x: cx + BAG_MID[0], y: cy + BAG_MID[1], turn: 0 }, { keep: (px, py) => shows(px - cx, py - cy) }));
+    } else { const p = dryPose(o, x, y, lieAt(decor, x, y)); list.push(thing(p.s, p.x, p.y, { shadow: o !== BAG_CODE })); }
+  }
+  list.push(raccoonAt(s.rac.x, s.rac.y, 0));
+  shadows(ctx, list);
+  for (const [, q] of posed) glint(ctx, q);
+  byFeet(ctx, list);
+}
+
+function build() {
+  B = setup(); W = B.W;
+  FRAMES = Math.floor((B.END + ui.hold) * ui.fps / 1000) + 1;
+  cache = new Map(); shown = -1;
+  scrub.max = FRAMES - 1;
+  const r = Math.round, name = o => NAMES[o];
+  document.getElementById('stats').textContent = B.floats.map(f => `${name(f.o)} reaches the water at ${r(f.tin)} ms`).join(' · ') + ` · all still at ${r(B.END)} ms`;
+  const verdict = B.r.ok ? `${B.r.kind}` : `refused: ${B.r.reason}`;
+  report('check-rules', true, `the rules: ${verdict} · afloat after: ${B.after.map(f => `${name(f.o)} at ${f.cell}`).join(', ')}`);
+  const worn = ([h, d]) => `${h}${d.lie ? ` lies ${ARROW[d.lie]}` : ''}${d.heading ? ` heads ${ARROW[d.heading]}` : ''}`;
+  document.getElementById('decor-read').textContent = `Decoration before: ${B.decorIn ? [...B.decorIn].map(worn).join(', ') : 'none, the room as its file lays it out'}` +
+    ` · after the shove: ${[...B.decorOut].map(worn).join(', ')}`;
+  const a = canvasOf(W), b = canvasOf(W), f0 = canvasOf(W), fN = canvasOf(W);
+  still(a.getContext('2d'), B.s, B.decorIn); still(b.getContext('2d'), B.next, B.decorOut);
+  frameAt(f0.getContext('2d'), 0); frameAt(fN.getContext('2d'), B.END);
+  const n0 = differ(pixels(f0, W), pixels(a, W)), n1 = differ(pixels(fN, W), pixels(b, W));
+  report('check-start', !n0, `first frame vs board before the shove: ${n0} px differ`);
+  report('check-end', !n1, `frame at ${r(B.END)} ms vs board after the shove: ${n1} px differ`);
+  // Where the animation leaves each floating thing, against where the rules put it.
+  const cellOf = f => `${name(f.o)} ${Math.floor((f.pose.x + f.pose.s.w / 2) / C)},${Math.floor((f.pose.y - ui.drop + lowest(f.pose.s)) / C)}`;
+  const drawn = B.floats.map(cellOf).sort().join(' · ');
+  const named = B.aimed.filter(e => cell(B.next, ...e.cell).water).map(e => `${name(e.o)} ${e.cell}`).sort().join(' · ');
+  report('check-cells', drawn === named, `rules put afloat: ${named} · drawn afloat: ${drawn}`);
+  // The way the animation lays each thing that moves, against the way the stage's history has it.
+  const tipped = B.sc.glyph === 'C', mover = tipped ? B.to : B.sc.afloat ? B.from : B.to;
+  const drawnLie = tipped ? B.dir : lieAt(B.decorIn, ...B.from), kept = lieAt(B.decorOut, ...mover), say = l => l ? `lies ${ARROW[l]}` : 'stands';
+  report('check-lie', drawnLie === kept, `the animation leaves ${name(tipped ? CAN_EMPTY : B.after[0].o)} ${say(drawnLie)} · the decoration after has it ${say(kept)}`);
+  clock = Math.min(clock, (FRAMES - 1) * 1000 / ui.fps);
+  bar(); strip(); show();
+}
+
+function show() {
+  const j = Math.min(FRAMES - 1, Math.floor(clock * ui.fps / 1000 + 1e-6));
+  if (j === shown) return;
+  shown = j;
+  if (!cache.has(j)) { const c = canvasOf(W); frameAt(c.getContext('2d'), Math.min(msOf(j), B.END)); cache.set(j, c); }
+  const z = ui.zoom;
+  if (view.width !== W * z) view.width = view.height = W * z;
+  const g = view.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(cache.get(j), 0, 0, W * z, W * z);
+  scrub.value = j;
+  const t = msOf(j);
+  document.getElementById('frame-read').textContent = `frame ${j} of ${FRAMES - 1} · ${Math.round(t)} ms after the push · ` +
+    (t < B.END ? 'settling' : 'still') + ' · ' + B.floats.map(f => `${NAMES[f.o]} ${sway(f, t) > 0 ? '+' : ''}${sway(f, t)} px`).join(', ');
+}
+
+/** Each empty thing and the bag at rest afloat on one water cell, every way it can lie. */
+function strip() {
+  const root = document.getElementById('strip'); root.innerHTML = '';
+  const z = Math.min(ui.zoom, 3), size = 32;
+  const wet = new Set(), open = new Set();
+  for (let y = 4; y < size - 2; y++) for (let x = 2; x < size - 2; x++) { wet.add(`${x},${y}`); if (y > 4 && y < size - 3 && x > 2 && x < size - 3) open.add(`${x},${y}`); }
+  const keepB = B; B = { ...B, wet, open, W: size };
+  const fig = (o, lie, caption) => {
+    const c = canvasOf(size), g = c.getContext('2d');
+    g.fillStyle = '#896e6e'; g.fillRect(0, 0, size, size);
+    for (const k of wet) { const [x, y] = k.split(',').map(Number); g.fillStyle = open.has(k) ? WATER.MID : EDGE; g.fillRect(x, y, 1, 1); }
+    const p = floatPose(o, 0, 0, lie), dx = Math.floor((size - C) / 2), dy = size - C - 6, q = thing(p.s, p.x + dx, p.y + dy, { yw: p.yw + dy, shadow: false });
+    glint(g, q); drawThing(g, q);
+    const big = canvasOf(size * z), bg = big.getContext('2d'); bg.imageSmoothingEnabled = false; bg.drawImage(c, 0, 0, size * z, size * z);
+    const f = document.createElement('figure'); f.append(big);
+    f.insertAdjacentHTML('beforeend', `<figcaption>${caption}</figcaption>`); root.append(f);
+  };
+  const lies = [[null, 'stands'], ['l', 'lies ←'], ['r', 'lies →'], ['d', 'lies ↓'], ['u', 'lies ↑']];
+  for (const o of [BIN_EMPTY, CAN_EMPTY, JUG_EMPTY]) for (const [lie, label] of lies) fig(o, lie, `${NAMES[o].slice(4)} ${label}`);
+  fig(BAG_CODE, null, 'bag');
+  B = keepB;
+}
+
+let last = null;
+function tick(now) {
+  if (ui.playing && last !== null) {
+    clock += (now - last) * ui.speed / 100;
+    if (clock >= FRAMES * 1000 / ui.fps) clock = 0;
+    show();
+  }
+  last = now;
+  requestAnimationFrame(tick);
+}
+
+document.getElementById('ctl').innerHTML = Object.entries(SLIDERS).map(([k, [label, lo, hi, step]]) =>
+  `<label for="f-${k}">${label}</label><input type="range" id="f-${k}" min="${lo}" max="${hi}" step="${step}"><span class="read" id="f-${k}-read"></span>`).join('');
+for (const k in SLIDERS) document.getElementById(`f-${k}`).oninput = e => { ui[k] = Number(e.target.value); save(); build(); };
+
+function bar() {
+  for (const k of ['scene', 'dir', 'room', 'before', 'under']) document.querySelectorAll(`[data-${k}]`).forEach(b => b.setAttribute('aria-pressed', b.dataset[k] === ui[k]));
+  document.querySelectorAll('[data-fps]').forEach(b => b.setAttribute('aria-pressed', Number(b.dataset.fps) === ui.fps));
+  document.getElementById('play').textContent = ui.playing ? 'pause' : 'play';
+  document.getElementById('speed-read').textContent = `${ui.speed}%`;
+  document.getElementById('zoom-read').textContent = `${ui.zoom}×`;
+  for (const k in SLIDERS) { document.getElementById(`f-${k}`).value = ui[k]; document.getElementById(`f-${k}-read`).textContent = SLIDERS[k][4](ui[k]); }
+  document.getElementById('f-murk').disabled = ui.under === 'hide';
+  document.getElementById('f-poke').disabled = ui.scene !== 'poke';
+  document.getElementById('f-slide').disabled = ui.scene === 'near' || ui.scene === 'far';
+  document.getElementById('source-read').textContent = 'The full can tips as the Trash Can Bench tips it. Shadows: the Shadow Bench. ' +
+    'The canal: the Crossing Edge page. Which way a thing lies is history, not board: the stage derives it (decorAfter in src/stage.js).';
+  document.querySelectorAll('[data-before]').forEach(b => { b.disabled = B.sc.glyph === 'C'; });
+}
+const step = j => { ui.playing = false; clock = (Math.max(0, Math.min(FRAMES - 1, j)) + 0.5) * 1000 / ui.fps; save(); bar(); show(); };
+for (const k of ['scene', 'dir', 'room', 'before', 'under'])
+  document.querySelectorAll(`[data-${k}]`).forEach(b => b.onclick = () => { ui[k] = b.dataset[k]; save(); build(); });
+document.querySelectorAll('[data-fps]').forEach(b => b.onclick = () => { ui.fps = Number(b.dataset.fps); save(); build(); });
+document.getElementById('play').onclick = () => { ui.playing = !ui.playing; save(); bar(); };
+document.getElementById('prev').onclick = () => step(shown - 1);
+document.getElementById('next').onclick = () => step(shown + 1);
+scrub.oninput = () => step(Number(scrub.value));
+document.getElementById('slow').onclick = () => { ui.speed = Math.max(10, ui.speed - 10); save(); bar(); };
+document.getElementById('fast').onclick = () => { ui.speed = Math.min(200, ui.speed + 10); save(); bar(); };
+document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); save(); bar(); strip(); shown = -1; show(); };
+document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zoom + 1); save(); bar(); strip(); shown = -1; show(); };
+// Another bench saving in another tab redraws this one.
+window.addEventListener('storage', e => {
+  if (e.key === CAN_KEY) { CS = load(CAN_KEY, CAN_DEFAULTS); build(); }
+  if (e.key === SHADE) { CAST = load(SHADE, shadowDefaults(LOOK)).cast; build(); }
+  if (e.key === CROSSING) { EDGES = load(CROSSING, crossingDefaults()); build(); }
+});
+build(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>

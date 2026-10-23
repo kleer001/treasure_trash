@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raccoon Bench</title>
+<style>
+  :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --ok: #1d7a3a; --bad: #b3261e; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 12px 0 6px; }
+  .bar { position: sticky; top: 0; z-index: 1; background: var(--bg); display: flex; gap: 8px; align-items: center;
+         flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .bar .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; }
+  button { font: inherit; padding: 3px 9px; border: 1px solid var(--ink); background: #fff; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  canvas { display: block; image-rendering: pixelated; border: 1px solid var(--line); }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  .ctl { display: grid; grid-template-columns: auto 200px auto; gap: 4px 8px; align-items: center; font-size: 13px; }
+  .ctl input { width: 100%; }
+  .ctl .read { min-width: 120px; color: var(--muted); }
+  .ctl .head { grid-column: 1 / -1; font-weight: 600; margin-top: 6px; }
+  .check { font-weight: 600; font-size: 13px; } .check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
+  .muted { color: var(--muted); font-size: 12px; max-width: 640px; }
+  #strip-wrap { overflow-x: auto; max-width: 100%; }
+  #scrub { width: 240px; }
+  .views { display: flex; gap: 12px; flex-wrap: wrap; }
+  .views figure { margin: 0; } .views figcaption { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<h1>Raccoon — sitting, crawling one cell, and shoving a thing, drawn by hand from its parts</h1>
+<div class="bar">
+  <span class="grp">Action: <button data-act="sit">sit</button><button data-act="crawl">crawl one cell</button>
+    <button data-act="push">push</button><button data-act="stuck">push, held fast</button></span>
+  <span class="grp">Facing before the press: <button data-before="u">↑</button><button data-before="d">↓</button><button data-before="l">←</button><button data-before="r">→</button></span>
+  <span class="grp" id="press">Press: <button data-dir="u">↑</button><button data-dir="d">↓</button><button data-dir="l">←</button><button data-dir="r">→</button></span>
+  <span class="grp"><button id="play">pause</button><button id="prev">◀ frame</button><button id="next">frame ▶</button>
+    <input type="range" id="scrub" min="0" step="1"></span>
+  <span class="grp">Playback speed: <button id="slow">−</button><span id="speed-read"></span><button id="fast">+</button></span>
+  <span class="grp">Frame rate: <button data-fps="60">60</button><button data-fps="30">30</button><button data-fps="24">24</button><button data-fps="12">12</button></span>
+  <span class="grp">Onion skin: <button id="onion"></button></span>
+  <span class="grp">Zoom: <button id="zoom-out">−</button><span id="zoom-read"></span><button id="zoom-in">+</button></span>
+</div>
+<div class="row">
+  <div><canvas id="view"></canvas><div class="muted" id="frame-read"></div></div>
+  <div>
+    <div class="check" id="check-start"></div>
+    <div class="check" id="check-end"></div>
+    <div class="check" id="check-cell"></div>
+    <p class="muted" id="rules-read"></p>
+    <div class="ctl" id="ctl"></div>
+  </div>
+</div>
+<h2>Every frame</h2>
+<div id="strip-wrap"><canvas id="strip"></canvas></div>
+<h2>The views at rest, and blinking</h2>
+<div class="views" id="views"></div>
+<script type="module">
+import { explain, cell, CAN_EMPTY } from '../../src/rules.js';
+import { toState } from '../../src/format.js';
+import { C, FLOOR, SEAM } from './trash/flight.js';
+import { wallTile } from './trash/room.js';
+import { front as CAN } from './trash/can.js';
+import { decorAfter, stageFrom, RACCOON } from '../../src/stage.js';
+import { createRaccoon, ACTIONS } from './trash/raccoon.js';
+import { load, save as store } from './trash/settings.js';
+
+const KEY = 'trash-raccoon';
+// Sliders: label, least, most, step, readout, and the actions that use it.
+const ms = v => `${v} ms`, px = v => `${v} px`;
+const SLIDERS = [
+  ['Timing'],
+  ['turn', 'Turn to face the press', 0, 400, 10, ms, ['crawl', 'push', 'stuck']],
+  ['breath', 'One breath', 300, 2000, 20, ms, ['sit']],
+  ['breaths', 'Breaths while sitting', 1, 6, 1, v => `${v}`, ['sit']],
+  ['blink', 'A blink', 0, 400, 10, ms, ['sit']],
+  ['crouch', 'Get down low', 0, 400, 10, ms, ['crawl']],
+  ['pull', 'Each of two pulls forward', 80, 800, 10, ms, ['crawl']],
+  ['brace', 'Brace', 0, 400, 10, ms, ['push', 'stuck']],
+  ['shove', 'Shove', 40, 400, 10, ms, ['push', 'stuck']],
+  ['follow', 'Follow it into its cell', 80, 800, 10, ms, ['push']],
+  ['strain', 'Strain against it', 0, 1500, 20, ms, ['stuck']],
+  ['giveUp', 'Give up', 80, 800, 10, ms, ['stuck']],
+  ['settle', 'Settle back to sitting', 0, 600, 10, ms, ['crawl', 'push', 'stuck']],
+  ['hold', 'Hold the last frame', 100, 2000, 50, ms, ['sit', 'crawl', 'push', 'stuck']],
+  ['Pose'],
+  ['breathPx', 'Head drops on each breath', 0, 2, 1, px, ['sit']],
+  ['sway', 'Tail sway', 0, 3, 1, px, ['sit', 'crawl', 'push', 'stuck']],
+  ['swings', 'Tail swings while sitting', 1, 6, 1, v => `${v}`, ['sit']],
+  ['crouchPx', 'Crouch depth', 0, 4, 1, px, ['crawl']],
+  ['reach', 'Paws reach', 0, 6, 1, px, ['crawl', 'push', 'stuck']],
+  ['trail', 'Hind legs shove off', 0, 4, 1, px, ['crawl']],
+  ['bracePx', 'Lean back to brace', 0, 4, 1, px, ['push', 'stuck']],
+  ['lunge', 'Press past touching it', 0, 4, 1, px, ['push', 'stuck']],
+];
+const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }, ARROW = { u: '↑', d: '↓', l: '←', r: '→' };
+const N = 5, MID = 2;
+
+const A = await fetch('tear/assets.json').then(r => r.json());
+const R = createRaccoon(A.raccoon);
+const ui = load(KEY, { act: 'crawl', before: 'd', dir: 'r', playing: true, speed: 100, zoom: 4, fps: 30, onion: false,
+  turn: 160, breath: 900, breaths: 3, blink: 140, crouch: 140, pull: 260, brace: 160, shove: 120, follow: 300,
+  strain: 600, giveUp: 300, settle: 160, hold: 600, breathPx: 1, sway: 1, swings: 2, crouchPx: 2, reach: 3, trail: 2, bracePx: 2, lunge: 1 });
+const save = () => store(KEY, ui);
+
+const canvasOf = (w, h = w) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const pixels = (c, w, h = w) => c.getContext('2d').getImageData(0, 0, w, h).data;
+function differ(a, b) { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++; return n; }
+const drawPx = (ctx, list, x, y) => { for (const [px, py, col] of list) { ctx.fillStyle = col; ctx.fillRect(x + px, y + py, 1, 1); } };
+// A sprite stands centred on its cell, its feet one pixel above the cell's bottom edge.
+const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
+
+/** The raccoon in the middle of an open room, facing the way it was last pressed, and, for a push,
+ *  an empty can ahead of it: held fast by a wall when the push is to fail. The move the rules make
+ *  of it, how far each thing goes, and the way the stage faces the raccoon after it. */
+function setup() {
+  const [dx, dy] = DIRS[ui.dir], put = { [`${MID},${MID}`]: '@', '0,0': 'E' };
+  if (ui.act === 'push' || ui.act === 'stuck') put[`${MID + dx},${MID + dy}`] = 'c';
+  if (ui.act === 'stuck') put[`${MID + 2 * dx},${MID + 2 * dy}`] = '#';
+  const grid = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => put[`${x},${y}`] ?? '-').join(''));
+  const s = toState({ id: 'bench', grid });
+  const r = ui.act === 'sit' ? null : explain(s, ui.dir, { trace: true });
+  if (ui.act === 'stuck' ? r.ok : r && !r.ok) throw new Error(`the rules answered ${r.ok ? r.kind : r.reason}`);
+  const next = r?.ok ? r.next : s;
+  const handle = stageFrom(s).sprites.find(sp => sp.kind === RACCOON).handle;
+  const worn = new Map([[handle, { heading: ui.before, lie: null }]]);
+  const face = r ? stageFrom(next, 1, decorAfter(s, worn, ui.dir, r)).sprites.find(sp => sp.kind === RACCOON).heading : ui.before;
+  const moved = r?.ok ? r.steps[0].moved : [];
+  const span = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+  // What the raccoon shoves: what the rules moved, or the can that would not move.
+  const thing = moved.length ? { cell: moved[0].cells[0], dist: C * (Math.abs(moved[0].dx) + Math.abs(moved[0].dy)) }
+    : ui.act === 'stuck' ? { cell: [MID + dx, MID + dy], dist: 0 } : null;
+  return { s, r, next, face, dx, dy, W: N * C, dist: C * span(s.rac, next.rac), thing, gap: thing ? gap(thing.cell, dx, dy) : 0 };
+}
+
+/** How far the raccoon, at rest facing the push, leans to touch the can at `[cx, cy]`: the empty
+ *  px between them along the push, in the nearest of the lines the push crosses. */
+function gap([cx, cy], dx, dy) {
+  const spr = R.rest(ui.dir), [rx, ry] = at(spr, MID, MID), [kx, ky] = at(CAN, cx, cy);
+  const ahead = (x, y) => dx ? x * dx : y * dy, lane = (x, y) => dx ? y : x;
+  const front = new Map(), near = new Map();
+  for (const [x, y] of spr.px) { const l = lane(rx + x, ry + y), a = ahead(rx + x, ry + y); front.set(l, Math.max(front.get(l) ?? -Infinity, a)); }
+  for (const [x, y] of CAN.px) { const l = lane(kx + x, ky + y), a = ahead(kx + x, ky + y); near.set(l, Math.min(near.get(l) ?? Infinity, a)); }
+  return Math.min(...[...front].filter(([l]) => near.has(l)).map(([l, a]) => near.get(l) - a - 1));
+}
+
+function ground(ctx, s) {
+  ctx.fillStyle = FLOOR; ctx.fillRect(0, 0, B.W, B.W);
+  ctx.fillStyle = SEAM;
+  for (let k = 0; k < N; k++) { ctx.fillRect(k * C + C - 1, 0, 1, B.W); ctx.fillRect(0, k * C + C - 1, B.W, 1); }
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (cell(s, x, y).wall) wallTile(ctx, x, y, C);
+}
+/** Sprites `[{px, x, y, h, rac}]` drawn nearest last: the lower foot in front, the raccoon on a tie. */
+function sprites(ctx, list) {
+  for (const p of list.sort((a, b) => (a.y + a.h) - (b.y + b.h) || a.rac - b.rac)) drawPx(ctx, p.px, p.x, p.y);
+}
+
+/** A still of board `s`, the raccoon facing `face`. */
+function still(ctx, s, face) {
+  ground(ctx, s);
+  const list = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (cell(s, x, y).o === CAN_EMPTY) {
+    const [cx, cy] = at(CAN, x, y); list.push({ px: CAN.px, x: cx, y: cy, h: CAN.h, rac: 0 });
+  }
+  const rac = R.rest(face), [rx, ry] = at(rac, s.rac.x, s.rac.y);
+  list.push({ px: rac.px, x: rx, y: ry, h: rac.h, rac: 1 });
+  sprites(ctx, list);
+}
+
+/** The frame `t` ms into the action. */
+function frameAt(ctx, t) {
+  ground(ctx, B.s);
+  const list = [], p = R.at(ui.act, ui.before, ui.dir, t, ui, B.dist, B.gap), spr = R.draw(p, ui.dir);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (cell(B.s, x, y).o === CAN_EMPTY) {
+    const go = B.thing?.cell.join() === `${x},${y}` ? R.thing(ui.act, ui.before, ui.dir, t, ui, B.thing.dist) : 0, [cx, cy] = at(CAN, x, y);
+    list.push({ px: CAN.px, x: cx + B.dx * go, y: cy + B.dy * go, h: CAN.h, rac: 0 });
+  }
+  const [x0, y0] = at(spr, B.s.rac.x, B.s.rac.y), root = Math.round(p.k.root);
+  list.push({ px: spr.px, x: x0 + B.dx * root, y: y0 + B.dy * root, h: spr.h, rac: 1 });
+  sprites(ctx, list);
+}
+
+let B, END, FRAMES, cache = new Map(), clock = 0, shown = -1;
+const view = document.getElementById('view'), scrub = document.getElementById('scrub'), strip = document.getElementById('strip');
+const msOf = j => j * 1000 / ui.fps;
+function report(id, ok, text) { const el = document.getElementById(id); el.textContent = text; el.className = 'check ' + (ok ? 'ok' : 'bad'); }
+function frame(j) {
+  if (!cache.has(j)) { const c = canvasOf(B.W); frameAt(c.getContext('2d'), Math.min(msOf(j), END)); cache.set(j, c); }
+  return cache.get(j);
+}
+/** The cells the action happens in, as px: the raccoon's, and two ahead of it. */
+function crop() {
+  const xs = [MID, MID + 2 * B.dx], ys = [MID, MID + 2 * B.dy];
+  const x = Math.min(...xs) * C, y = Math.min(...ys) * C;
+  return [x, y, (Math.abs(xs[1] - xs[0]) + 1) * C, (Math.abs(ys[1] - ys[0]) + 1) * C];
+}
+
+function build() {
+  B = setup();
+  END = R.end(ui.act, ui.before, ui.dir, ui);
+  FRAMES = Math.floor((END + ui.hold) * ui.fps / 1000) + 1;
+  cache = new Map(); shown = -1; scrub.max = FRAMES - 1;
+  const a = canvasOf(B.W), b = canvasOf(B.W), f0 = canvasOf(B.W), fN = canvasOf(B.W);
+  still(a.getContext('2d'), B.s, ui.before); still(b.getContext('2d'), B.next, B.face);
+  frameAt(f0.getContext('2d'), 0); frameAt(fN.getContext('2d'), END);
+  const n0 = differ(pixels(f0, B.W), pixels(a, B.W)), n1 = differ(pixels(fN, B.W), pixels(b, B.W));
+  report('check-start', !n0, `first frame vs board before: ${n0} px differ`);
+  report('check-end', !n1, `frame at ${Math.round(END)} ms vs board after: ${n1} px differ`);
+  const p = R.at(ui.act, ui.before, ui.dir, END, ui, B.dist, B.gap), steps = Math.round(p.k.root / C);
+  const lands = `${B.s.rac.x + B.dx * steps},${B.s.rac.y + B.dy * steps} facing ${ARROW[p.face]}`;
+  const rules = `${B.next.rac.x},${B.next.rac.y} facing ${ARROW[B.face]}`;
+  report('check-cell', lands === rules, `raccoon ends at ${lands} · the rules and the stage put it at ${rules}`);
+  document.getElementById('rules-read').textContent = !B.r ? 'Sitting asks the rules nothing: the board does not change.'
+    : B.r.ok ? `The rules: ${B.r.kind}. The raccoon goes ${B.dist / C} cell${B.thing ? `, the can ${B.thing.dist / C}` : ''}.`
+    : `The rules refuse the push: ${B.r.reason}. Nothing moves.`;
+  clock = Math.min(clock, (FRAMES - 1) * 1000 / ui.fps);
+  drawStrip(); bar(); show();
+}
+
+function drawStrip() {
+  const [x, y, w, h] = crop(), z = 2, gap = 2;
+  strip.width = FRAMES * (w * z + gap); strip.height = h * z;
+  const g = strip.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.fillStyle = '#fafafa'; g.fillRect(0, 0, strip.width, strip.height);
+  for (let j = 0; j < FRAMES; j++) g.drawImage(frame(j), x, y, w, h, j * (w * z + gap), 0, w * z, h * z);
+}
+
+function show() {
+  const j = Math.min(FRAMES - 1, Math.floor(clock * ui.fps / 1000 + 1e-6));
+  if (j === shown) return;
+  shown = j;
+  const z = ui.zoom;
+  if (view.width !== B.W * z) view.width = view.height = B.W * z;
+  const g = view.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.globalAlpha = 1; g.drawImage(frame(j), 0, 0, B.W * z, B.W * z);
+  if (ui.onion) {
+    g.globalAlpha = 0.3;
+    if (j > 0) g.drawImage(frame(j - 1), 0, 0, B.W * z, B.W * z);
+    if (j < FRAMES - 1) g.drawImage(frame(j + 1), 0, 0, B.W * z, B.W * z);
+    g.globalAlpha = 1;
+  }
+  scrub.value = j;
+  const t = Math.min(msOf(j), END);
+  let start = 0, phase = 'rest';
+  for (const [name, d] of R.phases(ui.act, ui.before, ui.dir, ui)) { if (t < start + d) { phase = name; break; } start += d; }
+  document.getElementById('frame-read').textContent = `frame ${j} of ${FRAMES - 1} · ${Math.round(msOf(j))} ms · ${phase}`;
+}
+
+let last = null;
+function tick(now) {
+  if (ui.playing && last !== null) {
+    clock += (now - last) * ui.speed / 100;
+    if (clock >= FRAMES * 1000 / ui.fps) clock = 0;
+    show();
+  }
+  last = now;
+  requestAnimationFrame(tick);
+}
+
+/** The three views large, at rest and blinking, and the side view mirrored. */
+function drawViews() {
+  const host = document.getElementById('views'), z = 6;
+  const REST = R.REST, list = [['front', false, 'd', 'from the front'], ['side', false, 'r', 'from the side, facing →'],
+    ['side', true, 'l', 'facing ←'], ['back', false, 'u', 'from behind']];
+  for (const [view, mirror, dir, label] of list) for (const blink of [false, true]) {
+    if (blink && view === 'back') continue;
+    const s = R.pose(view, mirror, DIRS[dir], { ...REST, blink }), c = canvasOf(26 * z, 22 * z), g = c.getContext('2d');
+    g.fillStyle = FLOOR; g.fillRect(0, 0, c.width, c.height);
+    for (const [x, y, col] of s.px) { g.fillStyle = col; g.fillRect((x + 2) * z, (y + 2) * z, z, z); }
+    const fig = document.createElement('figure'), cap = document.createElement('figcaption');
+    cap.textContent = label + (blink ? ', blinking' : '');
+    fig.append(c, cap); host.append(fig);
+  }
+}
+
+const ctl = document.getElementById('ctl');
+ctl.innerHTML = SLIDERS.map(([k, label, lo, hi, step]) => label === undefined ? `<div class="head">${k}</div>`
+  : `<label for="f-${k}" data-row="${k}">${label}</label><input type="range" id="f-${k}" data-row="${k}" min="${lo}" max="${hi}" step="${step}"><span class="read" id="f-${k}-read" data-row="${k}"></span>`).join('');
+for (const [k, label] of SLIDERS) if (label !== undefined) document.getElementById(`f-${k}`).oninput = e => { ui[k] = Number(e.target.value); save(); build(); };
+
+function bar() {
+  document.querySelectorAll('[data-act]').forEach(b => b.setAttribute('aria-pressed', b.dataset.act === ui.act));
+  document.querySelectorAll('[data-dir]').forEach(b => b.setAttribute('aria-pressed', b.dataset.dir === ui.dir));
+  document.querySelectorAll('[data-before]').forEach(b => b.setAttribute('aria-pressed', b.dataset.before === ui.before));
+  document.getElementById('press').style.display = ui.act === 'sit' ? 'none' : '';
+  document.querySelectorAll('[data-fps]').forEach(b => b.setAttribute('aria-pressed', Number(b.dataset.fps) === ui.fps));
+  document.getElementById('play').textContent = ui.playing ? 'pause' : 'play';
+  document.getElementById('onion').textContent = ui.onion ? 'on' : 'off';
+  document.getElementById('onion').setAttribute('aria-pressed', ui.onion);
+  document.getElementById('speed-read').textContent = `${ui.speed}%`;
+  document.getElementById('zoom-read').textContent = `${ui.zoom * 100}%`;
+  for (const [k, label, , , , read, acts] of SLIDERS) {
+    if (label === undefined) continue;
+    document.getElementById(`f-${k}`).value = ui[k];
+    document.getElementById(`f-${k}-read`).textContent = read(ui[k]);
+    const on = acts.includes(ui.act) && !(k === 'turn' && ui.dir === ui.before);
+    document.querySelectorAll(`[data-row="${k}"]`).forEach(el => { el.style.display = on ? '' : 'none'; });
+  }
+}
+const step = j => { ui.playing = false; clock = (Math.max(0, Math.min(FRAMES - 1, j)) + 0.5) * 1000 / ui.fps; save(); bar(); show(); };
+document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { ui.act = b.dataset.act; save(); build(); });
+document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => { ui.dir = b.dataset.dir; save(); build(); });
+document.querySelectorAll('[data-before]').forEach(b => b.onclick = () => { ui.before = b.dataset.before; save(); build(); });
+document.querySelectorAll('[data-fps]').forEach(b => b.onclick = () => { ui.fps = Number(b.dataset.fps); save(); build(); });
+document.getElementById('play').onclick = () => { ui.playing = !ui.playing; save(); bar(); };
+document.getElementById('onion').onclick = () => { ui.onion = !ui.onion; save(); bar(); shown = -1; show(); };
+document.getElementById('prev').onclick = () => step(shown - 1);
+document.getElementById('next').onclick = () => step(shown + 1);
+scrub.oninput = () => step(Number(scrub.value));
+document.getElementById('slow').onclick = () => { ui.speed = Math.max(10, ui.speed - 10); save(); bar(); };
+document.getElementById('fast').onclick = () => { ui.speed = Math.min(200, ui.speed + 10); save(); bar(); };
+document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); save(); bar(); shown = -1; show(); };
+document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zoom + 1); save(); bar(); shown = -1; show(); };
+if (!ACTIONS.includes(ui.act)) ui.act = 'crawl';
+drawViews(); build(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>
