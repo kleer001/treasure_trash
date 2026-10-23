@@ -19,6 +19,13 @@ sits in the working tree (`src/rules.js`, `tests/magnet.test.js`) awaiting the o
 
 ### Parallel
 
+- [ ] #79 **The owner has notes on the Afloat, Skateboard and Raccoon benches** (`art/bench/float.html`,
+      `skate.html`, `raccoon.html`). Ask for them; the owner gives them when ready.
+
+- [ ] #80 **A notes feature on those bench pages.** The owner writes a note on a page, and the note
+      is saved together with the page's settings at that moment, so each note is tied to the
+      settings it is about.
+
 - [ ] #75 **Commit and push the scrape once the owner says so.** Working tree only: `src/rules.js`
       and `tests/magnet.test.js`. Proposed message: `feat(rules): a magnet that cannot follow is
       scraped off, and stays off for the beat`. Commit path-scoped; leave the deleted
