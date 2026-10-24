@@ -31,8 +31,10 @@ sits in the working tree (`src/rules.js`, `tests/magnet.test.js`) awaiting the o
       scraped off, and stays off for the beat`. Commit path-scoped; leave the deleted
       `.claude/skills/` copies out.
 
-- [ ] #51 **The crow is still pinned.** Un-pin and design its powers, or leave it. Naming it lands
-      occupant codes, refusals and `stateKey` lanes at once.
+- [ ] #51 **The crow is the coach, and never a piece** (owner, 2026-10-23): a guardian angel with a
+      chip on his shoulder, coaching a raccoon through raccoon limbo. A voice and a portrait; he
+      never touches the board. Character, dialogue and art references are in `CROW.md`. Act 1's
+      pack name still reads "(raccoon only, crow pinned)".
 
 - [ ] #74 **`stateKey` is where the solver's time goes, not the graph.** Measured over act1 and
       act2 (186,591 states, 469,712 edges): `stateKey` is 41% of `analyze`, `explain` 23%, the

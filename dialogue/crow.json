@@ -1,0 +1,640 @@
+{
+  "room.firstEver": {
+    "event": "The very first room ever",
+    "hint": false,
+    "lines": [
+      "Hrrk. Another soul. Let's see what you got."
+    ]
+  },
+  "room.new": {
+    "event": "A room you've never opened",
+    "hint": false,
+    "lines": [
+      "New alley. Look it over before you move."
+    ]
+  },
+  "room.unsolvedAgain": {
+    "event": "Back in a room you haven't solved",
+    "hint": false,
+    "lines": [
+      "This one again. It's still got your number."
+    ]
+  },
+  "room.replay": {
+    "event": "Replaying a room you've solved",
+    "hint": false,
+    "lines": [
+      "Already beat this one. What, showin' off?"
+    ]
+  },
+  "room.replayAtPar": {
+    "event": "Replaying a room you solved at par",
+    "hint": false,
+    "lines": [
+      "You've done this one at par. Again."
+    ]
+  },
+  "room.teach": {
+    "event": "A room that teaches something new",
+    "hint": false,
+    "lines": [
+      "Oh, this one. Pay attention, I'm sayin' it once."
+    ],
+    "then": "teach"
+  },
+  "room.skippedAhead": {
+    "event": "Skipped ahead to a room past your progress",
+    "hint": false,
+    "lines": [
+      "Skippin' ahead? Bold. This one bites, kid."
+    ]
+  },
+  "walk.long": {
+    "event": "A long walk without touching anything",
+    "hint": false,
+    "lines": [
+      "Sightseein'? The bags ain't gonna tear themselves."
+    ]
+  },
+  "walk.loop": {
+    "event": "Walked a loop back to the exact same board",
+    "hint": false,
+    "lines": [
+      "Full circle. Nothin' changed but your mood."
+    ]
+  },
+  "walk.pacing": {
+    "event": "Pacing back and forth",
+    "hint": false,
+    "lines": [
+      "Back, forth, back, forth. Pick a thought, kid."
+    ]
+  },
+  "walk.exitDark": {
+    "event": "Standing at the dark exit, bags left",
+    "hint": false,
+    "lines": [
+      "Door's still dark. You're early, kid."
+    ]
+  },
+  "walk.exitThenAway": {
+    "event": "Walked to the exit's doorstep, then away",
+    "hint": false,
+    "lines": [
+      "Close. Wrong order, but close."
+    ]
+  },
+  "tear.first": {
+    "event": "First tear of the room",
+    "hint": false,
+    "lines": [
+      "There it goes. That's yours forever now."
+    ]
+  },
+  "tear.facing": {
+    "event": "Facing a bag, not moving",
+    "hint": false,
+    "lines": [
+      "Thinkin' it over? Good. That's the job."
+    ]
+  },
+  "tear.stillWinnable": {
+    "event": "A tear, and the board can still be won",
+    "hint": true,
+    "lines": [
+      "Good spray. Board's still breathin', kid."
+    ]
+  },
+  "tear.half": {
+    "event": "Half the bags torn",
+    "hint": false,
+    "lines": [
+      "Halfway. Don't get cocky, that's when it goes."
+    ]
+  },
+  "tear.oneLeft": {
+    "event": "One bag left",
+    "hint": false,
+    "lines": [
+      "One left. Think where that spray's goin'."
+    ]
+  },
+  "tear.last": {
+    "event": "Last bag torn, exit lights",
+    "hint": false,
+    "lines": [
+      "That's the last one. Now get out."
+    ]
+  },
+  "tear.lastButSealed": {
+    "event": "Last bag torn, but the exit can't be reached",
+    "hint": true,
+    "lines": [
+      "Door's lit. Shame you bricked yourself in."
+    ]
+  },
+  "piece.canSheds": {
+    "event": "A can coughs up its bag",
+    "hint": false,
+    "lines": [
+      "Can coughed one up. Now that's two problems."
+    ]
+  },
+  "piece.grate": {
+    "event": "Something goes down a grate",
+    "hint": false,
+    "lines": [
+      "Down the grate. No refunds in limbo."
+    ]
+  },
+  "piece.tar": {
+    "event": "Something gets stuck in tar",
+    "hint": false,
+    "lines": [
+      "Tar's got it now. Hope you didn't need it."
+    ]
+  },
+  "piece.glass": {
+    "event": "Glass shatters",
+    "hint": false,
+    "lines": [
+      "Glass. Hope you weren't plannin' to walk there."
+    ]
+  },
+  "piece.canalFilled": {
+    "event": "Trash fills a canal",
+    "hint": false,
+    "lines": [
+      "A bridge made of garbage. Gorgeous. Disgusting. Gorgeous."
+    ]
+  },
+  "piece.longRoll": {
+    "event": "Something rolls a long way",
+    "hint": false,
+    "lines": [
+      "Look at it go. Somebody's gotta stop that."
+    ]
+  },
+  "piece.rollerHandoff": {
+    "event": "One roller knocks into another",
+    "hint": false,
+    "lines": [
+      "Ha! Passed it on, like a bad rumor."
+    ]
+  },
+  "piece.couch": {
+    "event": "The couch moves",
+    "hint": false,
+    "lines": [
+      "Couch on the move. Mind your back, kid."
+    ]
+  },
+  "refuse.edge": {
+    "event": "A push refused: edge",
+    "hint": false,
+    "lines": [
+      "That's the end of the alley. Nothin' past it."
+    ]
+  },
+  "refuse.wall": {
+    "event": "A push refused: wall",
+    "hint": false,
+    "lines": [
+      "That's brick, kid. Brick wins every time."
+    ]
+  },
+  "refuse.trash": {
+    "event": "A push refused: trash",
+    "hint": false,
+    "lines": [
+      "Your own mess. It ain't movin' for you."
+    ]
+  },
+  "refuse.fan": {
+    "event": "A push refused: fan",
+    "hint": false,
+    "lines": [
+      "That bag needs elbow room. Try another side."
+    ]
+  },
+  "refuse.canRoom": {
+    "event": "A push refused: canRoom",
+    "hint": false,
+    "lines": [
+      "Where's it supposed to go? Look past it."
+    ]
+  },
+  "refuse.exit": {
+    "event": "A push refused: exit",
+    "hint": false,
+    "lines": [
+      "Not on the door! Never on the door, kid!"
+    ]
+  },
+  "refuse.water": {
+    "event": "A push refused: water",
+    "hint": false,
+    "lines": [
+      "Raccoons wash their food, kid. Not their feet."
+    ]
+  },
+  "refuse.afloat": {
+    "event": "A push refused: afloat",
+    "hint": false,
+    "lines": [
+      "That's out in the canal. Let it go."
+    ]
+  },
+  "refuse.pour": {
+    "event": "A push refused: pour",
+    "hint": false,
+    "lines": [
+      "Can't pour that there. Find some dry ground."
+    ]
+  },
+  "refuse.glass": {
+    "event": "A push refused: glass",
+    "hint": false,
+    "lines": [
+      "Broken glass. You wanna limp through the afterlife?"
+    ]
+  },
+  "refuse.tar": {
+    "event": "A push refused: tar",
+    "hint": false,
+    "lines": [
+      "Tar's got it. Tar don't give back."
+    ]
+  },
+  "refuse.oneway": {
+    "event": "A push refused: oneway",
+    "hint": false,
+    "lines": [
+      "Wrong way down a one-way. Classic rookie."
+    ]
+  },
+  "refuse.busy": {
+    "event": "A move pressed while one is still playing",
+    "hint": false,
+    "lines": [
+      "One thing at a time. You got two paws."
+    ]
+  },
+  "refuse.same3": {
+    "event": "Same refusal, third time in a row",
+    "hint": false,
+    "lines": [
+      "Third time. The wall ain't learnin', kid."
+    ]
+  },
+  "refuse.same5": {
+    "event": "Same refusal, fifth time in a row",
+    "hint": false,
+    "lines": [
+      "You think it'll change its mind? It won't."
+    ]
+  },
+  "refuse.flailing": {
+    "event": "Lots of different refusals, fast",
+    "hint": false,
+    "lines": [
+      "Easy. You're slappin' at everything. Breathe."
+    ]
+  },
+  "refuse.manyInRoom": {
+    "event": "Lots of refusals across the whole room",
+    "hint": false,
+    "lines": [
+      "{n} noes this room. The alley's tellin' you somethin'."
+    ]
+  },
+  "undo.firstEver": {
+    "event": "First undo, ever",
+    "hint": false,
+    "lines": [
+      "Took it back. No shame. Nobody's countin'."
+    ]
+  },
+  "undo.losingMove": {
+    "event": "Undid the move that lost the board, straight away",
+    "hint": true,
+    "lines": [
+      "Good catch. You saw that before I did."
+    ]
+  },
+  "undo.fine": {
+    "event": "Undid a move that was fine",
+    "hint": true,
+    "lines": [
+      "That one was fine, kid. Trust yourself more."
+    ]
+  },
+  "undo.redoSame": {
+    "event": "Undid, then made the same move again",
+    "hint": false,
+    "lines": [
+      "Same move again? Bold. Let's see what happens."
+    ]
+  },
+  "undo.redoSame3": {
+    "event": "That undo-and-redo, third time",
+    "hint": false,
+    "lines": [
+      "Third time doin' that. It ain't changin', kid."
+    ]
+  },
+  "undo.farBack": {
+    "event": "Undid a long way back",
+    "hint": false,
+    "lines": [
+      "Way back. Good. Sometimes the mistake's early."
+    ]
+  },
+  "undo.notFarEnough": {
+    "event": "Undid not far enough; still lost",
+    "hint": true,
+    "lines": [
+      "Still dead. Further back than that, kid."
+    ]
+  },
+  "undo.toStart": {
+    "event": "Undid all the way to the start",
+    "hint": false,
+    "lines": [
+      "Could've just hit restart. But sure, scenic route."
+    ]
+  },
+  "undo.many": {
+    "event": "A lot of undos in one room",
+    "hint": false,
+    "lines": [
+      "{n} undos. I've seen worse. Not many, though."
+    ]
+  },
+  "restart.first": {
+    "event": "First restart",
+    "hint": false,
+    "lines": [
+      "Again. Fresh eyes this time, kid."
+    ]
+  },
+  "restart.early": {
+    "event": "Restart a few moves in",
+    "hint": false,
+    "lines": [
+      "Barely even started. Somethin' spook ya?"
+    ]
+  },
+  "restart.deep": {
+    "event": "Restart deep into a room",
+    "hint": false,
+    "lines": [
+      "All that work, gone. Sometimes that's right."
+    ]
+  },
+  "restart.stillWinnable": {
+    "event": "Restart while the board could still be won",
+    "hint": true,
+    "lines": [
+      "Wasn't dead yet. But fine. Again."
+    ]
+  },
+  "restart.fromLost": {
+    "event": "Restart onto a board that was already lost",
+    "hint": true,
+    "lines": [
+      "Yeah. That one was done. Again."
+    ]
+  },
+  "restart.many": {
+    "event": "Many restarts in one room",
+    "hint": false,
+    "lines": [
+      "Again. Try startin' from the door this time."
+    ]
+  },
+  "restart.sameOpening": {
+    "event": "Same opening moves as the last attempt",
+    "hint": false,
+    "lines": [
+      "Same opening as last time. Expectin' different?"
+    ]
+  },
+  "lost": {
+    "event": "The board is lost. The line depends on how many times this room has been lost.",
+    "hint": false,
+    "byCount": [
+      {
+        "from": 1,
+        "lines": [
+          "Oof. Try again."
+        ]
+      },
+      {
+        "from": 2,
+        "lines": [
+          "Oof. Again. Somethin' different this time."
+        ]
+      },
+      {
+        "from": 3,
+        "lines": [
+          "Third one. Slow down. Read the room."
+        ]
+      },
+      {
+        "from": 4,
+        "lines": [
+          "Oof. Think from the door this time, kid."
+        ]
+      },
+      {
+        "from": 6,
+        "lines": [
+          "Again. Every one of these teaches you somethin'."
+        ]
+      },
+      {
+        "from": 10,
+        "lines": [
+          "{n} tries. Stubborn. I like stubborn."
+        ]
+      }
+    ]
+  },
+  "lost.step1": {
+    "event": "Still moving on a lost board (ladder step 1)",
+    "hint": true,
+    "lines": [
+      "Kid. Stop. Nobody's gettin' out from here."
+    ]
+  },
+  "lost.step2": {
+    "event": "Still moving (ladder step 2)",
+    "hint": true,
+    "lines": [
+      "You're polishin' a corpse. Back it up."
+    ]
+  },
+  "lost.step3": {
+    "event": "Still moving (ladder step 3)",
+    "hint": true,
+    "lines": [
+      "Back it up. Not one. More than that."
+    ]
+  },
+  "lost.step4": {
+    "event": "Still moving (ladder step 4, Yoda mode)",
+    "hint": true,
+    "lines": [
+      "Lost it, you did. {n} moves back."
+    ]
+  },
+  "lost.step4Shown": {
+    "event": "Ladder step 4, the move is shown",
+    "hint": true,
+    "lines": [
+      "That one. Toward the door, it sprayed."
+    ]
+  },
+  "lost.firstEver": {
+    "event": "First lost board ever (said in place of the lost line, that once)",
+    "hint": false,
+    "lines": [
+      "First dead end. Won't be your last."
+    ]
+  },
+  "lost.exitWalled": {
+    "event": "Lost because your trash walled off the exit",
+    "hint": true,
+    "lines": [
+      "Door's walled off. Your own trash did it."
+    ]
+  },
+  "lost.bagUnreachable": {
+    "event": "Lost because a bag can't be reached now",
+    "hint": true,
+    "lines": [
+      "That bag over there? You'll never reach it."
+    ]
+  },
+  "lost.bagNoRoom": {
+    "event": "Lost because a bag has no room to burst now",
+    "hint": true,
+    "lines": [
+      "No room left to pop that one. Ever."
+    ]
+  },
+  "lost.undoneOut": {
+    "event": "Undid out of a lost board",
+    "hint": false,
+    "lines": [
+      "There. Alive again. Well, you know what I mean."
+    ]
+  },
+  "lost.idle": {
+    "event": "Idle on a lost board",
+    "hint": true,
+    "lines": [
+      "Starin' won't fix it, kid. Back it up."
+    ]
+  },
+  "idle.first": {
+    "event": "Idle, once per room",
+    "hint": false,
+    "lines": [
+      "Take your time. Limbo's got plenty of it."
+    ]
+  },
+  "idle.second": {
+    "event": "Idle a second time, same room",
+    "hint": false,
+    "lines": [
+      "Still here. Still waitin'. Still not gettin' older."
+    ]
+  },
+  "win.perfect": {
+    "event": "At par, no undos, no restarts",
+    "hint": false,
+    "lines": [
+      "No take-backs? Who taught you that? Oh, me."
+    ]
+  },
+  "win.par": {
+    "event": "At par",
+    "hint": false,
+    "lines": [
+      "Par. Clean work. Don't let it go to your head."
+    ]
+  },
+  "win.underPar": {
+    "event": "Under par",
+    "hint": false,
+    "lines": [
+      "Under par? Upstairs is gonna hear about this."
+    ]
+  },
+  "win.overPar": {
+    "event": "A little over par",
+    "hint": false,
+    "lines": [
+      "A few extra steps. Nobody died. Again."
+    ]
+  },
+  "win.wayOverPar": {
+    "event": "Way over par",
+    "hint": false,
+    "lines": [
+      "Ugly, but out. Ugly still counts up there."
+    ]
+  },
+  "win.manyUndos": {
+    "event": "After a lot of undos",
+    "hint": false,
+    "lines": [
+      "Took you {n} tries. Took me {n+1}, once."
+    ]
+  },
+  "win.manyRestarts": {
+    "event": "After a lot of restarts",
+    "hint": false,
+    "lines": [
+      "Restart number {n}, and out. I'll allow it."
+    ]
+  },
+  "win.beatBest": {
+    "event": "Beat your own best",
+    "hint": false,
+    "lines": [
+      "Better than last time. I noticed. Don't tell."
+    ]
+  },
+  "win.afterLost": {
+    "event": "After losing the board earlier in the attempt",
+    "hint": false,
+    "lines": [
+      "Dead twice and still walked out. Not bad."
+    ]
+  },
+  "progress.actDone": {
+    "event": "Finished an act",
+    "hint": false,
+    "lines": [
+      "That's an act. Upstairs might even notice you."
+    ]
+  },
+  "progress.leftUnsolved": {
+    "event": "Left a room unsolved",
+    "hint": false,
+    "lines": [
+      "Walkin' away? It'll still be here. Trust me."
+    ]
+  },
+  "progress.back": {
+    "event": "Back after time away",
+    "hint": false,
+    "lines": [
+      "Oh, you're back. Thought you'd moved on. Ha."
+    ]
+  }
+}

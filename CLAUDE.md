@@ -286,6 +286,8 @@ These govern how code is written. They are not design arguments.
 - `FORMATS.md` — the `.tt`/`.sol` file syntax. Not what the pieces do.
 - `BREADCRUMB.md` — where we are, what's open, what's next. Written and read by `/bob`.
 - `GAME-SHEET.md` — the player-facing pitch.
+- `CROW.md` — the crow: the coach's character, voice and art references. A sketch; it binds
+  nothing. His lines are `dialogue/crow.json`.
 - `RELEASE-CHECKLIST.md` — the one hard stop, worked once at ship.
 - `publishing/` — every launch surface and the tools that build it: `MARKETING-PLAN.md`,
   `promo.html`, `ITCH-PAGE.md`, `PUBLISHING-RUNBOOK.md`, the shot list, and the
