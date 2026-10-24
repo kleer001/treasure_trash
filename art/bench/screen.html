@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Screen Mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen&display=block" rel="stylesheet">
+<style>
+  :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --bad: #b3261e; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .bar { position: sticky; top: 0; z-index: 1; background: var(--bg); display: flex; gap: 8px; align-items: center;
+         flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .bar .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; }
+  button { font: inherit; padding: 3px 9px; border: 1px solid var(--ink); background: #fff; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  canvas { display: block; image-rendering: pixelated; margin-top: 12px; }
+  .muted { color: var(--muted); font-size: 13px; } .bad { color: var(--bad); font-weight: 600; }
+  #room-read { min-width: 220px; display: inline-block; text-align: center; }
+  h2 { font-size: 15px; margin: 18px 0 0; }
+  .bar.talk { position: static; }
+  .num { min-width: 28px; display: inline-block; text-align: center; }
+  #strip { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+  #strip figure { margin: 0; } #strip canvas { margin-top: 4px; } #strip figcaption { font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Screen mock — 480×270 with 24 px cells: a top strip, a shipped room, and the crow's dock</h1>
+<div class="bar">
+  <span class="grp">Pack: <button data-pack="teach">teach</button><button data-pack="act1">act 1</button><button data-pack="act2">act 2</button></span>
+  <span class="grp">Room: <button id="room-prev">◀</button><span id="room-read"></span><button id="room-next">▶</button></span>
+  <span class="grp">Crow's line: <button id="line-prev">◀</button><button id="line-next">▶</button></span>
+  <span class="grp" id="crows">Crow:</span>
+  <span class="grp">Board scale: <button data-board="1">1×</button><button data-board="1.5">1.5×</button><button data-board="2">2×</button></span>
+  <span class="grp">Zoom: <button id="zoom-out">−</button><span id="zoom-read"></span><button id="zoom-in">+</button></span>
+  <span class="grp">Top strip: <button data-strip="on">on</button><button data-strip="off">off</button></span>
+  <span class="grp">Outside the room: <button data-outside="bricks">bricks</button><button data-outside="dark">dark</button></span>
+  <span class="grp">Font: <button data-font="press">Press Start 2P</button><button data-font="silk">Silkscreen</button></span>
+  <span class="grp">Guides: <button data-guides="on">on</button><button data-guides="off">off</button></span>
+</div>
+<canvas id="view"></canvas>
+<p class="muted" id="talk-read"></p>
+<p class="muted" id="dims"></p>
+<p class="bad" id="fault"></p>
+<h2>The crow's talk, in 60 Hz frames</h2>
+<div class="bar talk">
+  <span class="grp"><button id="play">Pause</button><button id="frame-step">Step one frame</button></span>
+  <span class="grp">Eye: <button data-eye="closed">open</button><button data-eye="squint">5 squint</button><button data-eye="away">6 away</button></span>
+  <span class="grp" id="timings"></span>
+</div>
+<div id="strip"></div>
+<p class="muted">Placeholders: the crow's code-drawn stand-in portrait, the exit, a couch standing up and down the picture, a barrow,
+and any piece without art (drawn as its occupant code). The fonts are Google Fonts stand-ins, drawn at 8 px with every
+pixel either on or off.</p>
+<script type="module">
+import { parseLevelPack, toState } from '../../src/format.js';
+import { cell, isCart, cartKindOf, SKATE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMPTY,
+  JUG, JUG_EMPTY, FURNITURE } from '../../src/rules.js';
+import { cellSeed } from '../../src/stage.js';
+import { createTrash, pileLayout, drawPile } from './trash/pile.js';
+import { C, FLOOR, SEAM } from './trash/flight.js';
+import { wallTile } from './trash/room.js';
+import * as CAN from './trash/can.js';
+import * as BOX from './trash/box.js';
+import * as JUGS from './trash/jug.js';
+import { deck } from './trash/skate.js';
+import { WATER } from './trash/water.js';
+import { load, save as store } from './trash/settings.js';
+import { mulberry32 } from '../../src/rng.js';
+
+const W = 480, H = 270, STRIP = 16, DOCK = 48, PORTRAIT = 40, GAP = 4;
+const KEY = 'trash-screen';
+const FONTS = { press: { css: '"Press Start 2P"', line: 10 }, silk: { css: 'Silkscreen', line: 9 } };
+// Sample lines from dialogue/crow.json, the longest among them.
+const LINES = [
+  "Hrrk. Another soul. Let's see what you got.",
+  'New alley. Look it over before you move.',
+  'A bridge made of garbage. Gorgeous. Disgusting. Gorgeous.',
+  "3 noes this room. The alley's tellin' you somethin'.",
+  'Broken glass. You wanna limp through the afterlife?',
+  "Par. Clean work. Don't let it go to your head.",
+  'Under par? Upstairs is gonna hear about this.',
+];
+
+const [A, D, LOOK, O] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json', 'trash/objects.json']
+  .map(f => fetch(f).then(r => r.json())));
+await Promise.all(Object.values(FONTS).map(f => document.fonts.load(`8px ${f.css}`)));
+const missing = Object.values(FONTS).filter(f => !document.fonts.check(`8px ${f.css}`)).map(f => f.css);
+if (missing.length) document.getElementById('fault').textContent = `Font not loaded: ${missing.join(', ')}.`;
+
+// Candidate portraits for the crow, PORTRAIT px square, listed with how each was made.
+const CROWS = await fetch('crow/candidates.json').then(r => r.json());
+const CROW_ART = Object.fromEntries(await Promise.all(CROWS.map(c => new Promise((ok, fail) => {
+  const im = new Image();
+  im.onload = () => ok([c.label, im]);
+  im.onerror = () => fail(new Error(`crow portrait ${c.file} did not load`));
+  im.src = `crow/${c.file}`;
+}))));
+
+// A portrait's frames, where it has them: palette-index grids, PORTRAIT px square, numbered in order.
+const FRAMES = Object.fromEntries(await Promise.all(CROWS.filter(c => c.frames).map(async c =>
+  [c.label, await fetch(`crow/${c.frames}`).then(r => r.json())])));
+
+const ui = load(KEY, { pack: 'act2', room: 0, line: 0, zoom: 2, board: '1.5', strip: 'on', outside: 'bricks', font: 'press', guides: 'off',
+  crow: '68B', eye: 'closed',
+  talk: { half: 2, wide: 3, closed: 2, comma: 10, stop: 20, hold: 90, blink: 6, gapMin: 120, gapMax: 300 } });
+if (ui.crow !== 'stand-in' && !(ui.crow in CROW_ART)) ui.crow = '68B';
+const save = () => store(KEY, ui);
+const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
+const STYLE = { outline: LOOK.outline, shadow: LOOK.shadow };
+const PACKS = Object.fromEntries(await Promise.all(['teach', 'act1', 'act2'].map(async p =>
+  [p, parseLevelPack(await fetch(`../../levels/${p}.tt`).then(r => r.text())).levels])));
+
+// The strip and the dock are drawn at screen pixels, the board at art pixels; each layer is scaled
+// to the canvas, which holds one pixel per pixel shown.
+const view = document.getElementById('view'), g = view.getContext('2d');
+const layer = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const hud = layer(W, H), hg = hud.getContext('2d');
+
+/** Sprite pixels `px` at (x, y). */
+const put = (ctx, px, x, y) => { for (const [a, b, col] of px) { ctx.fillStyle = col; ctx.fillRect(x + a, y + b, 1, 1); } };
+const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
+
+// Text is drawn into a scratch canvas and copied with every pixel on or off, so the font stays sharp.
+const scratch = document.createElement('canvas'); scratch.width = W; scratch.height = 16;
+const sg = scratch.getContext('2d', { willReadFrequently: true });
+const font = () => `8px ${FONTS[ui.font].css}`;
+const widthOf = str => { sg.font = font(); return Math.ceil(sg.measureText(str).width); };
+function text(ctx, str, x, y, col) {
+  sg.clearRect(0, 0, W, 16); sg.font = font(); sg.textBaseline = 'top'; sg.fillStyle = '#000'; sg.fillText(str, 0, 0);
+  const w = Math.min(W, widthOf(str) + 1), d = sg.getImageData(0, 0, w, 16).data;
+  ctx.fillStyle = col;
+  for (let j = 0; j < 16; j++) for (let i = 0; i < w; i++) if (d[(j * w + i) * 4 + 3] >= 128) ctx.fillRect(x + i, y + j, 1, 1);
+}
+function wrap(str, max) {
+  const out = [];
+  for (const word of str.split(' ')) {
+    const next = out.length ? `${out.at(-1)} ${word}` : word;
+    if (out.length && widthOf(next) <= max) out[out.length - 1] = next; else out.push(word);
+  }
+  return out;
+}
+
+/** A full box, its heap over the rim, or a full can, its bag over the rim: upright, top-left at P. */
+function drawFull(ctx, o, P, seed) {
+  if (o === CAN_FULL) {
+    const [bx, by] = CAN.bagIn(A.bag);
+    put(ctx, A.bag.px, P[0] + bx, P[1] + by); put(ctx, CAN.front.px, ...P);
+    return;
+  }
+  const heap = BOX.contents(T, seed, LOOK.spread.edges, LOOK.spread.hues).sort((a, b) => b.by - a.by);
+  for (const p of heap) {
+    const s = T.sprite(p.name, p.alt, p.turn), x0 = Math.round(P[0] + p.bx - s.w / 2), y0 = Math.round(P[1] + p.by - s.h / 2);
+    put(ctx, s.px.filter(([x, y]) => y0 + y < P[1] + 2 && x0 + x > P[0] && x0 + x < P[0] + BOX.BOX.W - 1), x0, y0);
+  }
+  put(ctx, BOX.front.px, ...P);
+}
+
+function placeholder(ctx, x, y, w, h, label) {
+  ctx.fillStyle = '#5b5560'; ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+  ctx.fillStyle = '#c9c1cc';
+  ctx.fillRect(x + 2, y + 2, w - 4, 1); ctx.fillRect(x + 2, y + h - 3, w - 4, 1);
+  ctx.fillRect(x + 2, y + 2, 1, h - 4); ctx.fillRect(x + w - 3, y + 2, 1, h - 4);
+  if (label) text(ctx, label, x + Math.floor((w - widthOf(label)) / 2), y + Math.floor((h - 8) / 2), '#f4eef6');
+}
+
+/** The room, its top-left cell's corner at the origin. */
+function drawRoom(ctx, s, seed) {
+  const R = s.cols * C, B = s.rows * C;
+  ctx.fillStyle = FLOOR; ctx.fillRect(0, 0, R, B);
+  ctx.fillStyle = SEAM;
+  for (let k = 1; k <= s.cols; k++) ctx.fillRect(k * C - 1, 0, 1, B);
+  for (let k = 1; k <= s.rows; k++) ctx.fillRect(0, k * C - 1, R, 1);
+  const each = f => { for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) f(cell(s, x, y), x, y); };
+  each((c, x, y) => { if (c.water) { ctx.fillStyle = WATER.MID; ctx.fillRect(x * C, y * C, C, C); } });
+  each((c, x, y) => { if (c.o === TRASH) drawPile(ctx, T, pileLayout(T, cellSeed(x + seed, y), { min: LOOK.min, max: LOOK.max, C, spill: LOOK.spill }), x * C, y * C, STYLE); });
+  each((c, x, y) => { if (c.wall) wallTile(ctx, x, y, C); });
+  each((c, x, y) => { if (c.exit) placeholder(ctx, x * C, y * C, C, C, 'E'); });
+
+  const carts = new Map(), pieces = new Map(), stand = [];
+  each((c, x, y) => {
+    if (isCart(c)) carts.set(c.cart, [...(carts.get(c.cart) ?? []), [x, y, cartKindOf(c)]]);
+    if (c.o === FURNITURE) pieces.set(c.pid, [...(pieces.get(c.pid) ?? []), [x, y]]);
+  });
+  for (const cells of carts.values()) {
+    const x0 = Math.min(...cells.map(q => q[0])), y0 = Math.min(...cells.map(q => q[1]));
+    if (cells[0][2] !== SKATE) { placeholder(ctx, x0 * C, y0 * C, C, C, 'cart'); continue; }
+    put(ctx, deck(cells.every(q => q[1] === y0) ? 'x' : 'y', 'tilt'), x0 * C, y0 * C);
+  }
+  for (const cells of pieces.values()) {
+    const x0 = Math.min(...cells.map(q => q[0])), y0 = Math.min(...cells.map(q => q[1]));
+    const x1 = Math.max(...cells.map(q => q[0])), y1 = Math.max(...cells.map(q => q[1]));
+    if (y0 === y1 && x1 === x0 + 1) {
+      const px = x0 * C + Math.floor((2 * C - O.couch.w) / 2), py = y0 * C + C - O.couch.h - 1;
+      stand.push([py + O.couch.h, () => put(ctx, O.couch.px, px, py)]);
+    } else stand.push([(y1 + 1) * C, () => placeholder(ctx, x0 * C, y0 * C, (x1 - x0 + 1) * C, (y1 - y0 + 1) * C, 'F')]);
+  }
+  const standing = (spr, x, y) => { const [px, py] = at(spr, x, y); stand.push([py + spr.h, () => put(ctx, spr.px, px, py)]); };
+  each((c, x, y) => {
+    const o = c.o;
+    if (o === BAG) standing(A.bag, x, y);
+    else if (o === CAN_FULL || o === BIN) {
+      const M = o === BIN ? BOX : CAN, P = M.restAt(x, y, C);
+      stand.push([P[1] + M.front.h, () => drawFull(ctx, o, P, cellSeed(x + seed, y))]);
+    } else if (o === CAN_EMPTY || o === BIN_EMPTY) {
+      const M = o === BIN_EMPTY ? BOX : CAN, P = M.restAt(x, y, C);
+      stand.push([P[1] + M.front.h, () => put(ctx, M.front.px, ...P)]);
+    } else if (o === JUG || o === JUG_EMPTY) {
+      const P = JUGS.restAt(x, y, C), f = JUGS.frame('r', 0, o === JUG ? 1 : 0);
+      stand.push([P[1] + JUGS.full.h, () => put(ctx, f.s.px, P[0] + f.ox, P[1] + f.oy)]);
+    } else if (o === WHEELIE || o === WHEELIE_EMPTY) standing(O.bin, x, y);
+    else if (o !== 0 && o !== TRASH && o !== FURNITURE) stand.push([(y + 1) * C, () => placeholder(ctx, x * C, y * C, C, C, String(o))]);
+  });
+  standing(A.raccoon, s.rac.x, s.rac.y);
+  for (const [, draw] of stand.sort((a, b) => a[0] - b[0])) draw();
+}
+
+/** A stand-in crow head, PORTRAIT px square, at (x0, y0). */
+function crow(ctx, x0, y0) {
+  ctx.fillStyle = '#24464c'; ctx.fillRect(x0, y0, PORTRAIT, PORTRAIT);
+  for (let y = 0; y < PORTRAIT; y++) for (let x = 0; x < PORTRAIT; x++) {
+    const hx = (x - 17) / 13, hy = (y - 22) / 13, head = hx * hx + hy * hy <= 1;
+    const t = (x - 27) / 11, beak = x >= 27 && x <= 38 && y >= 17 + t * 4 && y <= 26 - t * 3;
+    const body = y >= 33 && x >= 4 && x <= 31, tuft = (y === 8 && x >= 12 && x <= 13) || (y === 7 && x === 11) || (y === 9 && x >= 14 && x <= 15);
+    const eye = (x - 23) ** 2 + (y - 17) ** 2;
+    let col = null;
+    if (head || body || tuft) col = head && hx * hx + hy * hy > 0.8 && hx < 0 && hy < 0 ? '#3a3446' : '#17141c';
+    if (beak) col = y < 21 ? '#9a948c' : '#5f5a54';
+    if (eye <= 5) col = '#e8c33a';
+    if (eye <= 1) col = '#0b0a0d';
+    if (col) { ctx.fillStyle = col; ctx.fillRect(x0 + x, y0 + y, 1, 1); }
+  }
+}
+
+/** The portrait with the beak of frame `beak` and the eye of frame `eye`. An eye frame differs from
+ * the closed frame only round the eye, so those pixels are laid over the beak frame. */
+const portraits = new Map();
+function portrait(label, beak, eye) {
+  const k = `${label} ${beak} ${eye}`;
+  if (!portraits.has(k)) {
+    const { palette, frames } = FRAMES[label], by = Object.fromEntries(frames.map(f => [f.name, f.rows]));
+    const c = layer(PORTRAIT, PORTRAIT), cg = c.getContext('2d');
+    for (let y = 0; y < PORTRAIT; y++) for (let x = 0; x < PORTRAIT; x++) {
+      const e = by[eye][y][x];
+      cg.fillStyle = palette[e !== by.closed[y][x] ? e : by[beak][y][x]];
+      cg.fillRect(x, y, 1, 1);
+    }
+    portraits.set(k, c);
+  }
+  return portraits.get(k);
+}
+
+/** The line cut into syllables, one per vowel run, a silent final e dropped: for each, how much of
+ * the line shows once it is said, and the frames the beak then stays shut. */
+function syllables(line) {
+  const out = [];
+  for (const m of line.matchAll(/\S+/g)) {
+    const word = m[0], end = m.index + word.length;
+    const cuts = [...word.matchAll(/[aeiouy]+/gi)].map(v => m.index + v.index + v[0].length);
+    if (cuts.length > 1 && /[^aeiouy]e\W*$/i.test(word)) cuts.pop();
+    if (!cuts.length) cuts.push(end);
+    cuts[cuts.length - 1] = end;
+    const pause = /[.!?]$/.test(word) ? ui.talk.stop : /[,;:]$/.test(word) ? ui.talk.comma : 0;
+    cuts.forEach((shown, i) => out.push({ shown, pause: i === cuts.length - 1 ? pause : 0 }));
+  }
+  return out;
+}
+
+/** The line said once and held, frame by frame: the beak's frame, how much text shows, and which
+ * syllable is being said. Each syllable opens the beak 1 → 2 → 3 → 2 → 1. */
+function talkFrames(line) {
+  const t = ui.talk, out = [], said = syllables(line);
+  said.forEach((s, i) => {
+    for (const [beak, n] of [['half', t.half], ['wide', t.wide], ['half', t.half], ['closed', t.closed + s.pause]])
+      for (let j = 0; j < n; j++) out.push({ beak, shown: s.shown, syllable: i + 1, of: said.length });
+  });
+  for (let j = 0; j < t.hold; j++) out.push({ beak: 'closed', shown: line.length, syllable: 0, of: said.length });
+  return out;
+}
+
+/** The frames a blink starts on, from a seeded run of gaps between ui.talk.gapMin and gapMax. */
+let blinks, nextGap;
+function resetBlinks() {
+  const r = mulberry32(68);
+  nextGap = () => ui.talk.gapMin + Math.floor(r() * (ui.talk.gapMax - ui.talk.gapMin + 1));
+  blinks = [nextGap()];
+}
+const blinkingAt = f => {
+  while (blinks.at(-1) <= f) blinks.push(blinks.at(-1) + ui.talk.blink + nextGap());
+  return blinks.some(b => f >= b && f < b + ui.talk.blink);
+};
+
+const guide = (x, y, w, h) => {
+  hg.fillStyle = '#ff3fd1';
+  hg.fillRect(x, y, w, 1); hg.fillRect(x, y + h - 1, w, 1); hg.fillRect(x, y, 1, h); hg.fillRect(x + w - 1, y, 1, h);
+};
+
+/** The dock at one beat of the talk: the portrait's frame, and as much of the line as has been said. */
+function dock(st) {
+  const dy = H - DOCK, px = GAP + PORTRAIT + GAP;
+  hg.fillStyle = '#0f171c'; hg.fillRect(0, dy, W, DOCK);
+  if (ui.crow === 'stand-in') crow(hg, GAP, dy + GAP);
+  else hg.drawImage(FRAMES[ui.crow] ? portrait(ui.crow, st.beak, st.eye) : CROW_ART[ui.crow], GAP, dy + GAP);
+  hg.fillStyle = '#1c2b33'; hg.fillRect(px, dy + GAP, W - px - GAP, PORTRAIT);
+  let start = 0;
+  wrap(LINES[ui.line % LINES.length], W - px - GAP - 10).forEach((l, i) => {
+    text(hg, l.slice(0, Math.max(0, st.shown - start)), px + 5, dy + GAP + 5 + i * FONTS[ui.font].line, '#f2ead8');
+    start += l.length + 1;
+  });
+  if (ui.guides === 'on') guide(0, dy, W, DOCK);
+}
+
+function paint() {
+  const { brd, bw, bh, bs, top, area, z } = scene;
+  g.imageSmoothingEnabled = false;
+  g.save(); g.beginPath(); g.rect(0, top * z, W * z, area * z); g.clip();
+  g.drawImage(brd, 0, top * z, bw * bs * z, bh * bs * z);
+  g.restore();
+  g.drawImage(hud, 0, 0, W * z, H * z);
+}
+
+// The talk runs on a clock of 60 Hz frames, restarted with the line whenever the screen is drawn.
+let scene, clock = 0, base = 0, t0 = 0, playing = true, drawn = '';
+const NUM = name => (FRAMES[ui.crow]?.frames.findIndex(f => f.name === name) ?? -1) + 1;
+const state = f => ({ ...scene.said[f % scene.said.length], eye: blinkingAt(f) ? 'blink' : ui.eye });
+function restart() { clock = 0; base = 0; t0 = performance.now(); drawn = ''; tick(); }
+function tick() {
+  const st = state(clock), key = `${st.beak} ${st.eye} ${st.shown}`;
+  if (key !== drawn) { drawn = key; dock(st); paint(); }
+  document.getElementById('talk-read').textContent = `Frame ${clock}. `
+    + (FRAMES[ui.crow] ? `Beak: frame ${NUM(st.beak)} ${st.beak}. Eye: ${st.eye === 'closed' ? 'open' : `frame ${NUM(st.eye)} ${st.eye}`}. ` : '')
+    + (st.syllable ? `Syllable ${st.syllable} of ${st.of}.` : `Line said; held before it starts again.`);
+}
+function loop(now) {
+  if (playing) {
+    // A frame stamp can come from before the clock was restarted.
+    const f = base + Math.max(0, Math.floor((now - t0) * 60 / 1000));
+    if (f !== clock) { clock = f; tick(); }
+  }
+  requestAnimationFrame(loop);
+}
+
+/** The current portrait's frames, numbered, at the screen's zoom. */
+function drawStrip() {
+  const strip = document.getElementById('strip');
+  strip.replaceChildren();
+  if (!FRAMES[ui.crow]) return;
+  FRAMES[ui.crow].frames.forEach((f, i) => {
+    const fig = document.createElement('figure'), cap = document.createElement('figcaption'), c = layer(PORTRAIT * ui.zoom, PORTRAIT * ui.zoom);
+    cap.textContent = `${i + 1} ${f.name}`;
+    const cg = c.getContext('2d'); cg.imageSmoothingEnabled = false;
+    cg.drawImage(portrait(ui.crow, f.name, 'closed'), 0, 0, c.width, c.height);
+    fig.append(cap, c); strip.append(fig);
+  });
+}
+
+function render() {
+  const levels = PACKS[ui.pack];
+  ui.room = Math.max(0, Math.min(levels.length - 1, ui.room));
+  const level = levels[ui.room], s = toState(level), bs = Number(ui.board), z = ui.zoom;
+  const top = ui.strip === 'on' ? STRIP : 0, area = H - DOCK - top;
+
+  // The board, in art pixels: enough of the alley to cover the board area once scaled by `bs`.
+  const bw = Math.ceil(W / bs), bh = Math.ceil(area / bs), brd = layer(bw, bh), bg = brd.getContext('2d');
+  const rx = Math.floor((bw - s.cols * C) / 2), ry = Math.floor((bh - s.rows * C) / 2);
+  if (ui.outside === 'bricks') {
+    bg.save(); bg.translate(rx, ry);
+    for (let y = -Math.ceil(ry / C); y * C + ry < bh; y++) for (let x = -Math.ceil(rx / C); x * C + rx < bw; x++) wallTile(bg, x, y, C);
+    bg.restore();
+    bg.fillStyle = 'rgba(12, 8, 16, 0.5)'; bg.fillRect(0, 0, bw, bh);
+  } else { bg.fillStyle = '#1d1720'; bg.fillRect(0, 0, bw, bh); }
+  bg.translate(rx, ry); drawRoom(bg, s, ui.room * 31);
+
+  hg.clearRect(0, 0, W, H);
+  if (top) {
+    hg.fillStyle = '#120d14'; hg.fillRect(0, 0, W, top);
+    text(hg, `${level.id}  ${level.name}`, 6, 4, '#e8dcc8');
+    const right = `Moves 0  Par ${level.par}`;
+    text(hg, right, W - 6 - widthOf(right), 4, '#e8dcc8');
+  }
+  const room = [Math.round(rx * bs), top + Math.round(ry * bs), s.cols * C * bs, s.rows * C * bs];
+  if (ui.guides === 'on') { if (top) guide(0, 0, W, top); guide(0, top, W, area); guide(...room); }
+  const lines = wrap(LINES[ui.line % LINES.length], W - PORTRAIT - 3 * GAP - 10);
+
+  scene = { brd, bw, bh, bs, top, area, z, said: talkFrames(LINES[ui.line % LINES.length]) };
+  view.width = W * z; view.height = H * z;
+  resetBlinks(); restart();
+  drawStrip();
+  for (const [k] of TIMINGS) document.getElementById(`t-${k}`).textContent = ui.talk[k];
+
+  const fits = room[2] <= W && room[3] <= area;
+  document.getElementById('fault').textContent = (fits ? '' : `This room does not fit at ${bs}×: it needs ${room[2]}×${room[3]} px, and the board area is ${W}×${area} px. `)
+    + (Number.isInteger(bs * z) ? '' : `At ${bs}× and zoom ${z}×, an art pixel covers ${bs * z} screen pixels, so the pixels are uneven.`);
+  document.getElementById('room-read').textContent = `${ui.room + 1} of ${levels.length}: ${level.id} ${level.name}`;
+  document.getElementById('zoom-read').textContent = `${z}×`;
+  document.getElementById('dims').textContent = `Screen ${W}×${H} px, shown at ${W * z}×${H * z}. `
+    + `${top ? `Top strip ${top} px. ` : ''}Board area ${W}×${area} px; at ${bs}× a cell is ${C * bs} px, so the area holds ${Math.floor(W / (C * bs))}×${Math.floor(area / (C * bs))} cells. Crow dock ${DOCK} px. `
+    + `This room: ${s.cols}×${s.rows} cells = ${room[2]}×${room[3]} px. `
+    + `The crow's line takes ${lines.length} line${lines.length > 1 ? 's' : ''} of text. `
+    + (ui.crow === 'stand-in' ? 'Crow portrait: the code-drawn stand-in.' : (c => `Crow portrait ${c.label}: seed ${c.seed}, ${c.lora}, ${PORTRAIT}×${PORTRAIT} px.`)(CROWS.find(c => c.label === ui.crow)));
+  for (const b of document.querySelectorAll('[data-pack]')) b.setAttribute('aria-pressed', b.dataset.pack === ui.pack);
+  for (const k of ['board', 'strip', 'outside', 'font', 'guides', 'crow', 'eye'])
+    for (const b of document.querySelectorAll(`[data-${k}]`)) b.setAttribute('aria-pressed', b.dataset[k] === ui[k]);
+  save();
+}
+
+// Each timing, its label, the least it may be, and how far one press moves it.
+const TIMINGS = [['half', 'Beak half open', 1, 1], ['wide', 'wide open', 1, 1], ['closed', 'shut between syllables', 1, 1],
+  ['comma', 'Pause at a comma', 0, 1], ['stop', 'at a full stop', 0, 2], ['hold', 'Hold after the line', 0, 10],
+  ['blink', 'Blink', 1, 1], ['gapMin', 'Gap between blinks, shortest', 10, 10], ['gapMax', 'longest', 10, 10]];
+for (const [k, label, least, by] of TIMINGS) {
+  const grp = document.createElement('span'), less = document.createElement('button'), more = document.createElement('button'), n = document.createElement('span');
+  grp.className = 'grp'; n.className = 'num'; n.id = `t-${k}`; less.textContent = '−'; more.textContent = '+';
+  const set = v => {
+    ui.talk[k] = Math.max(least, v);
+    if (ui.talk.gapMax < ui.talk.gapMin) ui.talk[k === 'gapMin' ? 'gapMax' : 'gapMin'] = ui.talk[k];
+    render();
+  };
+  less.onclick = () => set(ui.talk[k] - by); more.onclick = () => set(ui.talk[k] + by);
+  grp.append(`${label}: `, less, n, more);
+  document.getElementById('timings').append(grp);
+}
+document.getElementById('play').onclick = e => {
+  playing = !playing;
+  if (playing) { base = clock; t0 = performance.now(); }
+  e.target.textContent = playing ? 'Pause' : 'Play';
+};
+document.getElementById('frame-step').onclick = () => {
+  playing = false; document.getElementById('play').textContent = 'Play';
+  clock++; tick();
+};
+
+for (const b of document.querySelectorAll('[data-pack]')) b.onclick = () => { ui.pack = b.dataset.pack; ui.room = 0; render(); };
+for (const label of [...CROWS.map(c => c.label), 'stand-in']) {
+  const b = document.createElement('button'); b.dataset.crow = label; b.textContent = label;
+  document.getElementById('crows').append(b);
+}
+for (const k of ['board', 'strip', 'outside', 'font', 'guides', 'crow', 'eye'])
+  for (const b of document.querySelectorAll(`[data-${k}]`)) b.onclick = () => { ui[k] = b.dataset[k]; render(); };
+const step = (k, d, n) => () => { ui[k] = (ui[k] + d + n()) % n(); render(); };
+document.getElementById('room-prev').onclick = step('room', -1, () => PACKS[ui.pack].length);
+document.getElementById('room-next').onclick = step('room', 1, () => PACKS[ui.pack].length);
+document.getElementById('line-prev').onclick = step('line', -1, () => LINES.length);
+document.getElementById('line-next').onclick = step('line', 1, () => LINES.length);
+document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); render(); };
+document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(6, ui.zoom + 1); render(); };
+window.__screen = { render, ui, PACKS, state, syllables, seek: f => { playing = false; clock = f; tick(); } };
+render();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -25,6 +25,7 @@ Run `./run.sh`, then open a page under `/art/bench/`.
 | `raccoon_cartoon_v2.html` | The cartoon raccoon, version 2, at game speed: one press or a run of them, each split into a wind-up, the move and a settle the next press cuts; the turn from the facing before the press; the recoveries after a push held fast, taken in turn; and the idle beats on a seeded timer. |
 | `raccoon_cartoon_v3.html` | The cartoon raccoon, version 3: the version 2 page with a fifth recovery, a nose rub on three legs; a press that winds up from any pose but a low one; a second stride that every other press in a run takes; and every hold and gap counted in 60 Hz screen frames. |
 | `tear.html` | The bag rip, with mound piles. |
+| `screen.html` | The whole screen at 480×270 with 24 px cells: a top strip for the room's name and moves, a room from a level pack centred in the board area at 1×, 1.5× or 2× its art's size, and the crow's dock at the bottom with a sample line and a choice of portrait. A portrait with frames says the line one syllable at a time, its beak opening 1 → 2 → 3 → 2 → 1 for each, and blinks on a seeded timer; every timing is counted in 60 Hz frames. |
 
 Each page saves its controls in `localStorage` under a `trash-*` key and reads the others'
 keys, so a change on one page shows on the next. `trash/look.json` holds the defaults a page
@@ -58,5 +59,7 @@ bench takes it from its own push direction.
 | `trash/pane.js` | The pane drawings, and the shards a glass cell holds. |
 | `trash/settings.js` | The saved settings each page reads. |
 | `trash/objects.json` | Room objects cut from pixel-art renders, for the catalog's test room. |
+| `crow/` | Candidate portraits for the crow, 40 px square, and `candidates.json`: each one's label, seed, LoRA and prompt. Each was rendered at 1040 px and refined to a 40 px grid. 68B is the crow; `68B_render.png` is its render before refining, and `68B_g130.png` the same render refined to a 130 px grid. `68B_frames.json` holds its frames as palette-index grids: 1 beak closed, 2 half open, 3 wide open, 4 blink, 5 squint, 6 looking away. Frames 4 to 6 change only the eye, so an eye can be laid over any beak. |
+| `crow/h3/` | Reference clips of the crow from MiniMax H3, each pinned to 68B at its first and last frame: `<name>.mp4` with its sound, `<name>_40/` its frames cut back to the 40 px grid in 68B's palette plus any `symbol_colours` its entry lists, and `<name>_pose.png` the pose it holds, voted pixel by pixel from the frames round the one furthest from 68B. `ph_*` clips are mouth shapes; `ex_*` clips are comic expressions from manga and webtoons, with the head held still and the beak shut. `clips.json` lists each clip's kind, shape or label, seed, length, size and prompt. A clip whose frames were edited by hand says what changed in its `hand_edit` entry, and `<name>.ase` holds the edited frames with their hold times, to open in LibreSprite. |
 | `trash/preview.py` | Renders every item and alternate palette to `trash/preview.png`. |
 | `tear/assets.json` | The bag, the burst bag and the raccoon. |

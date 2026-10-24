@@ -1,0 +1,38 @@
+[
+ {
+  "label": "62B",
+  "file": "62B.png",
+  "seed": 62,
+  "lora": "k2-pixel64",
+  "prompt": "bold chunky low-resolution pixel art sprite of a grumpy old crow head, side view, big simple shapes, thick dark outline, half-closed eye, oversized yellow beak, flat light blue background"
+ },
+ {
+  "label": "63B",
+  "file": "63B.png",
+  "seed": 63,
+  "lora": "k2-pixel64",
+  "prompt": "bold chunky low-resolution pixel art sprite of a grumpy old crow head, side view, big simple shapes, thick dark outline, half-closed eye, oversized yellow beak, flat light blue background"
+ },
+ {
+  "label": "65B",
+  "file": "65B.png",
+  "seed": 65,
+  "lora": "k2-pixel64",
+  "prompt": "bold chunky low-resolution pixel art sprite of a grumpy old crow head, side view, big simple shapes, thick dark outline, half-closed eye, oversized yellow beak, flat light blue background"
+ },
+ {
+  "label": "66B",
+  "file": "66B.png",
+  "seed": 66,
+  "lora": "k2-pixel64",
+  "prompt": "bold chunky low-resolution pixel art sprite of a grumpy old crow head, side view, big simple shapes, thick dark outline, half-closed eye, oversized yellow beak, flat light blue background"
+ },
+ {
+  "label": "68B",
+  "file": "68B.png",
+  "seed": 68,
+  "lora": "k2-pixel64",
+  "prompt": "bold chunky low-resolution pixel art sprite of a grumpy old crow head, side view, big simple shapes, thick dark outline, half-closed eye, oversized yellow beak, flat light blue background",
+  "frames": "68B_frames.json"
+ }
+]

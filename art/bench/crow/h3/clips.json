@@ -1,0 +1,384 @@
+[
+ {
+  "name": "ph_AI",
+  "kind": "mouth",
+  "shape": "wide",
+  "label": "Wide: A, I",
+  "seed": 3,
+  "seconds": 2,
+  "size": [
+   640,
+   640
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. He keeps his head perfectly still, in side view facing right, and never turns toward the camera; only his beak, tongue and throat move. He slowly says one long sound, \"Aaaah\", with his beak wide open, his tongue low and his throat showing. He holds that mouth shape for a second, then closes his beak again. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ph_E",
+  "kind": "mouth",
+  "shape": "open",
+  "label": "Open: E",
+  "seed": 3,
+  "seconds": 2,
+  "size": [
+   640,
+   640
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. He keeps his head perfectly still, in side view facing right, and never turns toward the camera; only his beak, tongue and throat move. He slowly says one long sound, \"Eeeeh\", with his beak half open and its corners pulled back. He holds that mouth shape for a second, then closes his beak again. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ph_O",
+  "kind": "mouth",
+  "shape": "round",
+  "label": "Round: O",
+  "seed": 3,
+  "seconds": 2,
+  "size": [
+   640,
+   640
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. He keeps his head perfectly still, in side view facing right, and never turns toward the camera; only his beak, tongue and throat move. He slowly says one long sound, \"Ooooh\", with his beak open in a round shape, its corners pushed forward. He holds that mouth shape for a second, then closes his beak again. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_stare",
+  "kind": "expression",
+  "label": "ಠ_ಠ stare",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, his eye opens round with a tiny black dot pupil, and a hard flat line sits across the top of it, a cold look of disapproval. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_side_eye",
+  "kind": "expression",
+  "label": "¬_¬ side-eye",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, his eyelid lowers halfway and his pupil slides up into the top front corner of his eye, a suspicious side-eye. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_shock",
+  "kind": "expression",
+  "label": "O_O shock",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, his eye pops wide open and perfectly round, and his pupil shrinks to a tiny black dot, in shock. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_blank_eye",
+  "kind": "expression",
+  "label": "白目 blank eye",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, his pupil disappears and his eye goes completely blank white, in dread. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_sparkle_eye",
+  "kind": "expression",
+  "label": "sparkle eye",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, his eye opens wide and bright, and white star-shaped sparkles twinkle in his pupil, in awe. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_tears",
+  "kind": "expression",
+  "label": "T_T tears",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, his eye squeezes and a stream of light blue tears runs from his eye down the feathers of his face, crying. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_anger_vein",
+  "kind": "expression",
+  "label": "青筋 anger vein",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, a red cross-shaped anger mark, four short curved red strokes like a popping vein, appears on the top of his head and throbs, angry. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_gloom_lines",
+  "kind": "expression",
+  "label": "垂れ線 gloom lines",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, dark vertical lines slide down over the top of his head and his eye, and his face goes pale and gloomy. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_blush",
+  "kind": "expression",
+  "label": "照れ線 blush",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, three short pink diagonal lines appear on the feathers just below his eye, blushing with embarrassment. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_red_head",
+  "kind": "expression",
+  "label": "茹でダコ red head",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, a deep red flush rises up from his neck until his whole head is bright red like a boiled octopus, embarrassed. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_flying_sweat",
+  "kind": "expression",
+  "label": "flying sweat drops",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, small light blue sweat drops fly out from his head in all directions, flustered. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_steam",
+  "kind": "expression",
+  "label": "湯気 steam",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, white puffs of steam burst out of the top of his head and rise up, fuming. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_realization",
+  "kind": "expression",
+  "label": "気付き線 realization",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, short straight lines flash out from beside his eye, a sudden realization. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_snicker",
+  "kind": "expression",
+  "label": "笑み線 snicker",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, his eye closes into a happy upward arc and small curved laugh lines buzz beside his head, a snicker with his beak shut. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_lightbulb",
+  "kind": "expression",
+  "label": "電球 lightbulb",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, a small yellow lightbulb pops into the sky above his head and lights up, an idea. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_swirl_eye",
+  "kind": "expression",
+  "label": "@_@ swirl eye",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, his eye turns into a large black spiral swirl on white, a little bigger than his eye, and the spiral turns round and round, dizzy and stunned. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_sweat_drop",
+  "kind": "expression",
+  "label": "汗 sweat drop",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, one big light blue sweat drop with a thick black outline appears at the back of his head and slides down a little, awkward. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_soul_out",
+  "kind": "expression",
+  "label": "魂 soul out",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still. He does not speak. Starting from his usual bored, half-lidded look, the tip of his beak parts only a tiny crack, and a small white ghost wisp, his soul, floats up out of it and rises straight up and out of the top of the picture, gone, and then his beak closes. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ },
+ {
+  "name": "ex_x_eyes",
+  "kind": "expression",
+  "label": "x_x",
+  "seed": 5,
+  "seconds": 3,
+  "size": [
+   640,
+   640
+  ],
+  "symbol_colours": [
+   "#f52a0a",
+   "#f05c74",
+   "#18a8e8",
+   "#84d8f0"
+  ],
+  "hand_edit": "The far eye's X is drawn by hand in every frame, and the held middle is one still pose. The .ase file holds the edited frames with their hold times.",
+  "prompt": "A grumpy old black crow in crisp chunky pixel art, seen from the side and facing right, against a flat light blue background, exactly as in the first frame. His head stays perfectly still and his big yellow beak stays shut the whole time. He does not speak. Starting from his usual bored, half-lidded look, he is knocked out cold like a cartoon character: a large bold black X with a white outline, bigger than his eye, covers his near eye, and a second, smaller X with a white outline covers his far eye where it peeks over the top of his beak. It holds for a moment, then fades, and he returns to exactly the first frame. The camera is locked off and does not move. Flat pixel art colours, sharp square pixels, no blur."
+ }
+]
