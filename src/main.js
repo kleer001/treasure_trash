@@ -157,9 +157,10 @@ function fxPhase(){
 // everything out of the shove cell. `stage` owns the objects and their fractional positions,
 // `timeline` cuts the traced action into segments, and this only keeps the clock.
 //
-// Time is milliseconds per CELL of travel, so a bin crossing five cells takes five times as
-// long as one crossing a single cell rather than being crammed into the same beat.
-const CELL_MS = 110;
+// Time is counted per CELL of travel, seven 60 Hz screen frames each, so a bin crossing five
+// cells takes five times as long as one crossing a single cell rather than being crammed into
+// the same beat.
+const CELL_MS = 7 * 1000 / 60;
 let stage = null, board = null, anim = null;
 const slow = matchMedia('(prefers-reduced-motion: reduce)');
 
