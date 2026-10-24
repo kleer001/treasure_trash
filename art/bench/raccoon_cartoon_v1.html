@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Raccoon Cartoon</title>
+<title>Raccoon Cartoon v1</title>
 <style>
   :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --ok: #1d7a3a; --bad: #b3261e; }
   body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
@@ -26,7 +26,7 @@
 </style>
 </head>
 <body>
-<h1>Raccoon, cartoon — crawling one cell and shoving a thing, from the side, the front and the back</h1>
+<h1>Raccoon, cartoon, version 1 — crawling one cell and shoving a thing, from the side, the front and the back</h1>
 <div class="bar">
   <span class="grp">Action: <button data-act="crawl">crawl one cell</button><button data-act="push">push</button>
     <button data-act="stuck">push, held fast</button><button data-act="idle">sit, idle</button></span>
@@ -56,7 +56,7 @@ import { toState } from '../../src/format.js';
 import { C, FLOOR, SEAM } from './trash/flight.js';
 import { wallTile } from './trash/room.js';
 import { front as CAN } from './trash/can.js';
-import { ACTIONS, draw, mirror } from './trash/cartoon.js';
+import { ACTIONS, draw, mirror } from './trash/cartoon_v1.js';
 import { load, save as store } from './trash/settings.js';
 
 const KEY = 'trash-cartoon';

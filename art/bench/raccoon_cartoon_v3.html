@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raccoon Cartoon v3</title>
+<style>
+  :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --ok: #1d7a3a; --bad: #b3261e; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 12px 0 6px; }
+  .bar { position: sticky; top: 0; z-index: 1; background: var(--bg); padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 3px 0; }
+  .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; }
+  button { font: inherit; padding: 3px 9px; border: 1px solid var(--ink); background: #fff; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .read { min-width: 44px; text-align: center; color: var(--muted); }
+  canvas { display: block; image-rendering: pixelated; border: 1px solid var(--line); }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  .ctl { display: grid; grid-template-columns: auto 180px auto; gap: 3px 8px; align-items: center; font-size: 13px; }
+  .ctl input { width: 100%; }
+  .ctl .read { min-width: 60px; text-align: left; }
+  .ctl label.now { font-weight: 700; }
+  .ctl label .beat { display: inline-block; width: 16px; color: var(--muted); }
+  .check { font-weight: 600; font-size: 13px; } .check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
+  .muted { color: var(--muted); font-size: 12px; max-width: 640px; }
+  #strip-wrap { overflow-x: auto; max-width: 100%; }
+  #scrub { width: 240px; }
+</style>
+</head>
+<body>
+<h1>Raccoon, cartoon, version 3 — at game speed, one press or a run of them, from the side, the front and the back</h1>
+<div class="bar">
+  <div class="line">
+    <span class="grp">Action: <button data-act="crawl">crawl one cell</button><button data-act="push">push</button>
+      <button data-act="stuck">push, held fast</button><button data-act="idle">sit, idle</button></span>
+    <span class="grp">Press: <button data-dir="l">←</button><button data-dir="r">→</button><button data-dir="u">↑</button><button data-dir="d">↓</button></span>
+    <span class="grp">Facing before the press: <button data-from="l">←</button><button data-from="r">→</button><button data-from="u">↑</button><button data-from="d">↓</button></span>
+  </div>
+  <div class="line">
+    <span class="grp">Presses in a run: <button id="fewer">−</button><span class="read" id="presses-read"></span><button id="more">+</button></span>
+    <span class="grp">Time between presses: <button id="sooner">−</button><span class="read" id="gap-read"></span><button id="later">+</button></span>
+    <span class="grp">First recovery after a refused push: <button data-rec="look">look at you</button><button data-rec="shake">shake</button>
+      <button data-rec="hmph">hmph</button><button data-rec="puff">tail puff</button><button data-rec="rub">nose rub</button></span>
+    <span class="grp">Idle seed: <button id="seed-down">−</button><span class="read" id="seed-read"></span><button id="seed-up">+</button></span>
+  </div>
+  <div class="line">
+    <span class="grp"><button id="play">pause</button><button id="prev">◀ drawing</button><button id="next">drawing ▶</button>
+      <input type="range" id="scrub" min="0" step="1"></span>
+    <span class="grp">Playback speed: <button id="slow">−</button><span class="read" id="speed-read"></span><button id="fast">+</button></span>
+    <span class="grp">Onion skin: <button id="onion"></button></span>
+    <span class="grp">Zoom: <button id="zoom-out">−</button><span class="read" id="zoom-read"></span><button id="zoom-in">+</button></span>
+  </div>
+</div>
+<div class="row">
+  <div><canvas id="view"></canvas><div class="muted" id="frame-read"></div></div>
+  <div>
+    <div class="check" id="check-rules"></div>
+    <div class="check" id="check-start"></div>
+    <div class="check" id="check-end"></div>
+    <div class="check" id="check-touch"></div>
+    <div class="check" id="check-time"></div>
+    <p class="muted">Beats: R the sit before the press · W the wind-up, played only from the sit · M the move, one game step ·
+      T the settle, which the next press cuts · I an idle beat. In a run, a press that comes before he sits again skips
+      the wind-up and the dust; each refusal in a run plays the next recovery.</p>
+    <h2>Each drawing's hold, in 60 Hz screen frames <button id="reset">reset this action</button></h2>
+    <div class="ctl" id="ctl"></div>
+  </div>
+</div>
+<h2>Every drawing of one press</h2>
+<div id="strip-wrap"><canvas id="strip"></canvas></div>
+<script type="module">
+import { explain, cell, CAN_EMPTY, DIRS } from '../../src/rules.js';
+import { toState } from '../../src/format.js';
+import { mulberry32 } from '../../src/rng.js';
+import { C, FLOOR, SEAM } from './trash/flight.js';
+import { wallTile } from './trash/room.js';
+import { front as CAN } from './trash/can.js';
+import { ACTIONS, RECOVERIES, draw, mirror, turn } from './trash/cartoon.js';
+import { load, save as store } from './trash/settings.js';
+
+const KEY = 'trash-cartoon-v3';
+// Every time on this page is in 60 Hz screen frames. The move is the game's time for one cell,
+// `CELL_MS` in src/main.js.
+const FRAME_MS = 1000 / 60, MOVE_FR = 7, WINDUP_FR = 4;
+const N = 9, VIEW = { l: 'side', r: 'side', d: 'front', u: 'back' };
+// Where he starts for each press: one cell in from the wall behind him, so a run has room ahead.
+const START = { r: [1, 4], l: [7, 4], d: [4, 1], u: [4, 7] };
+// The frames that shove: the raccoon touches the thing on each of them and never overlaps it.
+const TOUCH = /^(slam|drive|thud|hold|strain|tremble)/;
+const BEAT = { rest: 'R', windup: 'W', move: 'M', tail: 'T', idle: 'I', turn: '↻' };
+const authored = Object.fromEntries(Object.entries(ACTIONS).flatMap(([v, as]) => Object.entries(as).map(([a, fs]) => [`${v} ${a}`, fs.map(f => f.fr)])));
+const ui = load(KEY, { act: 'crawl', dir: 'r', from: 'r', presses: 1, interval: 12, recovery: 'look', seed: 1,
+  playing: true, speed: 100, zoom: 5, onion: false, holds: structuredClone(authored) });
+for (const k in authored) if (ui.holds[k]?.length !== authored[k].length) ui.holds[k] = [...authored[k]];
+const save = () => store(KEY, ui);
+const view = () => VIEW[ui.dir], timing = () => `${view()} ${ui.act}`;
+/** The frames of the chosen action, each with its index for its hold. */
+const full = () => ACTIONS[view()][ui.act].map((f, i) => ({ ...f, i }));
+const frOf = f => f.hold ?? (f.i === undefined ? f.fr : ui.holds[timing()][f.i]);
+
+const canvasOf = (w, h = w) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const drawPx = (ctx, list, x, y) => { for (const [px, py, col] of list) { ctx.fillStyle = col; ctx.fillRect(x + px, y + py, 1, 1); } };
+// A sprite stands centred on its cell, its feet one pixel above the cell's bottom edge.
+const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
+
+/** The room, the board before the run, and the board after each press. */
+function setup() {
+  const [vx, vy] = DIRS[ui.dir], [sx, sy] = START[ui.dir], put = { [`${sx},${sy}`]: '@', '0,0': 'E' };
+  if (ui.act === 'push' || ui.act === 'stuck') put[`${sx + vx},${sy + vy}`] = 'c';
+  if (ui.act === 'stuck') put[`${sx + 2 * vx},${sy + 2 * vy}`] = '#';
+  const grid = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => put[`${x},${y}`] ?? '-').join(''));
+  const states = [toState({ id: 'cartoon', grid })], results = [];
+  for (let k = 0; ui.act !== 'idle' && k < ui.presses; k++) {
+    const r = explain(states[k], ui.dir, { trace: true });
+    results.push(r); states.push(r.ok ? r.next : states[k]);
+  }
+  return { states, results, v: [vx, vy], shoved: [sx + vx, sy + vy] };
+}
+
+/** The rest sit of facing `dir`, held `hold` frames. */
+const sitOf = (dir, hold) => ({ ...ACTIONS[VIEW[dir]].crawl[0], hold, i: null, mirrored: dir === 'l' });
+
+/** What plays, as segments `{ f, t0, t1, base, thing, mirrored, first, press }` laid end to end. */
+function timeline() {
+  const segs = [];
+  const add = (f, o) => { const t0 = segs.length ? segs[segs.length - 1].t1 : 0; segs.push({ f, t0, t1: t0 + frOf(f), base: 0, thing: 0, first: true, press: 0, ...o }); };
+  if (ui.act === 'idle') {
+    const fs = full(), beats = [...new Set(fs.map(f => f.idle))], rng = mulberry32(ui.seed);
+    add(sitOf(ui.dir, 120), { mirrored: ui.dir === 'l' });
+    let last = null;
+    while (segs[segs.length - 1].t1 < 1800) {
+      const pool = beats.filter(b => b !== last), beat = pool[Math.floor(rng() * pool.length)];
+      for (const f of fs.filter(g => g.idle === beat)) add(f, { mirrored: ui.dir === 'l' });
+      add(sitOf(ui.dir, 180 + Math.round(rng() * 180)), { mirrored: ui.dir === 'l' });
+      last = beat;
+    }
+    return segs;
+  }
+  add({ ...ACTIONS[VIEW[ui.from]][ui.act][0], i: 0 }, { mirrored: ui.from === 'l' });
+  for (const f of turn(ui.from, ui.dir)) add(f, { mirrored: f.mirror });
+  const fs = full(), mirrored = ui.dir === 'l', begin = segs[segs.length - 1].t1;
+  let moveEnd = begin;
+  for (let k = 0; k < ui.presses; k++) {
+    const start = Math.max(begin + k * ui.interval, moveEnd), cut = segs.filter(s => s.t0 < start).at(-1).f;
+    // A press that comes while he is still low goes straight into the move; from any other pose he winds up.
+    const chained = k > 0 && (cut.beat === 'move' || cut.low === true);
+    if (k > 0) {
+      while (segs[segs.length - 1].t0 >= start) segs.pop();
+      segs[segs.length - 1].t1 = start;
+    }
+    const rec = RECOVERIES[(RECOVERIES.indexOf(ui.recovery) + k) % RECOVERIES.length];
+    const base = ui.act === 'crawl' || ui.act === 'push' ? k * C : 0, thing = ui.act === 'push' ? k * C : 0;
+    for (const f of fs) {
+      if (f.beat === 'rest' || (f.recovery && f.recovery !== rec) || (chained && f.beat === 'windup')) continue;
+      // Every other press in a run takes the frame's other stride.
+      add(k % 2 && f.alt ? { ...f.alt, beat: f.beat, i: f.i } : f, { base, thing, mirrored, first: !chained, press: k + 1 });
+      if (f.beat === 'move') moveEnd = segs[segs.length - 1].t1;
+    }
+  }
+  return segs;
+}
+
+function ground(ctx, s) {
+  ctx.fillStyle = FLOOR; ctx.fillRect(0, 0, N * C, N * C);
+  ctx.fillStyle = SEAM;
+  for (let k = 0; k < N; k++) { ctx.fillRect(k * C + C - 1, 0, 1, N * C); ctx.fillRect(0, k * C + C - 1, N * C, 1); }
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (cell(s, x, y).wall) wallTile(ctx, x, y, C);
+}
+/** Sprites `[{px, x, y, h, rac}]` drawn nearest last: the lower foot in front, the raccoon on a tie. */
+const sprites = (ctx, list) => { for (const p of list.sort((a, b) => (a.y + a.h) - (b.y + b.h) || a.rac - b.rac)) drawPx(ctx, p.px, p.x, p.y); };
+const cans = s => { const out = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (cell(s, x, y).o === CAN_EMPTY) out.push([x, y]); return out; };
+const spriteOf = (seg, o) => { const spr = draw(seg.f, o); return seg.mirrored ? mirror(spr) : spr; };
+
+/** Segment `seg` laid on the board before the run: every can, the shoved one moved along, and the
+ *  raccoon. `o` says whether to draw the dust and the sparks. */
+function layout(seg, o = { dust: seg.first, fx: true }) {
+  const s = B.states[0], spr = spriteOf(seg, o), [x0, y0] = at(spr, s.rac.x, s.rac.y), [vx, vy] = B.v, list = [];
+  for (const [x, y] of cans(s)) {
+    const [cx, cy] = at(CAN, x, y), go = x === B.shoved[0] && y === B.shoved[1] ? seg.thing + (seg.f.thing ?? 0) : 0;
+    list.push({ px: CAN.px, x: cx + vx * go, y: cy + vy * go, h: CAN.h, rac: 0 });
+  }
+  const d = seg.base + seg.f.dx;
+  list.push({ px: spr.px, x: x0 + vx * d, y: y0 + vy * d, h: spr.h, rac: 1 });
+  return list;
+}
+/** Segment `seg` on the board, with the parts of the raccoon that go in front of the shoved can last. */
+function paint(ctx, seg) {
+  ground(ctx, B.states[0]);
+  const list = layout(seg), rac = list.find(p => p.rac);
+  sprites(ctx, list);
+  if (seg.f.over?.length) drawPx(ctx, spriteOf(seg, { layer: 'over' }).px, rac.x, rac.y);
+}
+/** A still of board `s`: its cans, and the raccoon sitting, facing `dir`. */
+function still(ctx, s, dir) {
+  ground(ctx, s);
+  const list = cans(s).map(([x, y]) => { const [cx, cy] = at(CAN, x, y); return { px: CAN.px, x: cx, y: cy, h: CAN.h, rac: 0 }; });
+  const spr = spriteOf({ f: sitOf(dir, 0), mirrored: dir === 'l' }), [rx, ry] = at(spr, s.rac.x, s.rac.y);
+  list.push({ px: spr.px, x: rx, y: ry, h: spr.h, rac: 1 });
+  sprites(ctx, list);
+}
+const alone = f => ({ f, base: 0, thing: 0, mirrored: ui.dir === 'l', first: true });
+const BARE = { dust: false, fx: false };
+/** Empty px between the raccoon and the shoved can along a push across the screen, in the nearest row
+ *  both fill; below zero they overlap. */
+function gap(f) {
+  const [rac, can] = layout(alone(f), BARE).sort((a, b) => b.rac - a.rac), rows = new Map(), d = B.v[0];
+  for (const [x, y] of rac.px) { const k = rac.y + y, a = (rac.x + x) * d; rows.set(k, Math.max(rows.get(k) ?? -Infinity, a)); }
+  let best = Infinity;
+  for (const [x, y] of can.px) { const k = can.y + y; if (rows.has(k)) best = Math.min(best, (can.x + x) * d - rows.get(k) - 1); }
+  return best;
+}
+/** Screen px the raccoon and the shoved can share: up and down the screen, contact is the one drawn
+ *  over the other. */
+function overlap(f) {
+  const [rac, can] = layout(alone(f), BARE).sort((a, b) => b.rac - a.rac), seen = new Set(rac.px.map(([x, y]) => `${rac.x + x},${rac.y + y}`));
+  return can.px.filter(([x, y]) => seen.has(`${can.x + x},${can.y + y}`)).length;
+}
+function differ(a, b) {
+  const p = a.getContext('2d').getImageData(0, 0, a.width, a.height).data, q = b.getContext('2d').getImageData(0, 0, b.width, b.height).data;
+  let n = 0; for (let i = 0; i < p.length; i += 4) if (p[i] !== q[i] || p[i + 1] !== q[i + 1] || p[i + 2] !== q[i + 2]) n++;
+  return n;
+}
+function report(id, ok, text) { const el = document.getElementById(id); el.className = `check ${ok ? 'ok' : 'bad'}`; el.textContent = `${ok ? '✓' : '✗'} ${text}`; }
+const blank = id => { const el = document.getElementById(id); el.className = 'check'; el.textContent = ''; };
+/** The window of the room the view shows: `along` cells down the press, `across` cells wide. */
+function windowOf(along, across) {
+  const [sx, sy] = START[ui.dir], [vx, vy] = DIRS[ui.dir], a0 = vx + vy > 0 ? -1 : -(along - 2), half = (across - 1) / 2;
+  return vx ? [sx + a0, sy - half, along, across] : [sx - half, sy + a0, across, along];
+}
+
+let B, SEGS, END, clock = 0, last = null;
+function build() {
+  B = setup(); SEGS = timeline(); END = SEGS[SEGS.length - 1].t1;
+  if (clock >= END) clock = 0;
+  const fs = full(), strides = [...fs, ...fs.filter(f => f.alt).map(f => ({ ...f.alt, i: f.i }))];
+  if (ui.act === 'idle') report('check-rules', true, 'no press: the board does not change');
+  else {
+    const want = { crawl: [true, 1, 0], push: [true, 1, 1], stuck: [false, 0, 0] }[ui.act];
+    const bad = B.results.map((r, k) => {
+      const a = B.states[k], b = B.states[k + 1], moved = r.ok ? r.steps[0].moved : [];
+      const rac = Math.abs(b.rac.x - a.rac.x) + Math.abs(b.rac.y - a.rac.y), can = moved.length ? Math.abs(moved[0].dx) + Math.abs(moved[0].dy) : 0;
+      return r.ok === want[0] && rac === want[1] && can === want[2] ? null : `press ${k + 1}: ${r.ok ? r.kind : r.reason}`;
+    }).filter(Boolean);
+    report('check-rules', !bad.length, bad.length ? `the rules: ${bad.join(', ')}`
+      : `the rules: ${B.results.map(r => (r.ok ? r.kind : r.reason)).join(', ')} · ${ui.presses} press${ui.presses > 1 ? 'es' : ''}`);
+  }
+  const a = canvasOf(N * C), b = canvasOf(N * C);
+  paint(a.getContext('2d'), SEGS[0]); still(b.getContext('2d'), B.states[0], ui.act === 'idle' ? ui.dir : ui.from);
+  const d0 = differ(a, b);
+  report('check-start', d0 === 0, `first drawing is the board before the press${d0 ? ` · ${d0} px differ` : ''}`);
+  paint(a.getContext('2d'), SEGS[SEGS.length - 1]); still(b.getContext('2d'), B.states[B.states.length - 1], ui.dir);
+  const d1 = differ(a, b);
+  report('check-end', d1 === 0, `last drawing is the board after ${ui.act === 'idle' ? 'the idle' : 'the last press'}${d1 ? ` · ${d1} px differ` : ''}`);
+  if (ui.act === 'crawl' || ui.act === 'idle') blank('check-touch');
+  else if (B.v[1]) {
+    const bad = strides.map(f => [f, overlap(f)]).filter(([f, n]) => TOUCH.test(f.name) !== n > 0);
+    report('check-touch', !bad.length, bad.length ? `contact wrong on ${bad.map(([f, n]) => `${f.i} ${f.name} (${n} px shared)`).join(', ')}`
+      : 'the raccoon and the can overlap on every shoving frame, and on no other');
+  } else {
+    const bad = strides.map(f => [f, gap(f)]).filter(([f, g]) => g < 0 || (TOUCH.test(f.name) && g !== 0));
+    report('check-touch', !bad.length, bad.length ? `contact wrong on ${bad.map(([f, g]) => `${f.i} ${f.name} (${g} px)`).join(', ')}`
+      : 'the head is on the can on every shoving frame, and never in it');
+  }
+  const broken = SEGS.filter(s => !Number.isFinite(s.t0) || !Number.isFinite(s.t1) || s.t1 < s.t0);
+  if (broken.length) report('check-time', false, `${broken.length} drawings have no time: ${broken[0].f.name} first`);
+  else if (ui.act === 'idle') blank('check-time');
+  else {
+    const sum = beat => fs.filter(f => f.beat === beat).reduce((s, f) => s + frOf(f), 0), w = sum('windup'), m = sum('move');
+    report('check-time', w <= WINDUP_FR && m === MOVE_FR, `the move takes ${m} frames of the game's ${MOVE_FR}; the wind-up ${w} frames of ${WINDUP_FR} at most`);
+  }
+  controls(); strip(); bar();
+}
+
+function controls() {
+  const fs = full(), holds = ui.holds[timing()];
+  document.getElementById('ctl').innerHTML = fs.map(f =>
+    `<label for="m-${f.i}" id="l-${f.i}"><span class="beat">${BEAT[f.beat]}</span>${f.i} ${f.name}${f.recovery ? ` (${f.recovery})` : f.idle ? ` (${f.idle})` : ''}</label>` +
+    `<input type="range" id="m-${f.i}" min="0" max="36" step="1" value="${holds[f.i]}"><span class="read" id="r-${f.i}">${holds[f.i]} frames</span>`).join('');
+  fs.forEach(f => document.getElementById(`m-${f.i}`).oninput = e => {
+    holds[f.i] = Number(e.target.value); document.getElementById(`r-${f.i}`).textContent = `${holds[f.i]} frames`; save();
+    SEGS = timeline(); END = SEGS[SEGS.length - 1].t1;
+  });
+}
+function strip() {
+  const fs = full().filter(f => !f.recovery || f.recovery === ui.recovery), z = 3, [wx, wy, ww, wh] = windowOf(4, 1);
+  const w = ww * C, h = wh * C, c = document.getElementById('strip');
+  c.width = fs.length * (w + 4) * z; c.height = (h + 14) * z;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+  const tile = canvasOf(N * C);
+  fs.forEach((f, k) => {
+    paint(tile.getContext('2d'), alone(f));
+    g.drawImage(tile, wx * C, wy * C, w, h, k * (w + 4) * z, 0, w * z, h * z);
+    const note = ui.act === 'crawl' || ui.act === 'idle' ? '' : B.v[1] ? `${overlap(f)} px shared` : `gap ${gap(f)}`;
+    g.fillStyle = '#1a1a1a'; g.font = `${4 * z}px system-ui`;
+    g.fillText(`${BEAT[f.beat]} ${f.i} ${f.name}`, k * (w + 4) * z + 2, (h + 6) * z);
+    g.fillText(`${frOf(f)} frames ${note}`, k * (w + 4) * z + 2, (h + 12) * z);
+  });
+}
+
+const canvas = document.getElementById('view');
+function segIndex(t) { let i = 0; while (i + 1 < SEGS.length && t >= SEGS[i + 1].t0) i++; return i; }
+function show() {
+  const z = ui.zoom, i = segIndex(clock), seg = SEGS[i], [wx, wy, ww, wh] = windowOf(7, 3);
+  canvas.width = ww * C * z; canvas.height = wh * C * z;
+  const g = canvas.getContext('2d'); g.imageSmoothingEnabled = false;
+  const tile = canvasOf(N * C);
+  paint(tile.getContext('2d'), seg);
+  g.drawImage(tile, wx * C, wy * C, ww * C, wh * C, 0, 0, ww * C * z, wh * C * z);
+  if (ui.onion && i > 0) {
+    paint(tile.getContext('2d'), SEGS[i - 1]);
+    g.globalAlpha = 0.35; g.drawImage(tile, wx * C, wy * C, ww * C, wh * C, 0, 0, ww * C * z, wh * C * z); g.globalAlpha = 1;
+  }
+  document.getElementById('frame-read').textContent = `drawing ${i} of ${SEGS.length - 1} · ${BEAT[seg.f.beat] ?? ''} ${seg.f.name}` +
+    `${seg.press ? ` · press ${seg.press}` : ''} · frame ${Math.floor(clock)} of ${END}`;
+  document.querySelectorAll('.ctl label').forEach(l => l.classList.toggle('now', l.id === `l-${seg.f.i}`));
+  const scrub = document.getElementById('scrub'); scrub.max = SEGS.length - 1; scrub.value = i;
+}
+function tick(now) {
+  if (ui.playing && last !== null) { clock += (now - last) / FRAME_MS * ui.speed / 100; if (clock >= END) clock = 0; }
+  last = now; show(); requestAnimationFrame(tick);
+}
+function bar() {
+  const press = (sel, key) => document.querySelectorAll(`[${sel}]`).forEach(b => b.setAttribute('aria-pressed', b.getAttribute(sel) === String(ui[key])));
+  press('data-act', 'act'); press('data-dir', 'dir'); press('data-from', 'from'); press('data-rec', 'recovery');
+  document.getElementById('play').textContent = ui.playing ? 'pause' : 'play';
+  document.getElementById('onion').textContent = ui.onion ? 'on' : 'off';
+  document.getElementById('presses-read').textContent = ui.presses;
+  document.getElementById('gap-read').textContent = `${ui.interval} frames`;
+  document.getElementById('seed-read').textContent = ui.seed;
+  document.getElementById('speed-read').textContent = `${ui.speed}%`;
+  document.getElementById('zoom-read').textContent = `${ui.zoom * 100}%`;
+}
+const set = (k, v) => { ui[k] = v; clock = 0; save(); build(); };
+const step = i => { ui.playing = false; clock = SEGS[Math.max(0, Math.min(SEGS.length - 1, i))].t0; save(); bar(); };
+document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => set('act', b.dataset.act));
+document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => set('dir', b.dataset.dir));
+document.querySelectorAll('[data-from]').forEach(b => b.onclick = () => set('from', b.dataset.from));
+document.querySelectorAll('[data-rec]').forEach(b => b.onclick = () => set('recovery', b.dataset.rec));
+document.getElementById('fewer').onclick = () => set('presses', Math.max(1, ui.presses - 1));
+document.getElementById('more').onclick = () => set('presses', Math.min(3, ui.presses + 1));
+document.getElementById('sooner').onclick = () => set('interval', Math.max(1, ui.interval - 1));
+document.getElementById('later').onclick = () => set('interval', Math.min(60, ui.interval + 1));
+document.getElementById('seed-down').onclick = () => set('seed', Math.max(1, ui.seed - 1));
+document.getElementById('seed-up').onclick = () => set('seed', ui.seed + 1);
+document.getElementById('play').onclick = () => { ui.playing = !ui.playing; save(); bar(); };
+document.getElementById('prev').onclick = () => step(segIndex(clock) - 1);
+document.getElementById('next').onclick = () => step(segIndex(clock) + 1);
+document.getElementById('scrub').oninput = e => step(Number(e.target.value));
+document.getElementById('onion').onclick = () => { ui.onion = !ui.onion; save(); bar(); };
+document.getElementById('slow').onclick = () => { ui.speed = Math.max(10, ui.speed - 10); save(); bar(); };
+document.getElementById('fast').onclick = () => { ui.speed = Math.min(200, ui.speed + 10); save(); bar(); };
+document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); save(); bar(); };
+document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zoom + 1); save(); bar(); };
+document.getElementById('reset').onclick = () => { ui.holds[timing()] = [...authored[timing()]]; save(); build(); };
+build();
+requestAnimationFrame(tick);
+window.__cartoon = {
+  checks: () => [...document.querySelectorAll('.check')].map(e => e.textContent).filter(Boolean),
+  pick: o => { Object.assign(ui, o); clock = 0; build(); },
+  segments: () => SEGS.map(s => `${s.press}:${s.f.beat[0]}:${s.f.name}@${s.t0}`),
+  strip: () => document.getElementById('strip').toDataURL(),
+  frame: i => { step(i); show(); return canvas.toDataURL(); },
+};
+</script>
+</body>
+</html>
