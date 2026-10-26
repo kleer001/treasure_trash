@@ -83,6 +83,18 @@
   canvas{display:block;margin:.4rem 0 1rem;image-rendering:auto;max-width:100%;height:auto;border:2px solid var(--ink);background:var(--panel)}
   /* Under the board, in the order you reach for them: the d-pad as a WASD triangle, then
      moving between rooms, then the two that undo what you did inside one. */
+  /* The crow's panel, under the controls. A fixed height, so the page keeps its length as he talks. */
+  .crow{display:flex;align-items:baseline;gap:.6rem;min-height:3.2em;margin:0 0 1rem;
+    padding:.35rem .7rem;border:2px solid var(--ink);border-radius:4px;background:var(--panel)}
+  .crowface{flex:none;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .crowface:empty::before{content:"crow"}
+  .crowline{font-weight:600}
+  /* A speech: the crow alone in the middle of the screen, the page hidden behind the veil. */
+  .veil{position:fixed;inset:0;background:var(--bg);z-index:30;opacity:0;pointer-events:none}
+  body.speech .veil{opacity:1;pointer-events:auto}
+  body.speech .crow{position:fixed;z-index:31;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:min(34rem,calc(100% - 32px));margin:0;padding:1rem 1.2rem;flex-direction:column;gap:.5rem;
+    font-size:1.2rem;min-height:9em}
   .controls{display:flex;flex-direction:column;align-items:flex-start;gap:.5rem;margin:.6rem 0 1rem}
   .pad{display:flex;flex-direction:column;align-items:center;gap:.4rem;margin-bottom:.35rem}
   .padrow{display:flex;gap:.4rem}
@@ -110,3 +122,61 @@
   .dbg .e b{display:block;font-weight:800}
   .dbg .e.no b{color:var(--red)}
   .dbg .e.mark b{color:var(--blu)}
+
+  /* The crow's debug panel, on `?debug`: the full width of the page, under his own panel. */
+  .cdbg{--hb:#2d7dd2;--wait:#17c3b2;--mono:#ff5da2;--tmr:#bdbdb8;--bad:#e0342a;
+    margin:0 16px 1rem;border:2px solid var(--ink);border-radius:4px;background:#fff;
+    font:13.5px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:.35rem .6rem .45rem;
+    display:grid;grid-template-columns:4em minmax(0,1fr);gap:.25rem .6rem;align-items:center}
+  .cdbg[hidden]{display:none}
+  .wtune{margin:.8rem 16px;font-size:14px;display:grid;gap:.35rem}
+  .wtune[hidden]{display:none}
+  .wtune .wrow{display:flex;flex-wrap:wrap;gap:.25rem;align-items:center}
+  .wtune button{font:inherit;padding:.1rem .5rem;border:1px solid var(--ink);background:#fff;border-radius:3px;cursor:pointer}
+  .wtune button[aria-pressed="true"]{background:var(--ink);color:#fff}
+  .wtune .wnum{display:inline-flex;gap:.2rem;align-items:center;margin-right:.8rem}
+  .wtune .wnum input{font:inherit;width:3.5em;text-align:center}
+  .wtune textarea{font:inherit;flex:1 1 24rem;min-width:12rem}
+  .wtune .wsay{color:var(--muted)} .wtune .bad{color:#e0342a;font-weight:700}
+  .cdbg>.k{color:var(--muted);text-transform:uppercase;font-size:11.5px;letter-spacing:.06em;font-weight:800;align-self:start;padding-top:.2em}
+  .cdbg>.v{display:flex;flex-wrap:wrap;gap:.2rem .9rem;align-items:center;min-height:1.4em}
+  .cdbg .mu{color:var(--muted)}
+  .cdbg .ink{color:var(--ink)} .cdbg .bad{color:var(--bad)} .cdbg .pnk{color:var(--mono)}
+  .cdbg b{font-weight:800}
+  .cdbg .ty{display:inline-block;min-width:3.6em;text-align:center;border-radius:2px;padding:0 .3em;font-weight:800;font-size:12.5px}
+  .cdbg .ty.say{background:var(--hb);color:#fff} .cdbg .ty.face{background:var(--yel)} .cdbg .ty.drop{background:var(--bad);color:#fff}
+  .cdbg .ty.fire{background:#ececea} .cdbg .ty.queue{background:var(--wait);color:#fff}
+  .cdbg .ty.fast,.cdbg .ty.skip{background:var(--mono);color:#fff}
+  .cdbg .ty.end{color:var(--muted);background:#f3f3f1} .cdbg .ty.talk{background:var(--ink);color:#fff}
+  .cdbg .pips{letter-spacing:.1em}
+  .cdbg .bar{display:inline-block;position:relative;height:9px;border:1px solid var(--ink);background:#fff;vertical-align:middle}
+  .cdbg .bar>span{position:absolute;left:0;top:0;bottom:0;background:var(--hb)}
+  .cdbg .bar>i{position:absolute;top:-2px;bottom:-2px;width:1px;background:var(--ink)}
+  .cdbg .x3{background:var(--mono);color:#fff;border-radius:2px;padding:0 .25em;font-weight:800}
+  .cdbg canvas.scope{display:block;width:100%;height:94px;margin:0;border:0;background:none}
+  .cdbg .legend{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:0 .9em}
+  .cdbg .legend s{display:inline-block;width:.9em;height:.55em;text-decoration:none;vertical-align:middle;margin-right:.25em}
+  .cdbg .tm{display:inline-flex;align-items:center;gap:.3em}
+  .cdbg .tm.mono .bar>span{background:var(--mono)} .cdbg .tm.gap .bar>span{background:var(--tmr)} .cdbg .tm.pre .bar>span{background:var(--wait)}
+  .cdbg .seg{display:inline-flex;border:1px solid var(--ink);border-radius:2px;overflow:hidden}
+  .cdbg .seg span{padding:0 .4em;color:var(--muted)} .cdbg .seg span.on{background:var(--ink);color:#fff;font-weight:800}
+  .cdbg .sq{display:inline-flex;gap:2px;align-items:center}
+  .cdbg .sq i{width:9px;height:9px;border:1px solid var(--tmr);display:inline-block}
+  .cdbg .sq i.h{background:var(--wait);border-color:var(--wait)} .cdbg .sq i.s{background:var(--bad);border-color:var(--bad)}
+  .cdbg .sq .win{display:inline-flex;gap:2px;padding:1px 2px;border:1px solid var(--ink);border-radius:2px}
+  .cdbg .m{display:inline-flex;align-items:center;gap:.3em;padding:0 .2em;border-radius:2px}
+  .cdbg .m .bar>span{background:var(--ink)}
+  .cdbg .m.hot{background:var(--yel)}
+  .cdbg .vd{font-weight:800;padding:0 .4em;border-radius:2px}
+  .cdbg .vd-winnable{background:var(--wait);color:#fff} .cdbg .vd-lost{background:var(--bad);color:#fff} .cdbg .vd-unknown{background:#ececea}
+  .cdbg .log{display:grid;grid-template-columns:4em 5em minmax(0,max-content) 1fr;gap:0 .6em;width:100%}
+  .cdbg .log>div{display:contents}
+  .cdbg .log>div>span{padding:0 .15em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cdbg .log .why{color:var(--muted)}
+  .cdbg .log .drop .why{color:var(--bad)}
+  .cdbgnote{margin:-.5rem 16px 1.2rem;display:flex;flex-wrap:wrap;gap:.4rem .8rem;align-items:center;
+    font:13.5px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .cdbgnote button{font:inherit;font-weight:800;border:2px solid var(--ink);background:var(--yel);padding:.25rem .8rem;border-radius:4px;cursor:pointer}
+  .cdbgnote input{font:inherit;flex:1 1 20rem;padding:.25rem .5rem;border:2px solid var(--ink);border-radius:4px}
+  .cdbgnote input:disabled{border-color:var(--line)}
+  .cdbgnote .bad{color:#e0342a;font-weight:800}
