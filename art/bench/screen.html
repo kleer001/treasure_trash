@@ -20,10 +20,14 @@
   .muted { color: var(--muted); font-size: 13px; } .bad { color: var(--bad); font-weight: 600; }
   #room-read { min-width: 220px; display: inline-block; text-align: center; }
   h2 { font-size: 15px; margin: 18px 0 0; }
-  .bar.talk { position: static; }
-  .num { min-width: 28px; display: inline-block; text-align: center; }
-  #strip { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
-  #strip figure { margin: 0; } #strip canvas { margin-top: 4px; } #strip figcaption { font-weight: 600; }
+  .wtune { margin: 12px 0; font-size: 14px; display: grid; gap: .35rem; }
+  .wtune[hidden] { display: none; }
+  .wtune .wrow { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }
+  .wtune button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .wtune .wnum { display: inline-flex; gap: .2rem; align-items: center; margin-right: .8rem; }
+  .wtune .wnum input { font: inherit; width: 3.5em; text-align: center; }
+  .wtune textarea { font: inherit; flex: 1 1 24rem; min-width: 12rem; }
+  .wtune .wsay { color: var(--muted); } .wtune .bad { color: var(--bad); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -31,8 +35,6 @@
 <div class="bar">
   <span class="grp">Pack: <button data-pack="teach">teach</button><button data-pack="act1">act 1</button><button data-pack="act2">act 2</button></span>
   <span class="grp">Room: <button id="room-prev">◀</button><span id="room-read"></span><button id="room-next">▶</button></span>
-  <span class="grp">Crow's line: <button id="line-prev">◀</button><button id="line-next">▶</button></span>
-  <span class="grp" id="crows">Crow:</span>
   <span class="grp">Board scale: <button data-board="1">1×</button><button data-board="1.5">1.5×</button><button data-board="2">2×</button></span>
   <span class="grp">Zoom: <button id="zoom-out">−</button><span id="zoom-read"></span><button id="zoom-in">+</button></span>
   <span class="grp">Top strip: <button data-strip="on">on</button><button data-strip="off">off</button></span>
@@ -41,17 +43,12 @@
   <span class="grp">Guides: <button data-guides="on">on</button><button data-guides="off">off</button></span>
 </div>
 <canvas id="view"></canvas>
-<p class="muted" id="talk-read"></p>
+<p><button id="pause">Pause</button> <button id="step">Step one frame</button> <span class="muted" id="talk-read"></span></p>
+<p class="muted" id="pair-read"></p>
 <p class="muted" id="dims"></p>
 <p class="bad" id="fault"></p>
-<h2>The crow's talk, in 60 Hz frames</h2>
-<div class="bar talk">
-  <span class="grp"><button id="play">Pause</button><button id="frame-step">Step one frame</button></span>
-  <span class="grp">Eye: <button data-eye="closed">open</button><button data-eye="squint">5 squint</button><button data-eye="away">6 away</button></span>
-  <span class="grp" id="timings"></span>
-</div>
-<div id="strip"></div>
-<p class="muted">Placeholders: the crow's code-drawn stand-in portrait, the exit, a couch standing up and down the picture, a barrow,
+<div class="wtune" id="wtune" hidden></div>
+<p class="muted">Placeholders: the exit, a couch standing up and down the picture, a barrow,
 and any piece without art (drawn as its occupant code). The fonts are Google Fonts stand-ins, drawn at 8 px with every
 pixel either on or off.</p>
 <script type="module">
@@ -68,45 +65,30 @@ import * as JUGS from './trash/jug.js';
 import { deck } from './trash/skate.js';
 import { WATER } from './trash/water.js';
 import { load, save as store } from './trash/settings.js';
-import { mulberry32 } from '../../src/rng.js';
+import { TUNING } from '../../src/crow.js';
+import { PATTERNS, KINDS, layWall, drawWipe, holdEnds, holdOf, lineFrames, wallFrom } from '../../src/wipe.js';
+import { createWipeTune } from '../../src/wipeTune.js';
 
 const W = 480, H = 270, STRIP = 16, DOCK = 48, PORTRAIT = 40, GAP = 4;
 const KEY = 'trash-screen';
 const FONTS = { press: { css: '"Press Start 2P"', line: 10 }, silk: { css: 'Silkscreen', line: 9 } };
-// Sample lines from dialogue/crow.json, the longest among them.
-const LINES = [
-  "Hrrk. Another soul. Let's see what you got.",
-  'New alley. Look it over before you move.',
-  'A bridge made of garbage. Gorgeous. Disgusting. Gorgeous.',
-  "3 noes this room. The alley's tellin' you somethin'.",
-  'Broken glass. You wanna limp through the afterlife?',
-  "Par. Clean work. Don't let it go to your head.",
-  'Under par? Upstairs is gonna hear about this.',
-];
-
-const [A, D, LOOK, O] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json', 'trash/objects.json']
-  .map(f => fetch(f).then(r => r.json())));
+const [A, D, LOOK, O, CROW] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json', 'trash/objects.json',
+  '../../dialogue/crow.json'].map(f => fetch(f).then(r => r.json())));
+// What he can say at a win, and as a room comes in: his single lines with no number to fill in.
+const plain = keys => keys.flatMap(k => CROW[k].lines ?? CROW[k].byCount.flatMap(st => st.lines))
+  .filter(l => typeof l === 'string' && !l.includes('{'));
+// The worst case for the wall: his longest win line, then his longest line for a room coming in.
+const longest = lines => lines.reduce((a, b) => (b.length > a.length ? b : a));
+const PAIR = { said: longest(plain(Object.keys(CROW).filter(k => k.startsWith('win.')))),
+  next: longest(plain(['room.new', 'room.tiny', 'room.huge'])) };
 await Promise.all(Object.values(FONTS).map(f => document.fonts.load(`8px ${f.css}`)));
 const missing = Object.values(FONTS).filter(f => !document.fonts.check(`8px ${f.css}`)).map(f => f.css);
 if (missing.length) document.getElementById('fault').textContent = `Font not loaded: ${missing.join(', ')}.`;
 
-// Candidate portraits for the crow, PORTRAIT px square, listed with how each was made.
-const CROWS = await fetch('crow/candidates.json').then(r => r.json());
-const CROW_ART = Object.fromEntries(await Promise.all(CROWS.map(c => new Promise((ok, fail) => {
-  const im = new Image();
-  im.onload = () => ok([c.label, im]);
-  im.onerror = () => fail(new Error(`crow portrait ${c.file} did not load`));
-  im.src = `crow/${c.file}`;
-}))));
-
-// A portrait's frames, where it has them: palette-index grids, PORTRAIT px square, numbered in order.
-const FRAMES = Object.fromEntries(await Promise.all(CROWS.filter(c => c.frames).map(async c =>
-  [c.label, await fetch(`crow/${c.frames}`).then(r => r.json())])));
-
-const ui = load(KEY, { pack: 'act2', room: 0, line: 0, zoom: 2, board: '1.5', strip: 'on', outside: 'bricks', font: 'press', guides: 'off',
-  crow: '68B', eye: 'closed',
-  talk: { half: 2, wide: 3, closed: 2, comma: 10, stop: 20, hold: 90, blink: 6, gapMin: 120, gapMax: 300 } });
-if (ui.crow !== 'stand-in' && !(ui.crow in CROW_ART)) ui.crow = '68B';
+// The crow's portrait: 68B, its beak-shut frame, PORTRAIT px square.
+const CROW68 = (await fetch('crow/candidates.json').then(r => r.json())).find(c => c.label === '68B');
+const { palette: CROW_PAL, frames: CROW_FRAMES } = await fetch(`crow/${CROW68.frames}`).then(r => r.json());
+const ui = load(KEY, { pack: 'act2', room: 0, zoom: 2, board: '1.5', strip: 'on', outside: 'bricks', font: 'press', guides: 'off' });
 const save = () => store(KEY, ui);
 const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
 const STYLE = { outline: LOOK.outline, shadow: LOOK.shadow };
@@ -118,21 +100,35 @@ const PACKS = Object.fromEntries(await Promise.all(['teach', 'act1', 'act2'].map
 const view = document.getElementById('view'), g = view.getContext('2d');
 const layer = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 const hud = layer(W, H), hg = hud.getContext('2d');
+const wallLayer = layer(W, H), wg = wallLayer.getContext('2d');
 
 /** Sprite pixels `px` at (x, y). */
 const put = (ctx, px, x, y) => { for (const [a, b, col] of px) { ctx.fillStyle = col; ctx.fillRect(x + a, y + b, 1, 1); } };
 const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
 
-// Text is drawn into a scratch canvas and copied with every pixel on or off, so the font stays sharp.
-const scratch = document.createElement('canvas'); scratch.width = W; scratch.height = 16;
-const sg = scratch.getContext('2d', { willReadFrequently: true });
-const font = () => `8px ${FONTS[ui.font].css}`;
-const widthOf = str => { sg.font = font(); return Math.ceil(sg.measureText(str).width); };
+// Each letter is read once, from a render K times larger, at the middle of each of its pixels, and
+// set at a whole-pixel advance. At 8 px, Firefox at a page zoom or screen scale other than 100%
+// spaces letters a fraction of a pixel apart, and a whole line drawn at once drifts off the pixel
+// grid until its letters double up.
+const K = 16, big = document.createElement('canvas'); big.width = 24 * K; big.height = 16 * K;
+const bg = big.getContext('2d', { willReadFrequently: true });
+const glyphs = {};
+function glyph(ch) {
+  const cache = glyphs[ui.font] ??= {};
+  return cache[ch] ??= (() => {
+    bg.clearRect(0, 0, big.width, big.height); bg.font = `${8 * K}px ${FONTS[ui.font].css}`; bg.textBaseline = 'alphabetic';
+    const base = Math.round(bg.measureText('H').emHeightAscent / K);    // where a 'top' baseline puts it
+    bg.fillText(ch, 0, base * K);
+    const d = bg.getImageData(0, 0, big.width, big.height).data, px = [];
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 24; x++)
+      if (d[((y * K + K / 2) * big.width + x * K + K / 2) * 4 + 3] >= 128) px.push([x, y]);
+    return { px, adv: Math.round(bg.measureText(ch).width / K) };
+  })();
+}
+const widthOf = str => [...str].reduce((w, ch) => w + glyph(ch).adv, 0);
 function text(ctx, str, x, y, col) {
-  sg.clearRect(0, 0, W, 16); sg.font = font(); sg.textBaseline = 'top'; sg.fillStyle = '#000'; sg.fillText(str, 0, 0);
-  const w = Math.min(W, widthOf(str) + 1), d = sg.getImageData(0, 0, w, 16).data;
   ctx.fillStyle = col;
-  for (let j = 0; j < 16; j++) for (let i = 0; i < w; i++) if (d[(j * w + i) * 4 + 3] >= 128) ctx.fillRect(x + i, y + j, 1, 1);
+  for (const ch of str) { const g = glyph(ch); for (const [a, b] of g.px) ctx.fillRect(x + a, y + b, 1, 1); x += g.adv; }
 }
 function wrap(str, max) {
   const out = [];
@@ -167,7 +163,7 @@ function placeholder(ctx, x, y, w, h, label) {
 }
 
 /** The room, its top-left cell's corner at the origin. */
-function drawRoom(ctx, s, seed) {
+function drawRoom(ctx, s, seed, away) {
   const R = s.cols * C, B = s.rows * C;
   ctx.fillStyle = FLOOR; ctx.fillRect(0, 0, R, B);
   ctx.fillStyle = SEAM;
@@ -213,100 +209,54 @@ function drawRoom(ctx, s, seed) {
     } else if (o === WHEELIE || o === WHEELIE_EMPTY) standing(O.bin, x, y);
     else if (o !== 0 && o !== TRASH && o !== FURNITURE) stand.push([(y + 1) * C, () => placeholder(ctx, x * C, y * C, C, C, String(o))]);
   });
-  standing(A.raccoon, s.rac.x, s.rac.y);
+  // He stands on the door, where a win leaves him.
+  let door = null;
+  each((c, x, y) => { if (c.exit && !door) door = { x, y }; });
+  if (!door) throw new Error('a room with no exit');
+  const [rx0, ry0] = at(A.raccoon, door.x, door.y);
+  stand.push([ry0 + A.raccoon.h, () => away ? leaveRaccoon(ctx, A.raccoon, door.x, door.y, away.k, away.how)
+    : put(ctx, A.raccoon.px, rx0, ry0)]);
   for (const [, draw] of stand.sort((a, b) => a[0] - b[0])) draw();
 }
 
-/** A stand-in crow head, PORTRAIT px square, at (x0, y0). */
-function crow(ctx, x0, y0) {
-  ctx.fillStyle = '#24464c'; ctx.fillRect(x0, y0, PORTRAIT, PORTRAIT);
-  for (let y = 0; y < PORTRAIT; y++) for (let x = 0; x < PORTRAIT; x++) {
-    const hx = (x - 17) / 13, hy = (y - 22) / 13, head = hx * hx + hy * hy <= 1;
-    const t = (x - 27) / 11, beak = x >= 27 && x <= 38 && y >= 17 + t * 4 && y <= 26 - t * 3;
-    const body = y >= 33 && x >= 4 && x <= 31, tuft = (y === 8 && x >= 12 && x <= 13) || (y === 7 && x === 11) || (y === 9 && x >= 14 && x <= 15);
-    const eye = (x - 23) ** 2 + (y - 17) ** 2;
-    let col = null;
-    if (head || body || tuft) col = head && hx * hx + hy * hy > 0.8 && hx < 0 && hy < 0 ? '#3a3446' : '#17141c';
-    if (beak) col = y < 21 ? '#9a948c' : '#5f5a54';
-    if (eye <= 5) col = '#e8c33a';
-    if (eye <= 1) col = '#0b0a0d';
-    if (col) { ctx.fillStyle = col; ctx.fillRect(x0 + x, y0 + y, 1, 1); }
+// A 4x4 ordered dither: he goes a pixel at a time, never a grey.
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+/** He leaves by the door: `k` from 0 in the room to 1 gone, `how` a hop or a dither. Every pixel is moved or dropped whole. */
+function leaveRaccoon(ctx, spr, x, y, k, how) {
+  if (k >= 1) return;
+  const [px, py] = at(spr, x, y);
+  if (how === 'dissolve') {
+    put(ctx, spr.px.filter(([a, b]) => (BAYER[((py + b) & 3) * 4 + ((px + a) & 3)] + .5) / 16 > k), px, py);
+    return;
   }
+  // The hop: a crouch, the jump, then a stretch and a shrink into the middle of the door.
+  const u = Math.max(0, (k - .25) / .75), c = k < .25 ? k / .25 : Math.max(0, 1 - u / .15);
+  const air = Math.sin(Math.PI * u), sc = 1 - u;
+  const cx = x * C + C / 2, base = y * C + C, sx = (1 + .2 * c) * sc, sy = (1 - .2 * c) * sc * (1 + .25 * air);
+  const by = base - u * C / 2 - air * .4 * C;
+  put(ctx, spr.px.map(([a, b, col]) => [Math.round(cx + (px + a - cx) * sx), Math.round(by + (py + b - base) * sy), col]), 0, 0);
 }
 
-/** The portrait with the beak of frame `beak` and the eye of frame `eye`. An eye frame differs from
- * the closed frame only round the eye, so those pixels are laid over the beak frame. */
-const portraits = new Map();
-function portrait(label, beak, eye) {
-  const k = `${label} ${beak} ${eye}`;
-  if (!portraits.has(k)) {
-    const { palette, frames } = FRAMES[label], by = Object.fromEntries(frames.map(f => [f.name, f.rows]));
-    const c = layer(PORTRAIT, PORTRAIT), cg = c.getContext('2d');
-    for (let y = 0; y < PORTRAIT; y++) for (let x = 0; x < PORTRAIT; x++) {
-      const e = by[eye][y][x];
-      cg.fillStyle = palette[e !== by.closed[y][x] ? e : by[beak][y][x]];
-      cg.fillRect(x, y, 1, 1);
-    }
-    portraits.set(k, c);
-  }
-  return portraits.get(k);
-}
-
-/** The line cut into syllables, one per vowel run, a silent final e dropped: for each, how much of
- * the line shows once it is said, and the frames the beak then stays shut. */
-function syllables(line) {
-  const out = [];
-  for (const m of line.matchAll(/\S+/g)) {
-    const word = m[0], end = m.index + word.length;
-    const cuts = [...word.matchAll(/[aeiouy]+/gi)].map(v => m.index + v.index + v[0].length);
-    if (cuts.length > 1 && /[^aeiouy]e\W*$/i.test(word)) cuts.pop();
-    if (!cuts.length) cuts.push(end);
-    cuts[cuts.length - 1] = end;
-    const pause = /[.!?]$/.test(word) ? ui.talk.stop : /[,;:]$/.test(word) ? ui.talk.comma : 0;
-    cuts.forEach((shown, i) => out.push({ shown, pause: i === cuts.length - 1 ? pause : 0 }));
-  }
-  return out;
-}
-
-/** The line said once and held, frame by frame: the beak's frame, how much text shows, and which
- * syllable is being said. Each syllable opens the beak 1 → 2 → 3 → 2 → 1. */
-function talkFrames(line) {
-  const t = ui.talk, out = [], said = syllables(line);
-  said.forEach((s, i) => {
-    for (const [beak, n] of [['half', t.half], ['wide', t.wide], ['half', t.half], ['closed', t.closed + s.pause]])
-      for (let j = 0; j < n; j++) out.push({ beak, shown: s.shown, syllable: i + 1, of: said.length });
-  });
-  for (let j = 0; j < t.hold; j++) out.push({ beak: 'closed', shown: line.length, syllable: 0, of: said.length });
-  return out;
-}
-
-/** The frames a blink starts on, from a seeded run of gaps between ui.talk.gapMin and gapMax. */
-let blinks, nextGap;
-function resetBlinks() {
-  const r = mulberry32(68);
-  nextGap = () => ui.talk.gapMin + Math.floor(r() * (ui.talk.gapMax - ui.talk.gapMin + 1));
-  blinks = [nextGap()];
-}
-const blinkingAt = f => {
-  while (blinks.at(-1) <= f) blinks.push(blinks.at(-1) + ui.talk.blink + nextGap());
-  return blinks.some(b => f >= b && f < b + ui.talk.blink);
-};
+const still = (() => {
+  const c = layer(PORTRAIT, PORTRAIT), cg = c.getContext('2d'), rows = CROW_FRAMES.find(f => f.name === 'closed').rows;
+  for (let y = 0; y < PORTRAIT; y++) for (let x = 0; x < PORTRAIT; x++) { cg.fillStyle = CROW_PAL[rows[y][x]]; cg.fillRect(x, y, 1, 1); }
+  return c;
+})();
 
 const guide = (x, y, w, h) => {
   hg.fillStyle = '#ff3fd1';
   hg.fillRect(x, y, w, 1); hg.fillRect(x, y + h - 1, w, 1); hg.fillRect(x, y, 1, h); hg.fillRect(x + w - 1, y, 1, h);
 };
 
-/** The dock at one beat of the talk: the portrait's frame, and as much of the line as has been said. */
-function dock(st) {
+/** The dock: his portrait, and the first `shown` letters of `line`. */
+function dock(line, shown) {
   const dy = H - DOCK, px = GAP + PORTRAIT + GAP;
   hg.fillStyle = '#0f171c'; hg.fillRect(0, dy, W, DOCK);
-  if (ui.crow === 'stand-in') crow(hg, GAP, dy + GAP);
-  else hg.drawImage(FRAMES[ui.crow] ? portrait(ui.crow, st.beak, st.eye) : CROW_ART[ui.crow], GAP, dy + GAP);
+  hg.drawImage(still, GAP, dy + GAP);
   hg.fillStyle = '#1c2b33'; hg.fillRect(px, dy + GAP, W - px - GAP, PORTRAIT);
   let start = 0;
-  wrap(LINES[ui.line % LINES.length], W - px - GAP - 10).forEach((l, i) => {
-    text(hg, l.slice(0, Math.max(0, st.shown - start)), px + 5, dy + GAP + 5 + i * FONTS[ui.font].line, '#f2ead8');
+  wrap(line, W - px - GAP - 10).forEach((l, i) => {
+    text(hg, l.slice(0, Math.max(0, shown - start)), px + 5, dy + GAP + 5 + i * FONTS[ui.font].line, '#f2ead8');
     start += l.length + 1;
   });
   if (ui.guides === 'on') guide(0, dy, W, DOCK);
@@ -318,51 +268,25 @@ function paint() {
   g.save(); g.beginPath(); g.rect(0, top * z, W * z, area * z); g.clip();
   g.drawImage(brd, 0, top * z, bw * bs * z, bh * bs * z);
   g.restore();
+  g.drawImage(wallLayer, 0, 0, W * z, H * z);
   g.drawImage(hud, 0, 0, W * z, H * z);
 }
 
-// The talk runs on a clock of 60 Hz frames, restarted with the line whenever the screen is drawn.
-let scene, clock = 0, base = 0, t0 = 0, playing = true, drawn = '';
-const NUM = name => (FRAMES[ui.crow]?.frames.findIndex(f => f.name === name) ?? -1) + 1;
-const state = f => ({ ...scene.said[f % scene.said.length], eye: blinkingAt(f) ? 'blink' : ui.eye });
-function restart() { clock = 0; base = 0; t0 = performance.now(); drawn = ''; tick(); }
-function tick() {
-  const st = state(clock), key = `${st.beak} ${st.eye} ${st.shown}`;
-  if (key !== drawn) { drawn = key; dock(st); paint(); }
-  document.getElementById('talk-read').textContent = `Frame ${clock}. `
-    + (FRAMES[ui.crow] ? `Beak: frame ${NUM(st.beak)} ${st.beak}. Eye: ${st.eye === 'closed' ? 'open' : `frame ${NUM(st.eye)} ${st.eye}`}. ` : '')
-    + (st.syllable ? `Syllable ${st.syllable} of ${st.of}.` : `Line said; held before it starts again.`);
-}
+// The win runs on its own clock, so it can be paused and stepped a frame at a time. Paused, a
+// new win waits at its first frame.
+let scene, paused = false, stepped = false, last = 0;
 function loop(now) {
-  if (playing) {
-    // A frame stamp can come from before the clock was restarted.
-    const f = base + Math.max(0, Math.floor((now - t0) * 60 / 1000));
-    if (f !== clock) { clock = f; tick(); }
+  if (win) {
+    if (!paused) win.ms += now - last;
+    else if (stepped) win.ms = (Math.floor(win.ms * FPS / 1000) + 1) * 1000 / FPS;
+    winTick();
   }
+  stepped = false; last = now;
   requestAnimationFrame(loop);
 }
 
-/** The current portrait's frames, numbered, at the screen's zoom. */
-function drawStrip() {
-  const strip = document.getElementById('strip');
-  strip.replaceChildren();
-  if (!FRAMES[ui.crow]) return;
-  FRAMES[ui.crow].frames.forEach((f, i) => {
-    const fig = document.createElement('figure'), cap = document.createElement('figcaption'), c = layer(PORTRAIT * ui.zoom, PORTRAIT * ui.zoom);
-    cap.textContent = `${i + 1} ${f.name}`;
-    const cg = c.getContext('2d'); cg.imageSmoothingEnabled = false;
-    cg.drawImage(portrait(ui.crow, f.name, 'closed'), 0, 0, c.width, c.height);
-    fig.append(cap, c); strip.append(fig);
-  });
-}
-
-function render() {
-  const levels = PACKS[ui.pack];
-  ui.room = Math.max(0, Math.min(levels.length - 1, ui.room));
-  const level = levels[ui.room], s = toState(level), bs = Number(ui.board), z = ui.zoom;
-  const top = ui.strip === 'on' ? STRIP : 0, area = H - DOCK - top;
-
-  // The board, in art pixels: enough of the alley to cover the board area once scaled by `bs`.
+/** The board in art pixels, enough of the alley to cover the board area once scaled by `bs`. `away`: see leaveRaccoon. */
+function board(s, bs, area, seed, away) {
   const bw = Math.ceil(W / bs), bh = Math.ceil(area / bs), brd = layer(bw, bh), bg = brd.getContext('2d');
   const rx = Math.floor((bw - s.cols * C) / 2), ry = Math.floor((bh - s.rows * C) / 2);
   if (ui.outside === 'bricks') {
@@ -371,82 +295,131 @@ function render() {
     bg.restore();
     bg.fillStyle = 'rgba(12, 8, 16, 0.5)'; bg.fillRect(0, 0, bw, bh);
   } else { bg.fillStyle = '#1d1720'; bg.fillRect(0, 0, bw, bh); }
-  bg.translate(rx, ry); drawRoom(bg, s, ui.room * 31);
+  bg.translate(rx, ry); drawRoom(bg, s, seed, away);
+  return { brd, bw, bh, rx, ry };
+}
+
+// ---- the win: he leaves by the door, the room stands empty, the wall goes up over the board, the next room loads behind
+// it and the wall comes down. The crow says his win line on the wall, and the next room's line once
+// it is in. Timings are the game's: `wipe.js` and `main.js` hold the same settings.
+const FPS = 60, LEAVES = ['hop', 'dissolve'];
+const WIPE = { exit: 12, empty: 30, cover: 40, hold: 50, holdMax: 360, wait: 'fixed', reveal: 30, lay: 8, order: 'same',
+  leave: 'dissolve', pattern: 'room', kind: 'room' };
+let win = null, wset = null;
+/** `line` as he says it `f` frames in, started at frame `start`: the letters shown so far, or null when he is not saying it. */
+function sayAt(f, line, start) {
+  const i = f - start;
+  if (!line || i < 0 || i >= lineFrames(line, TUNING)) return null;
+  return { line, shown: Math.min(line.length, Math.floor(i * TUNING.cps / FPS)) };
+}
+function startWin() {
+  if (win) return;
+  const top = ui.strip === 'on' ? STRIP : 0, area = H - DOCK - top;
+  const h = ((ui.room + 1) * 2654435761) >>> 0, kinds = Object.keys(KINDS), set = { ...wset };
+  win = { ms: 0, s: set, top, area,
+    t: { ...set, hold: Infinity }, hold: holdOf(wallFrom(set) + set.cover, set), loaded: false, loadF: 0, away: null,
+    ...PAIR, saidEnd: lineFrames(PAIR.said, TUNING), nextAt: 0, busyUntil: lineFrames(PAIR.said, TUNING),
+    pattern: set.pattern === 'room' ? PATTERNS[h % PATTERNS.length] : set.pattern,
+    kind: set.kind === 'room' ? kinds[(h >>> 8) % kinds.length] : set.kind };
+  win.wall = layWall(win.kind, W, area, 1, 1);
+}
+/** The same room comes in again behind the wall, and his line for it is queued. */
+function loadNext(f) {
+  const w = win;
+  w.loaded = true; w.loadF = f;
+  const bs = Number(ui.board);
+  Object.assign(scene, board(toState(PACKS[ui.pack][ui.room]), bs, w.area, ui.room * 31, null));
+  if (w.s.wait === 'both') { w.t.hold = Infinity; w.hold = holdOf(f, w.s); }
+  // He starts the room's line as it comes in, or once his win line is done if he is still on it.
+  w.nextAt = Math.max(f, w.saidEnd);
+  w.busyUntil = w.nextAt + lineFrames(w.next, TUNING);
+}
+function winTick() {
+  const w = win, t = w.t, f = Math.floor(w.ms * FPS / 1000), fr = f - wallFrom(t);
+  if (w.hold && holdEnds(f - w.hold.from, w.hold.min, w.hold.max, w.hold.wait && f < w.busyUntil)) {
+    t.hold = f - wallFrom(t) - t.cover; w.hold = null;
+    if (!w.loaded) loadNext(f);
+  }
+  if (!w.loaded && Math.min(f, t.exit) !== w.away) {
+    w.away = Math.min(f, t.exit);
+    Object.assign(scene, board(toState(PACKS[ui.pack][ui.room]), Number(ui.board), w.area, ui.room * 31,
+      { k: Math.min(1, f / t.exit), how: t.leave }));
+  }
+  wg.clearRect(0, 0, W, H);
+  if (fr >= 0) { wg.save(); wg.translate(0, w.top); drawWipe(wg, w.wall, w.pattern, t, fr); wg.restore(); }
+  const cur = sayAt(f, w.said, 0) ?? (w.loaded ? sayAt(f, w.next, w.nextAt) : null);
+  dock(cur?.line ?? '', cur?.shown ?? 0);
+  paint();
+  const phase = !w.loaded ? (f < t.exit ? 'he leaves' : fr < 0 ? 'the room stands empty'
+    : fr < t.cover ? 'the wall goes up' : 'the wall holds') : w.hold ? 'the wall holds over the room come in again' : 'the wall comes down';
+  document.getElementById('talk-read').textContent = `Win frame ${f}: ${phase}.`;
+  // The next room's line is his to finish, so the win ends when it is done, not when the wall is.
+  if (!w.hold && f >= wallFrom(t) + t.cover + t.hold + t.reveal && (!w.loaded || f >= w.busyUntil)) { win = null; render(); }
+}
+
+/** The strip over the board: the room's id and name, and the moves against par. */
+function topStrip(level) {
+  hg.fillStyle = '#120d14'; hg.fillRect(0, 0, W, STRIP);
+  text(hg, `${level.id}  ${level.name}`, 6, 4, '#e8dcc8');
+  const right = `Moves 0  Par ${level.par}`;
+  text(hg, right, W - 6 - widthOf(right), 4, '#e8dcc8');
+}
+
+// Sized in device pixels: at a browser zoom or a screen scale, a canvas left at its own size is
+// squeezed by a ratio that is not whole, which drops and doubles pixel columns unevenly.
+const fitView = () => {
+  view.style.width = `${view.width / devicePixelRatio}px`; view.style.height = `${view.height / devicePixelRatio}px`;
+};
+addEventListener('resize', fitView);
+
+function render() {
+  const levels = PACKS[ui.pack];
+  ui.room = Math.max(0, Math.min(levels.length - 1, ui.room));
+  const level = levels[ui.room], s = toState(level), bs = Number(ui.board), z = ui.zoom;
+  const top = ui.strip === 'on' ? STRIP : 0, area = H - DOCK - top;
+
+  const { brd, bw, bh, rx, ry } = board(s, bs, area, ui.room * 31, null);
 
   hg.clearRect(0, 0, W, H);
-  if (top) {
-    hg.fillStyle = '#120d14'; hg.fillRect(0, 0, W, top);
-    text(hg, `${level.id}  ${level.name}`, 6, 4, '#e8dcc8');
-    const right = `Moves 0  Par ${level.par}`;
-    text(hg, right, W - 6 - widthOf(right), 4, '#e8dcc8');
-  }
+  if (top) topStrip(level);
   const room = [Math.round(rx * bs), top + Math.round(ry * bs), s.cols * C * bs, s.rows * C * bs];
   if (ui.guides === 'on') { if (top) guide(0, 0, W, top); guide(0, top, W, area); guide(...room); }
-  const lines = wrap(LINES[ui.line % LINES.length], W - PORTRAIT - 3 * GAP - 10);
-
-  scene = { brd, bw, bh, bs, top, area, z, said: talkFrames(LINES[ui.line % LINES.length]) };
-  view.width = W * z; view.height = H * z;
-  resetBlinks(); restart();
-  drawStrip();
-  for (const [k] of TIMINGS) document.getElementById(`t-${k}`).textContent = ui.talk[k];
+  scene = { brd, bw, bh, bs, top, area, z };
+  view.width = W * z; view.height = H * z; fitView();
+  dock('', 0); paint();
 
   const fits = room[2] <= W && room[3] <= area;
   document.getElementById('fault').textContent = (fits ? '' : `This room does not fit at ${bs}×: it needs ${room[2]}×${room[3]} px, and the board area is ${W}×${area} px. `)
     + (Number.isInteger(bs * z) ? '' : `At ${bs}× and zoom ${z}×, an art pixel covers ${bs * z} screen pixels, so the pixels are uneven.`);
   document.getElementById('room-read').textContent = `${ui.room + 1} of ${levels.length}: ${level.id} ${level.name}`;
   document.getElementById('zoom-read').textContent = `${z}×`;
-  document.getElementById('dims').textContent = `Screen ${W}×${H} px, shown at ${W * z}×${H * z}. `
+  document.getElementById('dims').textContent = `Screen ${W}×${H} px, shown at ${W * z}×${H * z} device pixels. `
     + `${top ? `Top strip ${top} px. ` : ''}Board area ${W}×${area} px; at ${bs}× a cell is ${C * bs} px, so the area holds ${Math.floor(W / (C * bs))}×${Math.floor(area / (C * bs))} cells. Crow dock ${DOCK} px. `
-    + `This room: ${s.cols}×${s.rows} cells = ${room[2]}×${room[3]} px. `
-    + `The crow's line takes ${lines.length} line${lines.length > 1 ? 's' : ''} of text. `
-    + (ui.crow === 'stand-in' ? 'Crow portrait: the code-drawn stand-in.' : (c => `Crow portrait ${c.label}: seed ${c.seed}, ${c.lora}, ${PORTRAIT}×${PORTRAIT} px.`)(CROWS.find(c => c.label === ui.crow)));
+    + `This room: ${s.cols}×${s.rows} cells = ${room[2]}×${room[3]} px.`;
   for (const b of document.querySelectorAll('[data-pack]')) b.setAttribute('aria-pressed', b.dataset.pack === ui.pack);
-  for (const k of ['board', 'strip', 'outside', 'font', 'guides', 'crow', 'eye'])
+  for (const k of ['board', 'strip', 'outside', 'font', 'guides'])
     for (const b of document.querySelectorAll(`[data-${k}]`)) b.setAttribute('aria-pressed', b.dataset[k] === ui[k]);
   save();
 }
 
-// Each timing, its label, the least it may be, and how far one press moves it.
-const TIMINGS = [['half', 'Beak half open', 1, 1], ['wide', 'wide open', 1, 1], ['closed', 'shut between syllables', 1, 1],
-  ['comma', 'Pause at a comma', 0, 1], ['stop', 'at a full stop', 0, 2], ['hold', 'Hold after the line', 0, 10],
-  ['blink', 'Blink', 1, 1], ['gapMin', 'Gap between blinks, shortest', 10, 10], ['gapMax', 'longest', 10, 10]];
-for (const [k, label, least, by] of TIMINGS) {
-  const grp = document.createElement('span'), less = document.createElement('button'), more = document.createElement('button'), n = document.createElement('span');
-  grp.className = 'grp'; n.className = 'num'; n.id = `t-${k}`; less.textContent = '−'; more.textContent = '+';
-  const set = v => {
-    ui.talk[k] = Math.max(least, v);
-    if (ui.talk.gapMax < ui.talk.gapMin) ui.talk[k === 'gapMin' ? 'gapMax' : 'gapMin'] = ui.talk[k];
-    render();
-  };
-  less.onclick = () => set(ui.talk[k] - by); more.onclick = () => set(ui.talk[k] + by);
-  grp.append(`${label}: `, less, n, more);
-  document.getElementById('timings').append(grp);
-}
-document.getElementById('play').onclick = e => {
-  playing = !playing;
-  if (playing) { base = clock; t0 = performance.now(); }
-  e.target.textContent = playing ? 'Pause' : 'Play';
-};
-document.getElementById('frame-step').onclick = () => {
-  playing = false; document.getElementById('play').textContent = 'Play';
-  clock++; tick();
-};
-
 for (const b of document.querySelectorAll('[data-pack]')) b.onclick = () => { ui.pack = b.dataset.pack; ui.room = 0; render(); };
-for (const label of [...CROWS.map(c => c.label), 'stand-in']) {
-  const b = document.createElement('button'); b.dataset.crow = label; b.textContent = label;
-  document.getElementById('crows').append(b);
-}
-for (const k of ['board', 'strip', 'outside', 'font', 'guides', 'crow', 'eye'])
+for (const k of ['board', 'strip', 'outside', 'font', 'guides'])
   for (const b of document.querySelectorAll(`[data-${k}]`)) b.onclick = () => { ui[k] = b.dataset[k]; render(); };
 const step = (k, d, n) => () => { ui[k] = (ui[k] + d + n()) % n(); render(); };
 document.getElementById('room-prev').onclick = step('room', -1, () => PACKS[ui.pack].length);
 document.getElementById('room-next').onclick = step('room', 1, () => PACKS[ui.pack].length);
-document.getElementById('line-prev').onclick = step('line', -1, () => LINES.length);
-document.getElementById('line-next').onclick = step('line', 1, () => LINES.length);
+document.getElementById('pause').onclick = e => { paused = !paused; e.target.textContent = paused ? 'Resume' : 'Pause'; };
+document.getElementById('step').onclick = () => { paused = true; stepped = true; document.getElementById('pause').textContent = 'Resume'; };
 document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); render(); };
 document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(6, ui.zoom + 1); render(); };
-window.__screen = { render, ui, PACKS, state, syllables, seek: f => { playing = false; clock = f; tick(); } };
+const sendNote = note => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(note) }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); });
+wset = createWipeTune(document.getElementById('wtune'), WIPE, {
+  replay: startWin, snap: () => ({ pack: ui.pack, room: ui.room, level: PACKS[ui.pack][ui.room].id }), send: sendNote,
+  crowFrame: 0, key: 'trash-screen-wipe', leaves: LEAVES });
+document.getElementById('pair-read').textContent = `Every win: "${PAIR.said}" (${lineFrames(PAIR.said, TUNING)} frames), `
+  + `then "${PAIR.next}" (${lineFrames(PAIR.next, TUNING)} frames).`;
+window.__screen = { render, ui, PACKS, startWin, win: () => win };
 render();
 requestAnimationFrame(loop);
 </script>
