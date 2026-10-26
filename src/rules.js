@@ -2132,7 +2132,7 @@ export function applyAction(s, { dir, kind }) {
   return r.next;
 }
 
-const BAGS_IN = { [BAG]: 1, [CAN_FULL]: 1, [WHEELIE]: 1, [BIN]: 1 };
+export const BAGS_IN = { [BAG]: 1, [CAN_FULL]: 1, [WHEELIE]: 1, [BIN]: 1 };
 // Both walk the whole chain. A bag stowed inside a barrow that is itself riding in a cart is
 // still a bag the exit is waiting on, and a room that let it out of sight would open its door
 // on a yard that is not clear.
@@ -2150,7 +2150,8 @@ export function trashHeld(s) {
 }
 
 export const atExit = s => cell(s, s.rac.x, s.rac.y).exit;
-export const isWon = s => bagsLeft(s) === 0 && trashHeld(s) === 0 && atExit(s);
+export const exitLit = s => bagsLeft(s) === 0 && trashHeld(s) === 0;
+export const isWon = s => exitLit(s) && atExit(s);
 
 /** Canonical state key. Each lane is here because dropping it is a SILENT bug:
  *

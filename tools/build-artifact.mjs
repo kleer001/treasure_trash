@@ -82,6 +82,7 @@ const ACTS = (() => {
 // because the artifact is one document behind a CSP that blocks every request.
 const assets = Object.fromEntries([
   ...ACTS.map(a => [`levels/${a}`, read(`levels/${a}`)]),
+  ['dialogue/crow.json', read('dialogue/crow.json')],
   ['sfx/win-chime.mp3', readFileSync(resolve(root, 'sfx/win-chime.mp3')).toString('base64')],
 ]);
 

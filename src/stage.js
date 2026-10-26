@@ -474,6 +474,11 @@ const rolls = st => st.moved.some(m =>
  *  being cut rather than as something dropping through. */
 const drops = st => st.gone.some(g => g.effect === 'falls');
 
+// Time is counted per CELL of travel, seven 60 Hz screen frames each, so a bin crossing five
+// cells takes five times as long as one crossing a single cell rather than being crammed into
+// the same beat.
+export const CELL_MS = 7 * 1000 / 60;
+
 /**
  * A traced action, cut into the segments a clock can play. One action can be several cells of
  * travel, and the cells are not independent, so consecutive cart steps are welded into ONE

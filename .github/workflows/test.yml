@@ -19,6 +19,10 @@ jobs:
       # the tests green and silently invalidate a declared par.
       - name: Verify the level pack
         run: node tools/verify.mjs
+      # Every crow event fires in a scripted scenario, or the report names why it cannot. A refusal
+      # reason that the rules gain and his lines lack fails here, not in a player's hands.
+      - name: Crow coverage
+        run: node tools/crowsim.mjs --cover
       # Every sanctioned second implementation of the rules, against src/rules.js, over every
       # shipped room and a seeded batch of generated ones. With none registered this runs the
       # reference adapter and proves the harness, which is the state it has to be kept in: a

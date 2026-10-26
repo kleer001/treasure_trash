@@ -14,7 +14,7 @@ OUT="dist/$NAME.zip"
 # The .sol packs and the jsonl banks are verifier and generator data, not runtime.
 # `fonts` is deliberately absent: the faces are loaded by promo.html, which is not in the
 # archive. A game using them in its own styles.css puts `fonts` back.
-RUNTIME=(index.html styles.css src sfx)
+RUNTIME=(index.html styles.css src sfx dialogue/crow.json)
 RUNTIME+=(levels/act*.tt)   # every act; .sol and the jsonl banks are offline data
 
 rm -f "$OUT"

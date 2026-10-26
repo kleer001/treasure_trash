@@ -1,316 +1,1496 @@
 {
   "room.firstEver": {
-    "event": "The very first room ever",
+    "event": "The very first room ever: the opening",
     "hint": false,
+    "face": "ex_stare",
+    "talk": "quiet",
+    "once": "ever",
+    "speech": true,
     "lines": [
-      "Hrrk. Another soul. Let's see what you got."
+      [
+        "Hrrk. Well, look at you. A fresh soul, still blinkin'. Don't look at me like that.",
+        "I'm your guide. That's all you get to know about me, so don't bother askin'.",
+        "You want outta this alley? Everybody does. There's somethin' nicer past it, and you gotta earn it.",
+        "This here's act one. Bits of trash. The basics. Basics bite too, so mind the spray.",
+        "See that sign? That's the way out. Walk to it, and we'll see what you're made of."
+      ],
+      [
+        "Well, well. A new one. Still fuzzy round the edges, still blinkin'. Hrrk. Don't stare, kid.",
+        "Name's... nah. I'm your guide. That's the whole introduction. Don't wear it out askin'.",
+        "This alley ain't where you stay. There's somethin' better past it. You gotta earn your way there.",
+        "First stretch is the basics. Trash, walls, a door. Spill it all, and the door lights up.",
+        "See the sign? That's the door. Walk on over, and let's see what you got."
+      ],
+      [
+        "Hrrk! Oh. You're awake. Fresh soul, fresh fur. Smells like you just got here.",
+        "I'm your guide. Not your pal, not your pop. Your guide. Questions? Keep 'em.",
+        "Everybody wants outta this alley, kid. There's somethin' nicer on the other side. You earn it.",
+        "Act one. Bits of trash. Simple stuff. Ha. You'll see.",
+        "That sign there? The way out. Walk to it. Go on. I'm watchin'."
+      ]
+    ],
+    "words": 20
+  },
+  "room.backDone": {
+    "event": "The first room of a sitting, with every room solved but not every star won",
+    "hint": false,
+    "face": "ex_snicker",
+    "talk": "quiet",
+    "once": "sitting",
+    "words": 20,
+    "lines": [
+      [
+        "Hrrk. Well, well. Look who came back down. Told ya I'd remember your face.",
+        "You already made it out, kid. Clouds, shiny cans, the whole deal. And here you are.",
+        "Missed the trash, huh? Can't blame ya. Up there's clean. Too clean, if you ask me.",
+        "Go on, then. Some of these rooms still got stars in 'em. Show me."
+      ]
+    ]
+  },
+  "room.backAllStars": {
+    "event": "The first room of a sitting, with every room solved at three stars",
+    "hint": false,
+    "face": "ex_blush",
+    "talk": "quiet",
+    "once": "sitting",
+    "words": 20,
+    "lines": [
+      [
+        "Hrrk. You again? Every room done. Every star. Nothin' left down here to prove.",
+        "And you came back anyway. To an alley. Full of trash. For fun.",
+        "...Yeah. I get it. Best trash in the world is the trash you know.",
+        "Go on, then. Push somethin' around. I'll watch. Like old times, kid."
+      ]
     ]
   },
   "room.new": {
     "event": "A room you've never opened",
     "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
     "lines": [
-      "New alley. Look it over before you move."
+      "New alley. Look it over before you move.",
+      "Fresh room. Find the door first, kid.",
+      "Eyes first, paws second.",
+      "Never been in here. Smells new.",
+      "New room. Same old you, kid.",
+      "Fresh walls. Fresh trouble.",
+      "Haven't seen this one. Take it slow.",
+      "New alley, kid. Look before you leap.",
+      "Ooh. Somewhere new. Sniff around first.",
+      "Unfamiliar room. Don't touch nothin' yet.",
+      "Huh. New one. Where's the door, kid?",
+      "New room. Breathe in. Stinks. Perfect.",
+      "Never seen this mess before. Lovely.",
+      "A fresh one. Take a good long look.",
+      "New one. Don't rush it, kid. Nobody's waitin'."
     ]
   },
   "room.unsolvedAgain": {
-    "event": "Back in a room you haven't solved",
+    "event": "Back in a room you haven't solved; {n} counts the rounds this sitting",
     "hint": false,
+    "face": "ex_side_eye",
+    "talk": "chatty",
     "lines": [
-      "This one again. It's still got your number."
+      "This one again. It's still got your number.",
+      "Back for more? This room remembers you, kid.",
+      "Round {n} with this one. Go slower."
     ]
   },
   "room.replay": {
     "event": "Replaying a room you've solved",
     "hint": false,
+    "face": "ex_snicker",
+    "talk": "verbose",
     "lines": [
-      "Already beat this one. What, showin' off?"
+      "Already beat this one. What, showin' off?",
+      "You solved this. Doin' it for fun now?",
+      "A rerun, huh? Fine."
     ]
   },
   "room.replayAtPar": {
     "event": "Replaying a room you solved at par",
     "hint": false,
+    "face": "closed",
+    "talk": "verbose",
     "lines": [
-      "You've done this one at par. Again."
+      "You've done this one at par. Again.",
+      "Par already. Nothin' left here but braggin'."
     ]
   },
   "room.teach": {
     "event": "A room that teaches something new",
     "hint": false,
+    "face": "ex_lightbulb",
+    "talk": "quiet",
+    "once": "room",
     "lines": [
-      "Oh, this one. Pay attention, I'm sayin' it once."
-    ],
-    "then": "teach"
+      [
+        "Eyes up, kid.",
+        "This room's got a lesson in it."
+      ],
+      [
+        "Wait. Look at this one, kid.",
+        "There's somethin' here you ain't seen."
+      ],
+      [
+        "New thing in the alley, kid.",
+        "Learn it here. You'll need it later."
+      ],
+      [
+        "Okay, kid. Heads up.",
+        "This room teaches somethin'."
+      ],
+      [
+        "Huh. Somethin' new in here.",
+        "Never a dull alley, kid."
+      ],
+      [
+        "Well, would ya look at that.",
+        "Ain't seen that before, have ya?"
+      ],
+      [
+        "New one, kid.",
+        "Poke it. See what it does."
+      ],
+      [
+        "Hrrk. That's new.",
+        "Don't look at me. Figure it out."
+      ],
+      [
+        "Somethin' in here's different, kid.",
+        "You'll find it."
+      ],
+      [
+        "New toy in this alley.",
+        "Go on. Get acquainted."
+      ],
+      [
+        "Ooh. Fresh trouble.",
+        "Your trouble, kid. Not mine."
+      ],
+      [
+        "Look close, kid.",
+        "This room ain't like the last one."
+      ],
+      [
+        "A new wrinkle, kid.",
+        "Bet it's a sneaky one."
+      ],
+      [
+        "Well, that's different.",
+        "Different's good. Usually."
+      ],
+      [
+        "Never seen one of those, huh?",
+        "Go on. It won't bite. Probably."
+      ],
+      [
+        "Uh-oh. New stuff.",
+        "Mind your paws, kid."
+      ],
+      [
+        "Fresh face in this alley.",
+        "Not you, kid. That thing."
+      ],
+      [
+        "Somethin' new, kid.",
+        "Everybody learns it the hard way."
+      ],
+      [
+        "Look at that. A new one.",
+        "Every alley's got a surprise."
+      ],
+      [
+        "New thing. Don't trust it yet.",
+        "Don't trust anything yet, kid."
+      ],
+      [
+        "Ooh, what's that?",
+        "Go see, kid. I'll watch."
+      ]
+    ]
   },
   "room.skippedAhead": {
     "event": "Skipped ahead to a room past your progress",
     "hint": false,
+    "face": "ex_sweat_drop",
+    "talk": "chatty",
     "lines": [
-      "Skippin' ahead? Bold. This one bites, kid."
+      "Skippin' ahead? Bold. This one bites, kid.",
+      "Jumped the line, huh? Hope you're ready."
+    ]
+  },
+  "room.actFirst": {
+    "event": "The first room of an act",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "room",
+    "lines": [
+      "New stretch of alley. Meaner, too. Look sharp.",
+      "Fresh act. Same rules. Tougher rooms."
+    ]
+  },
+  "room.actFirst.act1": {
+    "event": "The first room of Act 1",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "room",
+    "actBound": true,
+    "lines": [
+      [
+        "Act one. Bits of trash. The basics.",
+        "Basics bite too, kid. Watch the spray."
+      ],
+      [
+        "Here's where it starts. Trash, walls, a door.",
+        "Spill every bit of trash. Then the door lights.",
+        "Simple. Ha. You'll see."
+      ]
+    ]
+  },
+  "room.actFirst.act2": {
+    "event": "The first room of Act 2",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "room",
+    "actBound": true,
+    "lines": [
+      [
+        "Act two. Rooms come in threes now, kid.",
+        "Same walls, three times. New trouble each time."
+      ],
+      [
+        "New act. Lotta recyclin' boxes in this one.",
+        "Hope you like recyclin', kid.",
+        "...You will."
+      ]
+    ]
+  },
+  "room.actFirst.act3": {
+    "event": "The first room of Act 3",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "room",
+    "actBound": true,
+    "lines": [
+      [
+        "Act three. Water, kid. Lots of it.",
+        "Raccoons don't swim. Crows don't care."
+      ],
+      [
+        "Wet act. Jugs, sponges, puddles, the works.",
+        "Hope you brought a towel.",
+        "...You didn't. Nobody does."
+      ]
+    ]
+  },
+  "room.actFirst.act4": {
+    "event": "The first room of Act 4",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "room",
+    "actBound": true,
+    "lines": [
+      [
+        "Act four. Sticky stuff, kid.",
+        "Tar grabs. Magnets grab. Grates swallow."
+      ],
+      [
+        "Hrrk. This act's got magnets in it.",
+        "I don't know how they work. Nobody does.",
+        "Stay back from 'em. ...Nah. Go on. I'll watch."
+      ]
+    ]
+  },
+  "room.actFirst.act5": {
+    "event": "The first room of Act 5",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "room",
+    "actBound": true,
+    "lines": [
+      [
+        "Act five. Somebody's whole house got dumped out here.",
+        "Cabinets, rugs, a broom. Broken glass. Watch your paws."
+      ],
+      [
+        "Household stuff, kid. Rugs. Panes. Cabinets.",
+        "Never trust a cabinet. You don't know what's in it.",
+        "...I never know what's in 'em."
+      ]
+    ]
+  },
+  "room.actFirst.act6": {
+    "event": "The first room of Act 6",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "room",
+    "actBound": true,
+    "lines": [
+      [
+        "Last act, kid. Everything. All of it. At once.",
+        "Every bit of trash, every wheel, every bin you met."
+      ],
+      [
+        "Act six. The whole alley, all at once.",
+        "And one-way floors. Go the way they say.",
+        "...Go on. You know everything I know. Almost."
+      ]
+    ]
+  },
+  "room.actLast": {
+    "event": "The last room of an act",
+    "hint": false,
+    "face": "ex_sweat_drop",
+    "talk": "chatty",
+    "once": "room",
+    "lines": [
+      "Last one this act. It's a mean one.",
+      "Finish this one, kid, and the act's yours."
+    ]
+  },
+  "room.tiny": {
+    "event": "A room with a small par",
+    "hint": false,
+    "face": "ex_side_eye",
+    "talk": "verbose",
+    "lines": [
+      "Tiny room. Don't you dare overthink it.",
+      "Couple of moves, tops. Show me."
+    ]
+  },
+  "room.huge": {
+    "event": "A room with a large par",
+    "hint": false,
+    "face": "ex_shock",
+    "talk": "chatty",
+    "lines": [
+      "Big one. Pace yourself, kid.",
+      "Long room. Plan the first few moves, then go."
+    ]
+  },
+  "room.hasCouch": {
+    "event": "A room with a couch in it",
+    "hint": false,
+    "face": "ex_anger_vein",
+    "talk": "verbose",
+    "after": "meet.couch",
+    "lines": [
+      "Ugh. A couch. I hate couches.",
+      "That couch again. Nobody likes the couch, kid.",
+      "Another couch. Why is it always a couch?",
+      "Couch in here. My feathers are standin' up, kid.",
+      "That couch is lookin' at me. I hate it.",
+      "Couch. Saggy, stinky, smug. I said what I said."
+    ]
+  },
+  "room.hasPane": {
+    "event": "A room with a glass pane in it",
+    "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "verbose",
+    "after": "meet.pane",
+    "lines": [
+      "Ooh. Glass. Shiny.",
+      "A pane! Look at it sparkle, kid."
+    ]
+  },
+  "room.hasSkateboard": {
+    "event": "A room with a skateboard in it",
+    "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "verbose",
+    "after": "meet.skateboard",
+    "lines": [
+      "A skateboard! Okay, this room's alright.",
+      "That deck again. Best thing in any alley, kid."
+    ]
+  },
+  "meet.bag": {
+    "event": "The first room that has the bag in it",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "That's a bag. Tear it. Mind where it sprays.",
+      "A trash bag. Full of surprises. All of 'em lovely.",
+      "Bag. Rip it, and it sprays. Every time.",
+      "Ooh, a bag. Smell that? That's treasure, kid.",
+      "A bag of goodies. You and me, kid. Same taste."
+    ]
+  },
+  "meet.can": {
+    "event": "The first room that has the can in it",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A trash can. Full, too. Careful how you shove it.",
+      "A trash can, bag and all. Classic.",
+      "Can with a bag in it. Two jobs, one can."
+    ]
+  },
+  "meet.box": {
+    "event": "The first room that has the box in it",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A recycling box. Full of junk. Aim it.",
+      "Recycling box. Bottles, cans, all of it.",
+      "A box full of recycling. Messy when it tips."
+    ]
+  },
+  "meet.wheelie": {
+    "event": "The first room that has the wheelie in it",
+    "hint": false,
+    "face": "ex_shock",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "Wheelie bin. Once it rolls, it rolls.",
+      "A wheelie bin! No brakes on those.",
+      "Wheelie bin. Shove it and stand back."
+    ]
+  },
+  "meet.jug": {
+    "event": "The first room that has the jug in it",
+    "hint": false,
+    "face": "ex_sweat_drop",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "Water jug. Keep your paws dry, kid.",
+      "A big water jug. Sloshy.",
+      "Jug. Full. Tip it and the floor gets wet."
+    ]
+  },
+  "meet.couch": {
+    "event": "The first room that has the couch in it",
+    "hint": false,
+    "face": "ex_anger_vein",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A couch. In an alley. Of course.",
+      "Ugh. A couch. Lumpy, heavy, and smug.",
+      "Couch. Worst thing in any alley. Fight me.",
+      "A couch. Every alley's got one. I hate every one.",
+      "Couch. Squats there like it owns the place. Hate it."
+    ]
+  },
+  "meet.sponge": {
+    "event": "The first room that has the sponge in it",
+    "hint": false,
+    "face": "ex_side_eye",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A sponge. Squishy. Useful, if you're smart.",
+      "A sponge. Soaks stuff up. Don't we all.",
+      "Sponge. Soft, yellow, smug little thing."
+    ]
+  },
+  "meet.cardboard": {
+    "event": "The first room that has the cardboard in it",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "Cardboard. Never underestimate cardboard, kid.",
+      "Cardboard. The alley's favorite building block.",
+      "Flat cardboard. Humble stuff. Respect it."
+    ]
+  },
+  "meet.pane": {
+    "event": "The first room that has the pane in it",
+    "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A pane of glass. Shiny. Ooh, so shiny.",
+      "Glass! Look at it catch the light.",
+      "A whole pane. Clean, too. Somebody polished that."
+    ]
+  },
+  "meet.tire": {
+    "event": "The first room that has the tire in it",
+    "hint": false,
+    "face": "ex_snicker",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A tire. Round things roll, kid. Remember that.",
+      "An old tire. Bald as a pigeon.",
+      "Tire. It'll roll till somethin' stops it."
+    ]
+  },
+  "meet.bicycle": {
+    "event": "The first room that has the bicycle in it",
+    "hint": false,
+    "face": "ex_flying_sweat",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A bike. Nobody's ridin' it. Least of all you.",
+      "A bike! Get it away. Get it away from me!",
+      "Bikes. Spokes, bells, no warning. Terrifying."
+    ]
+  },
+  "meet.rug": {
+    "event": "The first room that has the rug in it",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A rug. Fancy. Don't trip on it.",
+      "A rug. Somebody's livin' room, out here.",
+      "Rug. Lovely pattern. Smells like a basement."
+    ]
+  },
+  "meet.chair": {
+    "event": "The first room that has the chair in it",
+    "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "An office chair. Wheels on everything these days.",
+      "Ooh, an office chair. Spins and everything. Love it.",
+      "Office chair! Best seat in the alley."
+    ]
+  },
+  "meet.broom": {
+    "event": "The first room that has the broom in it",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A broom. Handy-lookin'. We'll see, kid.",
+      "A broom. Somebody gave up sweepin' this alley.",
+      "Broom. Long handle. Lotta reach, that."
+    ]
+  },
+  "meet.cabinet": {
+    "event": "The first room that has the cabinet in it",
+    "hint": false,
+    "face": "ex_side_eye",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A cabinet. What's in the drawer?",
+      "A cabinet. I don't trust it. Never have.",
+      "Drawers. Things hide in drawers, kid."
+    ]
+  },
+  "meet.magnet": {
+    "event": "The first room that has the magnet in it",
+    "hint": false,
+    "face": "ex_shock",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A magnet. Grabby little thing. Watch it.",
+      "What is that? It grabs things. Without hands. How?",
+      "A magnet. I don't get it. I can't look away."
+    ]
+  },
+  "meet.barrow": {
+    "event": "The first room that has the barrow in it",
+    "hint": false,
+    "face": "ex_snicker",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A wheelbarrow. One wheel. Lotta confidence.",
+      "Wheelbarrow. Somebody left their work out here.",
+      "A barrow. It scoops stuff up. Handy, kid."
+    ]
+  },
+  "meet.skateboard": {
+    "event": "The first room that has the skateboard in it",
+    "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A skateboard. Don't get any ideas, kid.",
+      "A skateboard! Now we're talkin'. Love these.",
+      "Four wheels and a deck. Best thing in the alley."
+    ]
+  },
+  "meet.water": {
+    "event": "The first room that has a canal in it",
+    "hint": false,
+    "face": "ex_sweat_drop",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A canal. Water's for washin' food, not walkin'.",
+      "Water. Raccoons wash food in it. Not themselves.",
+      "A canal. Wet, cold, and in the way."
+    ]
+  },
+  "meet.tar": {
+    "event": "The first room that has tar in it",
+    "hint": false,
+    "face": "ex_side_eye",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "Tar. Sticky stuff. Watch what you feed it.",
+      "Tar. Black, gooey, and it smells awful.",
+      "Tar on the ground. Whatever goes in, stays in."
+    ]
+  },
+  "meet.grease": {
+    "event": "The first room that has grease in it",
+    "hint": false,
+    "face": "ex_shock",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "Grease. Slick. Things slide farther than you think.",
+      "Grease on the floor. Slippery as a gull.",
+      "Grease. Shove somethin' on it and it goes."
+    ]
+  },
+  "meet.glass": {
+    "event": "The first room that has broken glass in it",
+    "hint": false,
+    "face": "ex_flying_sweat",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "Broken glass on the floor. Walk around it.",
+      "Broken glass. Sharp. Pretty, but sharp.",
+      "Shards on the floor. Paws won't go there."
+    ]
+  },
+  "meet.grate": {
+    "event": "The first room that has the grate in it",
+    "hint": false,
+    "face": "ex_snicker",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A grate. Things fall through grates, kid.",
+      "A grate. Down there's somewhere else.",
+      "Grate in the floor. Hungry little thing.",
+      "Grates. I've made a few problems go away down those.",
+      "A grate. Had some trouble once. ...Not anymore.",
+      "Grates are handy, kid. For things that need to... leave."
+    ]
+  },
+  "meet.oneway": {
+    "event": "The first room that has a one-way in it",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "ever",
+    "lines": [
+      "A one-way. Read the arrow. Respect the arrow.",
+      "One-way. Goes one way. The arrow way.",
+      "An arrow on the ground. It means it, kid."
     ]
   },
   "walk.long": {
     "event": "A long walk without touching anything",
     "hint": false,
+    "face": "closed",
+    "talk": "verbose",
     "lines": [
-      "Sightseein'? The bags ain't gonna tear themselves."
+      "Sightseein'? Them bits of trash ain't gonna spill themselves.",
+      "Nice stroll. Now touch somethin', kid.",
+      "Lookin' for somethin'? The bits of trash are over there."
     ]
   },
   "walk.loop": {
     "event": "Walked a loop back to the exact same board",
     "hint": false,
+    "face": "ex_swirl_eye",
+    "talk": "verbose",
     "lines": [
-      "Full circle. Nothin' changed but your mood."
+      "Full circle. Nothin' changed but your mood.",
+      "Same board as before. You went nowhere, kid.",
+      "Round and round. Board's the same, kid.",
+      "Back where you were. Scenic, though."
     ]
   },
   "walk.pacing": {
     "event": "Pacing back and forth",
     "hint": false,
+    "face": "ex_swirl_eye",
+    "talk": "verbose",
     "lines": [
-      "Back, forth, back, forth. Pick a thought, kid."
+      "Back, forth, back, forth. Pick a thought, kid.",
+      "Pacin' won't solve it. Look at the door.",
+      "Pacin' like a cat. You're a raccoon, kid.",
+      "Back and forth. Wearin' a groove in the alley."
     ]
   },
   "walk.exitDark": {
-    "event": "Standing at the dark exit, bags left",
+    "event": "Standing at the dark exit, full ones left; {left} is what is still full, in his words",
     "hint": false,
+    "face": "ex_side_eye",
+    "talk": "chatty",
+    "once": "visit",
     "lines": [
-      "Door's still dark. You're early, kid."
+      "Door's still dark. You're early, kid.",
+      "Not lit yet. Spill it all first, door last.",
+      "Dark door. Somethin' in here's still full.",
+      "Knock all you want. Opens when the trash is out.",
+      "Early bird, huh? Door ain't ready for you.",
+      "Not yet, kid. Every last one spilled, then we talk.",
+      "Dark door. Still full: {left}.",
+      "Not yet, kid. There's still {left}.",
+      "Door's waitin' on {left}."
+    ]
+  },
+  "walk.exitDarkAgain": {
+    "event": "Stepped onto the dark exit again in the same room; {left} is what is still full, in his words",
+    "hint": false,
+    "face": "ex_anger_vein",
+    "talk": "verbose",
+    "lines": [
+      "Still dark. Standin' on it won't light it.",
+      "The door ain't impressed, kid. Spill it all first.",
+      "Still dark. Still not happenin'.",
+      "You and that door. Cute couple. Still shut.",
+      "Again? It ain't gonna feel sorry for you.",
+      "Dark. Same as last time you checked.",
+      "Still dark. Still {left} to go.",
+      "Again? Count 'em: {left}.",
+      "Still waitin' on {left}, kid."
+    ]
+  },
+  "walk.exitDarkCart": {
+    "event": "Standing at the dark exit with nothing full: trash riding a cart keeps it dark",
+    "hint": false,
+    "face": "ex_side_eye",
+    "talk": "chatty",
+    "once": "visit",
+    "lines": [
+      "Dark door. That trash on wheels still counts, kid.",
+      "Nothin' full, still dark. Trash goin' for a ride, huh?",
+      "Joyridin' trash don't count as spilled, kid."
     ]
   },
   "walk.exitThenAway": {
     "event": "Walked to the exit's doorstep, then away",
     "hint": false,
+    "face": "ex_sweat_drop",
+    "talk": "verbose",
     "lines": [
-      "Close. Wrong order, but close."
+      "Close. Wrong order, but close.",
+      "Right door. Wrong time. Finish up first."
+    ]
+  },
+  "walk.fastRun": {
+    "event": "A fast run of moves with no refusal",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "verbose",
+    "lines": [
+      "Look at you go. Don't get sloppy.",
+      "Fast paws. I like it. Keep it clean.",
+      "Zoom! Little paws, big hurry.",
+      "Fast and clean. Keep it up, kid."
+    ]
+  },
+  "walk.slowThink": {
+    "event": "A long think before every move",
+    "hint": false,
+    "face": "closed",
+    "talk": "verbose",
+    "lines": [
+      "Sleepin' on it? Wake me when you move.",
+      "Every move a whole meetin'. Fine. Careful's good.",
+      "Every step a big decision, huh?",
+      "Slow and careful. I'll allow it."
+    ]
+  },
+  "walk.spin": {
+    "event": "Two or more refused presses from one cell",
+    "hint": false,
+    "face": "ex_swirl_eye",
+    "talk": "verbose",
+    "lines": [
+      "Bonk. Bonk. Still right where you started.",
+      "Lotta pushin'. Not a lotta goin', kid.",
+      "Nope, and nope. Startin' to sense a pattern?",
+      "Pushin' from here ain't workin', huh?",
+      "Still standin' there. Still gettin' told no."
     ]
   },
   "tear.first": {
     "event": "First tear of the room",
     "hint": false,
+    "face": "ex_snicker",
+    "talk": "chatty",
+    "once": "visit",
     "lines": [
-      "There it goes. That's yours forever now."
+      "There it goes. Now watch where it lands.",
+      "First rip. Mind the spray, kid.",
+      "One bit of trash, busted. Now it's your mess.",
+      "Rip! That's the sound I like.",
+      "A bit of trash busted. Fresh mess. Here we go."
+    ]
+  },
+  "tear.beforeLooking": {
+    "event": "The room's first press is a tear",
+    "hint": false,
+    "face": "ex_shock",
+    "talk": "verbose",
+    "once": "visit",
+    "lines": [
+      "Bustin' bits of trash before you even look? Bold.",
+      "Straight to tearin'. No plan. Huh.",
+      "Tear first, think later? Brave little bandit.",
+      "Rip! Okay. Hope that was the plan."
     ]
   },
   "tear.facing": {
     "event": "Facing a bag, not moving",
     "hint": false,
+    "face": "ex_stare",
+    "talk": "verbose",
     "lines": [
-      "Thinkin' it over? Good. That's the job."
+      "Thinkin' it over? Good. That's the job.",
+      "Look where it'll spray first. Then rip.",
+      "Lookin' at that bit of trash. Good. Look harder.",
+      "You and that bit of trash. Who blinks first?"
     ]
   },
   "tear.stillWinnable": {
     "event": "A tear, and the board can still be won",
     "hint": true,
+    "face": "ex_realization",
+    "talk": "chatty",
     "lines": [
-      "Good spray. Board's still breathin', kid."
+      "Good spray. You can still win this, kid.",
+      "Nice. Room's still open. Keep goin'.",
+      "That spray's okay. You can still get out.",
+      "Spray landed fine. Still winnable, kid."
     ]
   },
   "tear.half": {
-    "event": "Half the bags torn",
+    "event": "Half the full ones spilled; {left} is what is still full, in his words",
     "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "visit",
     "lines": [
-      "Halfway. Don't get cocky, that's when it goes."
+      "Halfway. Don't get cocky, that's when it goes.",
+      "Halfway there. Other half's harder.",
+      "Half done. Halfway's where it gets tricky.",
+      "Half done. Half the mess still to come.",
+      "Half done. Still full: {left}.",
+      "Halfway. Still waitin' on {left}.",
+      "Half spilled. Left standin': {left}."
     ]
   },
   "tear.oneLeft": {
-    "event": "One bag left",
+    "event": "One full one left; {left} is what is still full, in his words",
     "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "visit",
     "lines": [
-      "One left. Think where that spray's goin'."
+      "One left. Think where that spray's goin'.",
+      "Last one. Last chance to aim right.",
+      "One more. Make it count.",
+      "Last one standin'. Aim it, kid.",
+      "Last one: {left}. Make it count.",
+      "Just {left} left. Aim it right.",
+      "One to go, and it's {left}."
     ]
   },
   "tear.last": {
     "event": "Last bag torn, exit lights",
     "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "quiet",
+    "once": "visit",
     "lines": [
-      "That's the last one. Now get out."
+      "That's the last one. Now get out.",
+      "Door's lit. What are you waitin' for?",
+      "All torn. Exit's open. Go, kid.",
+      "Last one down! Door's lit. Go, go!",
+      "That's all of 'em. Exit's waitin', kid."
     ]
   },
   "tear.lastButSealed": {
     "event": "Last bag torn, but the exit can't be reached",
     "hint": true,
+    "face": "ex_blank_eye",
+    "talk": "quiet",
+    "once": "visit",
     "lines": [
-      "Door's lit. Shame you bricked yourself in."
+      "Door's lit. Shame you bricked yourself in.",
+      "Exit's open. You can't reach it. Oof.",
+      "Lit door, no way to it. Ouch.",
+      "All of 'em spilled, and you're boxed in. Oof."
+    ]
+  },
+  "tear.byExit": {
+    "event": "A spray that lands next to the exit",
+    "hint": false,
+    "face": "ex_flying_sweat",
+    "talk": "chatty",
+    "lines": [
+      "Right by the door! Careful, kid!",
+      "Inches from the exit. Aim better.",
+      "That landed next to the door! Whoa!",
+      "Spray by the exit. Hope it's still clear."
     ]
   },
   "piece.canSheds": {
     "event": "A can coughs up its bag",
     "hint": false,
+    "face": "ex_shock",
+    "talk": "verbose",
     "lines": [
-      "Can coughed one up. Now that's two problems."
+      "Can coughed one up. Now that's two problems.",
+      "Bag fell out of the can. Deal with it.",
+      "The can spat out a bag. Rude.",
+      "One bag out, one empty can. Your move."
     ]
   },
   "piece.grate": {
     "event": "Something goes down a grate",
     "hint": false,
+    "face": "ex_snicker",
+    "talk": "verbose",
     "lines": [
-      "Down the grate. No refunds in limbo."
+      "Down the grate. That's gone, kid.",
+      "Grate ate it. One less thing.",
+      "Gone. The grate takes, kid. It don't give.",
+      "Clunk. Down it goes. Bye."
     ]
   },
   "piece.tar": {
     "event": "Something gets stuck in tar",
     "hint": false,
+    "face": "ex_side_eye",
+    "talk": "verbose",
     "lines": [
-      "Tar's got it now. Hope you didn't need it."
+      "Tar's got it now. Hope you didn't need it.",
+      "Stuck in tar. Stuck for good.",
+      "Stuck. Tar wins again.",
+      "Into the tar. That's its home now."
     ]
   },
   "piece.glass": {
     "event": "Glass shatters",
     "hint": false,
+    "face": "ex_gloom_lines",
+    "talk": "verbose",
     "lines": [
-      "Glass. Hope you weren't plannin' to walk there."
+      "Glass. Hope you weren't plannin' to walk there.",
+      "My shiny pane! Ugh. Mind the shards.",
+      "Crunch. There goes the shiny.",
+      "Shards everywhere. Sad. Pretty, but sad."
     ]
   },
   "piece.canalFilled": {
     "event": "Trash fills a canal",
     "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "chatty",
     "lines": [
-      "A bridge made of garbage. Gorgeous. Disgusting. Gorgeous."
+      "A bridge made of garbage. Gorgeous. Disgusting. Gorgeous.",
+      "Canal's plugged. Who needs a bridge?",
+      "Trash floor. Wet, lumpy, perfect.",
+      "Garbage in the water. Path across. Lovely.",
+      "Filled it in! Now that's a raccoon bridge."
     ]
   },
   "piece.longRoll": {
     "event": "Something rolls a long way",
     "hint": false,
+    "face": "ex_shock",
+    "talk": "verbose",
     "lines": [
-      "Look at it go. Somebody's gotta stop that."
+      "Look at it go. Somebody's gotta stop that.",
+      "Still rollin'. Still rollin'. There.",
+      "Whoa. That thing's got places to be.",
+      "Long roll! It just kept goin'."
     ]
   },
   "piece.rollerHandoff": {
     "event": "One roller knocks into another",
     "hint": false,
+    "face": "ex_snicker",
+    "talk": "verbose",
     "lines": [
-      "Ha! Passed it on, like a bad rumor."
+      "Ha! Passed it on, like a bad rumor.",
+      "Bump and go. Nice handoff, kid."
     ]
   },
   "piece.couch": {
     "event": "The couch moves",
     "hint": false,
+    "face": "ex_sweat_drop",
+    "talk": "verbose",
     "lines": [
-      "Couch on the move. Mind your back, kid."
+      "Couch on the move. Mind your back, kid.",
+      "Ugh. The couch. Shove it somewhere useful.",
+      "The couch moves. Barely. Ugh.",
+      "Shove that lump. Shove it hard."
+    ]
+  },
+  "piece.boxTipped": {
+    "event": "The recycling box tips and pours",
+    "hint": false,
+    "face": "ex_shock",
+    "talk": "verbose",
+    "lines": [
+      "Box tipped. There goes the recycling.",
+      "Whole box out. Hope you aimed that.",
+      "Over she goes.",
+      "Box down. That's a lot of bottles, kid."
+    ]
+  },
+  "piece.wheelieRolls": {
+    "event": "A wheelie bin rolls",
+    "hint": false,
+    "face": "ex_shock",
+    "talk": "verbose",
+    "lines": [
+      "Wheelie's loose! Stand clear, kid.",
+      "There goes the wheelie. No brakes on that.",
+      "Wheelie bin, runnin' wild!",
+      "Rollin' bin! Nobody's steerin' that."
+    ]
+  },
+  "piece.jugPours": {
+    "event": "The jug tips and pours",
+    "hint": false,
+    "face": "ex_sweat_drop",
+    "talk": "verbose",
+    "lines": [
+      "Jug's pourin'. Puddle comin'. Paws up.",
+      "Water everywhere. Great. Just great.",
+      "Glug, glug, glug. Puddle.",
+      "Jug's empty. Floor's wet. Mind your paws."
+    ]
+  },
+  "piece.tireRolls": {
+    "event": "A tire rolls",
+    "hint": false,
+    "face": "ex_snicker",
+    "talk": "verbose",
+    "lines": [
+      "Tire's rollin'. Round things, kid. Round things.",
+      "Round and round. There goes the tire.",
+      "Tire's off! Rollin', rollin'..."
+    ]
+  },
+  "piece.chairRolls": {
+    "event": "A chair rolls",
+    "hint": false,
+    "face": "ex_snicker",
+    "talk": "verbose",
+    "lines": [
+      "Chair's rollin'. Hope it stops somewhere useful.",
+      "Wheee—ahem. The chair's rollin'.",
+      "Look at that chair glide. Gorgeous."
+    ]
+  },
+  "piece.skateRolls": {
+    "event": "The skateboard rolls",
+    "hint": false,
+    "face": "ex_side_eye",
+    "talk": "verbose",
+    "lines": [
+      "There goes the deck. Where's it stoppin'?",
+      "Look at that deck roll. Smooth.",
+      "Skateboard's off! Ride it out, little deck.",
+      "Wheee! ...What? I'm allowed.",
+      "Roll, little deck, roll!",
+      "Look at it go. Best thing in the alley.",
+      "Click-clack, off it goes."
+    ]
+  },
+  "piece.skateSlop": {
+    "event": "A load slops off the back of the skateboard",
+    "hint": false,
+    "face": "ex_sweat_drop",
+    "talk": "verbose",
+    "lines": [
+      "Load slid off the back. Sloppy, kid.",
+      "Plop. Off the back it goes.",
+      "Lost the load. The deck didn't mind."
+    ]
+  },
+  "piece.barrowScoops": {
+    "event": "The wheelbarrow scoops something up",
+    "hint": false,
+    "face": "ex_snicker",
+    "talk": "verbose",
+    "lines": [
+      "Scooped it up. Barrow's earnin' its keep.",
+      "In the barrow it goes. Neat.",
+      "Barrow's got it. One wheel, one job."
+    ]
+  },
+  "piece.magnetGrabs": {
+    "event": "A magnet grabs something",
+    "hint": false,
+    "face": "ex_shock",
+    "talk": "verbose",
+    "lines": [
+      "Magnet's got it. Grabby thing, that magnet.",
+      "It grabbed it! Without touchin'! How?!",
+      "I don't like that. I can't stop watchin', though.",
+      "Invisible grabbin'. Nope. Nope. ...Do it again.",
+      "How does it know? How does it know?!"
+    ]
+  },
+  "piece.cabinetOpens": {
+    "event": "A cabinet's drawer opens",
+    "hint": false,
+    "face": "ex_side_eye",
+    "talk": "verbose",
+    "lines": [
+      "Drawer's open. Bigger than it looks now.",
+      "Drawer's out. I don't like what's in there.",
+      "Don't trust a drawer that opens that easy."
+    ]
+  },
+  "piece.cabinetShuts": {
+    "event": "A cabinet's drawer shuts",
+    "hint": false,
+    "face": "closed",
+    "talk": "verbose",
+    "lines": [
+      "Drawer shut. Tidy. I like tidy.",
+      "Shut. Good. Keep it that way.",
+      "Drawer's closed. I can relax. A little."
+    ]
+  },
+  "piece.floats": {
+    "event": "Something ends up afloat",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "verbose",
+    "lines": [
+      "It floats.",
+      "Bobbin' along. Out in the wet now.",
+      "Afloat. That's out of reach now, kid.",
+      "We all float down here. Richie! Beep beep!"
+    ]
+  },
+  "piece.grease": {
+    "event": "Something slides across grease",
+    "hint": false,
+    "face": "ex_shock",
+    "talk": "verbose",
+    "lines": [
+      "Greased! Look at it slide.",
+      "Wheee. Slippery stuff, that grease.",
+      "Slid right across. Didn't even slow down."
+    ]
+  },
+  "piece.chain2": {
+    "event": "One press moves two things",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "verbose",
+    "lines": [
+      "Two at once. Efficient.",
+      "Two for one. I like the math.",
+      "One shove, two things. Thrifty."
+    ]
+  },
+  "piece.chain3": {
+    "event": "One press moves three things",
+    "hint": false,
+    "face": "ex_shock",
+    "talk": "chatty",
+    "lines": [
+      "Three things, one shove. Domino!",
+      "Three in a row! Clack, clack, clack.",
+      "Three at once. Look at 'em go."
+    ]
+  },
+  "piece.chain4": {
+    "event": "One press moves four things",
+    "hint": false,
+    "face": "ex_shock",
+    "talk": "chatty",
+    "lines": [
+      "Four! One shove, four things. Now we're talkin'.",
+      "Four at once. Clack, clack, clack, clack!",
+      "Four things moved. Somebody's been practicin'."
+    ]
+  },
+  "piece.chain5": {
+    "event": "One press moves five things or more",
+    "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "chatty",
+    "lines": [
+      "Five things moved! Okay. I'm impressed.",
+      "Five! One push! I'm keepin' that one.",
+      "Look at that pileup. Beautiful chaos, kid."
+    ]
+  },
+  "piece.longestRoll": {
+    "event": "The longest roll the raccoon has ever made",
+    "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "chatty",
+    "lines": [
+      "Longest roll you've made. Look at that.",
+      "New record roll! I'm keepin' track, kid.",
+      "That's the farthest yet. Beautiful."
     ]
   },
   "refuse.edge": {
     "event": "A push refused: edge",
     "hint": false,
+    "face": "squint",
+    "talk": "verbose",
     "lines": [
-      "That's the end of the alley. Nothin' past it."
+      "That's the end of the alley. Nothin' past it.",
+      "Edge of the room, kid. Turn around.",
+      "That's the edge. Alley stops, so do you.",
+      "Nothin' out there, kid. Edge of the world."
     ]
   },
   "refuse.wall": {
     "event": "A push refused: wall",
     "hint": false,
+    "face": "squint",
+    "talk": "verbose",
     "lines": [
-      "That's brick, kid. Brick wins every time."
+      "That's brick, kid. Brick wins every time.",
+      "Wall. Still a wall. Always a wall.",
+      "You and that wall. Pick a different fight."
     ]
   },
   "refuse.trash": {
     "event": "A push refused: trash",
     "hint": false,
+    "face": "squint",
+    "talk": "verbose",
     "lines": [
-      "Your own mess. It ain't movin' for you."
+      "Your own mess. It ain't movin' for you.",
+      "Trash don't shove, kid. Go around."
     ]
   },
   "refuse.fan": {
     "event": "A push refused: fan",
     "hint": false,
+    "face": "squint",
+    "talk": "verbose",
     "lines": [
-      "That bag needs elbow room. Try another side."
+      "That bit of trash needs elbow room. Try another side.",
+      "No room to spray that way. Other side."
     ]
   },
   "refuse.canRoom": {
     "event": "A push refused: canRoom",
     "hint": false,
+    "face": "squint",
+    "talk": "verbose",
     "lines": [
-      "Where's it supposed to go? Look past it."
+      "Where's it supposed to go? Look past it.",
+      "Nowhere for it to land. Check behind it."
     ]
   },
   "refuse.exit": {
     "event": "A push refused: exit",
     "hint": false,
+    "face": "ex_anger_vein",
+    "talk": "chatty",
     "lines": [
-      "Not on the door! Never on the door, kid!"
+      "Not on the door! Never on the door, kid!",
+      "The door stays clear. Always. Got it?"
     ]
   },
   "refuse.water": {
     "event": "A push refused: water",
     "hint": false,
+    "face": "ex_snicker",
+    "talk": "verbose",
     "lines": [
-      "Raccoons wash their food, kid. Not their feet."
+      "Raccoons wash their food, kid. Not their feet.",
+      "That's a canal. You don't swim."
     ]
   },
   "refuse.afloat": {
     "event": "A push refused: afloat",
     "hint": false,
+    "face": "squint",
+    "talk": "verbose",
     "lines": [
-      "That's out in the canal. Let it go."
+      "That's out in the canal. Let it go.",
+      "It's floatin'. Can't reach it. Move on.",
+      "Out on the water. Your paws can't get there.",
+      "Floatin' stuff stays floatin'. Find somethin' dry."
     ]
   },
   "refuse.pour": {
     "event": "A push refused: pour",
     "hint": false,
+    "face": "squint",
+    "talk": "verbose",
     "lines": [
-      "Can't pour that there. Find some dry ground."
+      "Can't pour that there. Find some dry ground.",
+      "Wrong spot to pour. Look for dry floor."
     ]
   },
   "refuse.glass": {
     "event": "A push refused: glass",
     "hint": false,
+    "face": "ex_shock",
+    "talk": "verbose",
     "lines": [
-      "Broken glass. You wanna limp through the afterlife?"
+      "Broken glass. Your paws say no. So do I.",
+      "Shards. No way. Find another path.",
+      "Shards! Nope. Not with those paws.",
+      "Glass bites, kid. Go around."
     ]
   },
   "refuse.tar": {
     "event": "A push refused: tar",
     "hint": false,
+    "face": "squint",
+    "talk": "verbose",
     "lines": [
-      "Tar's got it. Tar don't give back."
+      "Tar's got it. Tar don't give back.",
+      "Stuck in tar. Leave it, kid.",
+      "Tar holds what it holds, kid.",
+      "Gummed up for good. Let it go."
     ]
   },
   "refuse.oneway": {
     "event": "A push refused: oneway",
     "hint": false,
+    "face": "squint",
+    "talk": "verbose",
     "lines": [
-      "Wrong way down a one-way. Classic rookie."
+      "Wrong way down a one-way. Classic rookie.",
+      "Read the arrow, kid. Arrow says no.",
+      "Arrow points the other way. So should you.",
+      "One way means one way. Not yours."
     ]
   },
   "refuse.busy": {
     "event": "A move pressed while one is still playing",
     "hint": false,
+    "face": "ex_sweat_drop",
+    "talk": "verbose",
     "lines": [
-      "One thing at a time. You got two paws."
+      "One thing at a time. Even with four paws.",
+      "Easy! Let it finish first."
     ]
   },
   "refuse.same3": {
     "event": "Same refusal, third time in a row",
     "hint": false,
+    "face": "ex_anger_vein",
+    "talk": "chatty",
     "lines": [
-      "Third time. The wall ain't learnin', kid."
+      "Third time. It ain't learnin', kid.",
+      "Three tries. Same answer. Try somethin' new.",
+      "Third time's not the charm here, kid.",
+      "Third push. Same no. Look around, kid."
     ]
   },
   "refuse.same5": {
     "event": "Same refusal, fifth time in a row",
     "hint": false,
+    "face": "ex_steam",
+    "talk": "chatty",
     "lines": [
-      "You think it'll change its mind? It won't."
+      "You think it'll change its mind? It won't.",
+      "Five times! It's not movin'. Ever.",
+      "Five. It ain't budgin'. Neither's my patience.",
+      "Five tries. The answer's still no, kid."
+    ]
+  },
+  "refuse.same8": {
+    "event": "Same refusal, eighth time in a row",
+    "hint": false,
+    "face": "ex_red_head",
+    "talk": "chatty",
+    "lines": [
+      "Eight. Eight times. I'm turnin' red here, kid.",
+      "Eight! Do you hear me squawkin'? Eight!",
+      "Eight noes. My head's gonna pop, kid."
+    ]
+  },
+  "refuse.same12": {
+    "event": "Same refusal, twelfth time in a row: the rant, then silence",
+    "hint": false,
+    "face": "ex_soul_out",
+    "talk": "chatty",
+    "lines": [
+      [
+        "Okay. Okay. Listen to me, kid.",
+        "That. Is. Not. Movin'.",
+        "...I need a minute."
+      ],
+      [
+        "Twelve. Twelve times.",
+        "I'm countin' 'cause somebody has to.",
+        "It won't move. Not from there."
+      ],
+      [
+        "Kid. Kid. Kid.",
+        "You know what that is? A no.",
+        "Twelve noes. Try literally anything else."
+      ]
     ]
   },
   "refuse.flailing": {
     "event": "Lots of different refusals, fast",
     "hint": false,
+    "face": "ex_swirl_eye",
+    "talk": "verbose",
     "lines": [
-      "Easy. You're slappin' at everything. Breathe."
+      "Easy. You're slappin' at everything. Breathe.",
+      "Whoa, whoa. Stop. Look first, then push."
     ]
   },
   "refuse.manyInRoom": {
     "event": "Lots of refusals across the whole room",
     "hint": false,
+    "face": "ex_gloom_lines",
+    "talk": "chatty",
+    "once": "visit",
     "lines": [
-      "{n} noes this room. The alley's tellin' you somethin'."
+      "{n} noes this room. The alley's tellin' you somethin'.",
+      "That's {n} refusals, kid. Listen to 'em.",
+      "{n} refusals. The walls are winnin', kid.",
+      "{n} times the alley said no. Hear it yet?"
     ]
   },
   "undo.firstEver": {
     "event": "First undo, ever",
     "hint": false,
+    "face": "blink",
+    "talk": "chatty",
+    "once": "ever",
     "lines": [
       "Took it back. No shame. Nobody's countin'."
     ]
@@ -318,144 +1498,234 @@
   "undo.losingMove": {
     "event": "Undid the move that lost the board, straight away",
     "hint": true,
+    "face": "ex_sparkle_eye",
+    "talk": "quiet",
     "lines": [
-      "Good catch. You saw that before I did."
+      "Good catch. That one lost it. Back in business.",
+      "Smart undo. You were cooked there, kid."
     ]
   },
   "undo.fine": {
     "event": "Undid a move that was fine",
     "hint": true,
+    "face": "ex_side_eye",
+    "talk": "quiet",
     "lines": [
-      "That one was fine, kid. Trust yourself more."
+      "That one was fine, kid. Trust yourself more.",
+      "Nothin' wrong with that move. Your call, though."
     ]
   },
   "undo.redoSame": {
     "event": "Undid, then made the same move again",
     "hint": false,
+    "face": "ex_stare",
+    "talk": "verbose",
     "lines": [
-      "Same move again? Bold. Let's see what happens."
+      "Same move again? Bold. Let's see what happens.",
+      "Undid it to do it again? Okay.",
+      "Took it back, did it again. Huh.",
+      "Same move. You just wanted to see it twice?"
     ]
   },
   "undo.redoSame3": {
     "event": "That undo-and-redo, third time",
     "hint": false,
+    "face": "ex_anger_vein",
+    "talk": "chatty",
     "lines": [
-      "Third time doin' that. It ain't changin', kid."
+      "Third time doin' that. It ain't changin', kid.",
+      "Undo, redo, undo, redo. Pick one, kid.",
+      "Three times the same move. It's still the same."
+    ]
+  },
+  "undo.redoSame10": {
+    "event": "That undo-and-redo, tenth time",
+    "hint": false,
+    "face": "ex_swirl_eye",
+    "talk": "chatty",
+    "lines": [
+      "Ten times. Same move. My eyes are spinnin'.",
+      "Ten! Same move! I'm gettin' dizzy, kid.",
+      "Undo, redo, ten times. I need a lie down."
     ]
   },
   "undo.farBack": {
     "event": "Undid a long way back",
     "hint": false,
+    "face": "ex_lightbulb",
+    "talk": "chatty",
     "lines": [
-      "Way back. Good. Sometimes the mistake's early."
+      "Way back. Good. Sometimes the mistake's early.",
+      "Long way back. Fresh look. I like it.",
+      "Back a long way. Bold. Good.",
+      "Rewound a bunch. Fresh eyes, same room."
     ]
   },
   "undo.notFarEnough": {
     "event": "Undid not far enough; still lost",
     "hint": true,
+    "face": "ex_gloom_lines",
+    "talk": "quiet",
     "lines": [
-      "Still dead. Further back than that, kid."
+      "Still lost. Further back than that, kid.",
+      "Not far enough. Keep goin' back.",
+      "Still lost from here, kid. Keep backin' up.",
+      "Not yet. Further back."
     ]
   },
   "undo.toStart": {
     "event": "Undid all the way to the start",
     "hint": false,
+    "face": "ex_side_eye",
+    "talk": "verbose",
     "lines": [
-      "Could've just hit restart. But sure, scenic route."
+      "Could've just hit restart. But sure, scenic route.",
+      "All the way back. Restart's right there, kid.",
+      "Undid everything. One move at a time. Patient."
     ]
   },
   "undo.many": {
     "event": "A lot of undos in one room",
     "hint": false,
+    "face": "ex_sweat_drop",
+    "talk": "verbose",
+    "once": "visit",
     "lines": [
-      "{n} undos. I've seen worse. Not many, though."
+      "{n} undos. Free, sure. Still. Think first.",
+      "That's {n} take-backs. Keep 'em comin', I guess.",
+      "{n} undos. They're free. Use 'em, kid.",
+      "{n} take-backs. Somebody's bein' careful."
     ]
   },
   "restart.first": {
     "event": "First restart",
     "hint": false,
+    "face": "blink",
+    "talk": "chatty",
+    "once": "ever",
     "lines": [
-      "Again. Fresh eyes this time, kid."
+      "Again. Fresh eyes this time, kid.",
+      "Fresh start. Nothin' wrong with that.",
+      "Restart. Shake it off, kid.",
+      "We got all eternity, kid. I'm right here with ya."
     ]
   },
   "restart.early": {
     "event": "Restart a few moves in",
     "hint": false,
+    "face": "ex_shock",
+    "talk": "verbose",
     "lines": [
-      "Barely even started. Somethin' spook ya?"
+      "Barely even started. Somethin' spook ya?",
+      "Out after {n} moves? Huh. Okay.",
+      "Quick reset. Didn't like the look of it?",
+      "In and out already? Picky. Fine."
     ]
   },
   "restart.deep": {
     "event": "Restart deep into a room",
     "hint": false,
+    "face": "ex_gloom_lines",
+    "talk": "chatty",
     "lines": [
-      "All that work, gone. Sometimes that's right."
+      "All that work, gone. Sometimes that's right.",
+      "Long run, wiped. Brave. Or tired.",
+      "Back to square one. Bold, kid."
     ]
   },
   "restart.stillWinnable": {
     "event": "Restart while the board could still be won",
     "hint": true,
+    "face": "ex_side_eye",
+    "talk": "quiet",
     "lines": [
-      "Wasn't dead yet. But fine. Again."
+      "You could still win that. But fine. Again.",
+      "That board was still good, kid. Your call.",
+      "Hmm. That one was still winnable. Fine."
     ]
   },
   "restart.fromLost": {
     "event": "Restart onto a board that was already lost",
     "hint": true,
+    "face": "away",
+    "talk": "quiet",
     "lines": [
-      "Yeah. That one was done. Again."
+      "Yeah. That one was done. Again.",
+      "Good call. That board was lost.",
+      "Smart. No savin' that board.",
+      "Yep. Start over. That one was cooked."
     ]
   },
   "restart.many": {
     "event": "Many restarts in one room",
     "hint": false,
+    "face": "ex_sweat_drop",
+    "talk": "chatty",
+    "once": "visit",
     "lines": [
-      "Again. Try startin' from the door this time."
+      "Again. Try startin' from the door this time.",
+      "Restart {n}. Same room. New plan, kid?",
+      "Restart {n}. You're stubborn. I respect that.",
+      "{n} restarts. Somethin' in here is buggin' you."
     ]
   },
   "restart.sameOpening": {
     "event": "Same opening moves as the last attempt",
     "hint": false,
+    "face": "ex_stare",
+    "talk": "verbose",
     "lines": [
-      "Same opening as last time. Expectin' different?"
+      "Same opening as last time. Expectin' different?",
+      "That's last try's start. Change somethin', kid.",
+      "Same first moves again. Bold strategy, kid.",
+      "Déjà vu. Same start as last time."
     ]
   },
   "lost": {
     "event": "The board is lost. The line depends on how many times this room has been lost.",
     "hint": false,
+    "face": "ex_gloom_lines",
+    "talk": "quiet",
     "byCount": [
       {
         "from": 1,
+        "face": "ex_gloom_lines",
         "lines": [
-          "Oof. Try again."
+          "Oof. Try again.",
+          "Oof. That board's done."
         ]
       },
       {
         "from": 2,
+        "face": "ex_sweat_drop",
         "lines": [
           "Oof. Again. Somethin' different this time."
         ]
       },
       {
         "from": 3,
+        "face": "ex_stare",
         "lines": [
           "Third one. Slow down. Read the room."
         ]
       },
       {
         "from": 4,
+        "face": "ex_stare",
         "lines": [
           "Oof. Think from the door this time, kid."
         ]
       },
       {
         "from": 6,
+        "face": "blink",
         "lines": [
           "Again. Every one of these teaches you somethin'."
         ]
       },
       {
         "from": 10,
+        "face": "ex_sparkle_eye",
         "lines": [
           "{n} tries. Stubborn. I like stubborn."
         ]
@@ -465,6 +1735,8 @@
   "lost.step1": {
     "event": "Still moving on a lost board (ladder step 1)",
     "hint": true,
+    "face": "ex_shock",
+    "talk": "quiet",
     "lines": [
       "Kid. Stop. Nobody's gettin' out from here."
     ]
@@ -472,13 +1744,17 @@
   "lost.step2": {
     "event": "Still moving (ladder step 2)",
     "hint": true,
+    "face": "ex_x_eyes",
+    "talk": "quiet",
     "lines": [
-      "You're polishin' a corpse. Back it up."
+      "Movin' won't fix it. Back it up, kid."
     ]
   },
   "lost.step3": {
     "event": "Still moving (ladder step 3)",
     "hint": true,
+    "face": "ex_anger_vein",
+    "talk": "quiet",
     "lines": [
       "Back it up. Not one. More than that."
     ]
@@ -486,155 +1762,745 @@
   "lost.step4": {
     "event": "Still moving (ladder step 4, Yoda mode)",
     "hint": true,
+    "face": "away",
+    "talk": "quiet",
     "lines": [
       "Lost it, you did. {n} moves back."
-    ]
-  },
-  "lost.step4Shown": {
-    "event": "Ladder step 4, the move is shown",
-    "hint": true,
-    "lines": [
-      "That one. Toward the door, it sprayed."
     ]
   },
   "lost.firstEver": {
     "event": "First lost board ever (said in place of the lost line, that once)",
     "hint": false,
+    "face": "ex_blank_eye",
+    "talk": "quiet",
+    "once": "ever",
     "lines": [
-      "First dead end. Won't be your last."
+      "First lost board. Won't be your last.",
+      "There it is. Your first lost board. Welcome.",
+      "Lost one. First of many. Undo's free, kid."
     ]
   },
-  "lost.exitWalled": {
-    "event": "Lost because your trash walled off the exit",
-    "hint": true,
+  "lost.byWalk": {
+    "event": "The board is lost by a plain walk, with no push or tear",
+    "hint": false,
+    "face": "ex_blank_eye",
+    "talk": "chatty",
     "lines": [
-      "Door's walled off. Your own trash did it."
+      "You lost it by walkin'. Walkin', kid!"
     ]
   },
   "lost.bagUnreachable": {
     "event": "Lost because a bag can't be reached now",
     "hint": true,
+    "face": "ex_gloom_lines",
+    "talk": "quiet",
     "lines": [
-      "That bag over there? You'll never reach it."
-    ]
-  },
-  "lost.bagNoRoom": {
-    "event": "Lost because a bag has no room to burst now",
-    "hint": true,
-    "lines": [
-      "No room left to pop that one. Ever."
-    ]
+      "That bit of trash there? You'll never reach it."
+    ],
+    "stretch": true
   },
   "lost.undoneOut": {
     "event": "Undid out of a lost board",
     "hint": false,
+    "face": "ex_soul_out",
+    "talk": "chatty",
     "lines": [
-      "There. Alive again. Well, you know what I mean."
+      "There. Winnable again. Don't do that twice.",
+      "Back from the edge. Winnable again. Phew.",
+      "Undid out of it. Room's open again. Good."
     ]
   },
   "lost.idle": {
     "event": "Idle on a lost board",
     "hint": true,
+    "face": "closed",
+    "talk": "quiet",
     "lines": [
-      "Starin' won't fix it, kid. Back it up."
+      "Starin' won't fix it, kid. Back it up.",
+      "It's lost, kid. Undo's right there.",
+      "Lookin' won't help. Back it up a few."
+    ]
+  },
+  "lost.yoda": {
+    "event": "Truly stuck: many lost boards in one room, then idle",
+    "hint": false,
+    "face": "away",
+    "talk": "quiet",
+    "once": "visit",
+    "lines": [
+      [
+        "Hmm. Stuck, you are.",
+        "From the door, think. Backward, walk it.",
+        "The last bit of trash, first find. Then go."
+      ]
     ]
   },
   "idle.first": {
     "event": "Idle, once per room",
     "hint": false,
+    "face": "blink",
+    "talk": "chatty",
+    "once": "visit",
     "lines": [
-      "Take your time. Limbo's got plenty of it."
+      "Take your time. Door ain't goin' anywhere.",
+      "No rush. The alley's got nowhere to be.",
+      "Thinkin'? Good. Thinkin's free.",
+      "Take a look around. I'll wait.",
+      "Quiet, huh? I like quiet. Sometimes.",
+      "Take all the time you need. We got plenty.",
+      "Starin' contest with the trash. Trash is winnin'.",
+      "Plannin'? Smart. Them bits of trash ain't goin' anywhere.",
+      "Go on, count the bits of trash. I'll wait.",
+      "Hmm. Thinkin' face. Okay, I see it.",
+      "Mull it over, kid. Mullin's half the job."
     ]
   },
   "idle.second": {
     "event": "Idle a second time, same room",
     "hint": false,
+    "face": "ex_side_eye",
+    "talk": "verbose",
+    "once": "visit",
     "lines": [
-      "Still here. Still waitin'. Still not gettin' older."
+      "Still here. Still waitin'. Still bored.",
+      "Still thinkin'? I'm growin' feathers here.",
+      "Any day now, kid. Any day.",
+      "I've counted the bricks. Twice.",
+      "Hrrk. Bored. Bored, bored, bored."
+    ]
+  },
+  "idle.doze": {
+    "event": "A very long idle: he dozes off",
+    "hint": false,
+    "face": "blink",
+    "talk": "verbose",
+    "once": "visit",
+    "lines": [
+      "Zzz... hrrk... five more minutes...",
+      "Zzz... mmf... shiny...",
+      "Hrrrk... zzz... not the couch... zzz..."
+    ]
+  },
+  "idle.wake": {
+    "event": "The first key after he dozed off",
+    "hint": false,
+    "face": "ex_shock",
+    "talk": "verbose",
+    "lines": [
+      "Hrrk! I'm up! I was watchin'. Totally.",
+      "Wha—! I saw that. I saw all of it.",
+      "Hrrk! Who moved? Was it you? Good."
+    ]
+  },
+  "idle.rambleTrash": {
+    "event": "A long idle: he admires the trash",
+    "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "verbose",
+    "lines": [
+      [
+        "You know what's beautiful? A good pile.",
+        "Take-out boxes. Bottle caps. Little paper scraps.",
+        "Every piece different. Every piece a little gross.",
+        "...Anyway. The bits of trash, kid."
+      ],
+      [
+        "Ever look close at a coffee cup lid?",
+        "Little ridges. Little hole. Engineering, kid.",
+        "...Anyway. Bits of trash."
+      ],
+      [
+        "Best smell in the alley? Old noodles.",
+        "Second best? Old noodles in the rain.",
+        "Don't tell me you disagree."
+      ]
+    ]
+  },
+  "idle.rambleFaces": {
+    "event": "A long idle: crows and faces",
+    "hint": false,
+    "face": "ex_snicker",
+    "talk": "verbose",
+    "lines": [
+      [
+        "Crows remember faces, kid. Yours too.",
+        "Still decidin' if I like it.",
+        "Bust open a bit of trash. Help me decide."
+      ],
+      [
+        "Crows hold grudges, kid. For years.",
+        "Also hold favorites. Same deal.",
+        "...Which one are you? Still decidin'."
+      ],
+      [
+        "Got your face memorized yet? Almost.",
+        "Stripes. Mask. That look when a push won't go.",
+        "Yep. Got it."
+      ]
+    ]
+  },
+  "idle.rambleShiny": {
+    "event": "A long idle: shiny things",
+    "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "verbose",
+    "lines": [
+      [
+        "Ever notice how shiny a bit of trash gets?",
+        "No? Just me?",
+        "...Forget it. Push somethin'."
+      ],
+      [
+        "Bottle caps. Foil. Spoons.",
+        "You ever seen a really good spoon, kid?",
+        "...Forget it. You wouldn't get it."
+      ],
+      [
+        "Somethin' out there's catchin' the light. Look.",
+        "...No, really. Look. Pretty, huh?",
+        "Okay. Back to work."
+      ]
+    ]
+  },
+  "idle.rambleRaccoon": {
+    "event": "A long idle: what raccoons are good at",
+    "hint": false,
+    "face": "ex_side_eye",
+    "talk": "verbose",
+    "lines": [
+      [
+        "Raccoons. Little bandit masks. Busy little paws.",
+        "And yet here you are. Standin' still.",
+        "Use the paws, kid."
+      ],
+      [
+        "Raccoons wash their food. Did you know?",
+        "Fancy. Real fancy for a bin diver.",
+        "Now go dive. Bits of trash, kid."
+      ],
+      [
+        "Those paws can open a latch in the dark.",
+        "Can't they open a bit of trash in daylight?",
+        "Go on. Prove it."
+      ]
+    ]
+  },
+  "idle.rambleBags": {
+    "event": "A long idle: the bags just sit there",
+    "hint": false,
+    "face": "closed",
+    "talk": "verbose",
+    "lines": [
+      [
+        "Bits of trash, just sittin' there. Waitin'.",
+        "They don't tear themselves, you know.",
+        "I've asked. Nicely."
+      ],
+      [
+        "You hear that? Neither do I.",
+        "That's the sound of bits of trash not spillin'.",
+        "Lovely sound. Hate it."
+      ],
+      [
+        "Trash, trash, trash.",
+        "Full of good stuff, too. Probably noodles.",
+        "Somebody oughta open 'em. Hint, hint."
+      ]
     ]
   },
   "win.perfect": {
     "event": "At par, no undos, no restarts",
     "hint": false,
+    "face": "ex_blush",
+    "talk": "quiet",
     "lines": [
-      "No take-backs? Who taught you that? Oh, me."
+      "No take-backs? Who taught you that? Oh, me.",
+      "Perfect. Your guide is mildly impressed.",
+      "Par, no undos, no restarts. Flawless, kid.",
+      "Clean as a fresh bin. Perfect.",
+      "Not one step wasted. Hrrk. Fine. Nice.",
+      "Straight line, no do-overs. Show-off.",
+      "Par, clean. You make it look easy, kid.",
+      "Spotless. Like nobody was ever here."
     ]
   },
   "win.par": {
     "event": "At par",
     "hint": false,
+    "face": "ex_snicker",
+    "talk": "quiet",
     "lines": [
-      "Par. Clean work. Don't let it go to your head."
+      "Par. Clean work. Don't let it go to your head.",
+      "Right on par. Textbook, kid. Next.",
+      "Par! Not one move wasted.",
+      "Par. That's the number. You hit it."
     ]
   },
   "win.underPar": {
     "event": "Under par",
     "hint": false,
+    "face": "ex_shock",
+    "talk": "quiet",
     "lines": [
-      "Under par? Upstairs is gonna hear about this."
+      "Under par? That's not supposed to happen, kid.",
+      [
+        "Under par. Under. Par.",
+        "I've counted every move in this alley, kid.",
+        "Nobody's supposed to beat the numbers. You did."
+      ],
+      [
+        "Hold on. Let me count again.",
+        "...Under par. Those little paws found a shortcut.",
+        "Raccoons. Nobody gives you enough credit."
+      ],
+      [
+        "You know what raccoons got? Hands, basically.",
+        "Clever, grabby, nosy little hands.",
+        "And you just used 'em better than the math."
+      ],
+      [
+        "Under par! I'm writin' this down.",
+        "Crows remember faces, kid. Yours goes on the wall.",
+        "The good wall."
+      ],
+      [
+        "That's not luck. Luck doesn't do that.",
+        "That's a raccoon brain, workin' overtime.",
+        "I'm tellin' everybody about this one."
+      ],
+      [
+        "Kid. Kid. Look at me.",
+        "Under par. You beat the number nobody beats.",
+        "...Okay, you can stop lookin' at me now."
+      ],
+      [
+        "Bandit mask, busy paws, and a brain like that?",
+        "No wonder you lot get into every bin.",
+        "Proud of you. Don't make it weird."
+      ],
+      [
+        "I had a whole speech ready for losin'.",
+        "Got nothin' for this. Nobody does this.",
+        "...Under par. Huh. Huh!"
+      ],
+      [
+        "Raccoons wash their food. Open latches. Remember tricks.",
+        "And now? Beat the par. Add it to the list.",
+        "Best list in the alley, kid."
+      ],
+      [
+        "Don't move. Let me look at this board.",
+        "Every bit of trash. Fewer moves than the number says.",
+        "You're a marvel, kid. A stripey little marvel."
+      ]
     ]
   },
   "win.overPar": {
     "event": "A little over par",
     "hint": false,
+    "face": "ex_sweat_drop",
+    "talk": "quiet",
     "lines": [
-      "A few extra steps. Nobody died. Again."
+      "A few extra steps. Out's out. Good, kid.",
+      "Little over par. Still out. Still good.",
+      "Few moves over. Next time, maybe par."
     ]
   },
   "win.wayOverPar": {
     "event": "Way over par",
     "hint": false,
+    "face": "ex_side_eye",
+    "talk": "quiet",
     "lines": [
-      "Ugly, but out. Ugly still counts up there."
+      "Ugly, but out. Ugly still counts.",
+      "Took the long way. Door don't care.",
+      "Long way 'round. Still a win.",
+      "Lotta moves. One exit. It counts."
     ]
   },
   "win.manyUndos": {
     "event": "After a lot of undos",
     "hint": false,
+    "face": "ex_blush",
+    "talk": "chatty",
     "lines": [
-      "Took you {n} tries. Took me {n+1}, once."
+      "{n} take-backs. We got all the time in the world.",
+      "{n} undos, one exit. No clock in here, kid.",
+      "{n} take-backs. Take as many as you need."
     ]
   },
   "win.manyRestarts": {
     "event": "After a lot of restarts",
     "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
     "lines": [
-      "Restart number {n}, and out. I'll allow it."
+      "Restart number {n}, and out. I'll allow it.",
+      "{n} restarts, one exit. Worth it.",
+      "Took {n} goes. Out's out, kid."
     ]
   },
   "win.beatBest": {
     "event": "Beat your own best",
     "hint": false,
+    "face": "ex_blush",
+    "talk": "chatty",
     "lines": [
-      "Better than last time. I noticed. Don't tell."
+      "Better than last time. I noticed. Don't tell.",
+      [
+        "New best. Fewer moves than ever.",
+        "Your paws know this room now.",
+        "I like watchin' that happen."
+      ],
+      [
+        "You beat yourself. The hardest one to beat.",
+        "...Okay, the second hardest. Walls are first."
+      ],
+      [
+        "Look at that number drop.",
+        "Raccoons get better every time they open a bin.",
+        "You're doin' the raccoon thing, kid."
+      ],
+      [
+        "Better than your best. Write that on a can.",
+        "I'd write it myself. Beaks are bad with pens."
+      ],
+      [
+        "New record. Mine to remember, kid.",
+        "Crows keep score. I keep yours.",
+        "And yours just went up."
+      ],
+      [
+        "Sharper than last time. Quicker paws. Cleaner moves.",
+        "That's not luck. That's you learnin'.",
+        "Keep doin' that. I'll keep noticin'."
+      ]
     ]
   },
   "win.afterLost": {
     "event": "After losing the board earlier in the attempt",
     "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "chatty",
     "lines": [
-      "Dead twice and still walked out. Not bad."
+      "Lost it earlier. Walked out anyway. Not bad.",
+      "Lost it, undid it, won it. That's the way.",
+      "Board went bad, you fixed it. Nice work, kid."
+    ]
+  },
+  "win.firstTry": {
+    "event": "Won a room on the first attempt",
+    "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "chatty",
+    "once": "room",
+    "lines": [
+      "First try? Huh. Luck, or brains?",
+      "One go. Out. Don't get used to it.",
+      "First go, out the door. Show-off.",
+      "One shot, one exit. Not bad at all.",
+      "First try. Okay. I'm tellin' every crow I know.",
+      [
+        "First go? No restarts? No do-overs?",
+        "...Who taught you that? Oh, right. Me."
+      ],
+      "Clean out the gate. That's a rare one, kid.",
+      "First try. I ain't impressed. ...Okay. I'm impressed.",
+      [
+        "One shot. Straight out.",
+        "I'm gonna remember this one, kid. Crows remember."
+      ],
+      "First try. That's a real shiny, kid."
+    ]
+  },
+  "win.nemesis": {
+    "event": "Won a room after its board was lost five times or more this sitting",
+    "hint": false,
+    "face": "ex_tears",
+    "talk": "quiet",
+    "lines": [
+      [
+        "You beat it. That room. Finally.",
+        "I'm not cryin'. Got trash in my eye."
+      ],
+      [
+        "That one. That one had your number.",
+        "Not anymore, kid."
+      ],
+      "Finally. I was startin' to hate that room for ya.",
+      [
+        "All them lost boards, and you kept comin' back.",
+        "That's stubborn. Good stubborn."
+      ],
+      "You and that room. It's over now. You won.",
+      [
+        "Look at that. You got it.",
+        "Gimme a sec, kid. Just... gimme a sec."
+      ]
+    ]
+  },
+  "win.starUp": {
+    "event": "A replay earned the room more stars",
+    "hint": false,
+    "face": "ex_blush",
+    "talk": "chatty",
+    "lines": [
+      "More stars. Worth the rerun, huh?",
+      "Cleaner this time. See? Practice.",
+      [
+        "More stars. Look at 'em shine.",
+        "Crows like shiny, kid. You know that.",
+        "Bring me more of those."
+      ],
+      [
+        "Came back and did it better. That's a raccoon thing.",
+        "You lot never leave a bin half-checked.",
+        "Good. Neither do I."
+      ],
+      [
+        "Another star. You know what that means?",
+        "Means you're gettin' good at this.",
+        "Don't let it show."
+      ],
+      [
+        "Stars go up, kid. That's how it works.",
+        "Every one's another step outta this alley.",
+        "Keep climbin'."
+      ],
+      [
+        "Shinier than last time. I noticed.",
+        "Crows notice shiny. Crows notice raccoons who try.",
+        "...Both. I noticed both."
+      ],
+      [
+        "Rerun, and more stars. Look at those paws work.",
+        "Little bandit hands, pullin' off a better run.",
+        "Okay. I'm a fan. Quietly."
+      ]
+    ]
+  },
+  "win.cameBack": {
+    "event": "Won a room you once walked away from",
+    "hint": false,
+    "face": "ex_snicker",
+    "talk": "chatty",
+    "once": "room",
+    "lines": [
+      "Told ya it'd keep. Look who came back.",
+      [
+        "Look who came back.",
+        "This room's been waitin'. So've I, kinda.",
+        "And you beat it. Nice."
+      ],
+      [
+        "You walked away from this one once.",
+        "Raccoons always come back to a good bin.",
+        "And look at that. Solved."
+      ],
+      [
+        "Hrrk! You came back for it.",
+        "Walkin' away and comin' back? That takes guts.",
+        "Room's done. Who's laughin' now?"
+      ],
+      [
+        "Remember this one? It remembers you.",
+        "Crows remember too. I remember you leavin'.",
+        "Now I'll remember you winnin'."
+      ],
+      [
+        "Unfinished business. Finished.",
+        "Raccoons don't let a lid stay shut, huh?",
+        "Proud of you, kid. Don't quote me."
+      ],
+      [
+        "Told ya it'd keep.",
+        "Same bits of trash, same walls, smarter raccoon.",
+        "That's the whole trick, kid. Come back smarter."
+      ]
+    ]
+  },
+  "win.streak": {
+    "event": "Won {n} rooms in a row at par, from three on",
+    "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "chatty",
+    "lines": [
+      "{n} at par, back to back. Who are you?",
+      [
+        "{n} at par, in a row.",
+        "Who are you, and what'd you do with the kid?"
+      ],
+      [
+        "That's {n} in a row. At par. Every one.",
+        "The alley's runnin' outta ways to stop you."
+      ],
+      [
+        "{n} straight! Stripes, mask, and a hot streak.",
+        "Don't look at me. Keep it goin'."
+      ],
+      [
+        "{n} par rooms in a row, kid.",
+        "I've stopped grumblin'. Notice that?",
+        "...Don't get used to it."
+      ],
+      [
+        "{n} in a row. I'm countin', you know.",
+        "Crows count. Crows remember.",
+        "This streak? Framed. In my head."
+      ],
+      [
+        "Another one at par. That's {n}.",
+        "Busy paws, sharp eyes. Raccoon at work.",
+        "Somebody stop this kid. Not me, though."
+      ]
     ]
   },
   "progress.actDone": {
     "event": "Finished an act",
     "hint": false,
+    "face": "ex_sparkle_eye",
+    "talk": "quiet",
+    "once": "room",
     "lines": [
-      "That's an act. Upstairs might even notice you."
+      "That's an act. Not bad, kid. Not bad.",
+      "Whole act done. I'm almost proud.",
+      "Act's finished. One step closer, kid."
     ]
   },
   "progress.leftUnsolved": {
     "event": "Left a room unsolved",
     "hint": false,
+    "face": "ex_side_eye",
+    "talk": "chatty",
     "lines": [
-      "Walkin' away? It'll still be here. Trust me."
+      "Walkin' away? It'll still be here. Trust me.",
+      "Leavin' it? It'll keep. Rooms always keep.",
+      "Fine. Go. It'll be here, starin' at the door."
     ]
   },
-  "progress.back": {
-    "event": "Back after time away",
+  "progress.loseStreak3": {
+    "event": "Three rooms in a row left unsolved",
     "hint": false,
+    "face": "closed",
+    "talk": "chatty",
     "lines": [
-      "Oh, you're back. Thought you'd moved on. Ha."
+      "Rough patch. Happens. Pick one and finish it.",
+      "Three left behind. That's okay. They'll keep.",
+      "Rough run, kid. Breathe. Then pick one."
     ]
+  },
+  "progress.rooms10": {
+    "event": "Every tenth room done; {n} is the rooms done",
+    "hint": false,
+    "face": "ex_snicker",
+    "talk": "chatty",
+    "once": "room",
+    "lines": [
+      "{n} rooms. You're gettin' the hang of it.",
+      "{n} rooms. Look at you go, kid.",
+      "That's {n}. I'm countin', even if you ain't.",
+      "{n} down. Crows count good, kid.",
+      "{n} rooms! That's a lotta bits of trash.",
+      "Another ten. {n} now. Not bad for a raccoon."
+    ]
+  },
+  "progress.halfAct": {
+    "event": "Half of an act's rooms done",
+    "hint": false,
+    "face": "ex_stare",
+    "talk": "chatty",
+    "once": "room",
+    "lines": [
+      "Half this act done. Other half's meaner."
+    ]
+  },
+  "progress.skipped": {
+    "event": "One of his lines was skipped",
+    "hint": false,
+    "face": "ex_side_eye",
+    "talk": "verbose",
+    "lines": [
+      "Fine. Didn't wanna talk anyway.",
+      "Rude. Accurate, but rude.",
+      "Okay, okay. Skip the crow."
+    ]
+  },
+  "progress.quieter": {
+    "event": "Skips have made him one setting quieter",
+    "hint": false,
+    "face": "away",
+    "talk": "quiet",
+    "lines": [
+      "Okay. I'll just watch, then.",
+      "Got it. Beak shut.",
+      "Fine. Quiet crow. Watch this.",
+      "Message received. I'll be over here.",
+      "Not a talker, huh? Me neither. ...Mostly."
+    ]
+  },
+  "story.act1": {
+    "event": "After Act 1",
+    "hint": false,
+    "face": "ex_snicker",
+    "talk": "quiet",
+    "once": "ever",
+    "lines": [
+      "Not bad for a fresh soul. Not good, either.",
+      "Act one, done. You're less hopeless than you looked.",
+      "First act down. The easy one, kid."
+    ]
+  },
+  "story.act2": {
+    "event": "After Act 2",
+    "hint": false,
+    "face": "closed",
+    "talk": "quiet",
+    "once": "ever",
+    "lines": [
+      "Two acts down. Don't wall yourself in now.",
+      "Two acts. Your paws are learnin', kid.",
+      "Act two's done. That one had teeth."
+    ]
+  },
+  "story.late": {
+    "event": "Late in the game",
+    "hint": false,
+    "face": "ex_side_eye",
+    "talk": "quiet",
+    "once": "ever",
+    "lines": [
+      "You're almost good at this. Almost.",
+      "Don't get sentimental on me, kid. Not yet.",
+      "Look at you. A real trash professional.",
+      "Not far now, kid. Don't trip at the finish."
+    ]
+  },
+  "story.ending": {
+    "event": "The ending: raccoon heaven",
+    "hint": false,
+    "face": "ex_tears",
+    "talk": "quiet",
+    "once": "ever",
+    "lines": [
+      [
+        "That's raccoon heaven, kid. Clouds. Cans that shine. Every lid already off. Go on.",
+        "They're waitin' on you up there. Don't keep 'em waitin' on my account.",
+        "...You did good. Real good. Don't tell nobody I said it, or I'll deny it.",
+        "I'll remember your face, kid. Crows always do. That's a promise, not a threat."
+      ],
+      [
+        "Look at that. Clouds, all the way up. And the cans, kid. Look at the cans.",
+        "You earned every one of 'em. Every bit of trash, every shove, every dumb wall you pushed on.",
+        "I'll miss you. You were a good egg. A weird, stripey, stubborn egg.",
+        "Go on, then. Before I get somethin' in my eye."
+      ],
+      [
+        "So this is it. Raccoon heaven. Smells like a good dumpster, and I mean that kindly.",
+        "When you showed up, you couldn't find a door with both paws. Now look at you.",
+        "I'll remember your face. Crows don't forget a face, and I won't forget yours.",
+        "Go on, kid. Your guide's done guidin'. ...Go, before I change my mind."
+      ]
+    ],
+    "words": 20
   }
 }
