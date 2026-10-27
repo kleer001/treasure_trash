@@ -9,8 +9,10 @@ export const TUNING = {
   // ---- the director ----
   preWaitMs: 1000,          // silence before he starts to talk
   cps: 40,                  // typing, characters a second
-  readPerCharMs: 45,        // a beat stays up as long as it takes to read, typing included,
-  holdMs: 900,              //   and then this much more
+  readPerCharMs: 38,        // a beat stays up as long as it takes to read, typing included,
+  holdMs: 900,              //   and then this much more at the end of a line,
+  beatGapMs: 400,           //   or this much between its beats
+  speechPerCharMs: 45,      // a speech, which has the screen to itself, at its own pace: holdMs after every beat
   fastX: 3,                 // the first skip press: the rest of the monologue at this speed
   monoGapMs: 10000,         // after a monologue, before another monologue may start
   eventGapMs: 30000,        // a common event's own timer
@@ -143,6 +145,15 @@ export function createCrowMemory(store) {
     save() { try { store.setItem(CROW_KEY, JSON.stringify(data)); } catch { /* full or blocked */ } },
   };
 }
+
+/** How long beat `i` of `beats` stays up. */
+export function beatMs(beats, i, speech, T = TUNING) {
+  const s = beats[i], read = (speech ? T.speechPerCharMs : T.readPerCharMs) * s.length;
+  return Math.max(s.length / T.cps * 1000, read) + (speech || i === beats.length - 1 ? T.holdMs : T.beatGapMs);
+}
+/** How long a line stays up, every beat of it: `line` is one beat or a list of them. */
+export const lineMs = (line, speech, T = TUNING) =>
+  [line].flat().reduce((ms, s, i, beats) => ms + beatMs(beats, i, speech, T), 0);
 
 // His answers to being skipped. The director says these itself, and they are not lines the
 // player chose to hear or to skip.
@@ -295,7 +306,6 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
     onLog({ t: at, type: 'say', key: c.key, beats, face: step.face, talk: TALK[talk] });
   }
 
-  const beatMs = s => Math.max(s.length / T.cps * 1000, T.readPerCharMs * s.length) + T.holdMs;
   const typed = () => Math.min(cur.beats[cur.bi].length, Math.floor(cur.pos / 1000 * T.cps));
 
   function end(at, skipped) {
@@ -331,7 +341,7 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
     if (t < now) throw new Error(`crow: time went back from ${now} to ${t}`);
     for (;;) {
       if (cur) {
-        const left = (beatMs(cur.beats[cur.bi]) - cur.pos) / cur.speed;
+        const left = (beatMs(cur.beats, cur.bi, cur.speech, T) - cur.pos) / cur.speed;
         const at = cur.last + left;
         if (at > t) { cur.pos += (t - cur.last) * cur.speed; cur.last = t; break; }
         if (++cur.bi < cur.beats.length) { cur.pos = 0; cur.last = at; continue; }
@@ -357,6 +367,8 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
 
   return {
     fire(key, t, ctx) { advance(t); post(key, t, ctx); },
+    /** The wall between rooms is up for him: what waits for its turn starts now, not after the usual pause. */
+    cue(t) { advance(t); if (!cur && wants.length) { dueAt = t; advance(t); } },
     /** Esc, Space or Enter: the first press speeds the line up, the second skips the rest of it. */
     press(t) {
       advance(t);
@@ -382,8 +394,10 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
     /** What the director holds, for the debug panel. It reads only, and leaves the clock where `view` put it. */
     peek() {
       const line = cur && (() => {
-        const beatLeft = (beatMs(cur.beats[cur.bi]) - cur.pos) / cur.speed;
-        const rest = cur.beats.slice(cur.bi + 1).reduce((a, s) => a + beatMs(s), 0) / cur.speed;
+        const beatLeft = (beatMs(cur.beats, cur.bi, cur.speech, T) - cur.pos) / cur.speed;
+        let rest = 0;
+        for (let i = cur.bi + 1; i < cur.beats.length; i++) rest += beatMs(cur.beats, i, cur.speech, T);
+        rest /= cur.speed;
         return { key: cur.key, face: cur.face, beats: cur.beats, beat: cur.bi, typed: typed(), speed: cur.speed,
           bySelf: cur.bySelf, tier: RANK[cur.key].tier, said: mem.count[cur.key] ?? 0,
           bagLeft: cur.bag.size - (mem.bags[cur.bag.key] ?? []).length, bagSize: cur.bag.size,

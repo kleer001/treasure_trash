@@ -112,8 +112,8 @@ test('a wall one screen pixel to an art pixel still leaves no pixel of the board
 });
 
 test('a line stays up as long as it takes to read, then the hold beat', () => {
-  // 38 characters: 45 ms each is 1710 ms, plus 900 ms, is 2610 ms, which is 157 frames.
-  assert.equal(lineFrames('a'.repeat(38), TUNING), 157);
+  // 38 characters: 38 ms each is 1444 ms, plus 900 ms, is 2344 ms, which is 141 frames.
+  assert.equal(lineFrames('a'.repeat(38), TUNING), 141);
 });
 
 test('a hold made from the settings waits only when the settings say so', () => {

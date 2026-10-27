@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createCrow, createCrowMemory, TUNING } from '../src/crow.js';
+import { createCrow, createCrowMemory, TUNING, beatMs, lineMs } from '../src/crow.js';
 
 const ev = o => ({ event: 'x', hint: false, face: 'closed', talk: 'quiet', ...o });
 const EVENTS = {
@@ -33,8 +33,9 @@ function crow({ rng = () => 0, tuning = TUNING, memory = createCrowMemory(store(
   const c = createCrow({ events: EVENTS, rng, memory, tuning, onLog: r => log.push(r) });
   return { c, log, said: () => log.filter(r => r.type === 'say').map(r => r.key) };
 }
-const beat = s => Math.max(s.length / TUNING.cps * 1000, TUNING.readPerCharMs * s.length) + TUNING.holdMs;
+const beat = s => beatMs([s], 0, false);
 const pre = TUNING.preWaitMs;
+const ACT1 = ['One.', 'Two.'];
 
 test('he waits before he starts to talk, and types the line out', () => {
   const { c } = crow();
@@ -114,7 +115,7 @@ test('a speech is flagged from the moment it is due until it ends', () => {
   c.fire('room.firstEver', 0);
   assert.equal(c.view(1).speech, true);
   assert.equal(c.view(pre + 1).speech, true);
-  assert.equal(c.view(pre + beat('Hello.') + beat('Go on.') + 1).speech, false);
+  assert.equal(c.view(pre + lineMs(['Hello.', 'Go on.'], true) + 1).speech, false);
 });
 
 test('one press speeds the monologue up, a second press skips the rest of it', () => {
@@ -124,7 +125,7 @@ test('one press speeds the monologue up, a second press skips the rest of it', (
   c.press(pre + 50);
   assert.ok(log.some(r => r.type === 'fast'));
   // Three times as fast: the first beat ends in a third of the time it had left.
-  const left = (beat('One.') - 50) / TUNING.fastX;
+  const left = (beatMs(ACT1, 0, false) - 50) / TUNING.fastX;
   assert.equal(c.view(pre + 50 + left + 1).beat, 1);
   c.press(pre + 50 + left + 2);
   assert.equal(c.view(pre + 50 + left + 3).talking, false);
@@ -134,14 +135,14 @@ test('one press speeds the monologue up, a second press skips the rest of it', (
 test('a move is not an input to him: only press, fire and the clock move him on', () => {
   const { c } = crow();
   c.fire('story.act1', 0);
-  assert.equal(c.view(pre + beat('One.') - 1).beat, 0);
-  assert.equal(c.view(pre + beat('One.') + 1).beat, 1);
+  assert.equal(c.view(pre + beatMs(ACT1, 0, false) - 1).beat, 0);
+  assert.equal(c.view(pre + beatMs(ACT1, 0, false) + 1).beat, 1);
 });
 
 test('after a monologue, another monologue waits; a single line does not', () => {
   const { c, said } = crow();
   c.fire('story.act1', 0);
-  const done = pre + beat('One.') + beat('Two.');
+  const done = pre + lineMs(ACT1, false);
   c.view(done);
   c.fire('refuse.edge', done + 10);
   c.view(done + 10 + pre);
@@ -154,7 +155,7 @@ test('after a monologue, another monologue waits; a single line does not', () =>
 test('a waiting once-only monologue starts when the monologue timer runs out', () => {
   const { c, said } = crow();
   c.fire('story.act1', 0);
-  const done = pre + beat('One.') + beat('Two.');
+  const done = pre + lineMs(ACT1, false);
   c.view(done);
   c.fire('room.teach', done + 10, { room: 'L1' });
   c.view(done + TUNING.monoGapMs - 1);
@@ -166,7 +167,7 @@ test('a waiting once-only monologue starts when the monologue timer runs out', (
 test('a monologue waiting out the timer does not hold back a single line', () => {
   const { c, said } = crow();
   c.fire('story.act1', 0);
-  const done = pre + beat('One.') + beat('Two.');
+  const done = pre + lineMs(ACT1, false);
   c.view(done);
   c.fire('room.teach', done + 10, { room: 'L1' });
   c.view(done + 10 + pre);
@@ -386,4 +387,24 @@ test('peek names the event behind a face with no words', () => {
   c.fire('undo.fine', 0);
   c.view(pre);
   assert.deepEqual(c.peek().face, { key: 'undo.fine', face: 'squint', until: pre + TUNING.faceMs });
+});
+
+test('the wall cues him: a line fired before it starts at the cue, not after the usual pause', () => {
+  const { c } = crow();
+  c.fire('meet.bag', 0);
+  c.cue(100);
+  assert.equal(c.view(100).talking, true);
+  const quiet = crow();
+  quiet.c.cue(100);
+  assert.equal(quiet.c.view(100).talking, false, 'with nothing fired, a cue starts nothing');
+});
+
+test('between the beats of a line he pauses less than at its end; a speech keeps its own pace', () => {
+  const T = TUNING, beats = ['Look.', 'Go.'];
+  const read = (s, per) => Math.max(s.length / T.cps * 1000, per * s.length);
+  assert.equal(beatMs(beats, 0, false), read('Look.', T.readPerCharMs) + T.beatGapMs);
+  assert.equal(beatMs(beats, 1, false), read('Go.', T.readPerCharMs) + T.holdMs);
+  assert.equal(beatMs(beats, 0, true), read('Look.', T.speechPerCharMs) + T.holdMs);
+  assert.equal(lineMs(beats, false), beatMs(beats, 0, false) + beatMs(beats, 1, false));
+  assert.equal(lineMs('Go.', false), beatMs(['Go.'], 0, false));
 });
