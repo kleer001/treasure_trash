@@ -65,8 +65,8 @@ import * as JUGS from './trash/jug.js';
 import { deck } from './trash/skate.js';
 import { WATER } from './trash/water.js';
 import { load, save as store } from './trash/settings.js';
-import { TUNING } from '../../src/crow.js';
-import { PATTERNS, KINDS, layWall, drawWipe, holdEnds, holdOf, lineFrames, wallFrom } from '../../src/wipe.js';
+import { TUNING, lineMs, beatMs, rankTable } from '../../src/crow.js';
+import { PATTERNS, KINDS, layWall, drawWipe, wallFrom, roomBeats } from '../../src/wipe.js';
 import { createWipeTune } from '../../src/wipeTune.js';
 
 const W = 480, H = 270, STRIP = 16, DOCK = 48, PORTRAIT = 40, GAP = 4;
@@ -74,13 +74,15 @@ const KEY = 'trash-screen';
 const FONTS = { press: { css: '"Press Start 2P"', line: 10 }, silk: { css: 'Silkscreen', line: 9 } };
 const [A, D, LOOK, O, CROW] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json', 'trash/objects.json',
   '../../dialogue/crow.json'].map(f => fetch(f).then(r => r.json())));
-// What he can say at a win, and as a room comes in: his single lines with no number to fill in.
+// What he can say at a win, and as a room comes in: his lines with no number to fill in, a line
+// being one beat or a list of them. Story lines are left out: they are a speech or the game's end.
+const RANKS = rankTable(CROW);
 const plain = keys => keys.flatMap(k => CROW[k].lines ?? CROW[k].byCount.flatMap(st => st.lines))
-  .filter(l => typeof l === 'string' && !l.includes('{'));
+  .filter(l => ![l].flat().some(s => s.includes('{')));
 // The worst case for the wall: his longest win line, then his longest line for a room coming in.
-const longest = lines => lines.reduce((a, b) => (b.length > a.length ? b : a));
+const longest = lines => lines.reduce((a, b) => (lineMs(b) > lineMs(a) ? b : a));
 const PAIR = { said: longest(plain(Object.keys(CROW).filter(k => k.startsWith('win.')))),
-  next: longest(plain(['room.new', 'room.tiny', 'room.huge'])) };
+  next: longest(plain(Object.keys(CROW).filter(k => /^(room|meet)\./.test(k) && k in RANKS && RANKS[k].tier !== 'story'))) };
 await Promise.all(Object.values(FONTS).map(f => document.fonts.load(`8px ${f.css}`)));
 const missing = Object.values(FONTS).filter(f => !document.fonts.check(`8px ${f.css}`)).map(f => f.css);
 if (missing.length) document.getElementById('fault').textContent = `Font not loaded: ${missing.join(', ')}.`;
@@ -299,47 +301,49 @@ function board(s, bs, area, seed, away) {
   return { brd, bw, bh, rx, ry };
 }
 
-// ---- the win: he leaves by the door, the room stands empty, the wall goes up over the board, the next room loads behind
-// it and the wall comes down. The crow says his win line on the wall, and the next room's line once
-// it is in. Timings are the game's: `wipe.js` and `main.js` hold the same settings.
+// ---- the win: he starts his win line as he leaves by the door, the room stands empty, the wall goes
+// up and stays up until the line is done. The room comes in again behind it, he starts his line about
+// it, and the wall holds and comes down to fit that line. Timings are the game's: `wipe.js`,
+// `crow.js` and `main.js` hold the same settings.
 const FPS = 60, LEAVES = ['hop', 'dissolve'];
-const WIPE = { exit: 12, empty: 30, cover: 40, hold: 50, holdMax: 360, wait: 'fixed', reveal: 30, lay: 8, order: 'same',
-  leave: 'dissolve', pattern: 'room', kind: 'room' };
+const WIPE = { exit: 12, empty: 30, cover: 40, roomHold: 60, roomHoldMax: 120, reveal: 30, revealMax: 90, tail: 60,
+  lay: 8, order: 'same', leave: 'dissolve', pattern: 'room', kind: 'room' };
+const frames = line => lineMs(line) * FPS / 1000;
 let win = null, wset = null;
-/** `line` as he says it `f` frames in, started at frame `start`: the letters shown so far, or null when he is not saying it. */
+/** `line` as he says it `f` frames in, started at frame `start`: the beat up and the letters of it shown so far, or null when he is not saying it. */
 function sayAt(f, line, start) {
-  const i = f - start;
-  if (!line || i < 0 || i >= lineFrames(line, TUNING)) return null;
-  return { line, shown: Math.min(line.length, Math.floor(i * TUNING.cps / FPS)) };
+  const beats = [line].flat();
+  let i = f - start;
+  if (i < 0) return null;
+  for (let b = 0; b < beats.length; b++) {
+    const n = beatMs(beats, b, false) * FPS / 1000;
+    if (i < n) return { line: beats[b], shown: Math.min(beats[b].length, Math.floor(i * TUNING.cps / FPS)) };
+    i -= n;
+  }
+  return null;
 }
 function startWin() {
   if (win) return;
   const top = ui.strip === 'on' ? STRIP : 0, area = H - DOCK - top;
   const h = ((ui.room + 1) * 2654435761) >>> 0, kinds = Object.keys(KINDS), set = { ...wset };
   win = { ms: 0, s: set, top, area,
-    t: { ...set, hold: Infinity }, hold: holdOf(wallFrom(set) + set.cover, set), loaded: false, loadF: 0, away: null,
-    ...PAIR, saidEnd: lineFrames(PAIR.said, TUNING), nextAt: 0, busyUntil: lineFrames(PAIR.said, TUNING),
+    t: { ...set, hold: Infinity }, loaded: false, away: null, ...PAIR, saidEnd: frames(PAIR.said), nextAt: 0, busyUntil: 0,
     pattern: set.pattern === 'room' ? PATTERNS[h % PATTERNS.length] : set.pattern,
     kind: set.kind === 'room' ? kinds[(h >>> 8) % kinds.length] : set.kind };
   win.wall = layWall(win.kind, W, area, 1, 1);
 }
-/** The same room comes in again behind the wall, and his line for it is queued. */
+/** The same room comes in again behind the wall, he starts his line about it, and the wall fits that line. */
 function loadNext(f) {
-  const w = win;
-  w.loaded = true; w.loadF = f;
-  const bs = Number(ui.board);
-  Object.assign(scene, board(toState(PACKS[ui.pack][ui.room]), bs, w.area, ui.room * 31, null));
-  if (w.s.wait === 'both') { w.t.hold = Infinity; w.hold = holdOf(f, w.s); }
-  // He starts the room's line as it comes in, or once his win line is done if he is still on it.
-  w.nextAt = Math.max(f, w.saidEnd);
-  w.busyUntil = w.nextAt + lineFrames(w.next, TUNING);
+  const w = win, t = w.t;
+  w.loaded = true;
+  Object.assign(scene, board(toState(PACKS[ui.pack][ui.room]), Number(ui.board), w.area, ui.room * 31, null));
+  const { hold, reveal } = roomBeats(frames(w.next), w.s);
+  t.hold = f - wallFrom(t) - t.cover + hold; t.reveal = reveal;
+  w.nextAt = f; w.busyUntil = f + frames(w.next);
 }
 function winTick() {
   const w = win, t = w.t, f = Math.floor(w.ms * FPS / 1000), fr = f - wallFrom(t);
-  if (w.hold && holdEnds(f - w.hold.from, w.hold.min, w.hold.max, w.hold.wait && f < w.busyUntil)) {
-    t.hold = f - wallFrom(t) - t.cover; w.hold = null;
-    if (!w.loaded) loadNext(f);
-  }
+  if (!w.loaded && fr >= t.cover && f >= w.saidEnd) loadNext(f);
   if (!w.loaded && Math.min(f, t.exit) !== w.away) {
     w.away = Math.min(f, t.exit);
     Object.assign(scene, board(toState(PACKS[ui.pack][ui.room]), Number(ui.board), w.area, ui.room * 31,
@@ -351,10 +355,12 @@ function winTick() {
   dock(cur?.line ?? '', cur?.shown ?? 0);
   paint();
   const phase = !w.loaded ? (f < t.exit ? 'he leaves' : fr < 0 ? 'the room stands empty'
-    : fr < t.cover ? 'the wall goes up' : 'the wall holds') : w.hold ? 'the wall holds over the room come in again' : 'the wall comes down';
+    : fr < t.cover ? 'the wall goes up' : 'the wall holds until his win line is done')
+    : fr < t.cover + t.hold ? 'the wall holds over the room come in again'
+    : fr < t.cover + t.hold + t.reveal ? 'the wall comes down' : 'the wall is down: you can move, and he finishes';
   document.getElementById('talk-read').textContent = `Win frame ${f}: ${phase}.`;
-  // The next room's line is his to finish, so the win ends when it is done, not when the wall is.
-  if (!w.hold && f >= wallFrom(t) + t.cover + t.hold + t.reveal && (!w.loaded || f >= w.busyUntil)) { win = null; render(); }
+  // The room's line is his to finish, so the win ends when it is done, not when the wall is.
+  if (w.loaded && fr >= t.cover + t.hold + t.reveal && f >= w.busyUntil) { win = null; render(); }
 }
 
 /** The strip over the board: the room's id and name, and the moves against par. */
@@ -416,9 +422,10 @@ const sendNote = note => fetch('/notes', { method: 'POST', headers: { 'Content-T
   body: JSON.stringify(note) }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); });
 wset = createWipeTune(document.getElementById('wtune'), WIPE, {
   replay: startWin, snap: () => ({ pack: ui.pack, room: ui.room, level: PACKS[ui.pack][ui.room].id }), send: sendNote,
-  crowFrame: 0, key: 'trash-screen-wipe', leaves: LEAVES });
-document.getElementById('pair-read').textContent = `Every win: "${PAIR.said}" (${lineFrames(PAIR.said, TUNING)} frames), `
-  + `then "${PAIR.next}" (${lineFrames(PAIR.next, TUNING)} frames).`;
+  key: 'trash-screen-wipe', leaves: LEAVES });
+const quote = line => [line].flat().map(s => `"${s}"`).join(' ');
+document.getElementById('pair-read').textContent = `Every win: ${quote(PAIR.said)} (${Math.round(frames(PAIR.said))} frames), `
+  + `then ${quote(PAIR.next)} (${Math.round(frames(PAIR.next))} frames).`;
 window.__screen = { render, ui, PACKS, startWin, win: () => win };
 render();
 requestAnimationFrame(loop);

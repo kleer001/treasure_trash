@@ -80,32 +80,18 @@ export function brickPhase(r, f, t) {
   return { laid, gone };
 }
 
-/** Frames a line stays on screen: as long as it takes to type and to read, then `holdMs` more. */
-export function lineFrames(line, T) {
-  const beatMs = Math.max(line.length / T.cps * 1000, T.readPerCharMs * line.length) + T.holdMs;
-  return Math.ceil(beatMs * 60 / 1000);
-}
-
-/** A hold that began at frame `from`: `hold` frames at least, and while he talks up to `holdMax`. */
-export function holdOf(from, s) {
-  return s.wait === 'fixed' ? { from, min: s.hold, max: s.hold, wait: false }
-    : { from, min: s.hold, max: s.holdMax, wait: true };
-}
-
-/** Whether a hold that has run `held` frames may end: `min` at least, and `max` at most while `busy`. */
-export function holdEnds(held, min, max, busy) {
-  if (max < min) throw new Error(`wipe: the longest hold (${max}) is shorter than the shortest (${min})`);
-  return held >= max || (held >= min && !busy);
-}
-
 /** The frame the first brick drops, counted from when he starts to leave: he goes, then the room stands empty. */
 export const wallFrom = t => t.exit + t.empty;
 
-/** The wall's length in frames, from the least it can take to the most, for the settings `t`. */
-export function wallFrames(t, wait) {
-  const fixed = wallFrom(t) + t.cover + t.hold + t.reveal;
-  if (wait === 'fixed') return { min: fixed, max: fixed };
-  return { min: fixed, max: fixed + (t.holdMax - t.hold) * (wait === 'both' ? 2 : 1) };
+/**
+ * The hold over the room that came in and the brick-in after it, for his line about it with `left`
+ * frames still to run. The wall comes down so that he ends no more than `tail` frames after it is
+ * down, and each of the two keeps to its own least and most.
+ */
+export function roomBeats(left, t) {
+  const within = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const hold = within(left - t.tail - t.reveal, t.roomHold, t.roomHoldMax);
+  return { hold, reveal: within(left - t.tail - hold, t.reveal, t.revealMax) };
 }
 
 /** The wall `f` frames into the cover. A brick drops into its course; it shrinks away on the way out. */

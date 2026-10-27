@@ -22,7 +22,7 @@ import { createPlay, tell } from './play.js';
 import { mulberry32 } from './rng.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
 import { createCompositor } from './compositor.js';
-import { P, PATTERNS, KINDS, layWall, drawWipe, holdEnds, wallFrom } from './wipe.js';
+import { P, PATTERNS, KINDS, layWall, drawWipe, wallFrom, roomBeats } from './wipe.js';
 import { createWipeTune } from './wipeTune.js';
 // stage owns the objects, their motion and its envelopes
 import {
@@ -218,10 +218,10 @@ function landMv(){
 // ---- the win: he leaves by the door, a wall goes up over the board, the next room loads behind
 // it and the wall comes down again. The covered board is the crow's moment to talk.
 // Frames at 60 Hz, each phase after the one before; `lay` is one brick's drop into its course.
-// `wait`: 'fixed' holds for `hold` frames; 'end' holds at least `hold` and, while he talks, up to
-// `holdMax`; 'both' also holds the new room under the wall until his line there is done.
-const WIPE = { exit: 12, empty: 30, cover: 40, hold: 50, holdMax: 360, wait: 'fixed', reveal: 30, lay: 8, order: 'same',
-  leave: 'hop', pattern: 'room', kind: 'room' };
+// The wall stays up over the old room until his win line is done. Over the room that comes in it
+// holds and comes down to fit his line about it (`roomBeats`).
+const WIPE = { exit: 12, empty: 30, cover: 40, roomHold: 60, roomHoldMax: 120, reveal: 30, revealMax: 90, tail: 60,
+  lay: 8, order: 'same', leave: 'hop', pattern: 'room', kind: 'room' };
 const FRAME_MS = 1000 / 60;
 let wipe = null, wipeSet = WIPE, lastWipe = null;
 let wall = null;      // laid once a board size and kind: a wall is hundreds of bricks
@@ -230,19 +230,19 @@ let wall = null;      // laid once a board size and kind: a wall is hundreds of 
 function startWipe(replay = false){
   if(!replay) playWinChime();
   const h = ((cur + 1) * 2654435761) >>> 0, s = wipeSet, kinds = Object.keys(KINDS);
-  wipe = { t0: null, replay, loaded: false, set: s, t: { ...s, hold: Infinity }, hold: holdFrom(wallFrom(s) + s.cover, s),
+  wipe = { t0: null, replay, loaded: false, set: s, t: { ...s, hold: Infinity },
     pattern: s.pattern === 'room' ? PATTERNS[h % PATTERNS.length] : s.pattern,
     kind: s.kind === 'room' ? kinds[(h >>> 8) % kinds.length] : s.kind };
   lastWipe = { pattern: wipe.pattern, kind: wipe.kind };
   if(!raf) raf = requestAnimationFrame(tick);
 }
-/** A hold that began at frame `from`. The wall is open (`t.hold` is Infinity) until it closes. */
-const holdFrom = (from, s) => s.wait === 'fixed'
-  ? { from, min: s.hold, max: s.hold, wait: false } : { from, min: s.hold, max: s.holdMax, wait: true };
-/** Ends the hold at frame `f`: the brick-out is timed from here. */
-function closeHold(f){ wipe.t.hold = f - wallFrom(wipe.t) - wipe.t.cover; wipe.hold = null; }
-/** He has a line on screen, or one queued or due. */
-function crowBusy(){ const v = crow.view(now()); return v.talking || v.waiting; }
+/** The room is in behind the wall: he starts his line about it, and the wall holds and comes down to fit it. */
+function roomIn(w){
+  crow.cue(now());
+  const { hold, reveal } = roomBeats((crow.peek().line?.lineLeft ?? 0) / FRAME_MS, w.set);
+  w.loaded = true;
+  w.t.hold = wipeAt() - wallFrom(w.t) - w.t.cover + hold; w.t.reveal = reveal;
+}
 /** Frames since he started to leave; negative while the winning step is still on its way. */
 const wipeAt = () => wipe.t0 === null ? -1 : (performance.now() - wipe.t0) / FRAME_MS;
 function drawWall(ctx, f){
@@ -291,8 +291,6 @@ if(new URLSearchParams(location.search).has('wipe'))
     replay: () => { if(!won && !anim && !wipe) startWipe(true); },
     snap: () => ({ level: LEVELS[cur].id, room: cur, last: lastWipe }),
     send: sendNote,
-    // He starts a wait after the win, and the wipe's clock starts when the winning step lands.
-    crowFrame: TUNING.preWaitMs / FRAME_MS - CELL_MS / FRAME_MS,
   });
 
 // One ticker for all three animations, so a rejection, a slide and the wipe cannot
@@ -306,11 +304,12 @@ function tick(){
   }
   if(anim && !stepMv()){ anim = null; busy = false; }
   if(wipe){
-    if(wipe.t0 === null && !anim) wipe.t0 = performance.now();
-    const f = wipeAt(), t = wipe.t, h = wipe.hold;
-    if(h && holdEnds(f - h.from, h.min, h.max, h.wait && crowBusy())){
-      closeHold(f);
-      if(!wipe.replay && !wipe.loaded){ handOver(true); return; }
+    // He starts his win line as he starts to leave, not after his usual pause.
+    if(wipe.t0 === null && !anim){ wipe.t0 = performance.now(); crow.cue(now()); }
+    const f = wipeAt(), t = wipe.t;
+    if(!wipe.loaded && f >= wallFrom(t) + t.cover && !crow.view(now()).talking){
+      if(!wipe.replay){ handOver(true); return; }
+      roomIn(wipe);
     }
     if(f >= wallFrom(t) + t.cover + t.hold + t.reveal) wipe = null;
   }
@@ -326,8 +325,7 @@ function handOver(keep = false){
   if(cur < LEVELS.length - 1) load(cur + 1); else render();
   // Drawn again before the frame is shown: the load drew the new room with no wall over it.
   if(w){
-    wipe = w; w.loaded = true;
-    if(w.set.wait === 'both'){ w.t.hold = Infinity; w.hold = holdFrom(wipeAt(), w.set); }
+    wipe = w; roomIn(w);
     render(); raf ||= requestAnimationFrame(tick);
   }
 }

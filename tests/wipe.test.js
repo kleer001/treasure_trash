@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { P, PATTERNS, KINDS, layWall, rankWall, brickPhase, holdEnds, wallFrames, wallFrom, holdOf, lineFrames } from '../src/wipe.js';
-import { TUNING } from '../src/crow.js';
+import { P, PATTERNS, KINDS, layWall, rankWall, brickPhase, wallFrom, roomBeats } from '../src/wipe.js';
 
 // A small room and a large one, in canvas pixels at 76 a cell.
 const SIZES = [[5 * 76, 4 * 76], [14 * 76, 11 * 76]];
@@ -74,25 +73,8 @@ test('the cover ends with every brick down, and the reveal ends with every brick
   }
 });
 
-test('a hold ends at its minimum when the crow is quiet, and waits for him up to its maximum', () => {
-  assert.equal(holdEnds(49, 50, 300, false), false);
-  assert.equal(holdEnds(50, 50, 300, false), true);
-  assert.equal(holdEnds(120, 50, 300, true), false);
-  assert.equal(holdEnds(299, 50, 300, true), false);
-  assert.equal(holdEnds(300, 50, 300, true), true);
-  assert.equal(holdEnds(50, 50, 50, true), true, 'a fixed hold ignores him');
-  assert.throws(() => holdEnds(0, 50, 40, false));
-});
-
 test('an open hold keeps every brick up, however long it runs', () => {
   for (const r of [0, 0.5, 1]) assert.equal(brickPhase(r, 10000, { ...T, hold: Infinity }).gone, 0);
-});
-
-test('the wall length is fixed when it does not wait, and runs to the longest hold when it does', () => {
-  const t = { exit: 12, empty: 30, cover: 40, hold: 50, holdMax: 360, reveal: 30 };
-  assert.deepEqual(wallFrames(t, 'fixed'), { min: 162, max: 162 });
-  assert.deepEqual(wallFrames(t, 'end'), { min: 162, max: 472 });
-  assert.deepEqual(wallFrames(t, 'both'), { min: 162, max: 782 });
 });
 
 test('the first brick drops only once he has gone and the room has stood empty', () => {
@@ -111,12 +93,11 @@ test('a wall one screen pixel to an art pixel still leaves no pixel of the board
   }
 });
 
-test('a line stays up as long as it takes to read, then the hold beat', () => {
-  // 38 characters: 38 ms each is 1444 ms, plus 900 ms, is 2344 ms, which is 141 frames.
-  assert.equal(lineFrames('a'.repeat(38), TUNING), 141);
-});
-
-test('a hold made from the settings waits only when the settings say so', () => {
-  assert.deepEqual(holdOf(52, { wait: 'fixed', hold: 50, holdMax: 360 }), { from: 52, min: 50, max: 50, wait: false });
-  assert.deepEqual(holdOf(52, { wait: 'end', hold: 50, holdMax: 360 }), { from: 52, min: 50, max: 360, wait: true });
+test('over the room that comes in, the wall holds and comes down so that he ends at most a tail after it', () => {
+  const t = { roomHold: 60, roomHoldMax: 120, reveal: 30, revealMax: 90, tail: 60 };
+  assert.deepEqual(roomBeats(0, t), { hold: 60, reveal: 30 }, 'quiet: the least of each');
+  assert.deepEqual(roomBeats(100, t), { hold: 60, reveal: 30 }, 'a short line ends inside the tail');
+  assert.deepEqual(roomBeats(179, t), { hold: 89, reveal: 30 }, 'the hold stretches first');
+  assert.deepEqual(roomBeats(250, t), { hold: 120, reveal: 70 }, 'then the brick-in slows');
+  assert.deepEqual(roomBeats(500, t), { hold: 120, reveal: 90 }, 'a long line runs on over the open room');
 });
