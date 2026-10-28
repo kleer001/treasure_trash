@@ -226,6 +226,14 @@ show the failure, and keep going.
 
 The one hard stop is **release** — `RELEASE-CHECKLIST.md`. Nothing before it blocks.
 
+## Sandboxes are disposable
+
+**Do not reuse a sandbox page.** A sandbox page is disposable. A new thing to view or edit gets a
+new page. Do not add a tab, a scene or a control for a different job to a page that exists.
+
+**One focus per page.** Each sandbox page shows or edits one specific thing. It holds only what
+that focus needs. Add no extra panels, pickers, rooms or features.
+
 ## Code conventions
 
 These govern how code is written. They are not design arguments.
