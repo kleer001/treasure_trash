@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Grease and tar</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 10px; width: 460px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 150px 1fr 64px; gap: 10px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  label.col { grid-template-columns: 150px 64px; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  button.on { background: #1a1a1a; color: #fff; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <div class="row"><span>material</span><button id="grease">grease</button><button id="tar">tar</button></div>
+  <div class="row"><span>seed</span><input id="seed" type="number" step="1" style="width:80px;font:inherit"><button id="newseed">New seed</button></div>
+  <div id="sliders"></div>
+  <div id="colours"></div>
+  <div class="row"><button id="reset">Reset this material</button></div>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <textarea id="note" placeholder="Note on the grease or tar"></textarea>
+  <div class="row"><button id="send">Send note and settings</button><span id="status" class="muted"></span></div>
+</div>
+
+<script type="module">
+import { LOOKS, slickCell } from '../../src/art/slick.js';
+import { ACTIONS, draw as drawRaccoon } from '../../src/art/cartoon.js';
+import { VIEW } from '../../src/art/press.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+
+const KEY = 'trash-slick', $ = id => document.getElementById(id);
+// The floor: a wall row, then runs of slick — three in a row, an L, a square of four, and two
+// lone cells — with the raccoon for scale.
+const MAP = [
+  '##########',
+  '..........',
+  '.sss..s.ss',
+  '......s.ss',
+  '.s....ss..',
+  '..........',
+];
+const COLS = MAP[0].length, ROWS = MAP.length;
+const SLIDERS = [['lobes', 'lobes a cell', 1, 6, 1], ['size', 'lobe size px', 2, 11, 0.5], ['lump', 'lumpiness', 0, 1, 0.05],
+  ['fill', 'edge level', 0.4, 3, 0.05], ['shine', 'glint amount', 0, 1, 0.05], ['sheen', 'sheen amount', 0, 1, 0.02], ['band', 'sheen band width', 1, 14, 0.5]];
+const COLOURS = [['body', 'body'], ['edge', 'edge'], ['glint', 'glint'], ['h0', 'sheen 1'], ['h1', 'sheen 2'], ['h2', 'sheen 3']];
+
+const fresh = m => ({ ...LOOKS[m], hues: [...LOOKS[m].hues] });
+let s = { mat: 'grease', zoom: 6, grease: fresh('grease'), tar: fresh('tar') };
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+  for (const k of ['mat', 'zoom']) if (saved[k] !== undefined) s[k] = saved[k];
+  for (const m of ['grease', 'tar']) Object.assign(s[m], saved[m] ?? {});
+} catch {}
+const look = () => s[s.mat];
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+
+$('sliders').innerHTML = SLIDERS.map(([k, name, lo, hi, st]) =>
+  `<label>${name} <input id="${k}" type="range" min="${lo}" max="${hi}" step="${st}"><input id="${k}n" type="number" step="${st}"></label>`).join('');
+$('colours').innerHTML = `<div class="row">` + COLOURS.map(([k, name]) =>
+  `<label class="col">${name} <input id="${k}" type="color"></label>`).join('') + `</div>`;
+
+const crop = ({ px }) => {
+  const x0 = Math.min(...px.map(p => p[0])), y0 = Math.min(...px.map(p => p[1]));
+  return { w: Math.max(...px.map(p => p[0])) - x0 + 1, h: Math.max(...px.map(p => p[1])) - y0 + 1, px: px.map(([x, y, c]) => [x - x0, y - y0, c]) };
+};
+const RACCOON = crop(drawRaccoon(ACTIONS[VIEW.r].crawl[0]));
+
+function draw() {
+  const L = look();
+  for (const [k] of SLIDERS) { $(k).value = L[k]; $(k + 'n').value = L[k]; }
+  for (const [k] of COLOURS) $(k).value = k[0] === 'h' ? L.hues[+k[1]] : L[k];
+  $('seed').value = L.seed;
+  for (const m of ['grease', 'tar']) $(m).className = s.mat === m ? 'on' : '';
+  $('zoom').textContent = `${s.zoom}×`;
+  const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+  const g = src.getContext('2d');
+  g.fillStyle = FLOOR; g.fillRect(0, 0, src.width, src.height);
+  g.fillStyle = SEAM;
+  for (let k = 1; k <= COLS; k++) g.fillRect(k * C - 1, C, 1, src.height);
+  for (let k = 1; k <= ROWS; k++) g.fillRect(0, k * C - 1, src.width, 1);
+  for (let x = 0; x < COLS; x++) wallTile(g, x, 0, C);
+  const has = (x, y) => MAP[y]?.[x] === 's';
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (has(x, y))
+    for (const [a, b, c] of slickCell(x, y, has, L)) { g.fillStyle = c; g.fillRect(x * C + a, y * C + b, 1, 1); }
+  const rx = 4 * C + Math.floor((C - RACCOON.w) / 2), ry = 3 * C - RACCOON.h - 1;
+  for (const [a, b, c] of RACCOON.px) { g.fillStyle = c; g.fillRect(rx + a, ry + b, 1, 1); }
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+for (const [k] of SLIDERS) {
+  $(k).oninput = () => { look()[k] = Number($(k).value); save(); draw(); };
+  $(k + 'n').onchange = () => { look()[k] = Number($(k + 'n').value); save(); draw(); };
+}
+for (const [k] of COLOURS) $(k).oninput = () => {
+  if (k[0] === 'h') look().hues[+k[1]] = $(k).value; else look()[k] = $(k).value;
+  save(); draw();
+};
+$('seed').onchange = () => { look().seed = Math.round(Number($('seed').value)); save(); draw(); };
+$('newseed').onclick = () => { look().seed = Math.floor(Math.random() * 100000); save(); draw(); };
+for (const m of ['grease', 'tar']) $(m).onclick = () => { s.mat = m; save(); draw(); };
+$('reset').onclick = () => { s[s.mat] = fresh(s.mat); save(); draw(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(16, s.zoom + 1); save(); draw(); };
+$('send').onclick = () => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'slick', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `sent ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not sent: ${e.message}`; });
+draw();
+</script>
+</body>
+</html>

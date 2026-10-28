@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Barrow</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif; }
+  .row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .views { display: grid; grid-template-columns: repeat(2, max-content); gap: 16px 24px; }
+  figure { margin: 0; display: grid; gap: 4px; }
+  figcaption { font-size: 12px; color: #6b6b66; }
+  canvas { display: block; image-rendering: pixelated; }
+  button { font: inherit; padding: 3px 10px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 600px; min-height: 5em; display: block; margin: 12px 0 6px; }
+  .muted { color: #6b6b66; font-size: 12px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+<div class="views" id="views"></div>
+<textarea id="note" placeholder="Note on the barrow"></textarea>
+<div class="row"><button id="send">Send note</button><span id="status" class="muted"></span></div>
+
+<script type="module">
+import { BARROW } from '../../src/art/barrow.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+
+const KEY = 'trash-barrow', COLS = 3;
+const $ = id => document.getElementById(id);
+let zoom = 6;
+try { zoom = JSON.parse(localStorage.getItem(KEY) ?? '{}').zoom ?? zoom; } catch {}
+
+// Each facing on the middle of three floor cells, so its overhang shows, beside the render it was
+// drawn over at the same scale.
+const ref = Object.fromEntries('udlr'.split('').map(f => {
+  const img = new Image(); img.src = `../../tmp/barrow/small-${f}.png`; img.onload = draw; return [f, img];
+}));
+function cellStrip(face) {
+  const c = document.createElement('canvas'); c.width = COLS * C; c.height = C + 8;
+  const ctx = c.getContext('2d'), top = 8;
+  ctx.fillStyle = FLOOR; ctx.fillRect(0, top, COLS * C, C);
+  ctx.fillStyle = SEAM;
+  for (let k = 1; k <= COLS; k++) ctx.fillRect(k * C - 1, top, 1, C);
+  ctx.fillRect(0, top + C - 1, COLS * C, 1);
+  const s = BARROW[face], x0 = C + Math.floor((C - s.w) / 2), y0 = top + C - s.h - 1;
+  for (const [x, y, col] of s.px) { ctx.fillStyle = col; ctx.fillRect(x0 + x, y0 + y, 1, 1); }
+  return c;
+}
+function big(src, w, h) {
+  const c = document.createElement('canvas'); c.width = w * zoom; c.height = h * zoom;
+  const ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, 0, 0, c.width, c.height);
+  return c;
+}
+const figure = (label, c) => { const f = document.createElement('figure'), cap = document.createElement('figcaption'); cap.textContent = label; f.append(c, cap); return f; };
+
+function draw() {
+  $('zoom').textContent = `${zoom}×`;
+  $('views').replaceChildren(...'udlr'.split('').flatMap(face => {
+    const strip = cellStrip(face), r = ref[face];
+    const cells = [figure(`facing ${face}`, big(strip, strip.width, strip.height))];
+    cells.push(r.complete && r.naturalWidth ? figure('render', big(r, r.naturalWidth, r.naturalHeight)) : figure('render', document.createElement('canvas')));
+    const pair = document.createElement('div'); pair.className = 'row'; pair.append(...cells);
+    return [pair];
+  }));
+}
+const setZoom = z => { zoom = Math.max(1, Math.min(12, z)); try { localStorage.setItem(KEY, JSON.stringify({ zoom })); } catch {} draw(); };
+$('zout').onclick = () => setZoom(zoom - 1);
+$('zin').onclick = () => setZoom(zoom + 1);
+
+$('send').onclick = () => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'barrow', note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `sent ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not sent: ${e.message}`; });
+
+draw();
+</script>
+</body>
+</html>

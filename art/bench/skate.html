@@ -60,14 +60,15 @@
   </div>
 </div>
 <script type="module">
+import { embed, setPress, sceneMs, pressLength, raccoon, raccoonOver, raccoonSprite, blit } from './trash/embed.js';
 import { explain, cell, isCart, NONE, TRASH, BAG, CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY } from '../../src/rules.js';
 import { toState } from '../../src/format.js';
 import { decorAfter } from '../../src/stage.js';
-import { createTrash, pileLayout, drawPile } from './trash/pile.js';
-import { createFlight, C } from './trash/flight.js';
-import * as CAN from './trash/can.js';
-import * as BOX from './trash/box.js';
-import { deck, standRow, VIEWS } from './trash/skate.js';
+import { createTrash, pileLayout, drawPile } from '../../src/art/pile.js';
+import { createFlight, C } from '../../src/art/flight.js';
+import * as CAN from '../../src/art/can.js';
+import * as BOX from '../../src/art/box.js';
+import { deck, standRow, VIEWS } from '../../src/art/skate.js';
 import { load, save as store } from './trash/settings.js';
 
 const KEY = 'trash-skate';
@@ -87,7 +88,7 @@ const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
 const REACH = 5;                                   // px the raccoon leans into the deck as he shoves
 const SEED = 7;                                    // every pile and every box's heap on this page is laid from it
 
-const [D, A, LOOK] = await Promise.all(['trash/items.json', 'tear/assets.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const [D, A, LOOK] = await Promise.all(['../../src/art/items.json', '../../src/art/assets.json', '../../src/art/look.json'].map(f => fetch(f).then(r => r.json())));
 const ui = load(KEY, { dir: 'r', shove: 'roll', room: 'walled', stopper: 'none', view: 'end', near: 'none', far: 'bag', path: 'trash',
   playing: true, speed: 100, zoom: 4, fps: 30, cell: 120, ease: 1, bump: 2, bumpMs: 160, spin: 2, scoot: 260, slop: 320, contact: 100, hold: 700 });
 const save = () => store(KEY, ui);
@@ -277,8 +278,9 @@ function draw(ctx, B, box, turn, items, [rx, ry]) {
   }
   F.walls(ctx, B);
   standing.push([box[1] + C - 2 - 0.25, () => put(ctx, deck(B.lie, ui.view, turn), ...box)]);
-  standing.push([ry + A.raccoon.h + 0.5, () => put(ctx, A.raccoon.px, rx, ry)]);
+  standing.push([ry + A.raccoon.h + 0.5, () => raccoon(ctx, B.s.rac.x, B.s.rac.y, () => put(ctx, A.raccoon.px, rx, ry))]);
   standing.sort((a, b) => a[0] - b[0]).forEach(([, f]) => f());
+  raccoonOver(ctx);
 }
 
 const boxOf = cells => [Math.min(...cells.map(c => c[0])) * C, Math.min(...cells.map(c => c[1])) * C];
@@ -401,6 +403,17 @@ document.getElementById('fast').onclick = () => { ui.speed = Math.min(200, ui.sp
 document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); save(); bar(); shown = -1; show(); };
 document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zoom + 1); save(); bar(); shown = -1; show(); };
 window.__skate = { ui, build, get B() { return B; }, get TM() { return TM; }, frameAt: (ctx, t) => frameAt(ctx, B, t), still: (ctx, s, decor) => still(ctx, B, s, decor) };
+// A shove that leaves him where he stands is drawn as one held fast: the cartoon has no push without a step.
+const steps = () => B.r.ok && (B.r.next.rac.x !== B.s.rac.x || B.r.next.rac.y !== B.s.rac.y);
+embed(view, {
+  set: o => { Object.assign(ui, o, { playing: false }); B = setup(); setPress(ui.dir, steps() ? 'push' : 'stuck'); build(); },
+  length: () => pressLength(B.r.ok ? TM.end + ui.hold : 0),
+  show: g => {
+    const c = canvasOf(W), t = sceneMs(g);
+    if (B.r.ok) frameAt(c.getContext('2d'), B, Math.min(TM.end, t)); else still(c.getContext('2d'), B, B.s, null);
+    blit(view, c, ui.zoom);
+  },
+});
 build(); requestAnimationFrame(tick);
 </script>
 </body>

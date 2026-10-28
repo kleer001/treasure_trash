@@ -53,14 +53,14 @@
 <canvas id="timeline"></canvas>
 <script type="module">
 import { BAG } from '../../src/rules.js';
-import { createTrash } from './trash/pile.js';
-import { createFlight, TEAR, FLIGHT_SLIDERS } from './trash/flight.js';
+import { createTrash } from '../../src/art/pile.js';
+import { createFlight, TEAR, FLIGHT_SLIDERS } from '../../src/art/flight.js';
 import { load, loadSpread, save as store, SPREAD, FLIGHT, flightDefaults, SHADE, shadowDefaults } from './trash/settings.js';
 
 const CLASS_INK = { hero: '#2f3b5c', mid: '#5b73a8', bit: '#9fb2d8' };
 const SLIDERS = FLIGHT_SLIDERS;
 
-const [A, D, LOOK] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const [A, D, LOOK] = await Promise.all(['../../src/art/assets.json', '../../src/art/items.json', '../../src/art/look.json'].map(f => fetch(f).then(r => r.json())));
 const ui = load(FLIGHT, flightDefaults(LOOK));
 const save = () => store(FLIGHT, ui);
 const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
@@ -178,7 +178,7 @@ function bar() {
   const e = S.edges;
   document.getElementById('piles-read').textContent = `Piles: B from the Trash Spread page — ${e.min}–${e.max} bits a cell, blend ${e.knit} px, spill ${e.spill}%, ` +
     `fringe power ${(e.falloff / 10).toFixed(1)}, ragged ${e.rough} px, jitter ${e.jitter}%, seed ${S.seed}, accent hues per ${S.hues}, ` +
-    `outline round ${S.wrap === 'spill' ? 'the whole spill' : 'each cell'}. Look: trash/look.json. Shadows in the air: the Shadow Bench.`;
+    `outline round ${S.wrap === 'spill' ? 'the whole spill' : 'each cell'}. Look: src/art/look.json. Shadows in the air: the Shadow Bench.`;
 }
 const step = j => { ui.playing = false; clock = (Math.max(0, Math.min(FRAMES - 1, j)) + 0.5) * 1000 / ui.fps; save(); bar(); show(); };
 document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => { ui.dir = b.dataset.dir; save(); build(); });

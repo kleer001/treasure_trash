@@ -1,0 +1,15 @@
+:pack   Treasure Trash — Broom (art check, never shipped)
+
+:level  BR
+:name   Broom
+:teach  it sweeps the whole line ahead
+:par    5
+:solve  ddrrr
+:grid
+#########
+#-------#
+#-r-@-r-#
+#-------#
+#-r----E#
+#########
+:end

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chair stem</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 420px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 150px 1fr 64px; gap: 10px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <label>stem rows <input id="stem" type="range" min="0" max="12" step="1"><input id="stemn" type="number" step="1"></label>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <textarea id="note" placeholder="Note on the chair"></textarea>
+  <div class="row"><button id="send">Send note and settings</button><span id="status" class="muted"></span></div>
+</div>
+
+<script type="module">
+import { chair, STEM_ROWS } from '../../src/art/chair.js';
+import { ACTIONS, draw as drawRaccoon, mirror } from '../../src/art/cartoon.js';
+import { VIEW } from '../../src/art/press.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+
+const KEY = 'trash-chair', COLS = 5, ROWS = 3;
+const $ = id => document.getElementById(id);
+let s = { stem: STEM_ROWS, zoom: 8 };
+try { Object.assign(s, JSON.parse(localStorage.getItem(KEY) ?? '{}')); } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+
+const crop = ({ px }) => {
+  const x0 = Math.min(...px.map(p => p[0])), y0 = Math.min(...px.map(p => p[1]));
+  return { w: Math.max(...px.map(p => p[0])) - x0 + 1, h: Math.max(...px.map(p => p[1])) - y0 + 1, px: px.map(([x, y, c]) => [x - x0, y - y0, c]) };
+};
+const sitting = d => crop(d === 'l' ? mirror(drawRaccoon(ACTIONS[VIEW[d]].crawl[0])) : drawRaccoon(ACTIONS[VIEW[d]].crawl[0]));
+const RACCOON = { d: sitting('d'), r: sitting('r') };
+
+// A wall row over two rows of floor: the chair in the middle of the bottom row, standing as the
+// game stands it, with the raccoon facing right on its left and facing down on its right.
+function draw() {
+  $('stem').value = s.stem; $('stemn').value = s.stem; $('zoom').textContent = `${s.zoom}×`;
+  const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+  const g = src.getContext('2d');
+  g.fillStyle = FLOOR; g.fillRect(0, 0, src.width, src.height);
+  g.fillStyle = SEAM;
+  for (let k = 1; k <= COLS; k++) g.fillRect(k * C - 1, C, 1, src.height);
+  for (let k = 1; k <= ROWS; k++) g.fillRect(0, k * C - 1, src.width, 1);
+  for (let x = 0; x < COLS; x++) wallTile(g, x, 0, C);
+  const stand = (spr, col) => {
+    const x0 = col * C + Math.floor((C - spr.w) / 2), y0 = ROWS * C - spr.h - 1;
+    for (const [x, y, c] of spr.px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); }
+  };
+  stand(RACCOON.r, 1); stand(chair(s.stem), 2); stand(RACCOON.d, 3);
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+$('stem').oninput = () => { s.stem = Number($('stem').value); save(); draw(); };
+$('stemn').onchange = () => { s.stem = Math.max(0, Math.round(Number($('stemn').value))); save(); draw(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(16, s.zoom + 1); save(); draw(); };
+$('send').onclick = () => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'chair', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `sent ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not sent: ${e.message}`; });
+draw();
+</script>
+</body>
+</html>

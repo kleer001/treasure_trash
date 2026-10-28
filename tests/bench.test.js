@@ -13,8 +13,9 @@ import { parseLevelPack, parseLurd, toState } from '../src/format.js';
 import { applyAction, isWon } from '../src/rules.js';
 import { root } from '../tools/packs.mjs';
 
+// The matrix and the gallery are pictures of one press each, not rooms to win.
 const benches = readdirSync(resolve(root, 'levels'))
-  .filter(f => f.endsWith('.tt') && !/^act\d+\.tt$/.test(f) && f !== 'matrix.tt');
+  .filter(f => f.endsWith('.tt') && !/^act\d+\.tt$/.test(f) && !['matrix.tt', 'gallery.tt'].includes(f));
 
 test('every bench pack still plays the solution it declares', () => {
   assert.ok(benches.length, 'no bench packs found');

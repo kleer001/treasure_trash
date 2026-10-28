@@ -2,7 +2,7 @@
 // into its neighbour where that one is wet, its ripples placed from the cell's own hash. Trash
 // that lands in it packs it into a crossing of the same outline, every piece soaked, and the
 // crossing breaks up into the open water it meets.
-import { mulberry32 } from '../../../src/rng.js';
+import { mulberry32 } from '../rng.js';
 import { hash, noise } from './spread.js';
 import { chooser } from './pile.js';
 

@@ -3,7 +3,7 @@
 // from the hip down to where the frame puts the foot; facing left is the mirror. From the front
 // and the back every frame is a list of whole parts and where each goes, in drawing order.
 
-import { ART } from './raccoon.js';
+import { ART } from '../../../src/art/raccoon.js';
 
 export const W = 44, H = 18;
 const GROUND = H - 1;

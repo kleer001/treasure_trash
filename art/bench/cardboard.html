@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cardboard</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif; }
+  .row { display: flex; gap: 16px; align-items: flex-end; margin-bottom: 12px; }
+  figure { margin: 0; display: grid; gap: 4px; }
+  figcaption { font-size: 12px; color: #6b6b66; }
+  canvas { display: block; image-rendering: pixelated; }
+  button { font: inherit; padding: 3px 10px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 600px; min-height: 5em; display: block; margin: 12px 0 6px; }
+  .muted { color: #6b6b66; font-size: 12px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+<div class="row" id="views"></div>
+<textarea id="note" placeholder="Note on the cardboard"></textarea>
+<div class="row"><button id="send">Send note</button><span id="status" class="muted"></span></div>
+
+<script type="module">
+import { CARDBOARD } from '../../src/art/cardboard.js';
+import { DRAFTS } from './draft/pieces.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+
+const KEY = 'trash-cardboard';
+const $ = id => document.getElementById(id);
+let zoom = 8;
+try { zoom = JSON.parse(localStorage.getItem(KEY) ?? '{}').zoom ?? zoom; } catch {}
+
+const old = DRAFTS.find(d => d.id === 'cardboard-A');
+const BEFORE = { w: old.rows[0].length, h: old.rows.length,
+  px: old.rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, old.palette[c]]]))) };
+
+// One floor cell, the sheet lying on it from the cell's top-left, as the game lays it.
+function cell(s) {
+  const src = document.createElement('canvas'); src.width = C; src.height = C;
+  const ctx = src.getContext('2d');
+  ctx.fillStyle = FLOOR; ctx.fillRect(0, 0, C, C);
+  ctx.fillStyle = SEAM; ctx.fillRect(C - 1, 0, 1, C); ctx.fillRect(0, C - 1, C, 1);
+  const x0 = 0, y0 = 0;
+  for (const [x, y, col] of s.px) { ctx.fillStyle = col; ctx.fillRect(x0 + x, y0 + y, 1, 1); }
+  const out = document.createElement('canvas'); out.width = C * zoom; out.height = C * zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+  return out;
+}
+const figure = (label, c) => { const f = document.createElement('figure'), cap = document.createElement('figcaption'); cap.textContent = label; f.append(c, cap); return f; };
+function draw() {
+  $('zoom').textContent = `${zoom}×`;
+  $('views').replaceChildren(figure('before: cardboard A', cell(BEFORE)), figure('after', cell(CARDBOARD)));
+}
+const setZoom = z => { zoom = Math.max(1, Math.min(16, z)); try { localStorage.setItem(KEY, JSON.stringify({ zoom })); } catch {} draw(); };
+$('zout').onclick = () => setZoom(zoom - 1);
+$('zin').onclick = () => setZoom(zoom + 1);
+$('send').onclick = () => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'cardboard', note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `sent ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not sent: ${e.message}`; });
+draw();
+</script>
+</body>
+</html>

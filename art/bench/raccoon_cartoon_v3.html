@@ -69,13 +69,15 @@
 <h2>Every drawing of one press</h2>
 <div id="strip-wrap"><canvas id="strip"></canvas></div>
 <script type="module">
-import { explain, cell, CAN_EMPTY, DIRS } from '../../src/rules.js';
+import { explain, cell, DIRS } from '../../src/rules.js';
 import { toState } from '../../src/format.js';
 import { mulberry32 } from '../../src/rng.js';
-import { C, FLOOR, SEAM } from './trash/flight.js';
-import { wallTile } from './trash/room.js';
-import { front as CAN } from './trash/can.js';
-import { ACTIONS, RECOVERIES, draw, mirror, turn } from './trash/cartoon.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+import { createTrash } from '../../src/art/pile.js';
+import { createStills } from '../../src/art/stills.js';
+import { EMBED, embed } from './trash/embed.js';
+import { ACTIONS, RECOVERIES, draw, mirror, turn } from '../../src/art/cartoon.js';
 import { load, save as store } from './trash/settings.js';
 
 const KEY = 'trash-cartoon-v3';
@@ -90,9 +92,13 @@ const TOUCH = /^(slam|drive|thud|hold|strain|tremble)/;
 const BEAT = { rest: 'R', windup: 'W', move: 'M', tail: 'T', idle: 'I', turn: '↻' };
 const authored = Object.fromEntries(Object.entries(ACTIONS).flatMap(([v, as]) => Object.entries(as).map(([a, fs]) => [`${v} ${a}`, fs.map(f => f.fr)])));
 const ui = load(KEY, { act: 'crawl', dir: 'r', from: 'r', presses: 1, interval: 12, recovery: 'look', seed: 1,
-  playing: true, speed: 100, zoom: 5, onion: false, holds: structuredClone(authored) });
+  playing: true, speed: 100, zoom: 5, onion: false, holds: structuredClone(authored), thing: 'c', stop: 0 });
+// What he pushes, and how many cells past it a wall stands for a push: a thing that rolls goes on
+// until something stops it.
+const [A, D, LOOK, O] = await Promise.all(['../../src/art/assets.json', '../../src/art/items.json', '../../src/art/look.json', '../../src/art/objects.json'].map(f => fetch(f).then(r => r.json())));
+const stillOf = createStills({ T: createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals }), A, O, LOOK });
 for (const k in authored) if (ui.holds[k]?.length !== authored[k].length) ui.holds[k] = [...authored[k]];
-const save = () => store(KEY, ui);
+const save = () => EMBED || store(KEY, ui);
 const view = () => VIEW[ui.dir], timing = () => `${view()} ${ui.act}`;
 /** The frames of the chosen action, each with its index for its hold. */
 const full = () => ACTIONS[view()][ui.act].map((f, i) => ({ ...f, i }));
@@ -106,8 +112,9 @@ const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - 
 /** The room, the board before the run, and the board after each press. */
 function setup() {
   const [vx, vy] = DIRS[ui.dir], [sx, sy] = START[ui.dir], put = { [`${sx},${sy}`]: '@', '0,0': 'E' };
-  if (ui.act === 'push' || ui.act === 'stuck') put[`${sx + vx},${sy + vy}`] = 'c';
+  if (ui.act === 'push' || ui.act === 'stuck') put[`${sx + vx},${sy + vy}`] = ui.thing;
   if (ui.act === 'stuck') put[`${sx + 2 * vx},${sy + 2 * vy}`] = '#';
+  if (ui.act === 'push' && ui.stop) put[`${sx + (1 + ui.stop) * vx},${sy + (1 + ui.stop) * vy}`] = '#';
   const grid = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => put[`${x},${y}`] ?? '-').join(''));
   const states = [toState({ id: 'cartoon', grid })], results = [];
   for (let k = 0; ui.act !== 'idle' && k < ui.presses; k++) {
@@ -168,16 +175,16 @@ function ground(ctx, s) {
 }
 /** Sprites `[{px, x, y, h, rac}]` drawn nearest last: the lower foot in front, the raccoon on a tie. */
 const sprites = (ctx, list) => { for (const p of list.sort((a, b) => (a.y + a.h) - (b.y + b.h) || a.rac - b.rac)) drawPx(ctx, p.px, p.x, p.y); };
-const cans = s => { const out = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (cell(s, x, y).o === CAN_EMPTY) out.push([x, y]); return out; };
+const things = s => { const out = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const t = stillOf(cell(s, x, y).o, x, y); if (t) out.push([x, y, t]); } return out; };
 const spriteOf = (seg, o) => { const spr = draw(seg.f, o); return seg.mirrored ? mirror(spr) : spr; };
 
 /** Segment `seg` laid on the board before the run: every can, the shoved one moved along, and the
  *  raccoon. `o` says whether to draw the dust and the sparks. */
 function layout(seg, o = { dust: seg.first, fx: true }) {
   const s = B.states[0], spr = spriteOf(seg, o), [x0, y0] = at(spr, s.rac.x, s.rac.y), [vx, vy] = B.v, list = [];
-  for (const [x, y] of cans(s)) {
-    const [cx, cy] = at(CAN, x, y), go = x === B.shoved[0] && y === B.shoved[1] ? seg.thing + (seg.f.thing ?? 0) : 0;
-    list.push({ px: CAN.px, x: cx + vx * go, y: cy + vy * go, h: CAN.h, rac: 0 });
+  for (const [x, y, t] of things(s)) {
+    const go = x === B.shoved[0] && y === B.shoved[1] ? seg.thing + (seg.f.thing ?? 0) : 0;
+    list.push({ px: t.px, x: t.x + vx * go, y: t.y + vy * go, h: t.h, rac: 0 });
   }
   const d = seg.base + seg.f.dx;
   list.push({ px: spr.px, x: x0 + vx * d, y: y0 + vy * d, h: spr.h, rac: 1 });
@@ -193,7 +200,7 @@ function paint(ctx, seg) {
 /** A still of board `s`: its cans, and the raccoon sitting, facing `dir`. */
 function still(ctx, s, dir) {
   ground(ctx, s);
-  const list = cans(s).map(([x, y]) => { const [cx, cy] = at(CAN, x, y); return { px: CAN.px, x: cx, y: cy, h: CAN.h, rac: 0 }; });
+  const list = things(s).map(([, , t]) => ({ px: t.px, x: t.x, y: t.y, h: t.h, rac: 0 }));
   const spr = spriteOf({ f: sitOf(dir, 0), mirrored: dir === 'l' }), [rx, ry] = at(spr, s.rac.x, s.rac.y);
   list.push({ px: spr.px, x: rx, y: ry, h: spr.h, rac: 1 });
   sprites(ctx, list);
@@ -354,6 +361,12 @@ document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zo
 document.getElementById('reset').onclick = () => { ui.holds[timing()] = [...authored[timing()]]; save(); build(); };
 build();
 requestAnimationFrame(tick);
+embed(canvas, {
+  set: o => { Object.assign(ui, { presses: 1, from: o.dir ?? ui.dir, playing: false, stop: 0 }, o); clock = 0; build(); },
+  length: () => END,
+  show: g => { clock = g; show(); },
+  checks: () => [...document.querySelectorAll('.check')].map(e => e.textContent).filter(Boolean),
+});
 window.__cartoon = {
   checks: () => [...document.querySelectorAll('.check')].map(e => e.textContent).filter(Boolean),
   pick: o => { Object.assign(ui, o); clock = 0; build(); },

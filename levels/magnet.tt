@@ -1,0 +1,15 @@
+:pack   Treasure Trash — Magnet (art check, never shipped)
+
+:level  MG
+:name   Magnet
+:teach  it pulls the way it opens
+:par    4
+:solve  drrr
+:grid
+#########
+#-f---l-#
+#-------#
+#-p-@-q-#
+#------E#
+#########
+:end

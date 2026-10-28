@@ -1,0 +1,23 @@
+:pack   Treasure Trash — Barrow in hand (art check, never shipped)
+
+:level  BA
+:name   Barrow in a barrow
+:teach  the same barrow, riding in another
+:par    5
+:solve  ddrrr
+:grid
+#########
+#-^---v-#
+#---@---#
+#-<---->#
+#------E#
+#########
+:end
+:cart
+---------
+--u---d--
+---------
+--l----r-
+---------
+---------
+:end

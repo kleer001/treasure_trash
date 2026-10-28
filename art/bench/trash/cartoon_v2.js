@@ -8,7 +8,7 @@
 // it. `move` is the travel the board makes in one game step. `tail` is the settle back to the sit,
 // and the next press cuts it. Holds are whole 60 Hz ticks where they can be (17, 33, 50, 67 ms).
 
-import { ART } from './raccoon.js';
+import { ART } from '../../../src/art/raccoon.js';
 
 export const W = 44, H = 18;
 const GROUND = H - 1;

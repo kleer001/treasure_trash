@@ -1,0 +1,25 @@
+:pack   Treasure Trash — Grease and tar (art check, never shipped)
+
+:level  GT
+:name   Grease and tar
+:teach  a slick of each
+:par    6
+:solve  rrddrr
+:grid
+##########
+#--------#
+#--------#
+#---@----#
+#--------#
+#-------E#
+##########
+:end
+:water
+----------
+-%%%--TT*-
+------TT--
+-%--------
+-%%-**TTT-
+----------
+----------
+:end

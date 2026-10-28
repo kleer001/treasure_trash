@@ -1,0 +1,18 @@
+:pack   Treasure Trash — Filing cabinet (art check, never shipped)
+
+:level  CB
+:name   Filing cabinet
+:teach  its drawer slides out the way it faces
+:par    9
+:solve  rrrdddrrr
+:grid
+##########
+#--a--e--#
+#-II-----#
+#-----D--#
+#-@---D-m#
+#--JJ----#
+#-L---k--#
+#-L-----E#
+##########
+:end

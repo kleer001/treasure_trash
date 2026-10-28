@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Piece drafts</title>
+<style>
+  :root { --ink: #1a1a1a; --bg: #f7f6f3; --card: #ffffff; --line: #d8d8d4; --muted: #6b6b66; --bad: #b3261e; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 10px; }
+  h2 { font-size: 20px; margin: 0; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tab { font: inherit; font-size: 13px; padding: 5px 10px; border: 1px solid var(--line); border-bottom: none;
+    border-radius: 6px 6px 0 0; background: var(--tint); color: var(--ink); cursor: pointer; opacity: .75; }
+  .tab[aria-selected="true"] { opacity: 1; font-weight: 700; border-color: var(--edge); box-shadow: inset 0 3px 0 var(--edge); }
+  .tab .mark { font-size: 11px; color: var(--muted); margin-left: 4px; }
+  .page { background: var(--tint); border: 2px solid var(--edge); border-radius: 0 6px 6px 6px; padding: 14px; display: grid; gap: 14px; }
+  .head { display: grid; grid-template-columns: auto 1fr; gap: 10px 20px; align-items: start; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 12px; }
+  .vector { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .notes { display: grid; gap: 4px; align-content: start; }
+  .notes textarea { min-height: 7em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(620px, 1fr)); gap: 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; display: grid; gap: 8px; align-content: start; }
+  .id { font: 700 22px/1.1 ui-monospace, Menlo, Consolas, monospace; }
+  .meta { color: var(--muted); font-size: 12px; }
+  .shows { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  figure { margin: 0; display: grid; gap: 3px; }
+  figcaption { font-size: 11px; color: var(--muted); }
+  canvas { display: block; image-rendering: pixelated; background: #fff; }
+  .verdicts { display: flex; gap: 4px; align-items: center; }
+  button.v { font: inherit; padding: 3px 10px; border: 1px solid var(--ink); background: #fff; cursor: pointer; }
+  button.v[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; resize: vertical; }
+  .status { font-size: 12px; min-height: 1.2em; color: var(--muted); }
+  .status.bad { color: var(--bad); font-weight: 600; }
+  .fault { color: var(--bad); font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Piece drafts: the pieces with no pixel art</h1>
+<p class="fault" id="fault"></p>
+<nav class="tabs" id="tabs" role="tablist"></nav>
+<main class="page" id="page"></main>
+
+<script type="module">
+import { DRAFTS } from './draft/pieces.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+import * as CAN from '../../src/art/can.js';
+import * as BOX from '../../src/art/box.js';
+import { ACTIONS, draw, mirror } from '../../src/art/cartoon.js';
+import { VIEW } from '../../src/art/press.js';
+import { createSprites } from '../../src/sprites.js';
+
+const KEY = 'trash-draft', NOTES = 'trash-draft-notes', TAB = 'trash-draft-tab';
+const COLS = 8, ROWS = 3, ROOM_SCALE = 3, VECTOR_CELL = 76;
+const FACES = ['u', 'd', 'l', 'r'];
+const fault = document.getElementById('fault');
+
+const load = k => { try { return JSON.parse(localStorage.getItem(k) ?? '{}'); } catch (e) { fault.textContent = `Saved state not read: ${e.message}`; return {}; } };
+const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { fault.textContent = `Saved state not written: ${e.message}`; } };
+
+// Verdicts per draft id; one note per piece.
+const saved = load(KEY), notes = load(NOTES);
+let tab = null;
+try { tab = localStorage.getItem(TAB); } catch {}
+
+const PIECES = [...new Set(DRAFTS.map(d => d.piece))];
+// Notes once kept on each draft are gathered into the piece's one note.
+for (const piece of PIECES) {
+  if (notes[piece] !== undefined) continue;
+  const old = DRAFTS.filter(d => d.piece === piece && saved[d.id]?.note).map(d => `${d.id}: ${saved[d.id].note}`);
+  if (old.length) notes[piece] = old.join('\n');
+}
+store(NOTES, notes);
+
+const sendNote = note => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(note) }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); });
+const report = (status, note) => sendNote({ page: 'draft', ...note })
+  .then(() => { status.className = 'status'; status.textContent = `sent ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { status.className = 'status bad'; status.textContent = `not sent: ${e.message}`; });
+
+function layer(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return c;
+}
+
+const figure = (label, c) => {
+  const f = document.createElement('figure'), cap = document.createElement('figcaption');
+  cap.textContent = label; f.append(c, cap);
+  return f;
+};
+
+/** Alley floor cells, each with the seam on its right and bottom edge, as the room draws them. */
+function floor(ctx, cols, rows, top) {
+  ctx.fillStyle = FLOOR; ctx.fillRect(0, top, cols * C, rows * C);
+  ctx.fillStyle = SEAM;
+  for (let k = 1; k <= cols; k++) ctx.fillRect(k * C - 1, top, 1, rows * C);
+  for (let k = 1; k <= rows; k++) ctx.fillRect(0, top + k * C - 1, cols * C, 1);
+}
+
+/** A draft's pixels with its top-left at (x, y); `.` is nothing drawn. */
+function place(ctx, d, x, y) {
+  d.rows.forEach((row, r) => [...row].forEach((ch, c) => {
+    if (ch === '.') return;
+    ctx.fillStyle = d.palette[ch];
+    ctx.fillRect(x + c, y + r, 1, 1);
+  }));
+}
+
+function scaled(src, s) {
+  const out = layer(src.width * s, src.height * s), ctx = out.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, 0, 0, out.width, out.height);
+  return out;
+}
+
+/** The draft alone on its own cells, at 1×. The piece's rise shows above the top row. */
+function alone(d) {
+  const [cw, ch] = d.cells, src = layer(cw * C, ch * C + d.rise), ctx = src.getContext('2d');
+  floor(ctx, cw, ch, d.rise);
+  place(ctx, d, 0, 0);
+  return src;
+}
+
+// The raccoon as he sits between presses, cropped to his drawn pixels.
+const crop = ({ px }) => {
+  const x0 = Math.min(...px.map(p => p[0])), y0 = Math.min(...px.map(p => p[1]));
+  return { w: Math.max(...px.map(p => p[0])) - x0 + 1, h: Math.max(...px.map(p => p[1])) - y0 + 1, px: px.map(([x, y, c]) => [x - x0, y - y0, c]) };
+};
+const sitting = d => crop(d === 'l' ? mirror(draw(ACTIONS[VIEW[d]].crawl[0])) : draw(ACTIONS[VIEW[d]].crawl[0]));
+const RACCOON_DOWN = sitting('d'), RACCOON_RIGHT = sitting('r');
+
+/** A room on the alley floor: a wall along the top row, the draft in the bottom row, and the box,
+ *  the can and the raccoon facing down and facing right beside it for scale. Multi-cell drafts
+ *  take the cells to their right. */
+function room(d) {
+  const src = layer(COLS * C, ROWS * C), ctx = src.getContext('2d');
+  floor(ctx, COLS, ROWS, 0);
+  for (let x = 0; x < COLS; x++) wallTile(ctx, x, 0, C);
+  const [, ch] = d.cells;
+  place(ctx, d, C, (ROWS - ch) * C - d.rise);
+  const at = (spr, cx, cy) => [Math.round(cx * C + (C - spr.w) / 2), cy * C + C - spr.h - 1];
+  for (const [spr, cx] of [[BOX.front, 0], [CAN.front, 3], [RACCOON_DOWN, 4], [RACCOON_RIGHT, 6]]) {
+    const [x, y] = at(spr, cx, ROWS - 1);
+    for (const [px, py, col] of spr.px) { ctx.fillStyle = col; ctx.fillRect(x + px, y + py, 1, 1); }
+  }
+  return src;
+}
+
+// The stand-in vector drawing of each piece, as the game draws it without the pixel art:
+// [caption, cells across, cells down, draw].
+const each = (f, w = 1, h = 1) => FACES.map(face => [`facing ${face}`, w, h, S => f(S, face)]);
+const one = f => [['', 1, 1, f]];
+const VECTOR = {
+  'EXIT': [['dark', 1, 1, S => S.exit(0, 0, false)], ['lit', 1, 1, S => S.exit(0, 0, true)]],
+  'BARROW': each((S, f) => S.barrow(0, 0, f)),
+  'FURNITURE (1x2)': [['', 1, 2, S => S.furniture([[0, 0], [0, 1]])]],
+  'SPONGE': one(S => S.sponge(0, 0)),
+  'CARDBOARD': one(S => S.cardboard(0, 0)),
+  'TIRE_H': one(S => S.tyre(0, 0, true)),
+  'TIRE_V': one(S => S.tyre(0, 0, false)),
+  'BICYCLE (2x1)': [['', 2, 1, S => S.bicycle([[0, 0], [1, 0]])]],
+  'RUG (2x1)': [['', 2, 1, S => S.rug([[0, 0], [1, 0]])]],
+  'CHAIR': one(S => S.chair(0, 0)),
+  'BROOM': one(S => S.broom(0, 0)),
+  'CABC': each((S, f) => S.cabinet(0, 0, f, false)),
+  'CABO': [
+    ['facing u', 1, 2, S => { S.cabinet(0, 1, 'u', true); S.drawer(0, 0, [0, -1]); }],
+    ['facing d', 1, 2, S => { S.cabinet(0, 0, 'd', true); S.drawer(0, 1, [0, 1]); }],
+    ['facing l', 2, 1, S => { S.cabinet(1, 0, 'l', true); S.drawer(0, 0, [-1, 0]); }],
+    ['facing r', 2, 1, S => { S.cabinet(0, 0, 'r', true); S.drawer(1, 0, [1, 0]); }],
+  ],
+  'MAG': each((S, f) => S.magnet(0, 0, f)),
+  'BAR': each((S, f) => S.barrow(0, 0, f)),
+  'GREASE': one(S => S.grease(0, 0)),
+  'TAR': one(S => S.tar(0, 0)),
+  'GLASS': one(S => S.glass(0, 0)),
+  'COVERED': one(S => S.covered(0, 0)),
+  'GRATE': one(S => S.grate(0, 0)),
+  'ONEWAY': each((S, f) => S.oneway(0, 0, f)),
+};
+
+function vector(piece) {
+  const box = document.createElement('div'); box.className = 'vector';
+  const views = VECTOR[piece];
+  if (!views) throw new Error(`no vector drawing listed for ${piece}`);
+  for (const [label, w, h, paint] of views) {
+    const c = layer(w * VECTOR_CELL, h * VECTOR_CELL), ctx = c.getContext('2d');
+    const S = createSprites({ ctx, cell: VECTOR_CELL });
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) S.floor(x, y);
+    paint(S);
+    box.append(figure(label || 'vector', c));
+  }
+  return box;
+}
+
+function card(d) {
+  const state = saved[d.id] ?? {};
+  const el = document.createElement('article');
+  el.className = 'card'; el.id = d.id;
+  const id = document.createElement('div'); id.className = 'id'; id.textContent = d.id;
+  const meta = document.createElement('div'); meta.className = 'meta';
+  meta.textContent = [`version ${d.version}`, d.facing && `facing ${d.facing}`, d.state,
+    d.cells[0] * d.cells[1] > 1 ? `${d.cells[0]}×${d.cells[1]} cells` : null].filter(Boolean).join(' · ');
+  const shows = document.createElement('div'); shows.className = 'shows';
+  const first = alone(d);
+  shows.append(figure('1×', first), figure('4×', scaled(first, 4)), figure(`room ${ROOM_SCALE}×`, scaled(room(d), ROOM_SCALE)));
+  const row = document.createElement('div'); row.className = 'verdicts';
+  const status = document.createElement('span'); status.className = 'status';
+  const buttons = ['Keep', 'Toss', 'Redo'].map(label => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'v'; b.textContent = label; b.dataset.verdict = label.toLowerCase();
+    b.setAttribute('aria-pressed', String(state.verdict === b.dataset.verdict));
+    return b;
+  });
+  for (const b of buttons) b.addEventListener('click', () => {
+    for (const o of buttons) o.setAttribute('aria-pressed', String(o === b));
+    saved[d.id] = { ...(saved[d.id] ?? {}), verdict: b.dataset.verdict }; store(KEY, saved);
+    report(status, { id: d.id, piece: d.piece, verdict: b.dataset.verdict });
+    renderTabs();
+  });
+  row.append(...buttons, status);
+  el.append(id, meta, shows, row);
+  return el;
+}
+
+const hue = i => Math.round((i * 360) / PIECES.length);
+const paint = (el, i) => {
+  el.style.setProperty('--tint', `hsl(${hue(i)} 60% 92%)`);
+  el.style.setProperty('--edge', `hsl(${hue(i)} 55% 45%)`);
+};
+
+function renderPage(piece) {
+  const page = document.getElementById('page');
+  paint(page, PIECES.indexOf(piece));
+  const drafts = DRAFTS.filter(d => d.piece === piece);
+  const head = document.createElement('section'); head.className = 'head';
+  const title = document.createElement('h2'); title.textContent = `${piece} · ${drafts[0].group}`;
+  const box = document.createElement('div'); box.className = 'notes';
+  const status = document.createElement('div'); status.className = 'status';
+  const note = document.createElement('textarea'); note.placeholder = `Note on ${piece}`; note.value = notes[piece] ?? '';
+  note.addEventListener('change', () => {
+    notes[piece] = note.value; store(NOTES, notes);
+    report(status, { piece, note: note.value });
+  });
+  box.append(note, status);
+  head.append(title, document.createElement('span'), vector(piece), box);
+  const grid = document.createElement('div'); grid.className = 'grid';
+  grid.append(...drafts.map(card));
+  page.replaceChildren(head, grid);
+}
+
+function renderTabs() {
+  const tabs = document.getElementById('tabs');
+  tabs.replaceChildren(...PIECES.map((piece, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'tab'; b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', String(piece === tab));
+    paint(b, i);
+    const drafts = DRAFTS.filter(d => d.piece === piece), judged = drafts.filter(d => saved[d.id]?.verdict).length;
+    const mark = document.createElement('span'); mark.className = 'mark'; mark.textContent = `${judged}/${drafts.length}`;
+    b.append(piece, mark);
+    b.addEventListener('click', () => { tab = piece; try { localStorage.setItem(TAB, tab); } catch {} renderTabs(); renderPage(tab); });
+    return b;
+  }));
+}
+
+if (!PIECES.includes(tab)) tab = PIECES[0];
+renderTabs();
+renderPage(tab);
+</script>
+</body>
+</html>

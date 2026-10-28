@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vertical bicycle</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 440px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 170px 1fr 64px; gap: 10px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <label>X, tip toward you <input id="rx" type="range" min="-90" max="90" step="1"><input id="rxn" type="number" step="1"></label>
+  <label>Y, turn <input id="ry" type="range" min="-180" max="180" step="1"><input id="ryn" type="number" step="1"></label>
+  <label>Z, lean <input id="rz" type="range" min="-90" max="90" step="1"><input id="rzn" type="number" step="1"></label>
+  <label>px a metre <input id="pxm" type="range" min="18" max="40" step="1"><input id="pxmn" type="number" step="1"></label>
+  <div class="row"><button id="reset">Reset rotation</button></div>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">The Blender bike rendered live at game pixels, camera straight on: a reference to draw over, not the sprite. Rotation applies Z, then Y, then X.</div>
+  <textarea id="note" placeholder="Note on the vertical bicycle"></textarea>
+  <div class="row"><button id="send">Send note and settings</button><span id="status" class="muted"></span></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { ACTIONS, draw as drawRaccoon, mirror } from '../../src/art/cartoon.js';
+import { VIEW } from '../../src/art/press.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+
+const KEY = 'trash-bike-3d', COLS = 5, ROWS = 4, BOX = 96;
+const $ = id => document.getElementById(id);
+let s = { rx: 65, ry: 0, rz: 0, pxm: 27, zoom: 8 };
+try { Object.assign(s, JSON.parse(localStorage.getItem(KEY) ?? '{}')); } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+
+const crop = ({ px }) => {
+  const x0 = Math.min(...px.map(p => p[0])), y0 = Math.min(...px.map(p => p[1]));
+  return { w: Math.max(...px.map(p => p[0])) - x0 + 1, h: Math.max(...px.map(p => p[1])) - y0 + 1, px: px.map(([x, y, c]) => [x - x0, y - y0, c]) };
+};
+const sitting = d => crop(d === 'l' ? mirror(drawRaccoon(ACTIONS[VIEW[d]].crawl[0])) : drawRaccoon(ACTIONS[VIEW[d]].crawl[0]));
+const RACCOON = { d: sitting('d'), r: sitting('r') };
+
+// The bike in the game's colours, by the Blender material's name.
+const COLOURS = { tyre: '#262440', frame: '#3169b0', metal: '#9aa2a9', saddle: '#34192b' };
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(BOX, BOX, false);
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-1, 1.5, 1.2); scene.add(sun);
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10); camera.position.set(0, 0, 5);
+const pivot = new THREE.Group(); scene.add(pivot);
+let ready = false;
+new GLTFLoader().load('../../tmp/bicycle/bike.glb', gltf => {
+  const bike = gltf.scene;
+  bike.traverse(o => { if (o.isMesh) o.material = new THREE.MeshLambertMaterial({ color: COLOURS[o.material.name] ?? '#ff00ff' }); });
+  const box = new THREE.Box3().setFromObject(bike), mid = box.getCenter(new THREE.Vector3());
+  bike.position.sub(mid); pivot.add(bike); ready = true; draw();
+}, undefined, e => { $('status').className = 'bad'; $('status').textContent = `model not loaded: ${e.message ?? e}`; });
+
+/** The bike at the current rotation, BOX pixels square at `pxm` pixels a metre, cropped to what was drawn. */
+function sprite() {
+  const half = BOX / 2 / s.pxm;
+  Object.assign(camera, { left: -half, right: half, top: half, bottom: -half }); camera.updateProjectionMatrix();
+  pivot.rotation.set(THREE.MathUtils.degToRad(s.rx), THREE.MathUtils.degToRad(s.ry), THREE.MathUtils.degToRad(s.rz), 'XYZ');
+  renderer.render(scene, camera);
+  const c = document.createElement('canvas'); c.width = c.height = BOX;
+  const g = c.getContext('2d'); g.drawImage(renderer.domElement, 0, 0);
+  const { data } = g.getImageData(0, 0, BOX, BOX), px = [];
+  for (let y = 0; y < BOX; y++) for (let x = 0; x < BOX; x++) {
+    const o = (y * BOX + x) * 4;
+    if (data[o + 3] > 127) px.push([x, y, `rgb(${data[o]},${data[o + 1]},${data[o + 2]})`]);
+  }
+  return px.length ? crop({ px }) : { w: 0, h: 0, px };
+}
+
+// A wall row over three rows of floor: the bike on the middle column's bottom two cells, its
+// footprint, with the raccoon facing right on its left and facing down on its right.
+function draw() {
+  for (const k of ['rx', 'ry', 'rz', 'pxm']) { $(k).value = s[k]; $(k + 'n').value = s[k]; }
+  $('zoom').textContent = `${s.zoom}×`;
+  const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+  const g = src.getContext('2d');
+  g.fillStyle = FLOOR; g.fillRect(0, 0, src.width, src.height);
+  g.fillStyle = SEAM;
+  for (let k = 1; k <= COLS; k++) g.fillRect(k * C - 1, C, 1, src.height);
+  for (let k = 1; k <= ROWS; k++) g.fillRect(0, k * C - 1, src.width, 1);
+  for (let x = 0; x < COLS; x++) wallTile(g, x, 0, C);
+  const stand = (spr, col) => {
+    const x0 = col * C + Math.floor((C - spr.w) / 2), y0 = ROWS * C - spr.h - 1;
+    for (const [x, y, c] of spr.px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); }
+  };
+  stand(RACCOON.r, 1);
+  if (ready) stand(sprite(), 2);
+  stand(RACCOON.d, 3);
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+for (const k of ['rx', 'ry', 'rz', 'pxm']) {
+  $(k).oninput = () => { s[k] = Number($(k).value); save(); draw(); };
+  $(k + 'n').onchange = () => { s[k] = Math.round(Number($(k + 'n').value)); save(); draw(); };
+}
+$('reset').onclick = () => { Object.assign(s, { rx: 0, ry: 0, rz: 0 }); save(); draw(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(16, s.zoom + 1); save(); draw(); };
+$('send').onclick = () => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'bike-3d', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `sent ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not sent: ${e.message}`; });
+draw();
+</script>
+</body>
+</html>

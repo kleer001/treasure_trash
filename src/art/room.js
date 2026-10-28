@@ -1,5 +1,5 @@
 // Room furniture the trash benches share.
-import { cellSeed } from '../../../src/stage.js';
+import { cellSeed } from '../stage.js';
 
 /** A brick wall filling cell (cx, cy) of side C. */
 export function wallTile(g, cx, cy, C) {

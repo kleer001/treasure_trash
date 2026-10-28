@@ -57,11 +57,12 @@
 <h2>Box sprites</h2>
 <div class="strip" id="strip"></div>
 <script type="module">
+import { embed, setPress, sceneMs, pressLength, raccoon, raccoonOver, blit } from './trash/embed.js';
 import { explain, cell, TRASH, BIN, BIN_EMPTY } from '../../src/rules.js';
-import { createTrash } from './trash/pile.js';
-import { createFlight, C, FLIGHT_SLIDERS } from './trash/flight.js';
-import { pourPile, hash } from './trash/spread.js';
-import { front, rest, frame, restAt, contents } from './trash/box.js';
+import { createTrash } from '../../src/art/pile.js';
+import { createFlight, C, FLIGHT_SLIDERS } from '../../src/art/flight.js';
+import { pourPile, hash } from '../../src/art/spread.js';
+import { front, rest, frame, restAt, contents } from '../../src/art/box.js';
 import { load, loadSpread, save as store, SPREAD, SHADE, shadowDefaults } from './trash/settings.js';
 
 const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
@@ -71,7 +72,7 @@ const BOX_SLIDERS = {
   pour: ['Trash starts to leave at a tip of', 0, 85, 5, v => `${v}°`],
 };
 const KEY = 'trash-bin';
-const [A, D, LOOK] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const [A, D, LOOK] = await Promise.all(['../../src/art/assets.json', '../../src/art/items.json', '../../src/art/look.json'].map(f => fetch(f).then(r => r.json())));
 const ui = load(KEY, { dir: 'r', room: 'walled', playing: true, speed: 100, zoom: 4, fps: 30, slide: 140, tip: 260, pour: 30,
   flight: { ...LOOK.flight, launch: 60, first: 120, last: 340 } });
 const save = () => store(KEY, ui);
@@ -151,8 +152,9 @@ function frameAt(ctx, B, P, t) {
   F.castShadows(ctx, B.W, B.W, [foot(fr.s, gx, gy), ...flying], CAST);
   const k = Math.round(C * easeInOut(Math.min(1, t / FLAT()))), [rx, ry] = F.at(A.raccoon, B.from[0] - dx, B.from[1] - dy);
   byFeet([[gy + fr.s.h, () => { F.drawSpr(ctx, fr.s, gx, gy); drawHeld(ctx, O, fr, P.filter(q => since < q.launch), q => centreAt(B, q, t)); }],
-          [ry + k * dy + A.raccoon.h + 0.5, () => F.drawSpr(ctx, A.raccoon, rx + k * dx, ry + k * dy)]]);
+          [ry + k * dy + A.raccoon.h + 0.5, () => raccoon(ctx, B.from[0] - B.dx, B.from[1] - B.dy, () => F.drawSpr(ctx, A.raccoon, rx + k * dx, ry + k * dy))]]);
   F.drawAirborne(ctx, flying);
+  raccoonOver(ctx);
 }
 
 /** A still of board `s`, drawn from the board, with what the board does not say taken from the
@@ -280,7 +282,7 @@ function bar() {
   for (const [id, defs, o] of [['ctl-box', BOX_SLIDERS, ui], ['ctl-flight', FLIGHT_SLIDERS, ui.flight]])
     for (const k in defs) { document.getElementById(`${id}-${k}`).value = o[k]; document.getElementById(`${id}-${k}-read`).textContent = defs[k][4](o[k]); }
   document.getElementById('source-read').textContent = `Box contents: their count from B on the Trash Spread page, poured as B into the trash cell. ` +
-    `Shadows: the Shadow Bench. Pile look: trash/look.json. The way the empty box fell is the bench's push direction: the board does not record it.`;
+    `Shadows: the Shadow Bench. Pile look: src/art/look.json. The way the empty box fell is the bench's push direction: the board does not record it.`;
 }
 const step = j => { ui.playing = false; clock = (Math.max(0, Math.min(FRAMES - 1, j)) + 0.5) * 1000 / ui.fps; save(); bar(); show(); };
 document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => { ui.dir = b.dataset.dir; save(); build(); });
@@ -298,6 +300,11 @@ document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zo
 window.addEventListener('storage', e => {
   if (e.key === SPREAD) { S = loadSpread(LOOK); build(); }
   if (e.key === SHADE) { CAST = load(SHADE, shadowDefaults(LOOK)).cast; build(); }
+});
+embed(view, {
+  set: o => { Object.assign(ui, o, { playing: false }); setPress(ui.dir); build(); },
+  length: () => pressLength(END + ui.flight.hold),
+  show: g => { const c = canvasOf(W); frameAt(c.getContext('2d'), B, P, Math.min(END, sceneMs(g))); blit(view, c, ui.zoom); },
 });
 build(); requestAnimationFrame(tick);
 </script>

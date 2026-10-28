@@ -189,6 +189,13 @@ export function createProbe(read) {
       };
     },
 
+    /** The animation clock: stop it, step it on by `n` 60 Hz frames, or let it run again. */
+    hold: () => read.hold(),
+    step: (n = 1) => read.step(n),
+    run: () => read.run(),
+    /** Whether nothing is moving: no beat, no refusal, no wall between rooms. */
+    idle: () => read.idle(),
+
     /** Step the picker round to a room and start it clean. False when the pack has no such id. */
     goto(id) {
       for (let i = 0; i < LEVEL_SEARCH && read.level() !== id; i++) press('>');

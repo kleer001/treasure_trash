@@ -25,7 +25,7 @@
 </head>
 <body>
 <h1>Trash spread — four ways to lay trash over its cells</h1>
-<div class="muted">The same room and the same trash cells in each panel. Layouts: trash/spread.js and trash/pile.js. Pile look: trash/look.json.</div>
+<div class="muted">The same room and the same trash cells in each panel. Layouts: src/art/spread.js and src/art/pile.js. Pile look: src/art/look.json.</div>
 <div class="bar">
   <span class="grp">Zoom: <button id="z-">−</button><span id="z"></span><button id="z+">+</button></span>
   <span class="grp">Seed: <button id="s-">−</button><span id="s"></span><button id="s+">+</button></span>
@@ -36,13 +36,13 @@
 </div>
 <div class="panels" id="panels"></div>
 <script type="module">
-import { createTrash, settle, drawPile, ORDER } from './trash/pile.js';
-import { spreadPiles } from './trash/spread.js';
+import { createTrash, settle, drawPile, ORDER } from '../../src/art/pile.js';
+import { spreadPiles } from '../../src/art/spread.js';
 import { loadSpread, save as store, SPREAD } from './trash/settings.js';
-import { wallTile } from './trash/room.js';
+import { wallTile } from '../../src/art/room.js';
 
 const C = 24, FLOOR = '#896e6e', SEAM = '#584c62', MARK = '#f1c84b';
-const [D, A, O, LOOK] = await Promise.all(['trash/items.json', 'tear/assets.json', 'trash/objects.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const [D, A, O, LOOK] = await Promise.all(['../../src/art/items.json', '../../src/art/assets.json', '../../src/art/objects.json', '../../src/art/look.json'].map(f => fetch(f).then(r => r.json())));
 const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
 const STYLE = { outline: LOOK.outline, shadow: LOOK.shadow };
 

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Filing cabinet</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 460px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 170px 1fr 64px; gap: 10px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  button.on { background: #1a1a1a; color: #fff; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <div class="row"><span>drawers face</span><button id="u">↑ away</button><button id="d">↓ toward you</button><button id="l">← left</button><button id="r">→ right</button></div>
+  <div class="row"><span>colours</span><button id="slate">slate</button><button id="blue">blue</button><button id="teal">teal</button></div>
+  <label>drawer out % <input id="out" type="range" min="0" max="150" step="1"><input id="outn" type="number" step="1"></label>
+  <label>X, tip toward you <input id="rx" type="range" min="-90" max="90" step="1"><input id="rxn" type="number" step="1"></label>
+  <label>Y, turn <input id="ry" type="range" min="-180" max="180" step="1"><input id="ryn" type="number" step="1"></label>
+  <label>Z, lean <input id="rz" type="range" min="-90" max="90" step="1"><input id="rzn" type="number" step="1"></label>
+  <label>up / down px <input id="dy" type="range" min="-24" max="24" step="1"><input id="dyn" type="number" step="1"></label>
+  <label>px a metre <input id="pxm" type="range" min="12" max="40" step="1"><input id="pxmn" type="number" step="1"></label>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">The Blender cabinet rendered live at game pixels, camera straight on: a reference to draw over, not the sprite. Rotation applies Z, then Y, then X. The base of the cabinet stands on its own cell as the game stands a piece; the drawer pulls out into the next cell.</div>
+  <textarea id="note" placeholder="Note on the cabinet"></textarea>
+  <div class="row"><button id="send">Send note and settings</button><span id="status" class="muted"></span></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { ACTIONS, draw as drawRaccoon, mirror } from '../../src/art/cartoon.js';
+import { VIEW } from '../../src/art/press.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+
+const KEY = 'trash-cabinet-3d', COLS = 6, ROWS = 5, BOX = 128, PULL = 0.55;   // metres at 100%
+const $ = id => document.getElementById(id);
+const VIEWS = ['rx', 'ry', 'rz', 'dy', 'pxm'];
+// Each facing keeps its own view, so switching between them loses none.
+let s = { face: 'd', colours: 'slate', out: 0, zoom: 8,
+  u: { rx: 25, ry: 180, rz: 0, dy: 0, pxm: 27 }, d: { rx: 25, ry: 0, rz: 0, dy: 0, pxm: 27 },
+  l: { rx: 25, ry: -90, rz: 0, dy: 0, pxm: 27 }, r: { rx: 25, ry: 90, rz: 0, dy: 0, pxm: 27 } };
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+  for (const k of ['face', 'colours', 'out', 'zoom']) if (saved[k] !== undefined) s[k] = saved[k];
+  for (const f of 'udlr') Object.assign(s[f], saved[f] ?? {});
+} catch {}
+const v = () => s[s.face];
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+
+const crop = ({ px }) => {
+  const x0 = Math.min(...px.map(p => p[0])), y0 = Math.min(...px.map(p => p[1]));
+  return { w: Math.max(...px.map(p => p[0])) - x0 + 1, h: Math.max(...px.map(p => p[1])) - y0 + 1, px: px.map(([x, y, c]) => [x - x0, y - y0, c]) };
+};
+const sitting = d => crop(d === 'l' ? mirror(drawRaccoon(ACTIONS[VIEW[d]].crawl[0])) : drawRaccoon(ACTIONS[VIEW[d]].crawl[0]));
+const RACCOON = { d: sitting('d'), r: sitting('r') };
+
+// The cabinet's colours, by the Blender material's name, from the draft's three cabinets.
+const PALETTES = {
+  slate: { body: '#453d51', face: '#67819e', pull: '#d6d3b0', gap: '#262440', inside: '#19152b', rim: '#7dafb3', rail: '#9aa2a9' },
+  blue: { body: '#3169b0', face: '#3169b0', pull: '#f1eccb', gap: '#19152b', inside: '#19152b', rim: '#7dafb3', rail: '#9aa2a9' },
+  teal: { body: '#67819e', face: '#7dafb3', pull: '#f1eccb', gap: '#2b2d55', inside: '#2b2d55', rim: '#f1eccb', rail: '#9aa2a9' },
+};
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(BOX, BOX, false);
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-1, 1.5, 1.2); scene.add(sun);
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10); camera.position.set(0, 0, 5);
+const pivot = new THREE.Group(); scene.add(pivot);
+const meshes = [];
+let drawer = null, slide = null, carcase = null, home = 0, slideHome = 0, ready = false;
+new GLTFLoader().load('../../tmp/cabinet/cabinet.glb', gltf => {
+  const cab = gltf.scene;
+  cab.traverse(o => { if (o.isMesh) { meshes.push([o, o.material.name]); o.material = new THREE.MeshLambertMaterial(); } });
+  drawer = cab.getObjectByName('drawer'); home = drawer.position.z; carcase = cab.getObjectByName('carcase');
+  slide = cab.getObjectByName('slide'); slideHome = slide.position.z;
+  const box = new THREE.Box3().setFromObject(cab), mid = box.getCenter(new THREE.Vector3());
+  cab.position.sub(mid); pivot.add(cab); ready = true; draw();
+}, undefined, e => { $('status').className = 'bad'; $('status').textContent = `model not loaded: ${e.message ?? e}`; });
+
+/** The cabinet at the current rotation and drawer, BOX pixels square at `pxm` a metre, with its
+ *  anchor: the carcase's base, x at its centre and y at its lowest corner on screen. */
+function sprite() {
+  const r = v(), half = BOX / 2 / r.pxm;
+  for (const [o, slot] of meshes) o.material.color.set(PALETTES[s.colours][slot]);
+  drawer.position.z = home + PULL * s.out / 100;
+  slide.position.z = slideHome + PULL * s.out / 200;
+  Object.assign(camera, { left: -half, right: half, top: half, bottom: -half }); camera.updateProjectionMatrix();
+  pivot.rotation.set(...[r.rx, r.ry, r.rz].map(THREE.MathUtils.degToRad), 'XYZ');
+  renderer.render(scene, camera);
+  const c = document.createElement('canvas'); c.width = c.height = BOX;
+  const g = c.getContext('2d'); g.drawImage(renderer.domElement, 0, 0);
+  const { data } = g.getImageData(0, 0, BOX, BOX), px = [];
+  for (let y = 0; y < BOX; y++) for (let x = 0; x < BOX; x++) {
+    const o = (y * BOX + x) * 4;
+    if (data[o + 3] > 127) px.push([x, y, `rgb(${data[o]},${data[o + 1]},${data[o + 2]})`]);
+  }
+  pivot.updateMatrixWorld(true);
+  const bb = carcase.geometry.boundingBox ?? (carcase.geometry.computeBoundingBox(), carcase.geometry.boundingBox);
+  const base = [[bb.min.x, bb.min.z], [bb.max.x, bb.min.z], [bb.min.x, bb.max.z], [bb.max.x, bb.max.z]]
+    .map(([x, z]) => new THREE.Vector3(x, bb.min.y, z).applyMatrix4(carcase.matrixWorld))
+    .map(p => [(p.x + half) * r.pxm, (half - p.y) * r.pxm]);
+  return { px, ax: Math.round(base.reduce((a, p) => a + p[0], 0) / 4), ay: Math.round(Math.max(...base.map(p => p[1]))) };
+}
+
+// A wall row over four rows of floor. The cabinet's cell is column 2, row 3. The raccoon sits
+// facing right at the bottom left and facing down at the bottom right.
+function draw() {
+  for (const k of VIEWS) { $(k).value = v()[k]; $(k + 'n').value = v()[k]; }
+  $('out').value = s.out; $('outn').value = s.out;
+  for (const b of 'udlr') $(b).className = s.face === b ? 'on' : '';
+  for (const b of Object.keys(PALETTES)) $(b).className = s.colours === b ? 'on' : '';
+  $('zoom').textContent = `${s.zoom}×`;
+  const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+  const g = src.getContext('2d');
+  g.fillStyle = FLOOR; g.fillRect(0, 0, src.width, src.height);
+  g.fillStyle = SEAM;
+  for (let k = 1; k <= COLS; k++) g.fillRect(k * C - 1, C, 1, src.height);
+  for (let k = 1; k <= ROWS; k++) g.fillRect(0, k * C - 1, src.width, 1);
+  for (let x = 0; x < COLS; x++) wallTile(g, x, 0, C);
+  const put = (spr, x0, y0) => { for (const [x, y, c] of spr.px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
+  const stand = (spr, col, row) => put(spr, col * C + Math.floor((C - spr.w) / 2), (row + 1) * C - spr.h - 1);
+  stand(RACCOON.r, 0, ROWS - 1);
+  stand(RACCOON.d, COLS - 1, ROWS - 1);
+  if (ready) {
+    const spr = sprite();
+    put(spr, 2 * C + C / 2 - spr.ax, 4 * C - 1 - spr.ay + v().dy);
+  }
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+for (const k of VIEWS) {
+  $(k).oninput = () => { v()[k] = Number($(k).value); save(); draw(); };
+  $(k + 'n').onchange = () => { v()[k] = Number($(k + 'n').value); save(); draw(); };
+}
+$('out').oninput = () => { s.out = Number($('out').value); save(); draw(); };
+$('outn').onchange = () => { s.out = Number($('outn').value); save(); draw(); };
+for (const b of 'udlr') $(b).onclick = () => { s.face = b; save(); draw(); };
+for (const b of Object.keys(PALETTES)) $(b).onclick = () => { s.colours = b; save(); draw(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(16, s.zoom + 1); save(); draw(); };
+$('send').onclick = () => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'cabinet', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `sent ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not sent: ${e.message}`; });
+draw();
+</script>
+</body>
+</html>

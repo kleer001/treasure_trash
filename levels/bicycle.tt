@@ -1,0 +1,15 @@
+:pack   Treasure Trash — Bicycle (art check, never shipped)
+
+:level  BK
+:name   Bicycle
+:teach  it rolls along its length
+:par    4
+:solve  drrr
+:grid
+##########
+#-Z---ZZ-#
+#-Z-YY---#
+#----@---#
+#-YY----E#
+##########
+:end

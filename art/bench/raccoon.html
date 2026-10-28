@@ -58,11 +58,11 @@
 <script type="module">
 import { explain, cell, CAN_EMPTY } from '../../src/rules.js';
 import { toState } from '../../src/format.js';
-import { C, FLOOR, SEAM } from './trash/flight.js';
-import { wallTile } from './trash/room.js';
-import { front as CAN } from './trash/can.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+import { front as CAN } from '../../src/art/can.js';
 import { decorAfter, stageFrom, RACCOON } from '../../src/stage.js';
-import { createRaccoon, ACTIONS } from './trash/raccoon.js';
+import { createRaccoon, ACTIONS } from '../../src/art/raccoon.js';
 import { load, save as store } from './trash/settings.js';
 
 const KEY = 'trash-raccoon';
@@ -96,7 +96,7 @@ const SLIDERS = [
 const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }, ARROW = { u: '↑', d: '↓', l: '←', r: '→' };
 const N = 5, MID = 2;
 
-const A = await fetch('tear/assets.json').then(r => r.json());
+const A = await fetch('../../src/art/assets.json').then(r => r.json());
 const R = createRaccoon(A.raccoon);
 const ui = load(KEY, { act: 'crawl', before: 'd', dir: 'r', playing: true, speed: 100, zoom: 4, fps: 30, onion: false,
   turn: 160, breath: 900, breaths: 3, blink: 140, crouch: 140, pull: 260, brace: 160, shove: 120, follow: 300,

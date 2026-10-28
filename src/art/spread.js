@@ -1,8 +1,8 @@
 // Three ways to lay trash over a board's TRASH cells, next to pileLayout's mound per cell. Each
 // returns a Map 'x,y' -> pile { cx, cy, pieces } with cell-local pieces, as pileLayout does, so
 // settle() and drawPile() take them unchanged.
-import { mulberry32 } from '../../../src/rng.js';
-import { cellSeed } from '../../../src/stage.js';
+import { mulberry32 } from '../rng.js';
+import { cellSeed } from '../stage.js';
 import { ORDER, sizes, pileLayout, chooser } from './pile.js';
 
 /** The piles `method` ('mound' | 'flat' | 'edges' | 'field') lays over a board's TRASH `cells`,

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cabinet size</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 440px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 170px 1fr 64px; gap: 10px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <label>body width ↑↓ px <input id="front" type="range" min="14" max="30" step="1"><input id="frontn" type="number" step="1"></label>
+  <label>body width ←→ px <input id="side" type="range" min="18" max="32" step="1"><input id="siden" type="number" step="1"></label>
+  <label>drawer out ↓ px <input id="outD" type="range" min="5" max="40" step="1"><input id="outDn" type="number" step="1"></label>
+  <label>drawer out ↑ px <input id="outU" type="range" min="7" max="30" step="1"><input id="outUn" type="number" step="1"></label>
+  <label>drawer depth ↓ px <input id="depthD" type="range" min="2" max="20" step="1"><input id="depthDn" type="number" step="1"></label>
+  <label>drawer depth ↑ px <input id="depthU" type="range" min="2" max="20" step="1"><input id="depthUn" type="number" step="1"></label>
+  <label>drawer out ←→ px <input id="outS" type="range" min="10" max="50" step="1"><input id="outSn" type="number" step="1"></label>
+  <label>drawer depth ←→ px <input id="depthS" type="range" min="10" max="40" step="1"><input id="depthSn" type="number" step="1"></label>
+  <div class="row"><button id="reset">Back to the game's values</button></div>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">Game pixels, 24 px cells. Each pair is closed, then open; an open drawer reaches into the next cell.</div>
+  <textarea id="note" placeholder="Note on the cabinet"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+
+<script type="module">
+import { cabinetSprites, CABINET_LOOK } from '../../src/art/cabinet.js';
+import { ACTIONS, draw as drawRaccoon, mirror } from '../../src/art/cartoon.js';
+import { VIEW } from '../../src/art/press.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+
+const KEY = 'trash-cabinet-size', COLS = 12, ROWS = 8, $ = id => document.getElementById(id);
+const KNOBS = ['front', 'side', 'outD', 'outU', 'depthD', 'depthU', 'outS', 'depthS'];
+let s = { ...CABINET_LOOK, front: 21, zoom: 5 };
+try { const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); for (const k in s) if (saved[k] !== undefined) s[k] = saved[k]; } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+
+const crop = ({ px }) => {
+  const x0 = Math.min(...px.map(p => p[0])), y0 = Math.min(...px.map(p => p[1]));
+  return { w: Math.max(...px.map(p => p[0])) - x0 + 1, h: Math.max(...px.map(p => p[1])) - y0 + 1, px: px.map(([x, y, c]) => [x - x0, y - y0, c]) };
+};
+const sitting = d => crop(d === 'l' ? mirror(drawRaccoon(ACTIONS[VIEW[d]].crawl[0])) : drawRaccoon(ACTIONS[VIEW[d]].crawl[0]));
+const RACCOON = { d: sitting('d'), r: sitting('r') };
+
+// [kind, facing, col, row]; an open drawer reaches into the next cell the way it faces.
+const PIECES = [['closed', 'd', 1, 2], ['open', 'd', 3, 2], ['closed', 'u', 6, 3], ['open', 'u', 8, 3],
+  ['closed', 'r', 1, 6], ['open', 'r', 3, 6], ['open', 'l', 9, 6], ['closed', 'l', 11, 6]];
+
+function draw() {
+  for (const k of KNOBS) { $(k).value = s[k]; $(k + 'n').value = s[k]; }
+  $('zoom').textContent = `${s.zoom}×`;
+  const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+  const g = src.getContext('2d');
+  g.fillStyle = FLOOR; g.fillRect(0, 0, src.width, src.height);
+  g.fillStyle = SEAM;
+  for (let k = 1; k <= COLS; k++) g.fillRect(k * C - 1, C, 1, src.height);
+  for (let k = 1; k <= ROWS; k++) g.fillRect(0, k * C - 1, src.width, 1);
+  for (let x = 0; x < COLS; x++) wallTile(g, x, 0, C);
+  const put = (spr, x0, y0) => { for (const [x, y, c] of spr.px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
+  const sprites = cabinetSprites(s);
+  // Back to front by the row each thing stands on, as the game draws them.
+  const things = [
+    ...PIECES.map(([k, f, x, y]) => [y, () => { const c = sprites[k][f]; put(c, x * C + Math.floor(C / 2) - c.ax, y * C + C - c.foot - 2); }]),
+    ...[['d', 5, 2], ['r', 1, 4]].map(([f, x, y]) => [y, () => put(RACCOON[f], x * C + Math.floor((C - RACCOON[f].w) / 2), (y + 1) * C - RACCOON[f].h - 1)]),
+  ].sort((a, b) => a[0] - b[0]);
+  for (const [, paint] of things) paint();
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+  autosave();
+}
+
+for (const k of KNOBS) {
+  $(k).oninput = () => { s[k] = Number($(k).value); save(); draw(); };
+  $(k + 'n').onchange = () => { s[k] = Math.max(Number($(k).min), Math.round(Number($(k + 'n').value))); save(); draw(); };
+}
+$('reset').onclick = () => { Object.assign(s, CABINET_LOOK); save(); draw(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(12, s.zoom + 1); save(); draw(); };
+// Every change saves itself to the notes file, the note with it, a moment after the last edit.
+let timer = 0;
+const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'cabinet-size', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600); };
+$('note').oninput = autosave;
+draw();
+</script>
+</body>
+</html>

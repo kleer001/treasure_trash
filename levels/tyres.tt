@@ -1,0 +1,15 @@
+:pack   Treasure Trash — Tyres (art check, never shipped)
+
+:level  TY
+:name   Tyres
+:teach  face on it rolls across; tread on it rolls up and down
+:par    5
+:solve  drdrr
+:grid
+#########
+#-------#
+#-o-@-O-#
+#-------#
+#-O-o--E#
+#########
+:end

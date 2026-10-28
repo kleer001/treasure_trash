@@ -26,6 +26,7 @@ Run `./run.sh`, then open a page under `/art/bench/`.
 | `raccoon_cartoon_v3.html` | The cartoon raccoon, version 3: the version 2 page with a fifth recovery, a nose rub on three legs; a press that winds up from any pose but a low one; a second stride that every other press in a run takes; and every hold and gap counted in 60 Hz screen frames. |
 | `tear.html` | The bag rip, with mound piles. |
 | `screen.html` | The whole screen at 480×270 with 24 px cells: a top strip for the room's name and moves, a room from a level pack centred in the board area at 1×, 1.5× or 2× its art's size, and the crow's dock at the bottom with a sample line and a choice of portrait. A portrait with frames says the line one syllable at a time, its beak opening 1 → 2 → 3 → 2 → 1 for each, and blinks on a seeded timer; every timing is counted in 60 Hz frames. |
+| `draft.html` | Pixel-art drafts for the pieces that have no art yet. Each piece has up to three versions, shown at 1×, at 4× and in a 4×3 room beside a can and a box. Keep, Toss and Redo verdicts and notes go to `/notes`. |
 
 Each page saves its controls in `localStorage` under a `trash-*` key and reads the others'
 keys, so a change on one page shows on the next. `trash/look.json` holds the defaults a page

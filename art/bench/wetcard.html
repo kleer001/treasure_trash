@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wet cardboard</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif; display: flex; gap: 24px; align-items: flex-start; }
+  .side { display: grid; gap: 8px; width: 380px; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 130px 1fr 44px; gap: 8px; align-items: center; }
+  .colours { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 12px; }
+  .colours label { grid-template-columns: 110px 40px; }
+  figure { margin: 0; display: grid; gap: 4px; }
+  figcaption { font-size: 12px; color: #6b6b66; }
+  canvas { display: block; image-rendering: pixelated; }
+  button { font: inherit; padding: 3px 10px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  input[type=number] { width: 70px; font: inherit; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  h3 { font-size: 13px; margin: 6px 0 0; }
+  .muted { color: #6b6b66; font-size: 12px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="views" style="display:grid; gap:16px"></div>
+<div class="side">
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="row"><span>seed</span><input id="seed" type="number" step="1"><button id="reroll">New seed</button></div>
+  <h3>Dark circles</h3>
+  <label>count <input id="count" type="range" min="0" max="10" step="1"><span></span></label>
+  <label>smallest radius px <input id="rmin" type="range" min="1" max="8" step="0.5"><span></span></label>
+  <label>largest radius px <input id="rmax" type="range" min="1" max="10" step="0.5"><span></span></label>
+  <h3>Soak from the edges</h3>
+  <label>depth px <input id="soak" type="range" min="0" max="6" step="1"><span></span></label>
+  <h3>Wet colours</h3>
+  <div class="colours" id="colours"></div>
+  <textarea id="note" placeholder="Note on the wet cardboard"></textarea>
+  <div class="row"><button id="send">Send note and settings</button><span id="status" class="muted"></span></div>
+</div>
+
+<script type="module">
+import { CARDBOARD_ROWS, CARDBOARD_PALETTE } from '../../src/art/cardboard.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { puddle } from '../../src/art/water.js';
+import { mulberry32 } from '../../src/rng.js';
+
+const KEY = 'trash-wetcard';
+const $ = id => document.getElementById(id);
+// The wet colour of each part of the sheet, the circle's colour over face and over flute, and the
+// edge soak's colour.
+const PARTS = [
+  ['c', 'face'], ['r', 'rib'], ['l', 'lit crease'], ['s', 'shade crease'], ['x', 'bare flute'], ['y', 'between flutes'],
+  ['f', 'torn fibre'], ['w', 'circle on face'], ['W', 'circle on flute'], ['e', 'edge soak'],
+];
+const DEFAULT = {
+  seed: 7, count: 4, rmin: 2, rmax: 4, soak: 1,
+  wet: { c: '#a8865e', r: '#9a7a54', l: '#b89870', s: '#7e6142', x: '#7c6a54', y: '#93806a', f: '#c2ac8a',
+    w: '#6a4430', W: '#5a3a28', e: '#7a5a3c' },
+};
+let s = structuredClone(DEFAULT), zoom = 8;
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+  for (const k of ['seed', 'count', 'rmin', 'rmax', 'soak']) if (saved[k] !== undefined) s[k] = saved[k];
+  Object.assign(s.wet, saved.wet ?? {});
+  zoom = saved.zoom ?? zoom;
+} catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ ...s, zoom })); } catch {} };
+
+const N = CARDBOARD_ROWS.length;
+const on = (x, y) => x >= 0 && y >= 0 && x < N && y < N && !'.k'.includes(CARDBOARD_ROWS[y][x]);
+
+/** The sheet's pixels, wet: each part in its wet colour, soaked darker in from the torn edges, and
+ *  the dark circles over it. Every pixel is one colour or another; nothing is blended. */
+function wetSheet() {
+  const rand = mulberry32(s.seed);
+  const cells = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (on(x, y)) cells.push([x, y]);
+  const circles = Array.from({ length: s.count }, () => {
+    const [cx, cy] = cells[Math.floor(rand() * cells.length)];
+    return [cx + 0.5, cy + 0.5, s.rmin + rand() * Math.max(0, s.rmax - s.rmin)];
+  });
+  // How far each pixel is from the sheet's edge, in steps.
+  const depth = {};
+  let edge = cells.filter(([x, y]) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !on(x + dx, y + dy)));
+  edge.forEach(([x, y]) => { depth[`${x},${y}`] = 1; });
+  for (let d = 2; d <= s.soak; d++) {
+    edge = cells.filter(([x, y]) => !depth[`${x},${y}`] && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => depth[`${x + dx},${y + dy}`] === d - 1));
+    edge.forEach(([x, y]) => { depth[`${x},${y}`] = d; });
+  }
+  const px = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const ch = CARDBOARD_ROWS[y][x];
+    if (ch === '.') continue;
+    if (ch === 'k') { px.push([x, y, CARDBOARD_PALETTE.k]); continue; }
+    const fluted = ch === 'x' || ch === 'y';
+    const inCircle = circles.some(([cx, cy, r]) => (x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= r * r);
+    const soaked = (depth[`${x},${y}`] ?? 99) <= s.soak;
+    px.push([x, y, inCircle ? s.wet[fluted ? 'W' : 'w'] : soaked ? s.wet.e : s.wet[ch]]);
+  }
+  return px;
+}
+
+function scaled(src) {
+  const out = document.createElement('canvas'); out.width = src.width * zoom; out.height = src.height * zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+  return out;
+}
+const figure = (label, c) => { const f = document.createElement('figure'), cap = document.createElement('figcaption'); cap.textContent = label; f.append(c, cap); return f; };
+const put = (ctx, px, x0, y0) => { for (const [x, y, col] of px) { ctx.fillStyle = col; ctx.fillRect(x0 + x, y0 + y, 1, 1); } };
+
+function floorCell(ctx, x0) {
+  ctx.fillStyle = FLOOR; ctx.fillRect(x0, 0, C, C);
+  ctx.fillStyle = SEAM; ctx.fillRect(x0 + C - 1, 0, 1, C); ctx.fillRect(x0, C - 1, C, 1);
+}
+function draw() {
+  for (const k of ['seed']) $(k).value = s[k];
+  $('zoom').textContent = `${zoom}×`;
+  // The dry sheet on the floor.
+  const dry = document.createElement('canvas'); dry.width = C; dry.height = C;
+  const d = dry.getContext('2d'); floorCell(d, 0);
+  put(d, CARDBOARD_ROWS.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, CARDBOARD_PALETTE[c]]]))), 0, 0);
+  // The wet sheet over the middle cell of a canal three cells long, floor above and below.
+  const canal = document.createElement('canvas'); canal.width = 3 * C; canal.height = 3 * C;
+  const w = canal.getContext('2d');
+  for (let cy = 0; cy < 3; cy++) for (let cx = 0; cx < 3; cx++) { w.save(); w.translate(cx * C, cy * C); floorCell(w, 0); w.restore(); }
+  const wetAt = (x, y) => y === 1 && x >= 0 && x < 3;
+  for (let cx = 0; cx < 3; cx++) put(w, puddle(cx, 1, C, wetAt), 0, 0);
+  put(w, wetSheet(), C, C);
+  $('views').replaceChildren(figure('dry, on the floor', scaled(dry)), figure('wet, over a canal', scaled(canal)));
+}
+
+for (const id of ['count', 'rmin', 'rmax', 'soak']) {
+  const input = $(id), out = input.nextElementSibling;
+  input.value = s[id]; out.textContent = s[id];
+  input.oninput = () => { s[id] = Number(input.value); out.textContent = input.value; save(); draw(); };
+}
+$('colours').replaceChildren(...PARTS.map(([k, name]) => {
+  const l = document.createElement('label'), input = document.createElement('input');
+  input.type = 'color'; input.value = s.wet[k];
+  input.oninput = () => { s.wet[k] = input.value; save(); draw(); };
+  l.append(name, input); return l;
+}));
+$('seed').onchange = () => { s.seed = Math.round(Number($('seed').value)); save(); draw(); };
+$('reroll').onclick = () => { s.seed = Math.floor(Math.random() * 1e6); save(); draw(); };
+$('zout').onclick = () => { zoom = Math.max(1, zoom - 1); save(); draw(); };
+$('zin').onclick = () => { zoom = Math.min(16, zoom + 1); save(); draw(); };
+$('send').onclick = () => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'wetcard', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `sent ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not sent: ${e.message}`; });
+draw();
+</script>
+</body>
+</html>

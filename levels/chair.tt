@@ -1,0 +1,15 @@
+:pack   Treasure Trash — Chair (art check, never shipped)
+
+:level  CH
+:name   Chair
+:teach  it rolls on its castors
+:par    5
+:solve  ddrrr
+:grid
+#########
+#-------#
+#-h-@-h-#
+#-------#
+#-h----E#
+#########
+:end

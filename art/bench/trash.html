@@ -23,7 +23,7 @@
 </head>
 <body>
 <h1>Trash catalog — item sprites, palette alternates, and seeded piles</h1>
-<div class="muted">Sprites: trash/items.json (palette-indexed). Layout and drawing: trash/pile.js. A pile is a function of its cell's seed.</div>
+<div class="muted">Sprites: src/art/items.json (palette-indexed). Layout and drawing: src/art/pile.js. A pile is a function of its cell's seed.</div>
 <div class="bar">
   <span class="grp">Zoom: <button id="z-">−</button><span id="z"></span><button id="z+">+</button></span>
   <span class="grp">Bits per pile, least: <button id="lo-">−</button><span id="lo"></span><button id="lo+">+</button></span>
@@ -45,13 +45,13 @@
 <h2>Items</h2>
 <div class="items" id="items"></div>
 <script type="module">
-import { createTrash, pileLayout, settle, drawPile } from './trash/pile.js';
-import { wallTile } from './trash/room.js';
+import { createTrash, pileLayout, settle, drawPile } from '../../src/art/pile.js';
+import { wallTile } from '../../src/art/room.js';
 import { cellSeed } from '../../src/stage.js';
 
 const C = 24, FLOOR = '#896e6e', SEAM = '#584c62';
 const KEY = 'trash-catalog';
-const LOOK = await fetch('trash/look.json').then(r => r.json());
+const LOOK = await fetch('../../src/art/look.json').then(r => r.json());
 const ui = { zoom: 4, seed: 0, lo: LOOK.min, hi: LOOK.max, spill: Math.round(LOOK.spill * 100), under: LOOK.under,
              outline: LOOK.outline, shadow: LOOK.shadow, pal: LOOK.accents ? 'accents' : 'gold', diag: LOOK.diagonals ? 'all' : 'quarter' };
 try { const saved = JSON.parse(localStorage.getItem(KEY) || '{}'); for (const k in ui) if (k in saved) ui[k] = saved[k]; } catch {}
@@ -59,7 +59,7 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(ui)); } catc
 
 const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
 
-const [D, A, O] = await Promise.all(['trash/items.json', 'tear/assets.json', 'trash/objects.json'].map(f => fetch(f).then(r => r.json())));
+const [D, A, O] = await Promise.all(['../../src/art/items.json', '../../src/art/assets.json', '../../src/art/objects.json'].map(f => fetch(f).then(r => r.json())));
 
 // The test room. W wall, p pile, @ raccoon; standing objects b bin, c can, j jug, g bag;
 // lying objects C couch (two cells), t tyre, x box. The raccoon walks, so it blocks nothing.

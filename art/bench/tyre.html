@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tyre views</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 420px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 150px 1fr 56px; gap: 10px; align-items: center; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  button.on { background: #1a1a1a; color: #fff; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <div class="row"><span>piece</span><button id="H">TIRE_H, rolls ← →</button><button id="V">TIRE_V, rolls ↑ ↓</button></div>
+  <label>turn from face-on <input id="yaw" type="range" min="0" max="90" step="5"><span></span></label>
+  <label>camera tilt <input id="tilt" type="range" min="15" max="60" step="5"><span></span></label>
+  <label>tyre height px <input id="size" type="range" min="14" max="36" step="1"><span></span></label>
+  <label>mirror <input id="flip" type="checkbox"><span></span></label>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">A 3D render shrunk to game pixels: a reference to draw over, not the sprite.</div>
+  <textarea id="note" placeholder="Note on the tyre"></textarea>
+  <div class="row"><button id="send">Send note and settings</button><span id="status" class="muted"></span></div>
+</div>
+
+<script type="module">
+import { ACTIONS, draw as drawRaccoon, mirror } from '../../src/art/cartoon.js';
+import { VIEW } from '../../src/art/press.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+
+const KEY = 'trash-tyre', COLS = 5, ROWS = 2;
+const $ = id => document.getElementById(id);
+// Each piece keeps its own view, so switching between them loses neither.
+let s = { piece: 'H', zoom: 8, H: { yaw: 35, tilt: 30, size: 24, flip: false }, V: { yaw: 55, tilt: 30, size: 24, flip: false } };
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+  for (const k of ['piece', 'zoom']) if (saved[k] !== undefined) s[k] = saved[k];
+  for (const p of ['H', 'V']) Object.assign(s[p], saved[p] ?? {});
+} catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+const view = () => s[s.piece];
+
+const crop = ({ px }) => {
+  const x0 = Math.min(...px.map(p => p[0])), y0 = Math.min(...px.map(p => p[1]));
+  return { w: Math.max(...px.map(p => p[0])) - x0 + 1, h: Math.max(...px.map(p => p[1])) - y0 + 1, px: px.map(([x, y, c]) => [x - x0, y - y0, c]) };
+};
+const sitting = d => crop(d === 'l' ? mirror(drawRaccoon(ACTIONS[VIEW[d]].crawl[0])) : drawRaccoon(ACTIONS[VIEW[d]].crawl[0]));
+const RACCOON = { d: sitting('d'), r: sitting('r') };
+
+const renders = new Map();
+function render(yaw, tilt) {
+  const key = `y${yaw}-t${tilt}`;
+  if (!renders.has(key)) {
+    const img = new Image(); img.src = `../../tmp/tyre/grid/${key}.png`; img.onload = draw; renders.set(key, img);
+  }
+  return renders.get(key);
+}
+
+/** The render cropped to the tyre and box-averaged down until it is `size` pixels tall. A pixel is
+ *  kept where most of its box is covered, so the edge stays hard. */
+function shrink(img, size) {
+  const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+  const { data, width, height } = g.getImageData(0, 0, c.width, c.height);
+  let x0 = width, y0 = height, x1 = 0, y1 = 0;
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) if (data[(y * width + x) * 4 + 3] > 8) {
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  const k = (y1 - y0 + 1) / size, w = Math.max(1, Math.round((x1 - x0 + 1) / k)), px = [];
+  for (let j = 0; j < size; j++) for (let i = 0; i < w; i++) {
+    let r = 0, gg = 0, b = 0, a = 0, n = 0;
+    for (let y = Math.floor(y0 + j * k); y < Math.min(y1 + 1, Math.floor(y0 + (j + 1) * k)); y++)
+      for (let x = Math.floor(x0 + i * k); x < Math.min(x1 + 1, Math.floor(x0 + (i + 1) * k)); x++) {
+        const o = (y * width + x) * 4, al = data[o + 3]; r += data[o] * al; gg += data[o + 1] * al; b += data[o + 2] * al; a += al; n++;
+      }
+    if (n && a / n > 110) px.push([i, j, `rgb(${Math.round(r / a)},${Math.round(gg / a)},${Math.round(b / a)})`]);
+  }
+  return { w, h: size, px };
+}
+
+// A strip of floor: the raccoon facing right at the left end, the tyre in the middle, the raccoon
+// facing down at the right end, all standing on the bottom row.
+function draw() {
+  const v = view(), img = render(v.yaw, v.tilt);
+  for (const id of ['yaw', 'tilt', 'size']) { $(id).value = v[id]; $(id).nextElementSibling.textContent = id === 'size' ? v[id] : `${v[id]}°`; }
+  $('flip').checked = v.flip;
+  $('H').className = s.piece === 'H' ? 'on' : ''; $('V').className = s.piece === 'V' ? 'on' : '';
+  $('zoom').textContent = `${s.zoom}×`;
+  const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+  const g = src.getContext('2d');
+  g.fillStyle = FLOOR; g.fillRect(0, 0, src.width, src.height);
+  g.fillStyle = SEAM;
+  for (let k = 1; k <= COLS; k++) g.fillRect(k * C - 1, 0, 1, src.height);
+  for (let k = 1; k <= ROWS; k++) g.fillRect(0, k * C - 1, src.width, 1);
+  const stand = (spr, col, flip = false) => {
+    const x0 = col * C + Math.floor((C - spr.w) / 2), y0 = ROWS * C - spr.h - 1;
+    for (const [x, y, c] of spr.px) { g.fillStyle = c; g.fillRect(x0 + (flip ? spr.w - 1 - x : x), y0 + y, 1, 1); }
+  };
+  stand(RACCOON.r, 1);
+  if (img.complete && img.naturalWidth) stand(shrink(img, v.size), 2, v.flip);
+  stand(RACCOON.d, 3);
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+for (const id of ['yaw', 'tilt', 'size']) $(id).oninput = () => { view()[id] = Number($(id).value); save(); draw(); };
+$('flip').onchange = () => { view().flip = $('flip').checked; save(); draw(); };
+for (const p of ['H', 'V']) $(p).onclick = () => { s.piece = p; save(); draw(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(16, s.zoom + 1); save(); draw(); };
+$('send').onclick = () => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'tyre', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `sent ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not sent: ${e.message}`; });
+draw();
+</script>
+</body>
+</html>

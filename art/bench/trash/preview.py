@@ -1,9 +1,9 @@
-"""Render every item and alt in trash/items.json onto the alley floor, scaled up. usage: python3 trash/preview.py [out.png] [--gold]"""
+"""Render every item and alt in src/art/items.json onto the alley floor, scaled up. usage: python3 art/bench/trash/preview.py [out.png] [--gold]"""
 import json, pathlib, sys
 from PIL import Image, ImageDraw
 
 HERE = pathlib.Path(__file__).parent
-D = json.load(open(HERE / 'items.json'))
+D = json.load(open(HERE.parents[2] / 'src' / 'art' / 'items.json'))
 GOLD = '--gold' in sys.argv
 OUT = next((a for a in sys.argv[1:] if not a.startswith('--')), str(HERE / 'preview.png'))
 FLOOR, UP, PAD = '#896e6e', 8, 3

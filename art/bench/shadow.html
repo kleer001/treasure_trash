@@ -60,8 +60,8 @@
 <div class="strip" id="strip"></div>
 <script type="module">
 import { BAG } from '../../src/rules.js';
-import { createTrash, drawPile } from './trash/pile.js';
-import { createFlight, TEAR, FLOOR } from './trash/flight.js';
+import { createTrash, drawPile } from '../../src/art/pile.js';
+import { createFlight, TEAR, FLOOR } from '../../src/art/flight.js';
 import { load, loadSpread, save as store, SPREAD, FLIGHT, flightDefaults, SHADE, shadowDefaults } from './trash/settings.js';
 
 const SLIDERS = {
@@ -75,7 +75,7 @@ const SLIDERS = {
 };
 const HEIGHTS = [0, 1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 24, 30];
 
-const [A, D, LOOK] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const [A, D, LOOK] = await Promise.all(['../../src/art/assets.json', '../../src/art/items.json', '../../src/art/look.json'].map(f => fetch(f).then(r => r.json())));
 const ui = load(SHADE, shadowDefaults(LOOK));
 const save = () => store(SHADE, ui);
 const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
@@ -169,7 +169,7 @@ function bar() {
   document.getElementById('zoom-read').textContent = `${ui.zoom}×`;
   for (const k in SLIDERS) { document.getElementById(`c-${k}`).value = ui.cast[k]; document.getElementById(`c-${k}-read`).textContent = SLIDERS[k][4](ui.cast[k]); }
   document.getElementById('source-read').textContent = `Piles: B from the Trash Spread page. Flight: the Landing Bench — landings ${FL.first}–${FL.last} ms after the tear, ` +
-    `arc ${FL.arc} px for an average flight. Landed shadow: "${LOOK.shadow}" from trash/look.json.`;
+    `arc ${FL.arc} px for an average flight. Landed shadow: "${LOOK.shadow}" from src/art/look.json.`;
 }
 const step = j => { ui.playing = false; clock = (Math.max(0, Math.min(FRAMES - 1, j)) + 0.5) * 1000 / ui.fps; save(); bar(); show(); };
 document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => { ui.dir = b.dataset.dir; save(); build(); });

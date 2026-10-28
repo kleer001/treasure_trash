@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Exit door</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 14px/1.4 system-ui, sans-serif; display: flex; gap: 24px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 10px; width: 360px; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 110px 1fr 48px; gap: 8px; align-items: center; }
+  button { font: inherit; padding: 3px 10px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  input[type=number] { width: 70px; font: inherit; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 12px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <div class="row">
+    <button id="toggle">Open</button>
+    <button id="play">Pause</button>
+    <button id="back">◀</button><button id="fwd">▶</button>
+    <span>frame</span><input id="frame" type="number" min="0" step="1">
+  </div>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <label>roll frames <input id="roll" type="range" min="2" max="40" step="2"><span></span></label>
+  <label>wave height px <input id="amp" type="range" min="0" max="4" step="0.25"><span></span></label>
+  <label>wave length x px <input id="wave" type="range" min="4" max="96" step="1"><span></span></label>
+  <label>wave length y px <input id="waveY" type="range" min="2" max="48" step="1"><span></span></label>
+  <label>speed x px/s <input id="speedX" type="range" min="-30" max="30" step="0.5"><span></span></label>
+  <label>speed up px/s <input id="speedY" type="range" min="-30" max="30" step="0.5"><span></span></label>
+  <div>
+    <div class="row">light, top to bottom <button id="less">−</button><button id="more">+</button></div>
+    <div class="row" id="light"></div>
+  </div>
+  <textarea id="note" placeholder="Note on the door"></textarea>
+  <div class="row"><button id="send">Send note and settings</button><span id="status" class="muted"></span></div>
+</div>
+
+<script type="module">
+import { door, LOOK } from '../../src/art/door.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+
+const KEY = 'trash-door', COLS = 3, ROWS = 2, FRAME_MS = 1000 / 60;
+const $ = id => document.getElementById(id);
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); } catch {}
+const look = { ...LOOK, light: [...LOOK.light], ...(saved.look ?? {}) };
+let zoom = saved.zoom ?? 8;
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ look, zoom })); } catch {} };
+
+// The clock is a frame count; the shutter goes on twos and the light on ones, as in the game.
+let frame = 0, playing = true, last = performance.now(), lit = false, t0 = -Infinity;
+const twos = n => Math.floor(n / 2) * 2;
+const open = () => { const k = Math.min(1, twos(frame - t0) / look.roll); return lit ? k : 1 - k; };
+
+const view = $('view'), src = document.createElement('canvas');
+src.width = COLS * C; src.height = ROWS * C + C;
+function draw() {
+  const ctx = src.getContext('2d');
+  for (let x = 0; x < COLS; x++) wallTile(ctx, x, 0, C);
+  ctx.fillStyle = FLOOR; ctx.fillRect(0, C, COLS * C, ROWS * C);
+  ctx.fillStyle = SEAM;
+  for (let k = 1; k <= COLS; k++) ctx.fillRect(k * C - 1, C, 1, ROWS * C);
+  for (let k = 1; k <= ROWS; k++) ctx.fillRect(0, C + k * C - 1, COLS * C, 1);
+  const x0 = C, y0 = C + (ROWS - 1) * C;
+  for (const [x, y, col] of door(open(), frame, look)) { ctx.fillStyle = col; ctx.fillRect(x0 + x, y0 + y, 1, 1); }
+  view.width = src.width * zoom; view.height = src.height * zoom;
+  const v = view.getContext('2d'); v.imageSmoothingEnabled = false;
+  v.drawImage(src, 0, 0, view.width, view.height);
+  $('frame').value = frame; $('zoom').textContent = `${zoom}×`;
+  $('toggle').textContent = lit ? 'Close' : 'Open';
+}
+
+function loop(t) {
+  if (playing) { frame += Math.floor((t - last) / FRAME_MS); last += Math.floor((t - last) / FRAME_MS) * FRAME_MS; draw(); }
+  else last = t;
+  requestAnimationFrame(loop);
+}
+
+$('toggle').onclick = () => { lit = !lit; t0 = frame; draw(); };
+$('play').onclick = () => { playing = !playing; $('play').textContent = playing ? 'Pause' : 'Play'; };
+const goto = f => { playing = false; $('play').textContent = 'Play'; frame = Math.max(0, f); draw(); };
+$('back').onclick = () => goto(frame - 1);
+$('fwd').onclick = () => goto(frame + 1);
+$('frame').onchange = () => goto(Math.round(Number($('frame').value)));
+$('zout').onclick = () => { zoom = Math.max(1, zoom - 1); save(); draw(); };
+$('zin').onclick = () => { zoom = Math.min(16, zoom + 1); save(); draw(); };
+
+for (const id of ['roll', 'amp', 'wave', 'waveY', 'speedX', 'speedY']) {
+  const input = $(id), out = input.nextElementSibling;
+  input.value = look[id]; out.textContent = look[id];
+  input.oninput = () => { look[id] = Number(input.value); out.textContent = input.value; save(); draw(); };
+}
+function lights() {
+  $('light').replaceChildren(...look.light.map((c, i) => {
+    const input = document.createElement('input');
+    input.type = 'color'; input.value = c;
+    input.oninput = () => { look.light[i] = input.value; save(); draw(); };
+    return input;
+  }));
+}
+$('less').onclick = () => { if (look.light.length > 1) look.light.pop(); lights(); save(); draw(); };
+$('more').onclick = () => { look.light.push(look.light.at(-1)); lights(); save(); draw(); };
+lights();
+
+$('send').onclick = () => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'door', look, note: $('note').value, frame, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `sent ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not sent: ${e.message}`; });
+
+draw();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

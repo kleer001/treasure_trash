@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Piece Gallery</title>
+<style>
+  :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --pick: #1a1a1a; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 15px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 19px; margin: 0 0 10px; } h2 { font-size: 16px; margin: 0 0 6px; }
+  button { font: inherit; padding: 4px 10px; border: 1px solid var(--ink); background: #fff; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--pick); color: #fff; }
+  .wrap { display: grid; grid-template-columns: 220px 1fr 340px; gap: 18px; align-items: start; }
+  .list { display: flex; flex-direction: column; gap: 4px; }
+  .list button { text-align: left; display: flex; justify-content: space-between; }
+  .list .count { color: var(--muted); font-size: 13px; }
+  .list button[aria-pressed="true"] .count { color: #ddd; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+  .grp { display: flex; gap: 4px; align-items: center; }
+  .grp .lab { color: var(--muted); margin-right: 2px; }
+  #frame { width: 4em; font: inherit; text-align: center; }
+  #view { display: block; image-rendering: pixelated; border: 1px solid var(--line); }
+  #game { position: absolute; left: -10000px; top: 0; width: 1200px; height: 900px; border: 0; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .fault { color: #b3261e; font-weight: 600; }
+  textarea { width: 100%; box-sizing: border-box; font: inherit; min-height: 110px; }
+  .notes { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 8px; }
+  .notes li { border-left: 3px solid var(--line); padding-left: 8px; }
+  .notes .stamp { color: var(--muted); font-size: 12px; }
+  #sent { margin-left: 8px; }
+</style>
+</head>
+<body>
+<h1>Piece Gallery</h1>
+<div class="wrap">
+  <div>
+    <h2>Pieces</h2>
+    <div class="list" id="pieces"></div>
+  </div>
+  <div>
+    <div class="bar">
+      <span class="grp"><span class="lab">Action:</span><span id="acts" class="grp"></span></span>
+      <span class="grp"><span class="lab">Direction:</span>
+        <button data-dir="u">↑</button><button data-dir="d">↓</button><button data-dir="l">←</button><button data-dir="r">→</button></span>
+      <span class="grp"><button id="play">pause</button><button id="prev">◀ frame</button><button id="next">frame ▶</button>
+        <span class="lab">frame</span><input id="frame" inputmode="numeric"><span id="of"></span></span>
+      <span class="grp"><span class="lab">Speed:</span><button id="slow">−</button><span id="speed-read"></span><button id="fast">+</button></span>
+      <span class="grp"><span class="lab">Zoom:</span><button id="zoom-out">−</button><span id="zoom-read"></span><button id="zoom-in">+</button></span>
+    </div>
+    <canvas id="view"></canvas>
+    <p class="muted" id="source"></p>
+    <p class="fault" id="fault"></p>
+  </div>
+  <div>
+    <h2 id="notes-title">Notes</h2>
+    <textarea id="note" placeholder="A note on this piece. The piece, the action, the direction and the frame go with it."></textarea>
+    <div><button id="save">Save note</button><span class="muted" id="sent"></span></div>
+    <ul class="notes" id="notes"></ul>
+  </div>
+</div>
+<iframe id="game" title="the game"></iframe>
+<script type="module">
+// The game itself plays each room of levels/gallery.tt in the frame below the page, in the pixel
+// art, with its animation clock stopped: this page presses the key and steps the clock a 60 Hz
+// frame at a time, and copies the game's canvas up at a whole zoom.
+import { parseLevelPack } from '../../src/format.js';
+
+const FRAME_MS = 1000 / 60, HOLD = 30, LIMIT = 900;
+const KEYS = { u: 'ArrowUp', d: 'ArrowDown', l: 'ArrowLeft', r: 'ArrowRight' };
+const NAMES = { raccoon: 'Raccoon', bag: 'Garbage bag', 'can-full': 'Trash can, full', can: 'Trash can, empty',
+  'box-full': 'Recycling box, full', box: 'Recycling box, empty', jug: 'Water jug, full', 'jug-empty': 'Water jug, empty',
+  pane: 'Glass pane', wheelie: 'Wheelie bin, empty', 'wheelie-full': 'Wheelie bin, full', skate: 'Skateboard' };
+const ROOMS = parseLevelPack(await fetch('../../levels/gallery.tt').then(r => r.text())).levels.map(l => {
+  const [piece, act, dir] = l.name.split(' · ');
+  return { id: l.id, piece, act, dir };
+});
+const PIECES = [...new Set(ROOMS.map(r => r.piece))].map(id => ({ id, name: NAMES[id] ?? id,
+  acts: [...new Set(ROOMS.filter(r => r.piece === id).map(r => r.act))] }));
+
+const KEY = 'trash-pieces', NOTES = 'trash-pieces-notes';
+const read = (k, d) => { try { return { ...d, ...JSON.parse(localStorage.getItem(k) ?? '{}') }; } catch { return d; } };
+const ui = read(KEY, { piece: 'raccoon', act: 'crawl', dir: 'r', speed: 100, zoom: 4, playing: true });
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(ui)); } catch {} };
+let notes = (() => { try { return JSON.parse(localStorage.getItem(NOTES) ?? '[]'); } catch { return []; } })();
+
+const piece = () => PIECES.find(p => p.id === ui.piece) ?? PIECES[0];
+const action = () => piece().acts.includes(ui.act) ? ui.act : piece().acts[0];
+const room = () => ROOMS.find(r => r.piece === piece().id && r.act === action() && r.dir === ui.dir);
+
+// ---- the game in the frame ----
+const frame = document.getElementById('game');
+await new Promise(done => { frame.onload = done; frame.src = '../../index.html?pixel&debug&acts=gallery.tt'; });
+const win = frame.contentWindow;
+for (let k = 0; !win.__tt; k++) { if (k > 400) throw new Error('the game gives no probe'); await new Promise(r => setTimeout(r, 25)); }
+// The probe is up before the packs have loaded: ready once it can name the room.
+const ready = () => { try { win.__tt.check(); return true; } catch { return false; } };
+for (let k = 0; !ready(); k++) { if (k > 400) throw new Error('the game never loaded its rooms'); await new Promise(r => setTimeout(r, 25)); }
+const tt = win.__tt, key = k => win.dispatchEvent(new win.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+// His opening speech, the first time the game is ever opened: twice skips it.
+key('Escape'); key('Escape');
+tt.hold();
+
+let g = 0, length = 1, shown = null, carry = 0, last = null;
+/** The room at frame `f` after the press: the room started clean, the key pressed, the clock stepped. */
+function seek(f) {
+  const r = room();
+  if (!tt.goto(r.id)) throw new Error(`no room ${r.id} in the gallery pack`);
+  key(KEYS[r.dir]);
+  for (let i = 0; i < f; i++) tt.step(1);
+  g = f;
+}
+/** Frames from the press until nothing moves, and a hold after. */
+function measure() {
+  seek(0);
+  let n = 0;
+  while (!tt.idle() && n < LIMIT) { tt.step(1); n++; }
+  if (n >= LIMIT) throw new Error(`${room().id} still moving after ${LIMIT} frames`);
+  length = n + HOLD;
+}
+function to(f) {
+  f = Math.max(0, Math.min(length - 1, f));
+  if (f === g + 1) { tt.step(1); g = f; } else seek(f);
+  draw();
+}
+
+const view = document.getElementById('view');
+function draw() {
+  const cv = frame.contentDocument.getElementById('cv'), z = ui.zoom;
+  if (view.width !== cv.width * z || view.height !== cv.height * z) { view.width = cv.width * z; view.height = cv.height * z; }
+  const c = view.getContext('2d');
+  c.imageSmoothingEnabled = false;
+  c.drawImage(cv, 0, 0, view.width, view.height);
+  const input = document.getElementById('frame');
+  if (document.activeElement !== input) input.value = g;
+  document.getElementById('of').textContent = `of ${length - 1}`;
+  const errors = tt.check().errors;
+  document.getElementById('fault').textContent = errors.length ? `The game threw: ${errors.at(-1)}` : '';
+}
+
+function scene() {
+  ui.act = action(); save(); bar();
+  measure(); seek(0); draw();
+}
+
+function tick(now) {
+  if (ui.playing && last !== null) {
+    carry += (now - last) * ui.speed / 100 / FRAME_MS;
+    const n = Math.floor(carry); carry -= n;
+    for (let i = 0; i < n; i++) { if (g + 1 >= length) seek(0); else { tt.step(1); g++; } }
+    if (n) draw();
+  }
+  last = now; requestAnimationFrame(tick);
+}
+
+const stepTo = f => { ui.playing = false; save(); bar(); to(f); };
+
+function bar() {
+  const p = piece(), a = action(), r = room();
+  document.getElementById('pieces').innerHTML = PIECES.map(q => {
+    const n = notes.filter(m => m.piece === q.id).length;
+    return `<button data-piece="${q.id}" aria-pressed="${q.id === p.id}"><span>${q.name}</span><span class="count">${n || ''}</span></button>`;
+  }).join('');
+  document.querySelectorAll('[data-piece]').forEach(b => b.onclick = () => { ui.piece = b.dataset.piece; ui.act = piece().acts[0]; scene(); });
+  document.getElementById('acts').innerHTML = p.acts.map(x => `<button data-act="${x}" aria-pressed="${x === a}">${x}</button>`).join('');
+  document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { ui.act = b.dataset.act; scene(); });
+  document.querySelectorAll('[data-dir]').forEach(b => b.setAttribute('aria-pressed', b.dataset.dir === ui.dir));
+  document.getElementById('play').textContent = ui.playing ? 'pause' : 'play';
+  document.getElementById('speed-read').textContent = `${ui.speed}%`;
+  document.getElementById('zoom-read').textContent = `${ui.zoom}×`;
+  document.getElementById('source').textContent = `The game, with ?pixel, playing room ${r.id} of levels/gallery.tt. Drawn on twos.`;
+  document.getElementById('notes-title').textContent = `Notes on ${p.name.toLowerCase()}`;
+  const mine = notes.filter(m => m.piece === p.id).reverse();
+  document.getElementById('notes').innerHTML = mine.map(m =>
+    `<li><div class="stamp">${m.action} · ${'↑↓←→'['udlr'.indexOf(m.dir)]} · frame ${m.frame} · ${new Date(m.at).toLocaleString()}</div><div></div></li>`).join('');
+  [...document.getElementById('notes').children].forEach((li, i) => { li.lastChild.textContent = mine[i].note; });
+}
+
+document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => { ui.dir = b.dataset.dir; scene(); });
+document.getElementById('play').onclick = () => { ui.playing = !ui.playing; save(); bar(); };
+document.getElementById('prev').onclick = () => stepTo(g - 1);
+document.getElementById('next').onclick = () => stepTo(g + 1);
+const frameBox = document.getElementById('frame');
+frameBox.onchange = () => { const v = Number(frameBox.value); if (Number.isInteger(v)) stepTo(v); else frameBox.value = g; };
+frameBox.onkeydown = e => { if (e.key === 'Enter') frameBox.blur(); };
+document.getElementById('slow').onclick = () => { ui.speed = Math.max(10, ui.speed - 10); save(); bar(); };
+document.getElementById('fast').onclick = () => { ui.speed = Math.min(200, ui.speed + 10); save(); bar(); };
+document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); save(); bar(); draw(); };
+document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zoom + 1); save(); bar(); draw(); };
+document.getElementById('save').onclick = async () => {
+  const text = document.getElementById('note').value.trim(), sent = document.getElementById('sent');
+  if (!text) return;
+  const note = { page: 'pieces', piece: ui.piece, action: action(), dir: ui.dir, frame: g, room: room().id, note: text, at: new Date().toISOString() };
+  const r = await fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(note) });
+  if (!r.ok) { sent.textContent = `Not saved: HTTP ${r.status}`; return; }
+  notes.push(note); try { localStorage.setItem(NOTES, JSON.stringify(notes)); } catch {}
+  document.getElementById('note').value = ''; sent.textContent = 'Saved.'; bar();
+};
+window.__pieces = { pick: o => { Object.assign(ui, o); scene(); }, step: f => stepTo(f), length: () => length, room: () => room().id };
+scene(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>

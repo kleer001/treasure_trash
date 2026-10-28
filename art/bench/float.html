@@ -68,16 +68,17 @@
   </div>
 </div>
 <script type="module">
+import { embed, setPress, sceneMs, pressLength, raccoon, raccoonOver, raccoonSprite, blit } from './trash/embed.js';
 import { explain, cell, restsOn, NONE, BAG as BAG_CODE, CAN_FULL, CAN_EMPTY, BIN_EMPTY, JUG_EMPTY } from '../../src/rules.js';
 import { toState } from '../../src/format.js';
 import { decorAfter } from '../../src/stage.js';
 import { handleAt, depthLane } from '../../src/lanes.js';
-import { createTrash } from './trash/pile.js';
-import { createFlight, C } from './trash/flight.js';
-import * as Can from './trash/can.js';
-import * as Box from './trash/box.js';
-import * as Jug from './trash/jug.js';
-import { canal, soaked, WATER } from './trash/water.js';
+import { createTrash } from '../../src/art/pile.js';
+import { createFlight, C } from '../../src/art/flight.js';
+import * as Can from '../../src/art/can.js';
+import * as Box from '../../src/art/box.js';
+import * as Jug from '../../src/art/jug.js';
+import { canal, soaked, WATER } from '../../src/art/water.js';
 import { load, save as store, CROSSING, crossingDefaults, SHADE, shadowDefaults } from './trash/settings.js';
 
 const KEY = 'trash-float', CAN_KEY = 'trash-can';
@@ -114,7 +115,7 @@ const { EDGE, LIGHT, SHINE } = WATER;
 const ARROW = { l: '←', u: '↑', r: '→', d: '↓' };
 const NAMES = { [BIN_EMPTY]: 'the box', [CAN_EMPTY]: 'the can', [JUG_EMPTY]: 'the jug', [BAG_CODE]: 'the bag', [CAN_FULL]: 'the full can' };
 
-const [A, D, LOOK] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const [A, D, LOOK] = await Promise.all(['../../src/art/assets.json', '../../src/art/items.json', '../../src/art/look.json'].map(f => fetch(f).then(r => r.json())));
 const ui = load(KEY, { scene: 'box', dir: 'r', room: 'walled', before: 'stand', under: 'tint', playing: true, speed: 100, zoom: 4, fps: 30,
   drop: 3, depth: 5, murk: 50, glint: 2, slide: 220, plunge: 3, amp: 1, bobs: 2, decay: 50, settle: 1000, splash: 420, ripple: 5, squash: 45, hold: 700, poke: 5 });
 const save = () => store(KEY, ui);
@@ -324,7 +325,11 @@ function base(ctx) {
   for (const [k, p] of B.canalPx) { const [x, y] = k.split(',').map(Number); ctx.fillStyle = p.water; ctx.fillRect(x, y, 1, 1); }
   F.walls(ctx, B);
 }
-const raccoonAt = (cx, cy, k) => { const [x, y] = F.at(A.raccoon, cx, cy); return thing(A.raccoon, x + B.dx * k, y + B.dy * k, { shadow: false }); };
+const raccoonAt = (cx, cy, k) => {
+  const p = raccoonSprite(cx, cy);
+  if (p) return thing(p, p.x, p.y, { shadow: false });
+  const [x, y] = F.at(A.raccoon, cx, cy); return thing(A.raccoon, x + B.dx * k, y + B.dy * k, { shadow: false });
+};
 
 /** The full can's upright top-left `t` ms after the push, px. */
 function canAt(t) {
@@ -374,6 +379,7 @@ function frameAt(ctx, t) {
   const last = marks(ctx, t, posed);
   byFeet(ctx, list);
   last.forEach(d => d());
+  raccoonOver(ctx);
 }
 
 /** A still of board `s`, drawn from the board, with the way each thing lies taken from decoration
@@ -510,6 +516,12 @@ window.addEventListener('storage', e => {
   if (e.key === CAN_KEY) { CS = load(CAN_KEY, CAN_DEFAULTS); build(); }
   if (e.key === SHADE) { CAST = load(SHADE, shadowDefaults(LOOK)).cast; build(); }
   if (e.key === CROSSING) { EDGES = load(CROSSING, crossingDefaults()); build(); }
+});
+// A shove at a thing afloat is refused, so he strains against it and does not step.
+embed(view, {
+  set: o => { Object.assign(ui, o, { playing: false }); setPress(ui.dir, ui.scene === 'poke' ? 'stuck' : 'push'); build(); },
+  length: () => pressLength(B.END + ui.hold),
+  show: g => { const c = canvasOf(W); frameAt(c.getContext('2d'), Math.min(B.END, sceneMs(g))); blit(view, c, ui.zoom); },
 });
 build(); requestAnimationFrame(tick);
 </script>

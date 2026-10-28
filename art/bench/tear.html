@@ -43,20 +43,21 @@
     <div class="check" id="check-cells"></div>
     <p class="muted">Each check compares a pixel frame against a still drawn from the board that
       <code>explain()</code> returns. 0 px differ means the animation starts and ends on the rule's board.</p>
-    <p class="muted">Pile look: trash/look.json. Each piece flies at full size on an arc over its
+    <p class="muted">Pile look: src/art/look.json. Each piece flies at full size on an arc over its
       ground shadow; a spinning piece turns in 45° steps and lands in its resting turn.</p>
   </div>
 </div>
 <h2>Pixel frames</h2><div class="strip" id="strip"></div>
 <h2>Hand-drawn reference frames</h2><div class="strip" id="strip-ref"></div>
 <script type="module">
+import { embed, setPress, sceneMs, pressLength, raccoon, raccoonOver, raccoonSprite, blit } from './trash/embed.js';
 import { explain, TRASH, BAG, cell } from '../../src/rules.js';
 import { toState } from '../../src/format.js';
 import { cellSeed } from '../../src/stage.js';
 import { createSprites } from '../../src/sprites.js';
 import { mulberry32 } from '../../src/rng.js';
-import { createTrash, pileLayout, settle, drawPile, SHADOW } from './trash/pile.js';
-import { wallTile } from './trash/room.js';
+import { createTrash, pileLayout, settle, drawPile, SHADOW } from '../../src/art/pile.js';
+import { wallTile } from '../../src/art/room.js';
 
 const C = 24;                                          // logical px per cell
 const FLOOR = '#896e6e', SEAM = '#584c62';
@@ -85,7 +86,7 @@ const ui = { dir: 'u', room: 'walled', playing: true, speed: 100, zoom: 4, cells
 try { const saved = JSON.parse(localStorage.getItem(KEY) || '{}'); for (const k in ui) if (k in saved) ui[k] = saved[k]; } catch {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(ui)); } catch {} };
 
-const [A, D, LOOK] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const [A, D, LOOK] = await Promise.all(['../../src/art/assets.json', '../../src/art/items.json', '../../src/art/look.json'].map(f => fetch(f).then(r => r.json())));
 const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
 const LAY = { min: LOOK.min, max: LOOK.max, spill: LOOK.spill, C }, STYLE = { outline: LOOK.outline, shadow: LOOK.shadow };
 
@@ -152,7 +153,8 @@ function frame(ctx, B, f) {
   for (const a of flying) if (a.h) for (const [px, py] of a.s.px) { ctx.fillStyle = SHADOW; ctx.fillRect(a.gx + px, a.gy + py, 1, 1); }
   for (const a of flying) drawSpr(ctx, a.s, a.gx, a.gy - a.h);
   const [rx, ry] = at(A.raccoon, B.bx - B.dx, B.by - B.dy);
-  drawSpr(ctx, A.raccoon, rx + B.dx * f.lunge, ry + B.dy * f.lunge);
+  raccoon(ctx, B.bx - B.dx, B.by - B.dy, () => drawSpr(ctx, A.raccoon, rx + B.dx * f.lunge, ry + B.dy * f.lunge));
+  raccoonOver(ctx);
 }
 
 /** The same frame as the game draws it today, at display size. */
@@ -273,6 +275,13 @@ on('fast', () => { ui.speed = Math.min(300, ui.speed + 10); });
 on('zoom-out', () => { ui.zoom = Math.max(1, ui.zoom - 1); }, true);
 on('zoom-in', () => { ui.zoom = Math.min(8, ui.zoom + 1); }, true);
 on('cells', () => { ui.cells = !ui.cells; });
+// In a gallery the press starts where the first frame's hold ends: that hold is the bench's wait.
+const frameOf = ms => { let t = -FRAMES[0].ms; return FRAMES.find(f => ms < (t += f.ms)) ?? FRAMES.at(-1); };
+embed(view, {
+  set: o => { Object.assign(ui, o, { playing: false }); setPress(ui.dir); build(); },
+  length: () => pressLength(FRAMES.slice(1).reduce((s, f) => s + f.ms, 0)),
+  show: g => { const c = canvasOf(W); frame(c.getContext('2d'), B, frameOf(sceneMs(g))); blit(view, c, ui.zoom); },
+});
 bar(); build(); requestAnimationFrame(tick);
 </script>
 </body>

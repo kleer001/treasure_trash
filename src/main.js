@@ -21,6 +21,9 @@ import { createWatch, refusal } from './crowWatch.js';
 import { createPlay, tell } from './play.js';
 import { mulberry32 } from './rng.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
+import { createPixelSprites, loadPixelArt, PIXEL_CELL } from './pixel.js';
+import { press, moveStart, segAt } from './art/press.js';
+import { LOOK as DOOR } from './art/door.js';
 import { createCompositor } from './compositor.js';
 import { P, PATTERNS, KINDS, layWall, drawWipe, wallFrom, roomBeats } from './wipe.js';
 import { createWipeTune } from './wipeTune.js';
@@ -34,7 +37,15 @@ const CANF = CAN_FULL, CANE = CAN_EMPTY;
 // A room is shown by its own id, zero-padded, so the picker, the pack and levels.md all call
 // it the same thing. Three digits because the pack is meant to grow: L0 -> 000, L18 -> 018.
 const pad = id => String(id).replace(/\D+/g,'').padStart(3,'0');
-const CS=76, PAD=9;
+// `?pixel` draws the board in the pixel art, one canvas pixel to an art pixel, scaled up whole.
+const PIXEL = new URLSearchParams(location.search).has('pixel'), PIXEL_ZOOM = 3;
+const CS = PIXEL ? PIXEL_CELL : 76, PAD=9;
+// The animation clock, in ms. Under `?debug` it can be stopped and stepped a 60 Hz frame at a time.
+let heldMs = null;
+const clockMs = () => heldMs ?? performance.now();
+// Drawn on twos: every drawing holds two 60 Hz frames, so time since a start moves in steps of two.
+const TWOS = 2 * 1000 / 60;
+const since = t0 => Math.floor((clockMs() - t0) / TWOS) * TWOS;
 // The occupant codes the sprite dispatcher needs; it takes them rather than importing the
 // rules, so the art has no idea a rulebook exists.
 
@@ -97,11 +108,14 @@ if(dbg){
     refStage: () => stageFrom(state, cur + 1, decor),
     decor: () => decor,
     grid: () => toGrid(state),
-    idle: () => !anim && !busy && !fx && !wipe,
+    idle: () => !anim && !busy && !fx && !wipe && !pose,
     level: () => LEVELS[cur].id,
     moves: () => moves,
     won: () => won,
     mute: v => { muted = v; },
+    hold: () => { heldMs = performance.now(); },
+    run: () => { heldMs = null; raf ||= requestAnimationFrame(tick); },
+    step: (n = 1) => { heldMs += n * 1000 / 60; cancelAnimationFrame(raf); tick(); },
   });
 }
 // The crow: `crow` says the lines, `watch` notices what he would say them about. Both are built
@@ -145,11 +159,11 @@ function startFx(dir, r){
   if(fxSeen.has(key)) kind = 'bump';          // you've seen it; don't make you sit through it
   fxSeen.add(key);
   fx = { kind, dx, dy, bx:tx, by:ty, showBurst: kind==='tear',
-         cells: kind==='tear' ? fan(tx,ty,dx,dy) : [], blame:r.blame, t0:performance.now(), beeped:false };
+         cells: kind==='tear' ? fan(tx,ty,dx,dy) : [], blame:r.blame, t0:clockMs(), beeped:false };
   if(!raf) raf = requestAnimationFrame(tick);
 }
 function fxPhase(){
-  const d = FX[fx.kind], e = performance.now() - fx.t0;
+  const d = FX[fx.kind], e = since(fx.t0);
   const t1=d.lunge, t2=t1+d.burst, t3=t2+d.hold, t4=t3+d.rewind;
   if(e < t1)  return { lunge:e/t1, burst:0, flash:0 };
   if(e < t2)  return { lunge:1, burst:d.burst ? (e-t1)/d.burst : 1, flash:0 };
@@ -163,6 +177,32 @@ function fxPhase(){
 // everything out of the shove cell. `stage` owns the objects and their fractional positions,
 // `timeline` cuts the traced action into segments, and this only keeps the clock.
 let stage = null, board = null, anim = null;
+
+// In the pixel art he is drawn press by press: the drawings of one action, played from the cell he
+// pressed from. The board waits out his wind-up, and a one-cell shove travels as far as the drawing
+// says the thing has gone, so his nose stays on it.
+let pose = null;
+function startPose(act, dir, from, stay){
+  if(!PIXEL) return;
+  pose = { segs: press(act, dir, { lead: false }), dir, x: from.x, y: from.y, stay, t0: clockMs() };
+}
+const poseAt = () => since(pose.t0) / FRAME_MS;
+const poseSeg = () => segAt(pose.segs, poseAt());
+// The exit's shutter rolls, on twos, when the door's light changes, once the shove that changed
+// it has landed. The light behind it shimmers on ones for as long as it is open. A room loads
+// with the shutter still.
+let door = null;
+function syncDoor(){
+  const lit = exitLit(state);
+  if(!door) door = { lit, t0: -Infinity };
+  else if(lit !== door.lit && !anim) door = { lit, t0: clockMs() };
+  if(doorLive()) raf ||= requestAnimationFrame(tick);
+}
+function doorRoll(){
+  const k = Math.min(1, since(door.t0) / (DOOR.roll * FRAME_MS));
+  return { open: door.lit ? k : 1 - k, frame: Math.floor(clockMs() / FRAME_MS) };
+}
+const doorLive = () => PIXEL && !!door && (door.lit || since(door.t0) < DOOR.roll * FRAME_MS);
 const slow = matchMedia('(prefers-reduced-motion: reduce)');
 
 // The stage is NOT rebuilt per action. It is already standing on `prev` — `rest()` built it
@@ -171,18 +211,22 @@ const slow = matchMedia('(prefers-reduced-motion: reduce)');
 // it shifted.
 function startMv(prev, r){
   board = prev;
-  anim = { segs: timeline(r, CELL_MS), si: 0, k: -1, t0: performance.now() };
+  const segs = timeline(r, CELL_MS), wind = pose ? moveStart(pose.segs) * FRAME_MS : 0;
+  anim = { segs, si: 0, k: -1, t0: clockMs() + wind,
+           drawn: !!pose && segs[0].items.length === 1 && !segs[0].roll };
   if(!raf) raf = requestAnimationFrame(tick);
 }
 
 /** Returns false once the whole action has played out. */
 function stepMv(){
-  const seg = anim.segs[anim.si];
-  const t = Math.min(1, (performance.now() - anim.t0) / seg.dur);
+  const seg = anim.segs[anim.si], e = since(anim.t0);
+  if(e < 0) return true;
+  const t = Math.min(1, e / seg.dur);
   // Progress is measured in CELLS, so the whole part names the step and the fraction is the
   // progress inside it. That is what keeps velocity continuous across a step boundary: the
   // envelope spans the whole roll, and the steps are just where it crosses an edge.
-  const d = (seg.roll ? rollEase(t, seg.cells) : easeOut(t)) * seg.items.length;
+  const d = (anim.drawn && anim.si === 0 ? drawnTravel()
+    : seg.roll ? rollEase(t, seg.cells) : easeOut(t)) * seg.items.length;
   const k = Math.min(seg.items.length - 1, Math.floor(d));
   while(anim.k < k){
     if(anim.k >= 0) settle(stage);
@@ -196,8 +240,14 @@ function stepMv(){
   settle(stage);
   board = state;
   if(++anim.si >= anim.segs.length) return false;
-  anim.k = -1; anim.t0 = performance.now();
+  anim.k = -1; anim.t0 = clockMs();
   return true;
+}
+
+/** How far through its cell the shove is, by the drawing on screen: the thing he pushes, or him. */
+function drawnTravel(){
+  const f = poseSeg().f;
+  return Math.max(0, Math.min(1, (f.thing ?? f.dx) / PIXEL_CELL));
 }
 
 /** Land the whole action at once — an input cutting an animation short still has to finish it. */
@@ -244,12 +294,12 @@ function roomIn(w){
   w.t.hold = wipeAt() - wallFrom(w.t) - w.t.cover + hold; w.t.reveal = reveal;
 }
 /** Frames since he started to leave; negative while the winning step is still on its way. */
-const wipeAt = () => wipe.t0 === null ? -1 : (performance.now() - wipe.t0) / FRAME_MS;
+const wipeAt = () => wipe.t0 === null ? -1 : since(wipe.t0) / FRAME_MS;
 function drawWall(ctx, f){
   const fr = wipeAt() - wallFrom(wipe.t);
   if(fr < 0) return;
   if(wall?.kind !== wipe.kind || wall.w !== f.w || wall.h !== f.h)
-    wall = Object.assign(layWall(wipe.kind, f.w, f.h, 1), { w: f.w, h: f.h });
+    wall = Object.assign(layWall(wipe.kind, f.w, f.h, 1, PIXEL ? 1 : P), { w: f.w, h: f.h });
   drawWipe(ctx, wall, wipe.pattern, wipe.t, fr);
 }
 
@@ -303,9 +353,10 @@ function tick(){
     if(!ph) fx = null;
   }
   if(anim && !stepMv()){ anim = null; busy = false; }
+  if(pose && poseAt() >= pose.segs.at(-1).t1) pose = null;
   if(wipe){
     // He starts his win line as he starts to leave, not after his usual pause.
-    if(wipe.t0 === null && !anim){ wipe.t0 = performance.now(); crow.cue(now()); }
+    if(wipe.t0 === null && !anim){ wipe.t0 = clockMs(); crow.cue(now()); }
     const f = wipeAt(), t = wipe.t;
     if(!wipe.loaded && f >= wallFrom(t) + t.cover && !crow.view(now()).talking){
       if(!wipe.replay){ handOver(true); return; }
@@ -314,7 +365,7 @@ function tick(){
     if(f >= wallFrom(t) + t.cover + t.hold + t.reveal) wipe = null;
   }
   render();
-  if(fx || anim || wipe) raf = requestAnimationFrame(tick);
+  if(fx || anim || wipe || pose || doorLive()) raf ||= requestAnimationFrame(tick);
 }
 
 // The next room loads behind the wall, which then comes down over it; a key press goes straight
@@ -333,7 +384,7 @@ function handOver(keep = false){
 // was legal, so the stage has to be walked through whatever steps are left or it would keep
 // drawing pieces on cells they have already left.
 const cancelAnim = () => {
-  if(raf) cancelAnimationFrame(raf); raf = 0; fx = null; wipe = null;
+  if(raf) cancelAnimationFrame(raf); raf = 0; fx = null; wipe = null; pose = null;
   if(anim) landMv();
 };
 
@@ -398,6 +449,7 @@ function act(dir){
     dbg?.refused(dir, r);
     dbg?.decor(decor);
     blocked = { cells:r.blame, reason:r.reason, dir };
+    startPose('stuck', dir, state.rac, true);
     startFx(dir, r); render();
   }
   else if(res.kind === 'armed'){ blocked = null; beep(true); render(); }   // aimed, not committed
@@ -407,6 +459,8 @@ function act(dir){
     dbg?.action(moves, dir, res.prev.rac, r);
     dbg?.decor(decor);
     blocked = null;
+    const stay = state.rac.x === res.prev.rac.x && state.rac.y === res.prev.rac.y;
+    startPose(r.steps[0].moved.length || stay ? 'push' : 'crawl', dir, res.prev.rac, stay);
     startMv(res.prev, r);
     if(won){ beat = res.beat; startWipe(); dbg?.note(`won in ${moves}`); }
     readLost();
@@ -423,7 +477,7 @@ function undo(){
 }
 function restart(){ load(cur, true); }
 function load(i, again = false){
-  cancelAnim(); busy = false; fxSeen = new Set();         // a new room earns the full explanation again
+  cancelAnim(); busy = false; door = null; fxSeen = new Set();         // a new room earns the full explanation again
   const res = play.load(i, again); sync();
   blocked=null; beat=false;
   startScan();
@@ -502,7 +556,8 @@ function rest(){ anim = null; board = state; stage = stageFrom(state, cur + 1, d
 
 // ---- render ----
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
-const SP = createSprites({ ctx, cell: CS, pad: PAD });
+const SP = PIXEL ? createPixelSprites({ ctx, art: await loadPixelArt(new URL('./art/', import.meta.url)) })
+  : createSprites({ ctx, cell: CS, pad: PAD });
 // Couches under carts, carts under loose things, cargo over the cart it rides, him on top.
 const BANDS = ['couch','cart','loose','carried','raccoon'];
 const bandOf = sp => sp.kind === COUCH ? 0 : sp.kind === CART ? 1
@@ -541,9 +596,10 @@ function paintSprite(sp, f){
   if(sp.kind === RACCOON){
     const k = leaving();
     if(k !== null){ if(k < 1) leave(sp, k); return; }
+    if(pose){ SP.pressing(poseSeg(), pose.dir, pose.x, pose.y, { stay: pose.stay }); return; }
     // A refusal is a lunge from where he stands, not travel — the stage knows nothing of it.
-    if(ph){ const k = ph.lunge*0.42; SP.raccoon(s.rac.x+fx.dx*k, s.rac.y+fx.dy*k); }
-    else SP.raccoon(sp.x, sp.y);
+    if(ph){ const k = ph.lunge*0.42; SP.raccoon(s.rac.x+fx.dx*k, s.rac.y+fx.dy*k, sp.heading); }
+    else SP.raccoon(sp.x, sp.y, sp.heading);
   }
   else if(sp.kind === COUCH){
     if(sp.o === BICYCLE) SP.bicycle(sp.cells, sp.x, sp.y);
@@ -616,13 +672,15 @@ const comp = createCompositor([
   // from the board the animation is currently on, so a canal fills as the trash lands in it.
   { name:'terrain', draw:(ctx,f)=>{
     const s=f.state, b=f.board;
+    if(PIXEL) SP.setBoard(b);
     // A canal fills over the beat the trash crosses into it, and the trash is a sprite while
     // that is happening — so how far along it is, is the sprite's to say, not the board's.
     const filling=new Map();
     for(const sp of f.sprites)
       if(sp.soaks) filling.set(`${Math.round(sp.tx)},${Math.round(sp.ty)}`, sp.fill ?? 1);
     for(let y=0;y<b.rows;y++) for(let x=0;x<b.cols;x++){
-      const c=cell(b,x,y); if(c.wall) continue;
+      const c=cell(b,x,y);
+      if(c.wall){ if(PIXEL) SP.wall(x,y); continue; }
       // A filled cell keeps the canal's dark rim, so you can still see where the water was and
       // what it cost to cross.
       if(c.water)                   SP.water(x,y,false,0,filling.get(`${x},${y}`)??0);
@@ -634,7 +692,7 @@ const comp = createCompositor([
       else if(c.ter===GLASS)        SP.glass(x,y);
       else if(c.ter===COVERED)      SP.covered(x,y);
       else                          SP.floor(x,y);
-      if(c.exit) SP.exit(x,y, exitLit(s), exitArrowDir(s.cols,s.rows,x,y));
+      if(c.exit) SP.exit(x,y, exitLit(s), exitArrowDir(s.cols,s.rows,x,y), PIXEL ? doorRoll() : null);
     }
   }},
 
@@ -650,9 +708,16 @@ const comp = createCompositor([
         SP.trash(x,y,{ seed:cellSeed(x,y), k:f.ph.burst, src:[f.fx.bx,f.fx.by] });
   }},
 
-  ...BANDS.map((name,band)=>({ name, draw:(ctx,f)=>{
+  // Pixel sprites stand taller than their cell, so they are drawn back to front by the row their
+  // foot is on, the band breaking a tie: a raccoon north of a bag is behind it.
+  ...(PIXEL ? [{ name:'things', draw:(ctx,f)=>{
+    const foot = sp => sp.y + Math.max(0, ...(sp.cells ?? [[0,0]]).map(c => c[1])) + bandOf(sp) * 0.01;
+    for(const sp of [...f.sprites].sort((a,b) => foot(a) - foot(b))) (sp.falls ? drawFalling : drawSprite)(sp,f);
+  }}, { name:'over', draw:()=>{
+    if(pose && leaving() === null) SP.pressing(poseSeg(), pose.dir, pose.x, pose.y, { stay: pose.stay, over: true });
+  }}] : BANDS.map((name,band)=>({ name, draw:(ctx,f)=>{
     for(const sp of f.sprites) if(bandOf(sp)===band) (sp.falls ? drawFalling : drawSprite)(sp,f);
-  }})),
+  }}))),
 
   // Fan preview, over everything including the exit sign. Always pale yellow: it answers
   // "where would this land", which has the same answer whether or not the strike is legal.
@@ -710,7 +775,9 @@ const comp = createCompositor([
 
 function render(){
   const s=state;
+  if(PIXEL) syncDoor();
   cv.width=s.cols*CS; cv.height=s.rows*CS;
+  if(PIXEL) Object.assign(cv.style, { width: `${cv.width * PIXEL_ZOOM}px`, imageRendering: 'pixelated' });
   comp.render(ctx, {
     state:s, board:board ?? state, sprites:stage.sprites,
     fx, ph: fx ? fxPhase() : null, moving: !!anim,

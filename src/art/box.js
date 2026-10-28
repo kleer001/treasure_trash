@@ -1,7 +1,7 @@
 // The recycling box seen straight from the side: upright with its trash sticking up over the rim,
 // or lying on its side once a shove has tipped it, which way it lies telling which way it fell.
 // Lying fallen toward the viewer it shows its open mouth; fallen away, its base.
-import { mulberry32 } from '../../../src/rng.js';
+import { mulberry32 } from '../rng.js';
 import { chooser, sizes } from './pile.js';
 import { hash } from './spread.js';
 import { paint, tipper, INK } from './tip.js';

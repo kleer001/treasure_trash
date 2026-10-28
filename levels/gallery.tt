@@ -1,0 +1,2117 @@
+:pack   Treasure Trash — the Piece Gallery (bench pack, never shipped)
+
+:level  G0
+:name   raccoon · crawl · u
+:par    1
+:solve  u
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#-----#
+#--@--#
+#######
+:end
+
+:level  G1
+:name   raccoon · crawl · d
+:par    1
+:solve  d
+:grid
+#######
+#--@--#
+#-----#
+#-----#
+#-----#
+#E----#
+#######
+:end
+
+:level  G2
+:name   raccoon · crawl · l
+:par    1
+:solve  l
+:grid
+#######
+#E----#
+#-----#
+#----@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G3
+:name   raccoon · crawl · r
+:par    1
+:solve  r
+:grid
+#######
+#----E#
+#-----#
+#@----#
+#-----#
+#-----#
+#######
+:end
+
+:level  G4
+:name   raccoon · push · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--c--#
+#--@--#
+#######
+:end
+
+:level  G5
+:name   raccoon · push · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--c--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+
+:level  G6
+:name   raccoon · push · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---c@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G7
+:name   raccoon · push · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@c---#
+#-----#
+#-----#
+#######
+:end
+
+:level  G8
+:name   raccoon · refused · u
+:par    1
+:solve  u
+:grid
+#######
+#E----#
+#-----#
+#--#--#
+#--c--#
+#--@--#
+#######
+:end
+
+:level  G9
+:name   raccoon · refused · d
+:par    1
+:solve  d
+:grid
+#######
+#--@--#
+#--c--#
+#--#--#
+#-----#
+#E----#
+#######
+:end
+
+:level  G10
+:name   raccoon · refused · l
+:par    1
+:solve  l
+:grid
+#######
+#E----#
+#-----#
+#--#c@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G11
+:name   raccoon · refused · r
+:par    1
+:solve  r
+:grid
+#######
+#----E#
+#-----#
+#@c#--#
+#-----#
+#-----#
+#######
+:end
+
+:level  G12
+:name   bag · rip · u
+:par    1
+:solve  U!
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--$--#
+#--@--#
+#######
+:end
+
+:level  G13
+:name   bag · rip · d
+:par    1
+:solve  D!
+:grid
+#######
+#--@--#
+#--$--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+
+:level  G14
+:name   bag · rip · l
+:par    1
+:solve  L!
+:grid
+#######
+#E----#
+#-----#
+#---$@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G15
+:name   bag · rip · r
+:par    1
+:solve  R!
+:grid
+#######
+#----E#
+#-----#
+#@$---#
+#-----#
+#-----#
+#######
+:end
+
+:level  G16
+:name   bag · rip by water · u
+:par    1
+:solve  U!
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--$--#
+#--@--#
+#######
+:end
+:water
+-------
+-------
+-------
+-~~~~~-
+-------
+-------
+-------
+:end
+
+:level  G17
+:name   bag · rip by water · d
+:par    1
+:solve  D!
+:grid
+#######
+#--@--#
+#--$--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+:water
+-------
+-------
+-------
+-~~~~~-
+-------
+-------
+-------
+:end
+
+:level  G18
+:name   bag · rip by water · l
+:par    1
+:solve  L!
+:grid
+#######
+#E----#
+#-----#
+#---$@#
+#-----#
+#-----#
+#######
+:end
+:water
+-------
+---~---
+---~---
+---~---
+---~---
+---~---
+-------
+:end
+
+:level  G19
+:name   bag · rip by water · r
+:par    1
+:solve  R!
+:grid
+#######
+#----E#
+#-----#
+#@$---#
+#-----#
+#-----#
+#######
+:end
+:water
+-------
+---~---
+---~---
+---~---
+---~---
+---~---
+-------
+:end
+
+:level  G20
+:name   bag · refused · u
+:par    1
+:solve  u
+:grid
+#######
+#E----#
+#-----#
+#--#--#
+#--$--#
+#--@--#
+#######
+:end
+
+:level  G21
+:name   bag · refused · d
+:par    1
+:solve  d
+:grid
+#######
+#--@--#
+#--$--#
+#--#--#
+#-----#
+#E----#
+#######
+:end
+
+:level  G22
+:name   bag · refused · l
+:par    1
+:solve  l
+:grid
+#######
+#E----#
+#-----#
+#--#$@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G23
+:name   bag · refused · r
+:par    1
+:solve  r
+:grid
+#######
+#----E#
+#-----#
+#@$#--#
+#-----#
+#-----#
+#######
+:end
+
+:level  G24
+:name   can-full · tip · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--C--#
+#--@--#
+#######
+:end
+
+:level  G25
+:name   can-full · tip · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--C--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+
+:level  G26
+:name   can-full · tip · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---C@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G27
+:name   can-full · tip · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@C---#
+#-----#
+#-----#
+#######
+:end
+
+:level  G28
+:name   can-full · tip into water · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--C--#
+#--@--#
+#######
+:end
+:water
+-------
+-------
+-------
+-~~~~~-
+-------
+-------
+-------
+:end
+
+:level  G29
+:name   can-full · tip into water · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--C--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+:water
+-------
+-------
+-------
+-~~~~~-
+-------
+-------
+-------
+:end
+
+:level  G30
+:name   can-full · tip into water · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---C@#
+#-----#
+#-----#
+#######
+:end
+:water
+-------
+---~---
+---~---
+---~---
+---~---
+---~---
+-------
+:end
+
+:level  G31
+:name   can-full · tip into water · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@C---#
+#-----#
+#-----#
+#######
+:end
+:water
+-------
+---~---
+---~---
+---~---
+---~---
+---~---
+-------
+:end
+
+:level  G32
+:name   can-full · tip beside water · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--C--#
+#--@--#
+#######
+:end
+:water
+-------
+-------
+-~~~~~-
+-------
+-------
+-------
+-------
+:end
+
+:level  G33
+:name   can-full · tip beside water · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--C--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+:water
+-------
+-------
+-------
+-------
+-~~~~~-
+-------
+-------
+:end
+
+:level  G34
+:name   can-full · tip beside water · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---C@#
+#-----#
+#-----#
+#######
+:end
+:water
+-------
+--~----
+--~----
+--~----
+--~----
+--~----
+-------
+:end
+
+:level  G35
+:name   can-full · tip beside water · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@C---#
+#-----#
+#-----#
+#######
+:end
+:water
+-------
+----~--
+----~--
+----~--
+----~--
+----~--
+-------
+:end
+
+:level  G36
+:name   can-full · refused · u
+:par    1
+:solve  u
+:grid
+#######
+#E----#
+#-----#
+#--#--#
+#--C--#
+#--@--#
+#######
+:end
+
+:level  G37
+:name   can-full · refused · d
+:par    1
+:solve  d
+:grid
+#######
+#--@--#
+#--C--#
+#--#--#
+#-----#
+#E----#
+#######
+:end
+
+:level  G38
+:name   can-full · refused · l
+:par    1
+:solve  l
+:grid
+#######
+#E----#
+#-----#
+#--#C@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G39
+:name   can-full · refused · r
+:par    1
+:solve  r
+:grid
+#######
+#----E#
+#-----#
+#@C#--#
+#-----#
+#-----#
+#######
+:end
+
+:level  G40
+:name   can · push · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--c--#
+#--@--#
+#######
+:end
+
+:level  G41
+:name   can · push · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--c--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+
+:level  G42
+:name   can · push · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---c@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G43
+:name   can · push · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@c---#
+#-----#
+#-----#
+#######
+:end
+
+:level  G44
+:name   can · into water · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--c--#
+#--@--#
+#######
+:end
+:water
+-------
+-------
+-------
+-~~~~~-
+-------
+-------
+-------
+:end
+
+:level  G45
+:name   can · into water · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--c--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+:water
+-------
+-------
+-------
+-~~~~~-
+-------
+-------
+-------
+:end
+
+:level  G46
+:name   can · into water · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---c@#
+#-----#
+#-----#
+#######
+:end
+:water
+-------
+---~---
+---~---
+---~---
+---~---
+---~---
+-------
+:end
+
+:level  G47
+:name   can · into water · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@c---#
+#-----#
+#-----#
+#######
+:end
+:water
+-------
+---~---
+---~---
+---~---
+---~---
+---~---
+-------
+:end
+
+:level  G48
+:name   can · refused · u
+:par    1
+:solve  u
+:grid
+#######
+#E----#
+#-----#
+#--#--#
+#--c--#
+#--@--#
+#######
+:end
+
+:level  G49
+:name   can · refused · d
+:par    1
+:solve  d
+:grid
+#######
+#--@--#
+#--c--#
+#--#--#
+#-----#
+#E----#
+#######
+:end
+
+:level  G50
+:name   can · refused · l
+:par    1
+:solve  l
+:grid
+#######
+#E----#
+#-----#
+#--#c@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G51
+:name   can · refused · r
+:par    1
+:solve  r
+:grid
+#######
+#----E#
+#-----#
+#@c#--#
+#-----#
+#-----#
+#######
+:end
+
+:level  G52
+:name   box-full · tip · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--B--#
+#--@--#
+#######
+:end
+
+:level  G53
+:name   box-full · tip · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--B--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+
+:level  G54
+:name   box-full · tip · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---B@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G55
+:name   box-full · tip · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@B---#
+#-----#
+#-----#
+#######
+:end
+
+:level  G56
+:name   box-full · refused · u
+:par    1
+:solve  u
+:grid
+#######
+#E----#
+#-----#
+#--#--#
+#--B--#
+#--@--#
+#######
+:end
+
+:level  G57
+:name   box-full · refused · d
+:par    1
+:solve  d
+:grid
+#######
+#--@--#
+#--B--#
+#--#--#
+#-----#
+#E----#
+#######
+:end
+
+:level  G58
+:name   box-full · refused · l
+:par    1
+:solve  l
+:grid
+#######
+#E----#
+#-----#
+#--#B@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G59
+:name   box-full · refused · r
+:par    1
+:solve  r
+:grid
+#######
+#----E#
+#-----#
+#@B#--#
+#-----#
+#-----#
+#######
+:end
+
+:level  G60
+:name   box · push · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--b--#
+#--@--#
+#######
+:end
+
+:level  G61
+:name   box · push · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--b--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+
+:level  G62
+:name   box · push · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---b@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G63
+:name   box · push · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@b---#
+#-----#
+#-----#
+#######
+:end
+
+:level  G64
+:name   box · into water · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--b--#
+#--@--#
+#######
+:end
+:water
+-------
+-------
+-------
+-~~~~~-
+-------
+-------
+-------
+:end
+
+:level  G65
+:name   box · into water · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--b--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+:water
+-------
+-------
+-------
+-~~~~~-
+-------
+-------
+-------
+:end
+
+:level  G66
+:name   box · into water · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---b@#
+#-----#
+#-----#
+#######
+:end
+:water
+-------
+---~---
+---~---
+---~---
+---~---
+---~---
+-------
+:end
+
+:level  G67
+:name   box · into water · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@b---#
+#-----#
+#-----#
+#######
+:end
+:water
+-------
+---~---
+---~---
+---~---
+---~---
+---~---
+-------
+:end
+
+:level  G68
+:name   box · refused afloat · u
+:par    1
+:solve  u
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--b--#
+#--@--#
+#######
+:end
+:water
+-------
+-------
+-------
+-------
+-~~~~~-
+-------
+-------
+:end
+
+:level  G69
+:name   box · refused afloat · d
+:par    1
+:solve  d
+:grid
+#######
+#--@--#
+#--b--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+:water
+-------
+-------
+-~~~~~-
+-------
+-------
+-------
+-------
+:end
+
+:level  G70
+:name   box · refused afloat · l
+:par    1
+:solve  l
+:grid
+#######
+#E----#
+#-----#
+#---b@#
+#-----#
+#-----#
+#######
+:end
+:water
+-------
+----~--
+----~--
+----~--
+----~--
+----~--
+-------
+:end
+
+:level  G71
+:name   box · refused afloat · r
+:par    1
+:solve  r
+:grid
+#######
+#----E#
+#-----#
+#@b---#
+#-----#
+#-----#
+#######
+:end
+:water
+-------
+--~----
+--~----
+--~----
+--~----
+--~----
+-------
+:end
+
+:level  G72
+:name   box · refused · u
+:par    1
+:solve  u
+:grid
+#######
+#E----#
+#-----#
+#--#--#
+#--b--#
+#--@--#
+#######
+:end
+
+:level  G73
+:name   box · refused · d
+:par    1
+:solve  d
+:grid
+#######
+#--@--#
+#--b--#
+#--#--#
+#-----#
+#E----#
+#######
+:end
+
+:level  G74
+:name   box · refused · l
+:par    1
+:solve  l
+:grid
+#######
+#E----#
+#-----#
+#--#b@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G75
+:name   box · refused · r
+:par    1
+:solve  r
+:grid
+#######
+#----E#
+#-----#
+#@b#--#
+#-----#
+#-----#
+#######
+:end
+
+:level  G76
+:name   jug · pour · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--j--#
+#--@--#
+#######
+:end
+
+:level  G77
+:name   jug · pour · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--j--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+
+:level  G78
+:name   jug · pour · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---j@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G79
+:name   jug · pour · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@j---#
+#-----#
+#-----#
+#######
+:end
+
+:level  G80
+:name   jug · refused · u
+:par    1
+:solve  u
+:grid
+#######
+#E----#
+#-----#
+#--#--#
+#--j--#
+#--@--#
+#######
+:end
+
+:level  G81
+:name   jug · refused · d
+:par    1
+:solve  d
+:grid
+#######
+#--@--#
+#--j--#
+#--#--#
+#-----#
+#E----#
+#######
+:end
+
+:level  G82
+:name   jug · refused · l
+:par    1
+:solve  l
+:grid
+#######
+#E----#
+#-----#
+#--#j@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G83
+:name   jug · refused · r
+:par    1
+:solve  r
+:grid
+#######
+#----E#
+#-----#
+#@j#--#
+#-----#
+#-----#
+#######
+:end
+
+:level  G84
+:name   jug-empty · push · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--i--#
+#--@--#
+#######
+:end
+
+:level  G85
+:name   jug-empty · push · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--i--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+
+:level  G86
+:name   jug-empty · push · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---i@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G87
+:name   jug-empty · push · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@i---#
+#-----#
+#-----#
+#######
+:end
+
+:level  G88
+:name   jug-empty · into water · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--i--#
+#--@--#
+#######
+:end
+:water
+-------
+-------
+-------
+-~~~~~-
+-------
+-------
+-------
+:end
+
+:level  G89
+:name   jug-empty · into water · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--i--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+:water
+-------
+-------
+-------
+-~~~~~-
+-------
+-------
+-------
+:end
+
+:level  G90
+:name   jug-empty · into water · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---i@#
+#-----#
+#-----#
+#######
+:end
+:water
+-------
+---~---
+---~---
+---~---
+---~---
+---~---
+-------
+:end
+
+:level  G91
+:name   jug-empty · into water · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@i---#
+#-----#
+#-----#
+#######
+:end
+:water
+-------
+---~---
+---~---
+---~---
+---~---
+---~---
+-------
+:end
+
+:level  G92
+:name   jug-empty · refused · u
+:par    1
+:solve  u
+:grid
+#######
+#E----#
+#-----#
+#--#--#
+#--i--#
+#--@--#
+#######
+:end
+
+:level  G93
+:name   jug-empty · refused · d
+:par    1
+:solve  d
+:grid
+#######
+#--@--#
+#--i--#
+#--#--#
+#-----#
+#E----#
+#######
+:end
+
+:level  G94
+:name   jug-empty · refused · l
+:par    1
+:solve  l
+:grid
+#######
+#E----#
+#-----#
+#--#i@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G95
+:name   jug-empty · refused · r
+:par    1
+:solve  r
+:grid
+#######
+#----E#
+#-----#
+#@i#--#
+#-----#
+#-----#
+#######
+:end
+
+:level  G96
+:name   pane · shatter · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--g--#
+#--@--#
+#######
+:end
+
+:level  G97
+:name   pane · shatter · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--g--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+
+:level  G98
+:name   pane · shatter · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---g@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G99
+:name   pane · shatter · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@g---#
+#-----#
+#-----#
+#######
+:end
+
+:level  G100
+:name   pane · refused · u
+:par    1
+:solve  u
+:grid
+#######
+#E----#
+#-----#
+#--#--#
+#--g--#
+#--@--#
+#######
+:end
+
+:level  G101
+:name   pane · refused · d
+:par    1
+:solve  d
+:grid
+#######
+#--@--#
+#--g--#
+#--#--#
+#-----#
+#E----#
+#######
+:end
+
+:level  G102
+:name   pane · refused · l
+:par    1
+:solve  l
+:grid
+#######
+#E----#
+#-----#
+#--#g@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G103
+:name   pane · refused · r
+:par    1
+:solve  r
+:grid
+#######
+#----E#
+#-----#
+#@g#--#
+#-----#
+#-----#
+#######
+:end
+
+:level  G104
+:name   wheelie · roll · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--w--#
+#--@--#
+#######
+:end
+
+:level  G105
+:name   wheelie · roll · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--w--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+
+:level  G106
+:name   wheelie · roll · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---w@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G107
+:name   wheelie · roll · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@w---#
+#-----#
+#-----#
+#######
+:end
+
+:level  G108
+:name   wheelie · refused · u
+:par    1
+:solve  u
+:grid
+#######
+#E----#
+#-----#
+#--#--#
+#--w--#
+#--@--#
+#######
+:end
+
+:level  G109
+:name   wheelie · refused · d
+:par    1
+:solve  d
+:grid
+#######
+#--@--#
+#--w--#
+#--#--#
+#-----#
+#E----#
+#######
+:end
+
+:level  G110
+:name   wheelie · refused · l
+:par    1
+:solve  l
+:grid
+#######
+#E----#
+#-----#
+#--#w@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G111
+:name   wheelie · refused · r
+:par    1
+:solve  r
+:grid
+#######
+#----E#
+#-----#
+#@w#--#
+#-----#
+#-----#
+#######
+:end
+
+:level  G112
+:name   wheelie-full · roll · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#--W--#
+#--@--#
+#######
+:end
+
+:level  G113
+:name   wheelie-full · roll · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#--W--#
+#-----#
+#-----#
+#E----#
+#######
+:end
+
+:level  G114
+:name   wheelie-full · roll · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#---W@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G115
+:name   wheelie-full · roll · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@W---#
+#-----#
+#-----#
+#######
+:end
+
+:level  G116
+:name   wheelie-full · refused · u
+:par    1
+:solve  u
+:grid
+#######
+#E----#
+#-----#
+#--#--#
+#--W--#
+#--@--#
+#######
+:end
+
+:level  G117
+:name   wheelie-full · refused · d
+:par    1
+:solve  d
+:grid
+#######
+#--@--#
+#--W--#
+#--#--#
+#-----#
+#E----#
+#######
+:end
+
+:level  G118
+:name   wheelie-full · refused · l
+:par    1
+:solve  l
+:grid
+#######
+#E----#
+#-----#
+#--#W@#
+#-----#
+#-----#
+#######
+:end
+
+:level  G119
+:name   wheelie-full · refused · r
+:par    1
+:solve  r
+:grid
+#######
+#----E#
+#-----#
+#@W#--#
+#-----#
+#-----#
+#######
+:end
+
+:level  G120
+:name   skate · roll · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#-----#
+#--@--#
+#######
+:end
+:cart
+-------
+-------
+-------
+---P---
+---P---
+-------
+-------
+:end
+
+:level  G121
+:name   skate · roll · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#-----#
+#-----#
+#-----#
+#E----#
+#######
+:end
+:cart
+-------
+-------
+---P---
+---P---
+-------
+-------
+-------
+:end
+
+:level  G122
+:name   skate · roll · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#----@#
+#-----#
+#-----#
+#######
+:end
+:cart
+-------
+-------
+-------
+---PP--
+-------
+-------
+-------
+:end
+
+:level  G123
+:name   skate · roll · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@----#
+#-----#
+#-----#
+#######
+:end
+:cart
+-------
+-------
+-------
+--PP---
+-------
+-------
+-------
+:end
+
+:level  G124
+:name   skate · scoot · u
+:par    1
+:solve  U
+:grid
+#######
+#E----#
+#-----#
+#-----#
+#-----#
+#--@--#
+#######
+:end
+:cart
+-------
+-------
+-------
+-------
+--PP---
+-------
+-------
+:end
+
+:level  G125
+:name   skate · scoot · d
+:par    1
+:solve  D
+:grid
+#######
+#--@--#
+#-----#
+#-----#
+#-----#
+#E----#
+#######
+:end
+:cart
+-------
+-------
+--PP---
+-------
+-------
+-------
+-------
+:end
+
+:level  G126
+:name   skate · scoot · l
+:par    1
+:solve  L
+:grid
+#######
+#E----#
+#-----#
+#----@#
+#-----#
+#-----#
+#######
+:end
+:cart
+-------
+-------
+----P--
+----P--
+-------
+-------
+-------
+:end
+
+:level  G127
+:name   skate · scoot · r
+:par    1
+:solve  R
+:grid
+#######
+#----E#
+#-----#
+#@----#
+#-----#
+#-----#
+#######
+:end
+:cart
+-------
+-------
+--P----
+--P----
+-------
+-------
+-------
+:end

@@ -56,14 +56,14 @@ import { parseLevelPack, toState } from '../../src/format.js';
 import { cell, isCart, cartKindOf, SKATE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMPTY,
   JUG, JUG_EMPTY, FURNITURE } from '../../src/rules.js';
 import { cellSeed } from '../../src/stage.js';
-import { createTrash, pileLayout, drawPile } from './trash/pile.js';
-import { C, FLOOR, SEAM } from './trash/flight.js';
-import { wallTile } from './trash/room.js';
-import * as CAN from './trash/can.js';
-import * as BOX from './trash/box.js';
-import * as JUGS from './trash/jug.js';
-import { deck } from './trash/skate.js';
-import { WATER } from './trash/water.js';
+import { createTrash, pileLayout, drawPile } from '../../src/art/pile.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+import * as CAN from '../../src/art/can.js';
+import * as BOX from '../../src/art/box.js';
+import * as JUGS from '../../src/art/jug.js';
+import { deck } from '../../src/art/skate.js';
+import { WATER } from '../../src/art/water.js';
 import { load, save as store } from './trash/settings.js';
 import { TUNING, lineMs, beatMs, rankTable } from '../../src/crow.js';
 import { PATTERNS, KINDS, layWall, drawWipe, wallFrom, roomBeats } from '../../src/wipe.js';
@@ -72,7 +72,7 @@ import { createWipeTune } from '../../src/wipeTune.js';
 const W = 480, H = 270, STRIP = 16, DOCK = 48, PORTRAIT = 40, GAP = 4;
 const KEY = 'trash-screen';
 const FONTS = { press: { css: '"Press Start 2P"', line: 10 }, silk: { css: 'Silkscreen', line: 9 } };
-const [A, D, LOOK, O, CROW] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json', 'trash/objects.json',
+const [A, D, LOOK, O, CROW] = await Promise.all(['../../src/art/assets.json', '../../src/art/items.json', '../../src/art/look.json', '../../src/art/objects.json',
   '../../dialogue/crow.json'].map(f => fetch(f).then(r => r.json())));
 // What he can say at a win, and as a room comes in: his lines with no number to fill in, a line
 // being one beat or a list of them. Story lines are left out: they are a speech or the game's end.

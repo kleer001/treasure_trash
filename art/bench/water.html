@@ -50,12 +50,13 @@
   </div>
 </div>
 <script type="module">
+import { embed, setPress, sceneMs, pressLength, raccoon, raccoonOver, raccoonSprite, blit } from './trash/embed.js';
 import { explain, cell, BAG, TRASH } from '../../src/rules.js';
 import { toState } from '../../src/format.js';
-import { createTrash, settle, ORDER } from './trash/pile.js';
-import { createFlight, C, KEYS, TEAR } from './trash/flight.js';
-import { spreadPiles, hash } from './trash/spread.js';
-import { canal, soaked } from './trash/water.js';
+import { createTrash, settle, ORDER } from '../../src/art/pile.js';
+import { createFlight, C, KEYS, TEAR } from '../../src/art/flight.js';
+import { spreadPiles, hash } from '../../src/art/spread.js';
+import { canal, soaked } from '../../src/art/water.js';
 import { load, loadSpread, save as store, SPREAD, FLIGHT, flightDefaults, SHADE, shadowDefaults, CROSSING, crossingDefaults } from './trash/settings.js';
 
 const KEY = 'trash-water';
@@ -70,7 +71,7 @@ const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
 const LIGHT = '#7dafb3', SHINE = '#f1eccb', WET_SHADOW = '#2b2d55';
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
-const [A, D, LOOK] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const [A, D, LOOK] = await Promise.all(['../../src/art/assets.json', '../../src/art/items.json', '../../src/art/look.json'].map(f => fetch(f).then(r => r.json())));
 const ui = load(KEY, { dir: 'r', room: 'open', canal: 'across', playing: true, speed: 100, zoom: 4, fps: 30,
   splash: 360, ring: 5, soak: 500, pack: 500, hold: 700 });
 const save = () => store(KEY, ui);
@@ -221,7 +222,8 @@ function frameAt(ctx, t) {
   }
   F.drawFlying(ctx, B.W, B.W, P.filter(q => since >= q.launch && since < q.land).map(q => F.inAir(q, since)), CAST);
   const [rx, ry] = F.at(A.raccoon, B.bx - B.dx, B.by - B.dy);
-  F.drawSpr(ctx, A.raccoon, rx + B.dx * key.lunge, ry + B.dy * key.lunge);
+  raccoon(ctx, B.bx - B.dx, B.by - B.dy, () => F.drawSpr(ctx, A.raccoon, rx + B.dx * key.lunge, ry + B.dy * key.lunge));
+  raccoonOver(ctx);
 }
 
 /** A still of board `s`, drawn from the board alone, with the pieces `trash` at rest. */
@@ -306,7 +308,7 @@ function bar() {
   document.getElementById('zoom-read').textContent = `${ui.zoom}×`;
   for (const k in SLIDERS) { document.getElementById(`f-${k}`).value = ui[k]; document.getElementById(`f-${k}-read`).textContent = SLIDERS[k][4](ui[k]); }
   document.getElementById('piles-read').textContent = `Piles: B from the Trash Spread page. Flight: the Landing Bench, landings ${FL.first}–${FL.last} ms after the tear. ` +
-    `Shadows in the air: the Shadow Bench. The crossing and its edge: the Crossing Edge page. Look: trash/look.json.`;
+    `Shadows in the air: the Shadow Bench. The crossing and its edge: the Crossing Edge page. Look: src/art/look.json.`;
 }
 const step = j => { ui.playing = false; clock = (Math.max(0, Math.min(FRAMES - 1, j)) + 0.5) * 1000 / ui.fps; save(); bar(); show(); };
 document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => { ui.dir = b.dataset.dir; save(); build(); });
@@ -327,6 +329,11 @@ window.addEventListener('storage', e => {
   if (e.key === FLIGHT) { FL = load(FLIGHT, flightDefaults(LOOK)); build(); }
   if (e.key === SHADE) { CAST = load(SHADE, shadowDefaults(LOOK)).cast; build(); }
   if (e.key === CROSSING) { EDGE = load(CROSSING, crossingDefaults()); build(); }
+});
+embed(view, {
+  set: o => { Object.assign(ui, o, { playing: false }); setPress(ui.dir); build(); },
+  length: () => pressLength(END + ui.hold),
+  show: g => { const c = canvasOf(W); frameAt(c.getContext('2d'), Math.min(END, sceneMs(g))); blit(view, c, ui.zoom); },
 });
 build(); requestAnimationFrame(tick);
 </script>

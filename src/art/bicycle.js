@@ -1,0 +1,102 @@
+// The bicycle standing on its wheels, two cells long, drawn to a real bike's proportions at about
+// 27 px a metre. Across the screen it is a side profile, front wheel to the right, and its saddle
+// and bars rise past the top of its cells. Up the screen it is seen from above, leaning a little,
+// front wheel at the bottom; that view is a Blender render cleaned by hand.
+//   k ink, a tyre, f frame, F frame lit, m metal, M metal lit, s saddle and grips, p spoke
+const BASE = { k: '#06050e', a: '#262440', m: '#9aa2a9', M: '#d6d3b0', s: '#34192b', p: '#67819e' };
+export const FRAMES = {
+  blue: { f: '#244287', F: '#3169b0' },
+  rust: { f: '#6f383a', F: '#a84f38' },
+  black: { f: '#453d51', F: '#67819e' },
+};
+const SIDE = [
+  '.............kkkkk..........kkkkkkk.............',
+  '............kssssskk.......ksssMMMMk............',
+  '............ksssssssk......kskkkkkmk............',
+  '.............kkkmkkk........k....kmk............',
+  '...............kmk...............kmk............',
+  '...............kmk........kkkkkkkkmk............',
+  '................kmkkkkkkkkFFFFFFFFmfk...........',
+  '................kmFFFFFFFFFFFFFFFFffk...........',
+  '.....kkkkkkkkk..kfFFFFFFFFFkkkkkkkffkkkkkkk.....',
+  '....kaaaaaaaaak.kffffkkkkkk......kfffaaaaaak....',
+  '...kaaaaaaaaaaakfkkffk..........kaamfaaaaaaak...',
+  '..kaaammmmmmmaafk.kffk.........kaffmfmmmmmaaak..',
+  '.kaaam...p...mfaakkfffk.......kaffffm.p...maaak.',
+  'kaaamp...p...pfaaakkffk......kffffp.m.p...pmaaak',
+  'kaam..p..p..pf.maakkffk.....kffff..pm.p..p..maak',
+  'kaam...p.p.pf..maakkfffk..kkfffam...pmp.p...maak',
+  'kaam.....M.f...maak.kffk.kffffaam....mM.....maak',
+  'kaamppppMMMfpppmaaakkffkkffffaaamppppMMMppppmaak',
+  'kaam.....MffffffffkkkfMffffkkkaam.....M.....maak',
+  'kaam...p.pfffffffffffMMMffk..kaam...p.p.p...maak',
+  'kaam..p..p..p..mafffffMmkk...kaam..p..p..p..maak',
+  'kaaamp...p...pmaaakkkkkkmk...kaaamp...p...pmaaak',
+  '.kaaam...p...maaak......kmk...kaaam...p...maaak.',
+  '..kaaammmmmmmaaak.......ksk....kaaammmmmmmaaak..',
+  '...kaaaaaaaaaaak.........k......kaaaaaaaaaaak...',
+  '....kaaaaaaaaak..................kaaaaaaaaak....',
+  '.....kkkkkkkkk....................kkkkkkkkk.....',
+  '................................................',
+];
+
+const UP = [
+  '...............kkkk....',
+  '..............kaaaak...',
+  '.............kaammaak..',
+  '.............kamp.mak..',
+  '............kam.p..mak.',
+  '............kampp..mak.',
+  '............kampp.pmak.',
+  '............kampp.pmak.',
+  '............kam.pp.mak.',
+  '............kam.p..mak.',
+  '............kam.MF.mak.',
+  '............kaf.Ff.mak.',
+  '............kaf.ff.mak.',
+  '............kaffpf.mak.',
+  '........kkkkkaFf.fpmak.',
+  '......kkssskkaff.fpmak.',
+  '......ksssssFfmfff.mak.',
+  '......ksssssfkamffmak..',
+  '......kssssskkaamfaak..',
+  '......ksssssffkaaaak...',
+  '......ksssssfffkfkk....',
+  '......kkssskkffffMmk...',
+  '........kkFfkkmffMMmk..',
+  '.........kFfkkmFfmmmk..',
+  '.........kFfkkmFfkmmkk.',
+  '.........kFfk.kFfkkkssk',
+  '.........kFfkkFffk..kk.',
+  '.........kFfkkFfk......',
+  '.........kFfkkFfk......',
+  '.........kFfkFffkkk....',
+  '.........kFfkFfaaaak...',
+  '.........kFfkFfammaak..',
+  '.........kfkFffmp.mak..',
+  '.kkkkkkkkffkFfm.p..mak.',
+  'kssmmmmmmmmmkasss..mak.',
+  '.kkkkkkkMmfFffmpp.pmak.',
+  '........kFmffampp.pmak.',
+  '.........kfffam.pp.mak.',
+  '..........kkkam.p..mak.',
+  '............kam.M..mak.',
+  '............kam.p..mak.',
+  '............kam.pp.mak.',
+  '............kamppp.mak.',
+  '............kamp.ppmak.',
+  '............kam..ppmak.',
+  '............kam..p.mak.',
+  '.............kam.pmak..',
+  '.............kaammaak..',
+  '..............kaaaak...',
+  '...............kkkk....',
+];
+
+/** The bicycle in one frame colour, `side` and `up`: each { w, h, px: [x, y, colour] }. */
+export const bicycle = (frame = 'blue') => {
+  const pal = { ...BASE, ...FRAMES[frame] };
+  const sprite = rows => ({ w: rows[0].length, h: rows.length,
+    px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, pal[c]]]))) });
+  return { side: sprite(SIDE), up: sprite(UP) };
+};

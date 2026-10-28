@@ -1,6 +1,6 @@
 // Trash piles from palette-indexed item sprites. A pile's layout is a function of its seed
 // alone, so a board still and the last frame of a spill can draw the same pixels.
-import { mulberry32 } from '../../../src/rng.js';
+import { mulberry32 } from '../rng.js';
 
 const SLOT_KEYS = { A: '1234', B: 'abcd', C: 'wxyz' };
 export const SHADOW = '#765c62';

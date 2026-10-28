@@ -1,0 +1,23 @@
+:pack   Treasure Trash — Grate and cover (art check, never shipped)
+
+:level  GC
+:name   Grate and cover
+:teach  a grate and covered cells
+:par    6
+:solve  urrddr
+:grid
+########
+#------#
+#------#
+#--@---#
+#-----E#
+########
+:end
+:water
+--------
+------_-
+-__-O-O-
+-->-<---
+--^--v--
+--------
+:end

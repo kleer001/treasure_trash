@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rolled rug</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 440px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 170px 1fr 64px; gap: 10px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  button.on { background: #1a1a1a; color: #fff; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <div class="row"><span>footprint</span><button id="across">across, 2×1</button><button id="up">up, 1×2</button></div>
+  <div class="row"><span>colours</span><button id="grey">grey</button><button id="red">red</button><button id="blue">blue</button></div>
+  <label>X, tip toward you <input id="rx" type="range" min="-90" max="90" step="1"><input id="rxn" type="number" step="1"></label>
+  <label>Y, turn <input id="ry" type="range" min="-180" max="180" step="1"><input id="ryn" type="number" step="1"></label>
+  <label>Z, lean <input id="rz" type="range" min="-90" max="90" step="1"><input id="rzn" type="number" step="1"></label>
+  <label>rug length % <input id="len" type="range" min="40" max="100" step="1"><input id="lenn" type="number" step="1"></label>
+  <label>up / down px <input id="dy" type="range" min="-24" max="24" step="1"><input id="dyn" type="number" step="1"></label>
+  <label>px a metre <input id="pxm" type="range" min="18" max="60" step="1"><input id="pxmn" type="number" step="1"></label>
+  <div class="row"><button id="reset">Reset rotation</button></div>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">The Blender rug rendered live at game pixels, camera straight on: a reference to draw over, not the sprite. Rotation applies Z, then Y, then X.</div>
+  <textarea id="note" placeholder="Note on the rug"></textarea>
+  <div class="row"><button id="send">Send note and settings</button><span id="status" class="muted"></span></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { ACTIONS, draw as drawRaccoon, mirror } from '../../src/art/cartoon.js';
+import { VIEW } from '../../src/art/press.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+
+const KEY = 'trash-rug-3d', COLS = 6, ROWS = 4, BOX = 96;
+const $ = id => document.getElementById(id);
+// Each footprint keeps its own view, so switching between them loses neither.
+let s = { foot: 'across', colours: 'red', zoom: 8, len: 100, across: { rx: 45, ry: 0, rz: 0, pxm: 27, dy: 0 }, up: { rx: 45, ry: 90, rz: 0, pxm: 27, dy: 0 } };
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+  for (const k of ['foot', 'colours', 'zoom', 'len']) if (saved[k] !== undefined) s[k] = saved[k];
+  for (const f of ['across', 'up']) Object.assign(s[f], saved[f] ?? {});
+} catch {}
+const v = () => s[s.foot];
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+
+const crop = ({ px }) => {
+  const x0 = Math.min(...px.map(p => p[0])), y0 = Math.min(...px.map(p => p[1]));
+  return { w: Math.max(...px.map(p => p[0])) - x0 + 1, h: Math.max(...px.map(p => p[1])) - y0 + 1, px: px.map(([x, y, c]) => [x - x0, y - y0, c]) };
+};
+const sitting = d => crop(d === 'l' ? mirror(drawRaccoon(ACTIONS[VIEW[d]].crawl[0])) : drawRaccoon(ACTIONS[VIEW[d]].crawl[0]));
+const RACCOON = { d: sitting('d'), r: sitting('r') };
+
+// The rug's colours, by the Blender material's name, from the draft's three rugs.
+const PALETTES = {
+  grey: { body: '#c8c9c2', band: '#82847d', roll: '#e4e4df', fringe: '#e4e4df' },
+  red: { body: '#c8453f', band: '#8a2a26', roll: '#d9ac87', fringe: '#d9ac87' },
+  blue: { body: '#3169b0', band: '#244287', roll: '#7dafb3', fringe: '#f1eccb' },
+};
+const meshes = [];
+let rugObj = null;
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(BOX, BOX, false);
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-1, 1.5, 1.2); scene.add(sun);
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10); camera.position.set(0, 0, 5);
+const pivot = new THREE.Group(); scene.add(pivot);
+let ready = false;
+new GLTFLoader().load('../../tmp/rug/rug.glb', gltf => {
+  const rug = gltf.scene;
+  rug.traverse(o => { if (o.isMesh) { const slot = o.material.name; o.material = new THREE.MeshLambertMaterial(); meshes.push([o, slot]); } });
+  const box = new THREE.Box3().setFromObject(rug), mid = box.getCenter(new THREE.Vector3());
+  rug.position.sub(mid); pivot.add(rug); rugObj = rug; ready = true; draw();
+}, undefined, e => { $('status').className = 'bad'; $('status').textContent = `model not loaded: ${e.message ?? e}`; });
+
+/** The rug at the current rotation, BOX pixels square at `pxm` pixels a metre, cropped to what was drawn. */
+function sprite() {
+  const r = v(), half = BOX / 2 / r.pxm;
+  for (const [o, slot] of meshes) o.material.color.set(PALETTES[s.colours][slot]);
+  rugObj.scale.x = s.len / 100;
+  Object.assign(camera, { left: -half, right: half, top: half, bottom: -half }); camera.updateProjectionMatrix();
+  pivot.rotation.set(THREE.MathUtils.degToRad(r.rx), THREE.MathUtils.degToRad(r.ry), THREE.MathUtils.degToRad(r.rz), 'XYZ');
+  renderer.render(scene, camera);
+  const c = document.createElement('canvas'); c.width = c.height = BOX;
+  const g = c.getContext('2d'); g.drawImage(renderer.domElement, 0, 0);
+  const { data } = g.getImageData(0, 0, BOX, BOX), px = [];
+  for (let y = 0; y < BOX; y++) for (let x = 0; x < BOX; x++) {
+    const o = (y * BOX + x) * 4;
+    if (data[o + 3] > 127) px.push([x, y, `rgb(${data[o]},${data[o + 1]},${data[o + 2]})`]);
+  }
+  return px.length ? crop({ px }) : { w: 0, h: 0, px };
+}
+
+// A wall row over three rows of floor: the rug standing on its footprint, across two cells of the
+// bottom row or up two cells of one column, with the raccoon facing right on its left and facing
+// down on its right.
+function draw() {
+  for (const k of ['rx', 'ry', 'rz', 'pxm', 'dy']) { $(k).value = v()[k]; $(k + 'n').value = v()[k]; }
+  $('len').value = s.len; $('lenn').value = s.len;
+  for (const b of ['across', 'up']) $(b).className = s.foot === b ? 'on' : '';
+  for (const b of Object.keys(PALETTES)) $(b).className = s.colours === b ? 'on' : '';
+  $('zoom').textContent = `${s.zoom}×`;
+  const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+  const g = src.getContext('2d');
+  g.fillStyle = FLOOR; g.fillRect(0, 0, src.width, src.height);
+  g.fillStyle = SEAM;
+  for (let k = 1; k <= COLS; k++) g.fillRect(k * C - 1, C, 1, src.height);
+  for (let k = 1; k <= ROWS; k++) g.fillRect(0, k * C - 1, src.width, 1);
+  for (let x = 0; x < COLS; x++) wallTile(g, x, 0, C);
+  const stand = (spr, col, cw = 1) => {
+    const x0 = col * C + Math.floor((cw * C - spr.w) / 2), y0 = ROWS * C - spr.h - 1;
+    put(spr, x0, y0);
+  };
+  // The rug is centred on its footprint, then moved `dy` pixels down.
+  const centred = (spr, col, cw, ch) => put(spr, col * C + Math.floor((cw * C - spr.w) / 2),
+    (ROWS - ch) * C + Math.floor((ch * C - spr.h) / 2) + v().dy);
+  const put = (spr, x0, y0) => {
+    for (const [x, y, c] of spr.px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); }
+  };
+  const across = s.foot === 'across';
+  stand(RACCOON.r, 1);
+  if (ready) centred(sprite(), 2, across ? 2 : 1, across ? 1 : 2);
+  stand(RACCOON.d, across ? 4 : 3);
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+for (const k of ['rx', 'ry', 'rz', 'pxm', 'dy']) {
+  $(k).oninput = () => { v()[k] = Number($(k).value); save(); draw(); };
+  $(k + 'n').onchange = () => { v()[k] = Number($(k + 'n').value); save(); draw(); };
+}
+$('len').oninput = () => { s.len = Number($('len').value); save(); draw(); };
+$('lenn').onchange = () => { s.len = Number($('lenn').value); save(); draw(); };
+$('reset').onclick = () => { Object.assign(v(), { rx: 0, ry: 0, rz: 0 }); save(); draw(); };
+for (const b of ['across', 'up']) $(b).onclick = () => { s.foot = b; save(); draw(); };
+for (const b of Object.keys(PALETTES)) $(b).onclick = () => { s.colours = b; save(); draw(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(16, s.zoom + 1); save(); draw(); };
+$('send').onclick = () => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'rug', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `sent ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not sent: ${e.message}`; });
+draw();
+</script>
+</body>
+</html>

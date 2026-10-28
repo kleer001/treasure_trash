@@ -53,11 +53,12 @@
 <h2>Jug sprites</h2>
 <div class="strip" id="strip"></div>
 <script type="module">
+import { embed, setPress, sceneMs, pressLength, raccoon, raccoonOver, blit } from './trash/embed.js';
 import { explain, cell, JUG as JUG_FULL, JUG_EMPTY } from '../../src/rules.js';
-import { createTrash } from './trash/pile.js';
-import { createFlight, C } from './trash/flight.js';
-import { full, rest, frame, restAt, MOUTH } from './trash/jug.js';
-import { puddle } from './trash/water.js';
+import { createTrash } from '../../src/art/pile.js';
+import { createFlight, C } from '../../src/art/flight.js';
+import { full, rest, frame, restAt, MOUTH } from '../../src/art/jug.js';
+import { puddle } from '../../src/art/water.js';
 import { load, save as store, SHADE, shadowDefaults } from './trash/settings.js';
 
 const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
@@ -70,7 +71,7 @@ const JUG_SLIDERS = {
 };
 const KEY = 'trash-jug';
 const STREAM = '#7dafb3', STREAM_CORE = '#f1eccb';
-const [A, D, LOOK] = await Promise.all(['tear/assets.json', 'trash/items.json', 'trash/look.json'].map(f => fetch(f).then(r => r.json())));
+const [A, D, LOOK] = await Promise.all(['../../src/art/assets.json', '../../src/art/items.json', '../../src/art/look.json'].map(f => fetch(f).then(r => r.json())));
 const ui = load(KEY, { dir: 'r', room: 'walled', playing: true, speed: 100, zoom: 4, fps: 30, slide: 140, tip: 300, pour: 50, fill: 520, hold: 700 });
 const save = () => store(KEY, ui);
 
@@ -152,12 +153,13 @@ function frameAt(ctx, B, t) {
   F.castShadows(ctx, B.W, B.W, [foot(fr.s, gx, gy)], CAST);
   const k = Math.round(C * easeInOut(Math.min(1, t / FLAT()))), [rx, ry] = F.at(A.raccoon, B.from[0] - B.dx, B.from[1] - B.dy);
   const feet = gy + fr.s.h, stand = [[feet, () => F.drawSpr(ctx, fr.s, gx, gy)],
-    [ry + k * B.dy + A.raccoon.h + 0.5, () => F.drawSpr(ctx, A.raccoon, rx + k * B.dx, ry + k * B.dy)]];
+    [ry + k * B.dy + A.raccoon.h + 0.5, () => raccoon(ctx, B.from[0] - B.dx, B.from[1] - B.dy, () => F.drawSpr(ctx, A.raccoon, rx + k * B.dx, ry + k * B.dy))]];
   if (pouring) {
     const [mx, my] = fr.place(...MOUTH);
     stand.push([B.dir === 'u' ? B.lands[1] : Math.max(B.lands[1], feet + 1), () => stream(ctx, B, O[0] + mx, O[1] + my, t)]);
   }
   byFeet(stand);
+  raccoonOver(ctx);
 }
 
 /** A still of board `s`, drawn from the board, with the way an empty jug fell taken from the bench:
@@ -282,6 +284,11 @@ document.getElementById('fast').onclick = () => { ui.speed = Math.min(200, ui.sp
 document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); save(); bar(); strip(); shown = -1; show(); };
 document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zoom + 1); save(); bar(); strip(); shown = -1; show(); };
 window.addEventListener('storage', e => { if (e.key === SHADE) { CAST = load(SHADE, shadowDefaults(LOOK)).cast; build(); } });
+embed(view, {
+  set: o => { Object.assign(ui, o, { playing: false }); setPress(ui.dir); build(); },
+  length: () => pressLength(END() + ui.hold),
+  show: g => { const c = canvasOf(W); frameAt(c.getContext('2d'), B, Math.min(END(), sceneMs(g))); blit(view, c, ui.zoom); },
+});
 build(); requestAnimationFrame(tick);
 </script>
 </body>

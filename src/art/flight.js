@@ -1,9 +1,9 @@
 // The bag rip frame by frame: the board and its tear from src/rules.js, each piece's flight from
 // the bag to its rest in layout B, and the shadow each piece casts on the way.
-import { explain, TRASH, cell } from '../../../src/rules.js';
-import { toState } from '../../../src/format.js';
-import { cellSeed } from '../../../src/stage.js';
-import { mulberry32 } from '../../../src/rng.js';
+import { explain, TRASH, cell } from '../rules.js';
+import { toState } from '../format.js';
+import { cellSeed } from '../stage.js';
+import { mulberry32 } from '../rng.js';
 import { settle, drawPile, SHADOW, ORDER } from './pile.js';
 import { spreadPiles, hash } from './spread.js';
 import { wallTile } from './room.js';
