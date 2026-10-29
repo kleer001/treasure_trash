@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wheelie roll</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 440px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 170px 1fr 64px; gap: 10px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  button.on { background: #1a1a1a; color: #fff; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+  .stage { display: grid; gap: 0; width: min-content; }
+  :root { --key: #0aa2bd; --head: #e6591f; --line: #d6d3cc; }
+  #timeline { position: relative; padding: 24px 12px 10px 48px; background: #fff; border: 1px solid var(--line); border-top: 0; }
+  #track { position: relative; height: 56px; border: 1px solid var(--line); border-radius: 5px; background: #eef1f5; user-select: none; touch-action: none; cursor: pointer; }
+  .rowName { position: absolute; left: -42px; width: 36px; text-align: right; font-size: 12px; color: #6b6b66; line-height: 28px; }
+  .seg { position: absolute; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600;
+    color: #2a3242; overflow: hidden; white-space: nowrap; border-right: 1px solid rgba(0,0,0,.12); }
+  .key { position: absolute; height: 28px; width: 14px; margin-left: -7px; z-index: 5; cursor: ew-resize; }
+  .key .stem { position: absolute; left: 6px; top: 0; bottom: 0; width: 2px; background: var(--key); opacity: .8; }
+  .key .grab { position: absolute; left: 2px; top: 8px; width: 10px; height: 12px; border-radius: 3px; border: 1px solid var(--key); background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+  .key .num { position: absolute; left: 7px; top: -12px; transform: translateX(-50%); font-size: 9px; color: #6b6b66; background: #fff; padding: 0 2px; pointer-events: none; }
+  .key.drag .grab { background: var(--key); }
+  .key.fixed { cursor: default; } .key.fixed .grab { background: #eef1f5; border-style: dashed; }
+  #head { position: absolute; top: -6px; bottom: -6px; width: 2px; margin-left: -1px; background: var(--head); z-index: 6; pointer-events: none; }
+  #transport { display: flex; gap: 6px; align-items: center; padding: 8px 12px; background: #fff; border: 1px solid var(--line); border-top: 0; }
+  #transport button { padding: 2px 8px; }
+  #scrub { flex: 1; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div class="stage">
+  <canvas id="view"></canvas>
+  <div id="timeline"><div id="track"></div></div>
+  <div id="transport">
+    <button id="toStart" title="First frame">⏮</button><button id="playBack" title="Play backwards">◀</button><button id="stop" title="Stop">■</button>
+    <button id="playFwd" title="Play">▶</button><button id="toEnd" title="Last frame">⏭</button>
+    <input type="range" id="scrub" min="0" step="1" title="Scrub">
+    <input id="frame" type="number" min="0" step="1" style="width:64px;font:inherit" title="Current frame: type to jump"><span id="of" class="muted"></span>
+  </div>
+</div>
+<div class="side">
+  <div class="row"><span>rolls</span><button id="r">→</button><button id="l">←</button><button id="u">↑</button><button id="d">↓</button></div>
+  <div class="muted">Drag the keys on the timeline. On the bag row, the keys after the one you drag move with it.</div>
+  <label>bin tips ° <input id="tip" type="range" min="0" max="25" step="1"><input id="tipn" type="number" step="1"></label>
+  <label>bin rocks back ° <input id="rock" type="range" min="0" max="40" step="1"><input id="rockn" type="number" step="1"></label>
+  <label>bag lifts on the tip px <input id="pop" type="range" min="0" max="20" step="1"><input id="popn" type="number" step="1"></label>
+  <label>bag rises on the rock back px <input id="rise" type="range" min="0" max="20" step="1"><input id="risen" type="number" step="1"></label>
+  <label>bag throw × <input id="throwK" type="range" min="0" max="3" step="0.1"><input id="throwKn" type="number" step="0.1"></label>
+  <label><input id="flip" type="checkbox"> bag flips 360° over the rim</label>
+  <label>bag arc px <input id="arc" type="range" min="0" max="40" step="1"><input id="arcn" type="number" step="1"></label>
+  <label>bag squash px <input id="depth" type="range" min="0" max="8" step="1"><input id="depthn" type="number" step="1"></label>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">60 Hz, drawn on twos. The roll is the game's own: seven frames a cell on <code>rollEase</code>, stopped dead by the wall. Then the bin tips forward and rocks back. The bag lifts in the bin as the bin tips, and rises on as it rocks back. The rock back throws it: from the launch key it flies on its own curve, at the speed the bin gave it, into the cell the bin just left, and lands as the regular bag. The throw scales that launch speed; the arc is how high it comes down from.</div>
+  <textarea id="note" placeholder="Note on the wheelie roll"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { ACTIONS, draw as drawRaccoon, mirror } from '../../src/art/cartoon.js';
+import { VIEW } from '../../src/art/press.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+import { CELL_MS, rollEase } from '../../src/stage.js';
+
+const KEY = 'trash-wheelie-roll', COLS = 9, ROWS = 7, BOX = 128, $ = id => document.getElementById(id);
+const KNOBS = ['tip', 'rock', 'pop', 'rise', 'throwK', 'arc', 'depth'];
+// The bin as tuned on wheelie.html.
+const LOOK = { rx: 24, ry: -80, rz: 0, h: 125, dep: 115, deep: 1, bw: 19, bh: 22, bx: 1, sink: 12, dy: -1, pxm: 16 };
+let s = { dir: 'r', tip: 20, peak: 3, rock: 35, throw: 8, settle: 17, launch: 6, pop: 5, rise: 7, throwK: 1.4, arc: 0, fly: 11, squash: 3, depth: 8, flip: true, zoom: 4 };
+try { const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); for (const k in s) if (saved[k] !== undefined) s[k] = saved[k]; } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+
+const crop = ({ px }) => {
+  const x0 = Math.min(...px.map(p => p[0])), y0 = Math.min(...px.map(p => p[1]));
+  return { w: Math.max(...px.map(p => p[0])) - x0 + 1, h: Math.max(...px.map(p => p[1])) - y0 + 1, px: px.map(([x, y, c]) => [x - x0, y - y0, c]) };
+};
+const SIT = Object.fromEntries(['u', 'd', 'l', 'r'].map(d => {
+  const f = drawRaccoon(ACTIONS[VIEW[d]].crawl[0]);
+  return [d, crop(d === 'l' ? mirror(f) : f)];
+}));
+const BAG = (await fetch('../../src/art/assets.json').then(r => r.json())).bag;
+/** The bag resized to w × h, nearest pixel, so every pixel stays one of the sprite's own. */
+function resize(w, h) {
+  const grid = Array.from({ length: BAG.h }, () => Array(BAG.w).fill(null));
+  for (const [x, y, c] of BAG.px) grid[y][x] = c;
+  const px = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const c = grid[Math.floor(y * BAG.h / h)][Math.floor(x * BAG.w / w)];
+    if (c) px.push([x, y, c]);
+  }
+  return { w, h, px };
+}
+
+// ---- the bin, rendered live from the Blender model at LOOK ------------------------------
+const COLOURS = { body: '#2457b3', rim: '#3a70cf', inside: '#14295c', dark: '#1d1b26', metal: '#9aa2a9' };
+const RIM_H = 1.10, BAND = 0.42, DEPTH = 0.77, ZA = 0.085, ZB = 0.11;
+const BW = 1.12, TW = 1.20, Z0 = 0.24, ZT = 1.05, wallX = y => (BW + (TW - BW) * (y - Z0) / (ZT - Z0)) / 2;
+const DETAIL = /^(plate|pin|handle|strip)/;
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(BOX, BOX, false);
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-1, 1.5, 1.2); scene.add(sun);
+const half = BOX / 2 / LOOK.pxm;
+const camera = new THREE.OrthographicCamera(-half, half, half, -half, -10, 10); camera.position.set(0, 0, 5);
+// `tilt` rocks the whole bin, bag and all, about the bottom edge it tips over.
+const tilt = new THREE.Group(); tilt.matrixAutoUpdate = false; scene.add(tilt);
+const pivot = new THREE.Group(); tilt.add(pivot);
+const bagMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ alphaTest: 0.5, side: THREE.DoubleSide }));
+// The bag's own frame: the bin's while it sits in it, its own from the moment it starts to rise.
+const free = new THREE.Group(); free.matrixAutoUpdate = false; scene.add(free);
+free.add(bagMesh);
+const gltf = await new Promise((ok, no) => new GLTFLoader().load('../../tmp/wheelie/wheelie.glb', ok, undefined, no));
+const bin = gltf.scene;
+bin.traverse(o => { if (o.isMesh) o.material = new THREE.MeshLambertMaterial({ color: COLOURS[o.material.name] ?? '#ff00ff', side: THREE.DoubleSide }); });
+{
+  // The end width and the end details, built into the meshes once; then the height.
+  bin.updateMatrixWorld(true);
+  const toBin = bin.matrixWorld.clone().invert(), v = new THREE.Vector3(), g = (LOOK.dep / 100 - DEPTH) / 2;
+  const warp = z => { const a = Math.abs(z); return a <= ZA ? z : Math.sign(z) * (a <= ZB ? ZA + (a - ZA) * (ZB - ZA + g) / (ZB - ZA) : a + g); };
+  bin.traverse(o => {
+    if (!o.isMesh) return;
+    const R = toBin.clone().multiply(o.matrixWorld), back = R.clone().invert(), arr = o.geometry.attributes.position.array, detail = DETAIL.test(o.name);
+    for (let i = 0; i < arr.length; i += 3) {
+      v.set(arr[i], arr[i + 1], arr[i + 2]).applyMatrix4(R); v.z = warp(v.z);
+      const w = wallX(v.y), a = Math.abs(v.x);
+      if (detail && a > w + 1e-4) v.x = Math.sign(v.x) * (w + (a - w) * LOOK.deep);
+      v.applyMatrix4(back); arr[i] = v.x; arr[i + 1] = v.y; arr[i + 2] = v.z;
+    }
+    o.geometry.attributes.position.needsUpdate = true; o.geometry.computeVertexNormals(); o.geometry.computeBoundingBox(); o.geometry.computeBoundingSphere();
+  });
+  const grow = (LOOK.h - RIM_H * 100) / 100;
+  bin.getObjectByName('band').scale.y = (BAND + grow) / BAND; bin.getObjectByName('upper').position.y += grow;
+  const mid = new THREE.Box3().setFromObject(bin).getCenter(new THREE.Vector3());
+  bin.position.sub(mid); pivot.add(bin);
+  pivot.rotation.set(...['rx', 'ry', 'rz'].map(k => THREE.MathUtils.degToRad(LOOK[k])), 'XYZ');
+  tilt.matrix.identity(); tilt.updateMatrixWorld(true);
+}
+let pictured = '';
+/** The bag's picture at w × h px, and the plane it is on sized to match. */
+function bagPicture(w, h) {
+  if (pictured === `${w} ${h}`) return;
+  const b = resize(w, h), c = document.createElement('canvas'); c.width = w; c.height = h;
+  const cg = c.getContext('2d');
+  for (const [x, y, col] of b.px) { cg.fillStyle = col; cg.fillRect(x, y, 1, 1); }
+  const t = new THREE.CanvasTexture(c);
+  Object.assign(t, { magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, generateMipmaps: false, colorSpace: THREE.SRGBColorSpace });
+  bagMesh.material.map?.dispose(); bagMesh.material.map = t; bagMesh.material.needsUpdate = true;
+  bagMesh.scale.set(w / LOOK.pxm, h / LOOK.pxm, 1); pictured = `${w} ${h}`;
+}
+const snap = v => Math.round(v * LOOK.pxm) / LOOK.pxm;
+const at = bin.localToWorld(new THREE.Vector3(0, RIM_H + (LOOK.h - RIM_H * 100) / 100, 0));
+const BAG_AT = { x: snap(at.x + (LOOK.bx - LOOK.bw / 2) / LOOK.pxm) + LOOK.bw / 2 / LOOK.pxm, y: snap(at.y - LOOK.sink / LOOK.pxm) + LOOK.bh / 2 / LOOK.pxm, z: at.z };
+// Where the castor wheels meet the floor: the bin tips over its leading wheels and rocks back onto
+// its trailing ones, so each way it turns about the ground it is standing on.
+const WHEELS = new THREE.Box3();
+pivot.updateMatrixWorld(true);
+bin.traverse(o => { if (o.isMesh && /^wheel/.test(o.name)) WHEELS.expandByObject(o); });
+
+/** The bin's tip as a matrix: about its leading wheels' contact forward, its trailing ones back. */
+function tilted(tip, dir) {
+  const lead = tip >= 0, W = WHEELS;
+  const p = { r: [lead ? W.max.x : W.min.x, W.min.y, 0], l: [lead ? W.min.x : W.max.x, W.min.y, 0],
+              d: [0, W.min.y, lead ? W.max.z : W.min.z], u: [0, W.min.y, lead ? W.min.z : W.max.z] }[dir];
+  const axis = dir === 'r' || dir === 'l' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
+  const sign = { r: -1, l: 1, d: 1, u: -1 }[dir];
+  return new THREE.Matrix4().makeTranslation(...p).multiply(new THREE.Matrix4().makeRotationAxis(axis, sign * THREE.MathUtils.degToRad(tip)))
+    .multiply(new THREE.Matrix4().makeTranslation(-p[0], -p[1], -p[2]));
+}
+/** The bin as BOX-square pixels, tipped `tip` degrees toward `dir`; `bag` is { frame, w, h } for
+ *  the bag's centre and its size, or null for none. */
+function render(tip, dir, bag) {
+  tilt.matrix.copy(tilted(tip, dir)); tilt.matrixWorldNeedsUpdate = true;
+  bagMesh.visible = !!bag;
+  if (bag) { bagPicture(bag.w, bag.h); free.matrix.copy(bag.frame); free.matrixWorldNeedsUpdate = true; }
+  renderer.render(scene, camera);
+  const c = document.createElement('canvas'); c.width = c.height = BOX;
+  const g = c.getContext('2d'); g.drawImage(renderer.domElement, 0, 0);
+  const { data } = g.getImageData(0, 0, BOX, BOX), px = [];
+  for (let y = 0; y < BOX; y++) for (let x = 0; x < BOX; x++) {
+    const o = (y * BOX + x) * 4;
+    if (data[o + 3] > 127) px.push([x, y, `rgb(${data[o]},${data[o + 1]},${data[o + 2]})`]);
+  }
+  return px;
+}
+// Where the upright bin's drawing sits in its BOX: the game stands it on its cell from this.
+const REST = (() => {
+  const px = render(0, 'r', null), xs = px.map(p => p[0]), ys = px.map(p => p[1]);
+  return { x0: Math.min(...xs), y0: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs) + 1, h: Math.max(...ys) - Math.min(...ys) + 1 };
+})();
+
+// ---- the clip ------------------------------------------------------------------------------
+const STEP = { r: [1, 0], l: [-1, 0], u: [0, -1], d: [0, 1] };
+const START = [4, 3];
+const CELL_FRAMES = Math.round(CELL_MS * 60 / 1000);
+// The cells it rolls: up to the one against the wall.
+const cells = d => { const [dx, dy] = STEP[d]; let n = 0; while (START[0] + (n + 1) * dx > 0 && START[0] + (n + 1) * dx < COLS - 1 && START[1] + (n + 1) * dy > 0 && START[1] + (n + 1) * dy < ROWS - 1) n++; return n; };
+const key = (t, keys) => {
+  for (let i = 1; i < keys.length; i++) if (t <= keys[i][0]) { const [t0, v0] = keys[i - 1], [t1, v1] = keys[i]; return v0 + (v1 - v0) * (t - t0) / (t1 - t0); }
+  return keys.at(-1)[1];
+};
+// After the stop, in frames: the bin's tip forward, rock back and settle; the bag's rise in the bin,
+// its launch, and its landing. Each row's beats come after the one before, the rows free of each other.
+const T = () => {
+  const peak = s.peak, thr = Math.max(s.throw, peak + 1), settle = Math.max(s.settle, thr + 2);
+  const launch = Math.max(s.launch, 1), land = launch + s.fly, rest = land + s.squash;
+  return { peak, throw: thr, settle, launch, land, rest, still: Math.max(settle, rest) };
+};
+const length = () => cells(s.dir) * CELL_FRAMES + T().still + 24;
+
+let frame = 0;
+
+function draw() {
+  for (const k of KNOBS) { $(k).value = s[k]; $(k + 'n').value = s[k]; }
+  $('flip').checked = s.flip;
+  for (const d of 'rlud') $(d).className = s.dir === d ? 'on' : '';
+  $('zoom').textContent = `${s.zoom}×`;
+  $('frame').value = frame; $('of').textContent = `of ${length() - 1}`; $('scrub').max = length() - 1; $('scrub').value = frame;
+  timeline();
+  const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+  const g = src.getContext('2d');
+  const put = (px, x0, y0) => { for (const [x, y, c] of px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1) { wallTile(g, x, y, C); continue; }
+    g.fillStyle = FLOOR; g.fillRect(x * C, y * C, C, C);
+    g.fillStyle = SEAM; g.fillRect(x * C + C - 1, y * C, 1, C); g.fillRect(x * C, y * C + C - 1, C, 1);
+  }
+  // On twos: every drawing is held two screen frames.
+  const f = frame - frame % 2, n = cells(s.dir), [dx, dy] = STEP[s.dir], rollF = n * CELL_FRAMES, k = f - rollF, t = T();
+  const along = f < rollF ? rollEase(f / rollF, n) * n : n;
+  const bx = START[0] + dx * along, by = START[1] + dy * along;
+  const tipAt = k => (k < 0 ? 0 : key(k, [[0, 0], [t.peak, s.tip], [t.throw, -s.rock], [(t.throw + t.settle) / 2, s.rock / 3], [t.settle, 0]]));
+  const tip = tipAt(k);
+  // The bin's picture stands on its cell from this corner of the BOX it is rendered in.
+  const ox = Math.round(bx * C) + Math.floor((C - REST.w) / 2) - REST.x0, oy = Math.round(by * C) + C - REST.h - 1 + LOOK.dy - REST.y0;
+  // The bag lands standing on the cell the bin just left.
+  const lx = START[0] + dx * (n - 1), ly = START[1] + dy * (n - 1);
+  // The squash is deepest as it lands and gone by the rest.
+  const sq = k < t.land || k >= t.rest ? 0 : Math.round(s.depth * (1 - (k - t.land) / (t.rest - t.land)));
+  const landed = resize(BAG.w + sq, BAG.h - sq);
+  // In the bin the bag tips with it. The tip jolts it up as the bin goes over, slowing to the tip's
+  // peak; the rock back then lifts it on, faster as it goes. At the
+  // launch it leaves on a curve of its own: it sets off at the speed the bin gave it, and comes down
+  // onto its landing from the arc above it, straightening and growing to the regular bag as it goes.
+  const part = (kf, a, b) => clamp(b > a ? (kf - a) / (b - a) : kf >= a ? 1 : 0, 0, 1);
+  const up = kf => s.pop * (1 - (1 - part(kf, 0, Math.min(t.peak, t.launch))) ** 2) + s.rise * part(kf, t.peak, t.launch) ** 2;
+  const ride = kf => tilted(tipAt(kf), s.dir).multiply(new THREE.Matrix4().makeTranslation(BAG_AT.x, BAG_AT.y + up(kf) / LOOK.pxm, BAG_AT.z));
+  let bag = null;
+  if (k < t.launch) bag = { frame: ride(Math.max(k, 0)), w: LOOK.bw, h: LOOK.bh };
+  else if (k < t.land) {
+    const u = (k - t.launch) / (t.land - t.launch), tilt0 = tipAt(t.launch);
+    const p0 = new THREE.Vector3().setFromMatrixPosition(ride(t.launch));
+    const v0 = p0.clone().sub(new THREE.Vector3().setFromMatrixPosition(ride(t.launch - 1)));
+    const to = new THREE.Vector3((lx * C + Math.floor((C - BAG.w) / 2) - ox) / LOOK.pxm - half + BAG.w / 2 / LOOK.pxm,
+      half - (ly * C + C - BAG.h - 1 - oy) / LOOK.pxm - BAG.h / 2 / LOOK.pxm, p0.z + { r: 0, l: 0, d: -1, u: 1 }[s.dir]);
+    const p1 = p0.clone().addScaledVector(v0, (t.land - t.launch) / 3 * s.throwK), p2 = to.clone().setY(to.y + s.arc / LOOK.pxm);
+    const a = (1 - u) ** 3, b = 3 * u * (1 - u) ** 2, cc = 3 * u * u * (1 - u), d = u ** 3;
+    const c = p0.clone().multiplyScalar(a).addScaledVector(p1, b).addScaledVector(p2, cc).addScaledVector(to, d);
+    const w = Math.round(LOOK.bw + (BAG.w - LOOK.bw) * u), h = Math.round(LOOK.bh + (BAG.h - LOOK.bh) * u);
+    const x = snap(c.x - w / 2 / LOOK.pxm) + w / 2 / LOOK.pxm, y = snap(c.y + h / 2 / LOOK.pxm) - h / 2 / LOOK.pxm;
+    const axis = s.dir === 'r' || s.dir === 'l' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
+    // With the flip, it also turns over once backward, the way the rock back threw it.
+    const turn = { r: -1, l: 1, d: 1, u: -1 }[s.dir] * (THREE.MathUtils.degToRad(tilt0) * (1 - u) - (s.flip ? 2 * Math.PI * u : 0));
+    bag = { frame: new THREE.Matrix4().makeTranslation(x, y, c.z).multiply(new THREE.Matrix4().makeRotationAxis(axis, turn)), w, h };
+  }
+  const binDraw = () => put(render(tip, s.dir, bag), ox, oy);
+  const bagDraw = () => { if (k >= t.land) put(landed.px, lx * C + Math.floor((C - landed.w) / 2), ly * C + C - landed.h - 1); };
+  // Back to front by the row each thing stands on; the bag in the air goes over all.
+  const things = [[START[1] - dy, () => put(SIT[s.dir].px, (START[0] - dx) * C + Math.floor((C - SIT[s.dir].w) / 2), (START[1] - dy) * C + C - SIT[s.dir].h - 1)],
+    [by, binDraw], [ly, bagDraw]];
+  for (const [, paint] of things.sort((a, b) => a[0] - b[0])) paint();
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+// ---- the timeline: two rows, the bin's and the bag's, with draggable keys --------------------
+// Key frames are absolute; each one's value lives in `s` relative to the stop or to the key before it.
+const stopAt = () => cells(s.dir) * CELL_FRAMES;
+const KEYS = {
+  stop:   { rows: ['bin'], fixed: true, at: () => stopAt() },
+  peak:   { rows: ['bin'], at: () => stopAt() + T().peak, set: f => { s.peak = clamp(f - stopAt(), 1, T().throw - 1); } },
+  throw:  { rows: ['bin'], at: () => stopAt() + T().throw, set: f => { s.throw = clamp(f - stopAt(), s.peak + 1, Math.max(s.peak + 1, s.settle - 2)); } },
+  settle: { rows: ['bin'], at: () => stopAt() + T().settle, set: f => { s.settle = Math.max(f - stopAt(), T().throw + 2); } },
+  launch: { rows: ['bag'], at: () => stopAt() + T().launch, set: f => { s.launch = Math.max(f - stopAt(), 1); } },
+  land:   { rows: ['bag'], at: () => stopAt() + T().land, set: f => { s.fly = Math.max(2, f - stopAt() - T().launch); } },
+  rest:   { rows: ['bag'], at: () => stopAt() + T().rest, set: f => { s.squash = Math.max(1, f - stopAt() - T().land); } },
+};
+const SEGS = {
+  bin: [['roll', () => 0, 'stop', '#c9d6ea'], ['tip', 'stop', 'peak', '#f2d29b'], ['rock back', 'peak', 'throw', '#f0b88a'], ['settle', 'throw', 'settle', '#d8e4c4']],
+  bag: [['in the bin', () => 0, 'stop', '#dcd6e4'], ['lift', 'stop', 'peak', '#e6dcbf'], ['rise', 'peak', 'launch', '#ecc9a8'], ['flight', 'launch', 'land', '#bfe0e6'], ['squash', 'land', 'rest', '#e4d6c9']],
+};
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const pc = f => 100 * f / (length() - 1);
+const frameAt = x => { const r = $('track').getBoundingClientRect(); return Math.round((x - r.left) / r.width * (length() - 1)); };
+const ROW_Y = { bin: 0, bag: 28 };
+function timeline() {
+  const tr = $('track'); tr.innerHTML = '';
+  const div = (cls, css, text = '') => { const e = document.createElement('div'); e.className = cls; Object.assign(e.style, css); e.textContent = text; tr.append(e); return e; };
+  const at = k => (typeof k === 'function' ? k() : KEYS[k].at());
+  for (const [row, y] of Object.entries(ROW_Y)) {
+    div('rowName', { top: `${y}px` }, row);
+    for (const [name, a, b, col] of SEGS[row]) div('seg', { top: `${y}px`, left: `${pc(at(a))}%`, width: `${Math.max(0, pc(at(b)) - pc(at(a)))}%`, background: col }, name).title = name;
+  }
+  for (const [id, k] of Object.entries(KEYS)) for (const row of k.rows) {
+    const e = div('key' + (k.fixed ? ' fixed' : ''), { top: `${ROW_Y[row]}px`, left: `${pc(k.at())}%` });
+    e.innerHTML = '<div class="stem"></div><div class="grab"></div><div class="num"></div>';
+    e.querySelector('.num').textContent = k.at(); e.title = `${id}: frame ${k.at()}`;
+    if (!k.fixed) e.onpointerdown = ev => dragKey(ev, id);
+    else e.onpointerdown = ev => ev.stopPropagation();
+  }
+  const h = div('', { left: `${pc(frame)}%` }); h.id = 'head';
+}
+function dragKey(e, id) {
+  e.preventDefault(); e.stopPropagation(); setPlay(0);
+  const move = ev => { KEYS[id].set(frameAt(ev.clientX)); frame = clamp(KEYS[id].at(), 0, length() - 1); draw(); };
+  const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); save(); autosave(); };
+  addEventListener('pointermove', move); addEventListener('pointerup', up); move(e);
+}
+$('track').onpointerdown = e => { setPlay(0); frame = clamp(frameAt(e.clientX), 0, length() - 1); draw();
+  const move = ev => { frame = clamp(frameAt(ev.clientX), 0, length() - 1); draw(); };
+  const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); };
+  addEventListener('pointermove', move); addEventListener('pointerup', up); };
+
+// ---- transport -----------------------------------------------------------------------------
+let playDir = 0, last = 0;
+function setPlay(d) { playDir = d; if (d) { last = performance.now(); requestAnimationFrame(tick); } }
+function tick(now) {
+  if (!playDir) return;
+  if (now - last >= 1000 / 60) {
+    last = now; frame += playDir;
+    if (frame <= 0 || frame >= length() - 1) { frame = clamp(frame, 0, length() - 1); playDir = 0; }
+    draw();
+  }
+  requestAnimationFrame(tick);
+}
+$('playFwd').onclick = () => { if (frame >= length() - 1) frame = 0; setPlay(1); };
+$('playBack').onclick = () => { if (frame <= 0) frame = length() - 1; setPlay(-1); };
+$('stop').onclick = () => setPlay(0);
+$('toStart').onclick = () => { setPlay(0); frame = 0; draw(); };
+$('toEnd').onclick = () => { setPlay(0); frame = length() - 1; draw(); };
+$('scrub').oninput = () => { setPlay(0); frame = Number($('scrub').value); draw(); };
+$('frame').onchange = () => { setPlay(0); frame = clamp(Math.round(Number($('frame').value)), 0, length() - 1); draw(); };
+addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea')) return;
+  if (e.key === 'ArrowRight') { setPlay(0); frame = Math.min(length() - 1, frame + 1); draw(); }
+  if (e.key === 'ArrowLeft') { setPlay(0); frame = Math.max(0, frame - 1); draw(); }
+  if (e.key === ' ') { e.preventDefault(); playDir ? setPlay(0) : $('playFwd').click(); }
+});
+for (const d of 'rlud') $(d).onclick = () => { s.dir = d; frame = 0; save(); draw(); autosave(); };
+for (const k of KNOBS) {
+  $(k).oninput = () => { s[k] = Number($(k).value); save(); draw(); autosave(); };
+  $(k + 'n').onchange = () => { const st = Number($(k).step); s[k] = Math.round(Number($(k + 'n').value) / st) * st; save(); draw(); autosave(); };
+}
+$('flip').onchange = () => { s.flip = $('flip').checked; save(); draw(); autosave(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(12, s.zoom + 1); save(); draw(); };
+// Every change saves itself to the notes file, the note with it, a moment after the last edit.
+let timer = 0;
+const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'wheelie-roll', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600); };
+$('note').oninput = autosave;
+draw(); autosave();
+</script>
+</body>
+</html>

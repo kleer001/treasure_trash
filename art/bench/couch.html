@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Couch views</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 360px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 6em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">Game pixels, 24 px cells. Top row: front and back. Bottom: end on from the left and from the right.</div>
+  <textarea id="note" placeholder="Note on the couch"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+<script type="module">
+import { COUCH } from '../../src/art/couch.js';
+import { ACTIONS, draw as drawRaccoon, mirror } from '../../src/art/cartoon.js';
+import { VIEW } from '../../src/art/press.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+
+const KEY = 'trash-couch', COLS = 10, ROWS = 7, $ = id => document.getElementById(id);
+let s = { zoom: 5 };
+try { const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); if (saved.zoom) s.zoom = saved.zoom; } catch {}
+const crop = ({ px }) => {
+  const x0 = Math.min(...px.map(p => p[0])), y0 = Math.min(...px.map(p => p[1]));
+  return { w: Math.max(...px.map(p => p[0])) - x0 + 1, h: Math.max(...px.map(p => p[1])) - y0 + 1, px: px.map(([x, y, c]) => [x - x0, y - y0, c]) };
+};
+const sitting = d => crop(d === 'l' ? mirror(drawRaccoon(ACTIONS[VIEW[d]].crawl[0])) : drawRaccoon(ACTIONS[VIEW[d]].crawl[0]));
+// [view, col, row, cells across, cells down]
+const COUCHES = [['front', 1, 2, 2, 1], ['back', 5, 2, 2, 1], ['left', 2, 4, 1, 2], ['right', 6, 4, 1, 2]];
+
+function draw() {
+  $('zoom').textContent = `${s.zoom}×`;
+  const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+  const g = src.getContext('2d');
+  g.fillStyle = FLOOR; g.fillRect(0, 0, src.width, src.height);
+  g.fillStyle = SEAM;
+  for (let k = 1; k <= COLS; k++) g.fillRect(k * C - 1, C, 1, src.height);
+  for (let k = 1; k <= ROWS; k++) g.fillRect(0, k * C - 1, src.width, 1);
+  for (let x = 0; x < COLS; x++) wallTile(g, x, 0, C);
+  const put = (spr, x0, y0) => { for (const [x, y, c] of spr.px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
+  // Centred on its footprint, its foot a pixel above the footprint's bottom edge, as the game stands things.
+  const stand = (spr, col, row, w, h) => put(spr, col * C + Math.floor((w * C - spr.w) / 2), (row + h) * C - spr.h - 1);
+  const things = [...COUCHES.map(([v, x, y, w, h]) => [y + h, () => stand(COUCH[v], x, y, w, h)]),
+    [3, () => stand(sitting('d'), 4, 2, 1, 1)], [6, () => stand(sitting('r'), 4, 5, 1, 1)]].sort((a, b) => a[0] - b[0]);
+  for (const [, paint] of things) paint();
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
+}
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); draw(); autosave(); };
+$('zin').onclick = () => { s.zoom = Math.min(12, s.zoom + 1); draw(); autosave(); };
+// Every change saves itself to the notes file, the note with it, a moment after the last edit.
+let timer = 0;
+function autosave() {
+  clearTimeout(timer);
+  timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ page: 'couch', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+    .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600);
+}
+$('note').oninput = autosave;
+draw(); autosave();
+</script>
+</body>
+</html>

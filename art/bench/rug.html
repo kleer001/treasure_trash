@@ -36,7 +36,7 @@
   <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
   <div class="muted">The Blender rug rendered live at game pixels, camera straight on: a reference to draw over, not the sprite. Rotation applies Z, then Y, then X.</div>
   <textarea id="note" placeholder="Note on the rug"></textarea>
-  <div class="row"><button id="send">Send note and settings</button><span id="status" class="muted"></span></div>
+  <div id="status" class="muted"></div>
 </div>
 
 <script type="module">
@@ -57,7 +57,7 @@ try {
   for (const f of ['across', 'up']) Object.assign(s[f], saved[f] ?? {});
 } catch {}
 const v = () => s[s.foot];
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} autosave(); };
 
 const crop = ({ px }) => {
   const x0 = Math.min(...px.map(p => p[0])), y0 = Math.min(...px.map(p => p[1]));
@@ -152,11 +152,18 @@ for (const b of ['across', 'up']) $(b).onclick = () => { s.foot = b; save(); dra
 for (const b of Object.keys(PALETTES)) $(b).onclick = () => { s.colours = b; save(); draw(); };
 $('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
 $('zin').onclick = () => { s.zoom = Math.min(16, s.zoom + 1); save(); draw(); };
-$('send').onclick = () => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ page: 'rug', settings: s, note: $('note').value, at: new Date().toISOString() }) })
-  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `sent ${new Date().toLocaleTimeString()}`; })
-  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not sent: ${e.message}`; });
+// Every change saves itself to the notes file, the note with it, a moment after the last edit.
+let timer = 0;
+function autosave() {
+  clearTimeout(timer);
+  timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ page: 'rug', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+    .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600);
+}
+$('note').oninput = autosave;
 draw();
+autosave();
 </script>
 </body>
 </html>

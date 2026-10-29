@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rug rolling</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 460px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 170px 1fr 64px; gap: 10px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  button.on { background: #1a1a1a; color: #fff; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <div class="row"><span>footprint</span><button id="across">across, rolls ↑↓</button><button id="up">up, rolls ←→</button></div>
+  <div class="row"><span>rolls</span><button id="fwd"></button><button id="back"></button></div>
+  <div class="row"><span>spin</span><button id="turn">one turn a cell</button><button id="true">true to its size</button></div>
+  <label>drawings a cell <input id="per" type="range" min="2" max="8" step="1"><input id="pern" type="number" step="1"></label>
+  <div class="row"><button id="play"></button><button id="prev">◀ drawing</button><button id="next">drawing ▶</button><span id="clock" class="muted"></span></div>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div id="about" class="muted"></div>
+  <textarea id="note" placeholder="Note on the rug rolling"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+
+const KEY = 'trash-rug-rolling', BOX = 96, LANE = 4, $ = id => document.getElementById(id);
+// The rug as the rug pages settled it: its size, its view on each footprint, and its ends.
+const LEN = 0.63, R = 0.20, VIEWS = { across: { rx: 9, ry: 44, rz: -6, pxm: 43 }, up: { rx: 45, ry: 90, rz: 0, pxm: 44 } };
+const COLOURS = { body: '#c8453f', band: '#8a2a26', roll: '#d9ac87', edge: '#7a4e30', core: '#8a2a26', fringe: '#d9ac87' };
+const s = { turns: 2.25, thick: 43, gap: 34, edge: 12, tassels: 0, tlen: 150, twide: 2, splay: 20, droop: -1, ends: { roll: '#d9ac87', edge: '#7a4e30', core: '#8a2a26' } };
+let u = { foot: 'across', back: false, spin: 'turn', per: 4, zoom: 4, playing: true };
+try { const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); for (const k in u) if (saved[k] !== undefined) u[k] = saved[k]; } catch {}
+
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(BOX, BOX, false);
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-1, 1.5, 1.2); scene.add(sun);
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10); camera.position.set(0, 0, 5);
+const pivot = new THREE.Group(); scene.add(pivot);
+const mat = Object.fromEntries(Object.entries(COLOURS).map(([k, c]) => [k, new THREE.MeshLambertMaterial({ color: c })]));
+
+/** The rolled rug, its axis along X and its middle at the origin, in metres: a smooth roll, with the
+ *  wound sheet showing only as a thin spiral on each end over a dark disc. */
+function rug() {
+  // A spiral too big for the end is scaled down to fit it, sheet, gap and edge alike.
+  const n = s.turns, end = R - 0.01, want = ((s.thick + s.gap) * n + s.thick + s.edge) / 1000 + 0.01;
+  const fit = Math.min(1, end / want), L = 1.70 * LEN, t = fit * s.thick / 1000, p = t + fit * s.gap / 1000, edge = fit * s.edge / 1000;
+  const r0 = end - p * n - t - edge, steps = Math.ceil(n * 64);
+  const at = (k, d) => { const a = (2 * Math.PI * n * k) / steps, r = r0 + (p * a) / (2 * Math.PI) + d; return new THREE.Vector2(r * Math.cos(a), r * Math.sin(a)); };
+  // The wound sheet in section, `w` wider on each side: out along its outer face, back along its inner one.
+  const strip = w => {
+    const pts = [];
+    for (let k = 0; k <= steps; k++) pts.push(at(k, t + w));
+    for (let k = steps; k >= 0; k--) pts.push(at(k, -w));
+    return new THREE.Shape(pts);
+  };
+  for (const k of ['roll', 'edge', 'core']) mat[k].color.set(s.ends[k]);
+  // The roll is open at its ends; each end is a dark disc with the spiral on it, set just inside, so
+  // nothing at the far end shows past the roll's outline.
+  const g = new THREE.Group(), side = new THREE.Mesh(new THREE.CylinderGeometry(R, R, L, 48, 1, true), mat.body);
+  side.rotation.z = Math.PI / 2; g.add(side);
+  for (const e of [-1, 1]) {
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.0005, R - 0.0005, 0.006, 48), mat.core);
+    disc.rotation.z = Math.PI / 2; disc.position.x = e * (L / 2 - 0.005); g.add(disc);
+    // The tan sheet over a wider dark brown one, which shows as its edge.
+    for (const [w, out, m] of [[edge, -0.004, mat.edge], [0, -0.0035, mat.roll]]) {
+      const cap = new THREE.ExtrudeGeometry(strip(w), { depth: 0.006, bevelEnabled: false, curveSegments: 1 });
+      cap.rotateY(Math.PI / 2); cap.translate(e * (L / 2 + out) - 0.003, 0, 0);
+      g.add(new THREE.Mesh(cap, m));
+    }
+  }
+  // Bands round the roll where the rug's border pattern lies wound up.
+  for (const x of [-0.62, -0.52, 0.52, 0.62]) {
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.006, R + 0.006, 0.05, 48), mat.band);
+    b.rotation.z = Math.PI / 2; b.position.x = x * LEN; g.add(b);
+  }
+  // The tassels come out of each end along the sheet's edge, which winds as the sheet does.
+  const len = s.tlen / 1000, w = s.twide / 1000, up = new THREE.Vector3(0, 1, 0);
+  for (const e of [-1, 1]) for (let k = 0; k < s.tassels; k++) {
+    const a = 2 * Math.PI * n * (k + 0.5) / s.tassels, r = r0 + (p * a) / (2 * Math.PI) + t / 2;
+    const radial = new THREE.Vector3(0, Math.cos(a), Math.sin(a));
+    const dir = new THREE.Vector3(e, 0, 0).addScaledVector(radial, Math.tan(s.splay * Math.PI / 180))
+      .addScaledVector(new THREE.Vector3(0, -1, 0), Math.tan(s.droop * Math.PI / 180)).normalize();
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, len, w), mat.fringe);
+    m.quaternion.setFromUnitVectors(up, dir);
+    m.position.set(e * L / 2, r * Math.cos(a), r * Math.sin(a)).addScaledVector(dir, len / 2);
+    if (len > 0) g.add(m);
+  }
+  return g;
+}
+
+/** The rug turned `a` radians about its own axis, at the footprint's view, BOX pixels square:
+ *  { px, ax, ay }, where (ax, ay) is the pixel the roll's middle lands on. Turning about its own
+ *  axis leaves the middle where it was, so every drawing lines up on it. */
+const cache = new Map();
+function sprite(a) {
+  const key = `${u.foot} ${a.toFixed(4)}`;
+  if (cache.has(key)) return cache.get(key);
+  const r = VIEWS[u.foot], half = BOX / 2 / r.pxm;
+  pivot.clear();
+  const g = rug(), spin = new THREE.Group();
+  spin.add(g); spin.rotation.x = a; pivot.add(spin);
+  Object.assign(camera, { left: -half, right: half, top: half, bottom: -half }); camera.updateProjectionMatrix();
+  pivot.rotation.set(...[r.rx, r.ry, r.rz].map(THREE.MathUtils.degToRad), 'XYZ');
+  renderer.render(scene, camera);
+  const c = document.createElement('canvas'); c.width = c.height = BOX;
+  const cg = c.getContext('2d'); cg.drawImage(renderer.domElement, 0, 0);
+  const { data } = cg.getImageData(0, 0, BOX, BOX), px = [];
+  for (let y = 0; y < BOX; y++) for (let x = 0; x < BOX; x++) {
+    const o = (y * BOX + x) * 4;
+    if (data[o + 3] > 127) px.push([x, y, `rgb(${data[o]},${data[o + 1]},${data[o + 2]})`]);
+  }
+  const out = { px, ax: BOX / 2, ay: BOX / 2 };
+  cache.set(key, out);
+  return out;
+}
+
+// Which way the roll's top runs for a positive turn, so a roll turns the way it travels: toward
+// the viewer when it rolls down the screen, and to the right when it rolls right.
+function topRuns() {
+  const r = VIEWS[u.foot], e = new THREE.Euler(...[r.rx, r.ry, r.rz].map(THREE.MathUtils.degToRad), 'XYZ');
+  const v = new THREE.Vector3(0, 0, 1).applyEuler(e);
+  return u.foot === 'across' ? v.z : v.x;
+}
+const travel = () => (u.foot === 'across' ? [0, 1] : [1, 0]).map(k => k * (u.back ? -1 : 1));
+// The turn at a distance travelled: a whole turn a cell, or the turn its own girth gives it.
+const angleAt = d => {
+  const girth = 2 * Math.PI * R * VIEWS[u.foot].pxm, sign = Math.sign(topRuns()) * (u.back ? -1 : 1);
+  return sign * (u.spin === 'turn' ? (2 * Math.PI * d) / C : (2 * Math.PI * d) / girth);
+};
+
+// The roll runs down a lane of cells: down a column for ↑↓, along a row for ←→. Each drawing is
+// chosen by how far the rug has gone, so the frame counter only says where along the lane it is.
+let tick = 0;
+function draw() {
+  for (const b of ['across', 'up']) $(b).className = u.foot === b ? 'on' : '';
+  $('fwd').textContent = u.foot === 'across' ? '↓' : '→'; $('back').textContent = u.foot === 'across' ? '↑' : '←';
+  $('fwd').className = u.back ? '' : 'on'; $('back').className = u.back ? 'on' : '';
+  $('turn').className = u.spin === 'turn' ? 'on' : ''; $('true').className = u.spin === 'true' ? 'on' : '';
+  $('per').value = u.per; $('pern').value = u.per;
+  $('play').textContent = u.playing ? 'Pause' : 'Play';
+  $('zoom').textContent = `${u.zoom}×`;
+  const across = u.foot === 'across', COLS = across ? 6 : LANE + 3, ROWS = across ? LANE + 3 : 4;
+  const step = C / u.per, drawings = LANE * u.per, k = ((tick % drawings) + drawings) % drawings, d = k * step;
+  $('clock').textContent = `drawing ${(k % u.per) + 1} of ${u.per} in cell ${Math.floor(k / u.per) + 1} of ${LANE}`;
+  const girth = 2 * Math.PI * R * VIEWS[u.foot].pxm;
+  $('about').textContent = `The roll is ${girth.toFixed(0)} px round and a cell is ${C} px, so rolling true it turns ${(360 * C / girth).toFixed(0)}° a cell; one turn a cell spins it ${(girth / C).toFixed(1)}× faster than it moves.`;
+  const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+  const g = src.getContext('2d');
+  g.fillStyle = FLOOR; g.fillRect(0, 0, src.width, src.height);
+  g.fillStyle = SEAM;
+  for (let q = 1; q <= COLS; q++) g.fillRect(q * C - 1, C, 1, src.height);
+  for (let q = 1; q <= ROWS; q++) g.fillRect(0, q * C - 1, src.width, 1);
+  for (let x = 0; x < COLS; x++) wallTile(g, x, 0, C);
+  const put = (spr, x0, y0) => { for (const [x, y, c] of spr.px) { g.fillStyle = c; g.fillRect(x0 + x - spr.ax, y0 + y - spr.ay, 1, 1); } };
+  // The footprint's middle at the lane's first cell, then moved along it.
+  const [tx, ty] = travel(), first = u.back ? LANE - 1 : 0;
+  const mx = across ? 2 * C + C : C + first * C + C / 2, my = across ? (1 + first) * C + C / 2 : C + C;
+  put(sprite(angleAt(d)), Math.round(mx + tx * d), Math.round(my + ty * d));
+  const out = $('view'); out.width = src.width * u.zoom; out.height = src.height * u.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+  try { localStorage.setItem(KEY, JSON.stringify(u)); } catch {}
+}
+
+// 60 Hz, on twos: a new drawing every other frame.
+let frame = 0;
+const loop = () => { if (u.playing && ++frame % 2 === 0) { tick++; draw(); } requestAnimationFrame(loop); };
+const set = (k, v) => { u[k] = v; tick = 0; draw(); autosave(); };
+for (const b of ['across', 'up']) $(b).onclick = () => set('foot', b);
+$('fwd').onclick = () => set('back', false); $('back').onclick = () => set('back', true);
+$('turn').onclick = () => set('spin', 'turn'); $('true').onclick = () => set('spin', 'true');
+$('per').oninput = () => set('per', Number($('per').value));
+$('pern').onchange = () => set('per', Math.max(2, Math.round(Number($('pern').value))));
+$('play').onclick = () => { u.playing = !u.playing; draw(); };
+$('prev').onclick = () => { u.playing = false; tick--; draw(); };
+$('next').onclick = () => { u.playing = false; tick++; draw(); };
+$('zout').onclick = () => { u.zoom = Math.max(1, u.zoom - 1); draw(); };
+$('zin').onclick = () => { u.zoom = Math.min(12, u.zoom + 1); draw(); };
+
+// Every change saves itself to the notes file, the note with it, a moment after the last edit.
+let timer = 0;
+function autosave() {
+  clearTimeout(timer);
+  timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ page: 'rug-rolling', settings: u, note: $('note').value, at: new Date().toISOString() }) })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+    .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600);
+}
+$('note').oninput = autosave;
+draw(); autosave(); loop();
+</script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wheelie in context</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 360px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">The game's own pixel sprites, 24 px cells. Row 1: full and empty against the wall, then a can and a recycle box. Row 3: two side by side, with him facing right. Row 5: between a bag and a trash pile.</div>
+  <textarea id="note" placeholder="Note on the wheelie bin"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+
+<script type="module">
+import { loadPixelArt, createPixelSprites, PIXEL_CELL as C } from '../../src/pixel.js';
+
+const KEY = 'trash-wheelie-context', COLS = 9, ROWS = 7, $ = id => document.getElementById(id);
+let zoom = 5;
+try { zoom = Number(localStorage.getItem(KEY)) || zoom; } catch {}
+
+const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+const g = src.getContext('2d');
+const S = createPixelSprites({ ctx: g, art: await loadPixelArt(new URL('../../src/art/', import.meta.url)) });
+
+// [row, paint]; drawn back to front by the row each thing stands on, as the game draws them.
+const THINGS = [
+  [1, () => S.wheelie(1, 1, true)], [1, () => S.wheelie(3, 1, false)], [1, () => S.raccoon(4, 1, 'd')],
+  [1, () => S.can(6, 1, true)], [1, () => S.recycleBin(7, 1, true)],
+  [3, () => S.raccoon(1, 3, 'r')], [3, () => S.wheelie(2, 3, true)], [3, () => S.wheelie(3, 3, false)],
+  [5, () => S.bag(2, 5)], [5, () => S.wheelie(3, 5, true)], [5, () => S.trash(4, 5, { seed: 7 })], [5, () => S.raccoon(6, 5, 'l')],
+];
+
+function draw() {
+  $('zoom').textContent = `${zoom}×`;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) (y === 0 ? S.wall(x, y) : S.floor(x, y));
+  for (const [, paint] of THINGS) paint();
+  const out = $('view'); out.width = src.width * zoom; out.height = src.height * zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+const setZoom = z => { zoom = z; try { localStorage.setItem(KEY, String(zoom)); } catch {} draw(); autosave(); };
+$('zout').onclick = () => setZoom(Math.max(1, zoom - 1));
+$('zin').onclick = () => setZoom(Math.min(12, zoom + 1));
+// The note saves itself to the notes file a moment after the last edit.
+let timer = 0;
+const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'wheelie-context', settings: { zoom }, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600); };
+$('note').oninput = autosave;
+draw(); autosave();
+</script>
+</body>
+</html>

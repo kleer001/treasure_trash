@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Covered looks</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 15px/1.35 system-ui, sans-serif; display: flex; gap: 24px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; position: sticky; top: 16px; }
+  .side { display: grid; gap: 10px; width: 480px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tabs button { border-width: 2px; }
+  .tabs button.on { font-weight: 700; box-shadow: inset 0 -4px 0 currentColor; }
+  fieldset { border: 1px solid #c9c6bd; padding: 6px 10px 8px; display: grid; gap: 4px; }
+  legend { font-weight: 600; }
+  label { display: grid; grid-template-columns: 150px 1fr 64px; gap: 8px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  label input[type=color] { width: 60px; height: 24px; padding: 0; border: 1px solid #888; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button { font: inherit; padding: 4px 10px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 13px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <div class="tabs" id="tabs"></div>
+  <div class="row"><span>seed</span><button id="sprev">−</button><span id="seed"></span><button id="snext">+</button><button id="reset">This tab back to defaults</button></div>
+  <div id="knobs" style="display:grid;gap:10px"></div>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <textarea id="note" placeholder="Note on the covered looks"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+<script type="module">
+import { SOAKED_LOOK, soakedCardboard, soakedSponge } from '../../src/art/soaked.js';
+import { CARDBOARD } from '../../src/art/cardboard.js';
+import { SPONGE_LOOK, spongeSprite } from '../../src/art/sponge.js';
+import { puddle } from '../../src/art/water.js';
+import { LOOKS, slickCell } from '../../src/art/slick.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+
+const KEY = 'trash-covered', $ = id => document.getElementById(id);
+// [item, kind, tab colour, label]
+const TABS = [['cardboard', 'water', '#2f6fb0', 'Cardboard on water'], ['cardboard', 'tar', '#3a3644', 'Cardboard on tar'],
+  ['cardboard', 'grease', '#8a6a2a', 'Cardboard on grease'], ['sponge', 'water', '#2f8fb0', 'Sponge, soaked water'],
+  ['sponge', 'grease', '#a0702a', 'Sponge, soaked grease'], ['sponge', 'tar', '#5a4a6a', 'Sponge in tar']];
+// [legend, [key, label, min, max, step] or [key, label] for a colour]
+const COMMON = [
+  ['Tint', [['tintAmt', 'amount', 0, 1, 0.05], ['tint', 'colour']]],
+  ['Soak from the edges', [['soak', 'depth px', 0, 6, 1], ['edgeAmt', 'amount', 0, 1, 0.05], ['edge', 'colour']]],
+  ['Blots', [['count', 'count', 0, 12, 1], ['rmin', 'size min px', 0.5, 6, 0.5], ['rmax', 'size max px', 0.5, 8, 0.5],
+    ['blotAmt', 'amount', 0, 1, 0.05], ['ring', 'ring, extra amount', 0, 1, 0.05], ['blot', 'colour']]],
+  ['Specks of shine', [['specks', 'count', 0, 20, 1], ['speck', 'colour']]],
+];
+const ONLY = {
+  cardboard: [['Tar oozing over the edge', [['ooze', 'count', 0, 12, 1], ['oozeSize', 'size px', 0.5, 5, 0.5], ['oozeColour', 'colour'], ['oozeLit', 'lit colour']]]],
+  sponge: [['Wet line from the foot', [['lowH', 'height px', 0, 14, 1], ['lowJag', 'ragged px', 0, 4, 0.5], ['lowAmt', 'amount', 0, 1, 0.05], ['low', 'colour']]],
+    ['Tar coating the foot', [['coat', 'height px', 0, 14, 1], ['coatJag', 'ragged px', 0, 4, 0.5], ['coatColour', 'colour'], ['coatLit', 'lit colour']]]],
+};
+// The sponge's size and place, one for every sponge on the page, plain or marked.
+const SIZE = ['Sponge size and place, every sponge', [['w', 'width px', 8, 32, 1], ['h', 'height px', 6, 24, 1], ['dx', 'x px', -8, 8, 1], ['dy', 'y px', -8, 8, 1]]];
+const fresh = () => JSON.parse(JSON.stringify(SOAKED_LOOK));
+let s = { tab: 0, zoom: 3, look: fresh(), sponge: { ...SPONGE_LOOK } };
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+  if (saved.tab !== undefined) s.tab = saved.tab;
+  if (saved.zoom) s.zoom = saved.zoom;
+  Object.assign(s.sponge, saved.sponge ?? {});
+  for (const item in s.look) for (const kind in s.look[item]) Object.assign(s.look[item][kind], saved.look?.[item]?.[kind] ?? {});
+} catch {}
+const cur = () => { const [item, kind] = TABS[s.tab]; return s.look[item][kind]; };
+const groups = () => [...(TABS[s.tab][0] === 'sponge' ? [SIZE] : []), ...COMMON, ...ONLY[TABS[s.tab][0]]];
+
+TABS.forEach(([, , colour, label], i) => {
+  const b = document.createElement('button'); b.textContent = label; b.style.color = colour; b.style.borderColor = colour;
+  b.onclick = () => { s.tab = i; build(); change(); };
+  $('tabs').append(b);
+});
+function build() {
+  [...$('tabs').children].forEach((b, i) => b.className = i === s.tab ? 'on' : '');
+  $('knobs').innerHTML = '';
+  for (const [legend, knobs] of groups()) {
+    const f = document.createElement('fieldset');
+    f.innerHTML = `<legend>${legend}</legend>` + knobs.map(([k, label, min, max, step]) => min === undefined
+      ? `<label>${label}<input id="${k}" type="color"><span></span></label>`
+      : `<label>${label}<input id="${k}" type="range" min="${min}" max="${max}" step="${step}"><input id="${k}n" type="number" step="${step}"></label>`).join('');
+    $('knobs').append(f);
+    const into = legend === SIZE[0] ? () => s.sponge : cur;
+    for (const [k, , min] of knobs) {
+      if (min === undefined) $(k).oninput = () => { into()[k] = $(k).value; change(); };
+      else {
+        $(k).oninput = () => { into()[k] = Number($(k).value); change(); };
+        $(k + 'n').onchange = () => { into()[k] = Number($(k + 'n').value); change(); };
+      }
+    }
+  }
+}
+
+// Each panel is 4 × 3 cells: the hazard in a cross with the thing on its middle cell, and the
+// plain thing on dry floor to its right.
+const PW = 4, PH = 3, CROSS = [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]];
+function panel(item, kind, look) {
+  const c = document.createElement('canvas'); c.width = PW * C; c.height = PH * C;
+  const g = c.getContext('2d');
+  const put = (px, x0, y0) => { for (const [x, y, col] of px) { g.fillStyle = col; g.fillRect(x0 + x, y0 + y, 1, 1); } };
+  g.fillStyle = FLOOR; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = SEAM;
+  for (let k = 1; k <= PW; k++) g.fillRect(k * C - 1, 0, 1, c.height);
+  for (let k = 1; k <= PH; k++) g.fillRect(0, k * C - 1, c.width, 1);
+  // What is left under the middle: the sheet lies on what it covers, and the sponge takes up water
+  // and grease but sticks in tar.
+  const under = item === 'cardboard' || kind === 'tar';
+  const lane = CROSS.filter(([x, y]) => under || !(x === 1 && y === 1));
+  const has = (x, y) => lane.some(([a, b]) => a === x && b === y);
+  for (const [x, y] of lane) {
+    if (kind === 'water') put(puddle(x, y, C, has), 0, 0);
+    else put(slickCell(x, y, has, LOOKS[kind]), x * C, y * C);
+  }
+  const stand = (spr, x, y) => put(spr.px, x * C + Math.floor((C - spr.w) / 2) + spr.dx, y * C + C - spr.h - 1 + spr.dy);
+  if (item === 'cardboard') { put(soakedCardboard(kind, look).px, C, C); put(CARDBOARD.px, 3 * C, C); }
+  else { stand(soakedSponge(kind, look, s.sponge), 1, 1); stand(spongeSprite(s.sponge), 3, 1); }
+  return c;
+}
+
+function draw() {
+  const look = cur();
+  for (const [legend, knobs] of groups()) for (const [k, , min] of knobs) {
+    const v = (legend === SIZE[0] ? s.sponge : look)[k];
+    $(k).value = v; if (min !== undefined) $(k + 'n').value = v;
+  }
+  $('seed').textContent = look.seed; $('zoom').textContent = `${s.zoom}×`;
+  const gap = C / 2, Z = s.zoom, LABEL = 22;
+  const out = $('view'); out.width = (3 * PW * C + 2 * gap) * Z; out.height = 2 * (PH * C * Z + LABEL) + gap * Z;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false;
+  o.fillStyle = '#f7f6f3'; o.fillRect(0, 0, out.width, out.height);
+  TABS.forEach(([item, kind, colour, label], i) => {
+    const x = (i % 3) * (PW * C + gap) * Z, y = Math.floor(i / 3) * (PH * C * Z + LABEL + gap * Z);
+    o.fillStyle = colour; o.font = `${i === s.tab ? 'bold ' : ''}15px system-ui, sans-serif`; o.fillText(label, x, y + 16);
+    o.drawImage(panel(item, kind, s.look[item][kind]), x, y + LABEL, PW * C * Z, PH * C * Z);
+    if (i === s.tab) { o.strokeStyle = colour; o.lineWidth = 3; o.strokeRect(x + 1.5, y + LABEL + 1.5, PW * C * Z - 3, PH * C * Z - 3); }
+  });
+  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
+}
+const change = () => { draw(); autosave(); };
+$('sprev').onclick = () => { cur().seed = Math.max(1, cur().seed - 1); change(); };
+$('snext').onclick = () => { cur().seed += 1; change(); };
+$('reset').onclick = () => { const [item, kind] = TABS[s.tab]; s.look[item][kind] = fresh()[item][kind]; change(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); change(); };
+$('zin').onclick = () => { s.zoom = Math.min(8, s.zoom + 1); change(); };
+// Every change saves itself to the notes file, the note with it, a moment after the last edit.
+let timer = 0;
+function autosave() {
+  clearTimeout(timer);
+  timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ page: 'covered', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+    .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600);
+}
+$('note').oninput = autosave;
+build(); draw(); autosave();
+</script>
+</body>
+</html>

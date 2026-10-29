@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rug roll and tassels</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 440px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 170px 1fr 64px; gap: 10px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  button.on { background: #1a1a1a; color: #fff; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <div class="row"><span>footprint</span><button id="across">across, 2×1</button><button id="up">up, 1×2</button></div>
+  <div id="sliders" style="display:grid;gap:8px"></div>
+  <div class="row"><span>end colours</span><label style="display:flex;gap:6px"><input id="roll" type="color"> spiral</label><label style="display:flex;gap:6px"><input id="edge_c" type="color"> spiral edge</label><label style="display:flex;gap:6px"><input id="core" type="color"> between turns</label></div>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">The rolled rug built live and rendered at game pixels, at the size and view you set. The ends show the wound sheet as a spiral; the tassels come out of the ends along that spiral.</div>
+  <textarea id="note" placeholder="Note on the rug ends"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { ACTIONS, draw as drawRaccoon, mirror } from '../../src/art/cartoon.js';
+import { VIEW } from '../../src/art/press.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+
+const KEY = 'trash-rug-roll-2', COLS = 6, ROWS = 4, BOX = 96, $ = id => document.getElementById(id);
+// The size and the view the rug page settled on; the length is a share of the 1.70 m rug.
+const LEN = 0.63, R = 0.20, VIEWS = { across: { rx: 9, ry: 44, rz: -6, pxm: 43 }, up: { rx: 45, ry: 90, rz: 0, pxm: 44 } };
+const COLOURS = { body: '#c8453f', band: '#8a2a26', roll: '#d9ac87', edge: '#7a4e30', core: '#8a2a26', fringe: '#d9ac87' };
+const ENDS = [['roll', 'roll'], ['edge_c', 'edge'], ['core', 'core']];
+const SLIDERS = [['turns', 'spiral turns', 1, 6, 0.25], ['thick', 'sheet thickness mm', 4, 60, 1], ['gap', 'gap between turns mm', 0, 60, 1], ['edge', 'spiral edge mm', 0, 40, 1],
+  ['tassels', 'tassels an end', 0, 40, 1], ['tlen', 'tassel length mm', 0, 150, 5], ['twide', 'tassel thickness mm', 2, 30, 1],
+  ['splay', 'tassel splay °', 0, 60, 1], ['droop', 'tassel droop °', -30, 80, 1]];
+let s = { foot: 'up', zoom: 5, turns: 2.25, thick: 43, gap: 34, edge: 12, tassels: 0, tlen: 150, twide: 2, splay: 20, droop: -1, ends: { roll: COLOURS.roll, edge: COLOURS.edge, core: COLOURS.core } };
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+  for (const k in s) if (saved[k] !== undefined) s[k] = k === 'ends' ? { ...s.ends, ...saved.ends } : saved[k];
+} catch {}
+
+$('sliders').innerHTML = SLIDERS.map(([k, name, lo, hi, st]) =>
+  `<label>${name} <input id="${k}" type="range" min="${lo}" max="${hi}" step="${st}"><input id="${k}n" type="number" step="${st}"></label>`).join('');
+
+const crop = ({ px }) => {
+  const x0 = Math.min(...px.map(p => p[0])), y0 = Math.min(...px.map(p => p[1]));
+  return { w: Math.max(...px.map(p => p[0])) - x0 + 1, h: Math.max(...px.map(p => p[1])) - y0 + 1, px: px.map(([x, y, c]) => [x - x0, y - y0, c]) };
+};
+const sitting = d => crop(d === 'l' ? mirror(drawRaccoon(ACTIONS[VIEW[d]].crawl[0])) : drawRaccoon(ACTIONS[VIEW[d]].crawl[0]));
+const RACCOON = { d: sitting('d'), r: sitting('r') };
+
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(BOX, BOX, false);
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-1, 1.5, 1.2); scene.add(sun);
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10); camera.position.set(0, 0, 5);
+const pivot = new THREE.Group(); scene.add(pivot);
+const mat = Object.fromEntries(Object.entries(COLOURS).map(([k, c]) => [k, new THREE.MeshLambertMaterial({ color: c })]));
+
+/** The rolled rug, its axis along X and its middle at the origin, in metres: a smooth roll, with the
+ *  wound sheet showing only as a thin spiral on each end over a dark disc. */
+function rug() {
+  // A spiral too big for the end is scaled down to fit it, sheet, gap and edge alike.
+  const n = s.turns, end = R - 0.01, want = ((s.thick + s.gap) * n + s.thick + s.edge) / 1000 + 0.01;
+  const fit = Math.min(1, end / want), L = 1.70 * LEN, t = fit * s.thick / 1000, p = t + fit * s.gap / 1000, edge = fit * s.edge / 1000;
+  const r0 = end - p * n - t - edge, steps = Math.ceil(n * 64);
+  const at = (k, d) => { const a = (2 * Math.PI * n * k) / steps, r = r0 + (p * a) / (2 * Math.PI) + d; return new THREE.Vector2(r * Math.cos(a), r * Math.sin(a)); };
+  // The wound sheet in section, `w` wider on each side: out along its outer face, back along its inner one.
+  const strip = w => {
+    const pts = [];
+    for (let k = 0; k <= steps; k++) pts.push(at(k, t + w));
+    for (let k = steps; k >= 0; k--) pts.push(at(k, -w));
+    return new THREE.Shape(pts);
+  };
+  for (const k of ['roll', 'edge', 'core']) mat[k].color.set(s.ends[k]);
+  // The roll is open at its ends; each end is a dark disc with the spiral on it, set just inside, so
+  // nothing at the far end shows past the roll's outline.
+  const g = new THREE.Group(), side = new THREE.Mesh(new THREE.CylinderGeometry(R, R, L, 48, 1, true), mat.body);
+  side.rotation.z = Math.PI / 2; g.add(side);
+  for (const e of [-1, 1]) {
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.0005, R - 0.0005, 0.006, 48), mat.core);
+    disc.rotation.z = Math.PI / 2; disc.position.x = e * (L / 2 - 0.005); g.add(disc);
+    // The tan sheet over a wider dark brown one, which shows as its edge.
+    for (const [w, out, m] of [[edge, -0.004, mat.edge], [0, -0.0035, mat.roll]]) {
+      const cap = new THREE.ExtrudeGeometry(strip(w), { depth: 0.006, bevelEnabled: false, curveSegments: 1 });
+      cap.rotateY(Math.PI / 2); cap.translate(e * (L / 2 + out) - 0.003, 0, 0);
+      g.add(new THREE.Mesh(cap, m));
+    }
+  }
+  // Bands round the roll where the rug's border pattern lies wound up.
+  for (const x of [-0.62, -0.52, 0.52, 0.62]) {
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.006, R + 0.006, 0.05, 48), mat.band);
+    b.rotation.z = Math.PI / 2; b.position.x = x * LEN; g.add(b);
+  }
+  // The tassels come out of each end along the sheet's edge, which winds as the sheet does.
+  const len = s.tlen / 1000, w = s.twide / 1000, up = new THREE.Vector3(0, 1, 0);
+  for (const e of [-1, 1]) for (let k = 0; k < s.tassels; k++) {
+    const a = 2 * Math.PI * n * (k + 0.5) / s.tassels, r = r0 + (p * a) / (2 * Math.PI) + t / 2;
+    const radial = new THREE.Vector3(0, Math.cos(a), Math.sin(a));
+    const dir = new THREE.Vector3(e, 0, 0).addScaledVector(radial, Math.tan(s.splay * Math.PI / 180))
+      .addScaledVector(new THREE.Vector3(0, -1, 0), Math.tan(s.droop * Math.PI / 180)).normalize();
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, len, w), mat.fringe);
+    m.quaternion.setFromUnitVectors(up, dir);
+    m.position.set(e * L / 2, r * Math.cos(a), r * Math.sin(a)).addScaledVector(dir, len / 2);
+    if (len > 0) g.add(m);
+  }
+  return g;
+}
+
+/** The rug at the footprint's view, BOX pixels square at its pixels a metre, cropped to what was drawn. */
+function sprite() {
+  const r = VIEWS[s.foot], half = BOX / 2 / r.pxm;
+  pivot.clear();
+  const g = rug(), mid = new THREE.Box3().setFromObject(g).getCenter(new THREE.Vector3());
+  g.position.sub(mid); pivot.add(g);
+  Object.assign(camera, { left: -half, right: half, top: half, bottom: -half }); camera.updateProjectionMatrix();
+  pivot.rotation.set(THREE.MathUtils.degToRad(r.rx), THREE.MathUtils.degToRad(r.ry), THREE.MathUtils.degToRad(r.rz), 'XYZ');
+  renderer.render(scene, camera);
+  const c = document.createElement('canvas'); c.width = c.height = BOX;
+  const cg = c.getContext('2d'); cg.drawImage(renderer.domElement, 0, 0);
+  const { data } = cg.getImageData(0, 0, BOX, BOX), px = [];
+  for (let y = 0; y < BOX; y++) for (let x = 0; x < BOX; x++) {
+    const o = (y * BOX + x) * 4;
+    if (data[o + 3] > 127) px.push([x, y, `rgb(${data[o]},${data[o + 1]},${data[o + 2]})`]);
+  }
+  return px.length ? crop({ px }) : { w: 0, h: 0, px };
+}
+
+// A wall row over three rows of floor: the rug centred on its footprint, the raccoon facing right
+// on its left and facing down on its right.
+function draw() {
+  for (const [k] of SLIDERS) { $(k).value = s[k]; $(k + 'n').value = s[k]; }
+  for (const [id, k] of ENDS) $(id).value = s.ends[k];
+  for (const b of ['across', 'up']) $(b).className = s.foot === b ? 'on' : '';
+  $('zoom').textContent = `${s.zoom}×`;
+  const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+  const g = src.getContext('2d');
+  g.fillStyle = FLOOR; g.fillRect(0, 0, src.width, src.height);
+  g.fillStyle = SEAM;
+  for (let k = 1; k <= COLS; k++) g.fillRect(k * C - 1, C, 1, src.height);
+  for (let k = 1; k <= ROWS; k++) g.fillRect(0, k * C - 1, src.width, 1);
+  for (let x = 0; x < COLS; x++) wallTile(g, x, 0, C);
+  const put = (spr, x0, y0) => { for (const [x, y, c] of spr.px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
+  const stand = (spr, col) => put(spr, col * C + Math.floor((C - spr.w) / 2), ROWS * C - spr.h - 1);
+  const across = s.foot === 'across', cw = across ? 2 : 1, ch = across ? 1 : 2, spr = sprite();
+  stand(RACCOON.r, 1);
+  put(spr, 2 * C + Math.floor((cw * C - spr.w) / 2), (ROWS - ch) * C + Math.floor((ch * C - spr.h) / 2));
+  stand(RACCOON.d, across ? 4 : 3);
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
+  autosave();
+}
+
+for (const [k] of SLIDERS) {
+  $(k).oninput = () => { s[k] = Number($(k).value); draw(); };
+  $(k + 'n').onchange = () => { s[k] = Number($(k + 'n').value); draw(); };
+}
+for (const b of ['across', 'up']) $(b).onclick = () => { s.foot = b; draw(); };
+for (const [id, k] of ENDS) $(id).oninput = () => { s.ends[k] = $(id).value; draw(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(16, s.zoom + 1); draw(); };
+
+// Every change saves itself to the notes file, the note with it, a moment after the last edit.
+let timer = 0;
+function autosave() {
+  clearTimeout(timer);
+  timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ page: 'rug-roll', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+    .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600);
+}
+$('note').oninput = autosave;
+draw();
+</script>
+</body>
+</html>
