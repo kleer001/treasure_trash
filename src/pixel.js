@@ -18,6 +18,8 @@ import { bicycle } from './art/bicycle.js';
 import { CHAIR } from './art/chair.js';
 import { BROOM } from './art/broom.js';
 import { CABINET, CABINET_OPEN } from './art/cabinet.js';
+import { RUG, TURNS } from './art/rug.js';
+import { COUCH } from './art/couch.js';
 import { MAGNET } from './art/magnet.js';
 import { LOOKS, slickCell } from './art/slick.js';
 import { GLASS_LOOK, glassCell } from './art/glass.js';
@@ -106,7 +108,8 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O } }) {
     },
     furniture(cells, ox = 0, oy = 0) {
       const s = span(cells);
-      if (s.w === 2 && s.h === 1) put(O.couch.px, P(s.x + ox) + Math.floor((2 * C - O.couch.w) / 2), P(s.y + oy) + C - O.couch.h - 1);
+      const v = s.w === 2 && s.h === 1 ? COUCH.front : s.w === 1 && s.h === 2 ? COUCH.left : null;
+      if (v) put(v.px, P(s.x + ox) + Math.floor((s.w * C - v.w) / 2), P(s.y + oy) + s.h * C - v.h - 1);
       else placeholder(s.x + ox, s.y + oy, 'couch', s.w, s.h);
     },
     raccoon(x, y, heading = 'd') { standing(SIT[heading], x, y); },
@@ -119,7 +122,7 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O } }) {
     },
     splash(x, y) { placeholder(x, y, 'splash'); },
 
-    sponge(x, y) { standing(SPONGE, x, y); },
+    sponge(x, y) { put(SPONGE.px, P(x) + Math.floor((C - SPONGE.w) / 2) + SPONGE.dx, P(y) + C - SPONGE.h - 1 + SPONGE.dy); },
     cardboard(x, y) { put(CARDBOARD.px, P(x), P(y)); },
     tyre(x, y, horizontal) { standing(TYRE[horizontal ? 'H' : 'V'], x, y); },
     chair(x, y) { standing(CHAIR, x, y); },
@@ -137,7 +140,14 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O } }) {
       const b = s.h > 1 ? BIKE.up : BIKE.side;
       put(b.px, P(s.x + ox) + Math.floor((s.w * C - b.w) / 2), P(s.y + oy) + s.h * C - b.h - 1);
     },
-    rug(cells, ox = 0, oy = 0) { const s = span(cells); placeholder(s.x + ox, s.y + oy, 'rug', s.w, s.h); },
+    // The turn comes from where it lies along the way it rolls, a drawing every quarter cell, so it
+    // turns as it rolls, back as it rolls back, and never as it slides along its length.
+    rug(cells, ox = 0, oy = 0) {
+      const s = span(cells), x = s.x + ox, y = s.y + oy, across = s.w > s.h;
+      const k = ((Math.round((across ? y : x) * 4) % TURNS) + TURNS) % TURNS;
+      const d = RUG[across ? 'across' : 'up'][k];
+      put(d.px, P(x) + Math.floor(s.w * C / 2) - d.ax, P(y) + Math.floor(s.h * C / 2) - d.ay);
+    },
     hold(x0, y0, x1, y1) {
       ctx.fillStyle = '#d6d3b0';
       const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * C;

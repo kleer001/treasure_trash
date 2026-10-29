@@ -6,6 +6,10 @@ import * as CAN from './can.js';
 import * as BOX from './box.js';
 import * as JUGS from './jug.js';
 import * as GLASS from './pane.js';
+import { stretch } from './stretch.js';
+
+// The wheelie bin's width in px: the bin drawing stretched by its middle.
+export const WHEELIE_W = 30;
 
 const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
 const moved = (px, dx, dy) => px.map(([x, y, col]) => [x + dx, y + dy, col]);
@@ -17,6 +21,12 @@ export function createStills({ T, A, O, LOOK }) {
     const s = T.sprite(p.name, p.alt, p.turn), x0 = Math.round(p.bx - s.w / 2), y0 = Math.round(p.by - s.h / 2);
     return moved(s.px.filter(([x, y]) => y0 + y < 2 && x0 + x > 0 && x0 + x < BOX.BOX.W - 1), x0, y0);
   });
+  const wide = (() => {
+    const grid = Array.from({ length: O.bin.h }, () => Array(O.bin.w).fill(null));
+    for (const [x, y, c] of O.bin.px) grid[y][x] = c;
+    const rows = grid.map(r => stretch(r, WHEELIE_W, 2, 2));
+    return { w: WHEELIE_W, h: O.bin.h, px: rows.flatMap((r, y) => r.flatMap((c, x) => (c ? [[x, y, c]] : []))) };
+  })();
   const upright = (spr, P, under = []) => ({ px: [...under, ...spr.px], x: P[0], y: P[1], h: spr.h });
   return (o, cx, cy, seed = 1) => {
     switch (o) {
@@ -30,7 +40,7 @@ export function createStills({ T, A, O, LOOK }) {
       }
       case PANE: return upright(GLASS.front, GLASS.restAt(cx, cy, C));
       case BAG: return upright(A.bag, at(A.bag, cx, cy));
-      case WHEELIE: case WHEELIE_EMPTY: return upright(O.bin, at(O.bin, cx, cy));
+      case WHEELIE: case WHEELIE_EMPTY: return upright(wide, at(wide, cx, cy));
       default: return null;
     }
   };
