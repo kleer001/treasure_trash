@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Skateboard thickness</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .views { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; }
+  h3 { margin: 0 0 4px; font-size: 16px; }
+  .side { display: grid; gap: 12px; width: 360px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">Option E. The slider sets how many px of the deck's edge show under its top on the board across; the board up does not change.</div>
+  <label class="row">deck edge px <input id="edge" type="range" min="1" max="5" step="1"><input id="edgen" type="number" min="1" max="5" step="1" style="width:56px"></label>
+  <label class="row">edge upper line <input id="c1" type="color"></label>
+  <label class="row">edge lower line <input id="c2" type="color"></label>
+  <textarea id="note" placeholder="Note on the skateboard's thickness"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+<script type="module">
+import { loadPixelArt, createPixelSprites, PIXEL_CELL as C } from '../../src/pixel.js';
+
+const KEY = 'trash-skate-thick', COLS = 9, ROWS = 6, $ = id => document.getElementById(id);
+let s = { zoom: 5, edge: 2, c1: '#8c704e', c2: '#5e4a33' };
+try { const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); for (const k in s) if (saved[k] !== undefined) s[k] = saved[k]; } catch {}
+const PALETTE = { X: '#57bdcf', B: '#97e4dc', A: '#8cb8e6', w: '#ffffff', r: '#ff4b3e', y: '#ffcf00', k: '#1a1a1a',
+  b: '#333a44', D: '#8c704e', W: '#e9e3d3', V: '#a9a498', U: '#8d8578',
+  T: '#2e8c99', G: '#236f7b', L: '#4aa6b0', R: '#c7302a', Y: '#fff27a' };
+const ACROSS = [".....GGGGYYYTTYYYRRRrYYrrrRYYYTTYTTYLLLLT.....", "..TTTLLLLLykkTykkyrryrkyrryrkkkRykTykTTTTTTT..", ".TTTTTTTTTykTRyyyrkryyyykrryyrrRyyyykTTTGGGGG.", "TTTTTLbLLyTbRyrykkryrkykkrrrykryRkykkTTbTTTTTT", "TTTTTTTTTykTRykryrrykrykryyyrkrykRykGGGGGGGGGT", "TTTTTTTTYYYTRRkYYkrrYrrkYrkYYYrrkRYYTTTTTTTTTT", "TTTTTLbLykkyRRyrkyrryyrrykrykkyrRybkyTTbTTTTTT", "DTTTTTTTyyyTkRyyyykrykyrykrykrykRyyyykTTTTTTTD", ".DTTTTTyTkkkTyRkykkyrkyyrkyrkyRkyTkykkTTTTTTD.", "...DTTTykTTTTykTykRykrrykryyyRkTykTykTTTTTD...", ".....DDWWWWDDDDDDDDDDDDDDDDDDDDDDDDWWWWDD.....", "......WWWWWV......................WWWWWV......", "......VVVVVV......................VVVVVV......", "......VVVVVV......................VVVVVV......", ".......UUUU........................UUUU......."];
+const UP = ["......TTTTTTTT......", "....TTTTTTTTTTTT....", "...TTTTTTTTTTTTTT...", "...TTTTTTTTTTTTTT...", "..TTTTTTTTTTTTTTTT..", "..TLTTLTTTGTTTTTTL..", "WWTLTTLbTTGTbTTTTLWW", "WWTLTTLTTTGTTTTTTLWW", "WWTLyyLTTTGTTTTTTLWW", "VVTkkTyyYTGTTTTTTLVV", "VVTTTkykYTTyyTTYTLVV", "UUTTTkybYTkkbyyYTLUU", "..TTTkTyTTTGkkkYTL..", "..TTTTkTTTTGTTkTTL..", "..TTyyTTTTTyyTTTTL..", "..TkkGyyRRkkRyyYGT..", "..TTTkyRYrrryykYGT..", "..TTyyykYrrykykYGT..", "..TkkkyyrrkrkryRRT..", "..TRrkkrrrrrrkrrRT..", "..RRyyrrrrryyrrrRR..", "..RkkryyYrkkryyrrR..", "..RrrkkyrrrrkyrYrR..", "..RrryyrrrryyykYrR..", "..RryyrrrrkkkyyrrR..", "..RkkryyYrrrkkrrRR..", "..TRrkkkrrryrrrrRT..", "..TRyyrrrrkyrryRRT..", "..TkyRyyYrkyryRYTT..", "..TkykkkYrkryykYTT..", "..TkTyTkYRRkkTkYTT..", "..TTkTyyTTTTTTkTTT..", "..TTTkkTTTTyyTTTTT..", "..TTyyTTTTkkTyyYTT..", "WWTkkTyyTTTTbykTTTWW", "WWTTGkyTYTLyyyTTLTWW", "WWTTyyykYTkkkyyYLTWW", "VVTkkkyyTTLTkkkTLTVV", "VVTTGkkTTTLTTTTTLTVV", "UUTTGTTbTTLTbTTTLTUU", "..GTGTTTTTTTTGTTTG..", "..GTGTTTTTTTTGTTTG..", "...TGTTTTTTTTGTTT...", "...TGTTTTTTTTGTTT...", "....GTTTTTTTTGTT....", "......TTTTTTTT......"];
+const sprite = rows => ({ w: rows[0].length, h: rows.length, px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]]))) });
+const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+const g = src.getContext('2d');
+const S = createPixelSprites({ ctx: g, art: await loadPixelArt(new URL('../../src/art/', import.meta.url)) });
+const board = (b, x, y, w, h) => { for (const [px, py, c] of b.px) { g.fillStyle = c; g.fillRect(x * C + Math.floor((w * C - b.w) / 2) + px, y * C + Math.floor((h * C - b.h) / 2) + py, 1, 1); } };
+
+/** The board across with its edge `n` px deep: the top lifts and the wheels stay on the floor. The
+ *  edge's bottom line is colour 2, every line above it, and the edge round the ends, colour 1. */
+const across = n => {
+  PALETTE[1] = s.c1; PALETTE[2] = s.c2;
+  const top = ACROSS.slice(0, 10).map(r => r.replace(/D/g, '1')), edge = ACROSS[10], wheels = ACROSS.slice(11);
+  return sprite([...top, ...Array(n - 1).fill(edge.replace(/[DW]/g, '1')), edge.replace(/D/g, '2'), ...wheels]);
+};
+function draw() {
+  $('zoom').textContent = `${s.zoom}×`; $('edge').value = s.edge; $('edgen').value = s.edge; $('c1').value = s.c1; $('c2').value = s.c2;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++)
+    (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1 ? S.wall(x, y) : S.floor(x, y));
+  const X = across(s.edge), Y = sprite(UP);
+  board(X, 2, 1, 2, 1); board(X, 5, 3, 2, 1);
+  board(Y, 1, 2, 1, 2); board(Y, 7, 1, 1, 2);
+  S.raccoon(1, 1, 'r'); S.bag(7, 1); S.bag(5, 3);
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+const change = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} draw(); autosave(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); change(); };
+$('zin').onclick = () => { s.zoom = Math.min(12, s.zoom + 1); change(); };
+for (const k of ['c1', 'c2']) $(k).oninput = () => { s[k] = $(k).value; change(); };
+$('edge').oninput = () => { s.edge = Number($('edge').value); change(); };
+$('edgen').onchange = () => { s.edge = Math.min(5, Math.max(1, Math.round(Number($('edgen').value)))); change(); };
+// The note saves itself to the notes file a moment after the last edit.
+let timer = 0;
+const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'skate-thick', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600); };
+$('note').oninput = autosave;
+draw(); autosave();
+</script>
+</body>
+</html>

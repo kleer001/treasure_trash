@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Skateboard dot</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .views { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; }
+  h3 { margin: 0 0 4px; font-size: 16px; }
+  .side { display: grid; gap: 12px; width: 360px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="views" class="views"></div>
+<div class="side">
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">The board in the style of a classic dot deck: a stained teal deck, a red dot, chunky yellow words over a black extrude that spill past the dot. Across, Silkscreen; up the board, Silkscreen or Press Start 2P.</div>
+  <textarea id="note" placeholder="Note on the skateboard words: pick E to H"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+<script type="module">
+import { loadPixelArt, createPixelSprites, PIXEL_CELL as C } from '../../src/pixel.js';
+
+const KEY = 'trash-skate-dot', COLS = 9, ROWS = 6, $ = id => document.getElementById(id);
+let zoom = 3;
+try { zoom = Number(localStorage.getItem(KEY)) || zoom; } catch {}
+const PALETTE = { X: '#57bdcf', B: '#97e4dc', A: '#8cb8e6', w: '#ffffff', r: '#ff4b3e', y: '#ffcf00', k: '#1a1a1a',
+  b: '#333a44', D: '#8c704e', W: '#e9e3d3', V: '#a9a498', U: '#8d8578',
+  T: '#2e8c99', G: '#236f7b', L: '#4aa6b0', R: '#c7302a', Y: '#fff27a' };
+const OPTIONS = [{"id": "E", "name": "Silkscreen, italic", "x": [".....GGGGYYYTTYYYRRRrYYrrrRYYYTTYTTYLLLLT.....", "..TTTLLLLLykkTykkyrryrkyrryrkkkRykTykTTTTTTT..", ".TTTTTTTTTykTRyyyrkryyyykrryyrrRyyyykTTTGGGGG.", "TTTTTLbLLyTbRyrykkryrkykkrrrykryRkykkTTbTTTTTT", "TTTTTTTTTykTRykryrrykrykryyyrkrykRykGGGGGGGGGT", "TTTTTTTTYYYTRRkYYkrrYrrkYrkYYYrrkRYYTTTTTTTTTT", "TTTTTLbLykkyRRyrkyrryyrrykrykkyrRybkyTTbTTTTTT", "DTTTTTTTyyyTkRyyyykrykyrykrykrykRyyyykTTTTTTTD", ".DTTTTTyTkkkTyRkykkyrkyyrkyrkyRkyTkykkTTTTTTD.", "...DTTTykTTTTykTykRykrrykryyyRkTykTykTTTTTD...", ".....DDWWWWDDDDDDDDDDDDDDDDDDDDDDDDWWWWDD.....", "......WWWWWV......................WWWWWV......", "......VVVVVV......................VVVVVV......", "......VVVVVV......................VVVVVV......", ".......UUUU........................UUUU......."], "y": ["......TTTTTTTT......", "....TTTTTTTTTTTT....", "...TTTTTTTTTTTTTT...", "...TTTTTTTTTTTTTT...", "..TTTTTTTTTTTTTTTT..", "..TLTTLTTTGTTTTTTL..", "WWTLTTLbTTGTbTTTTLWW", "WWTLTTLTTTGTTTTTTLWW", "WWTLyyLTTTGTTTTTTLWW", "VVTkkTyyYTGTTTTTTLVV", "VVTTTkykYTTyyTTYTLVV", "UUTTTkybYTkkbyyYTLUU", "..TTTkTyTTTGkkkYTL..", "..TTTTkTTTTGTTkTTL..", "..TTyyTTTTTyyTTTTL..", "..TkkGyyRRkkRyyYGT..", "..TTTkyRYrrryykYGT..", "..TTyyykYrrykykYGT..", "..TkkkyyrrkrkryRRT..", "..TRrkkrrrrrrkrrRT..", "..RRyyrrrrryyrrrRR..", "..RkkryyYrkkryyrrR..", "..RrrkkyrrrrkyrYrR..", "..RrryyrrrryyykYrR..", "..RryyrrrrkkkyyrrR..", "..RkkryyYrrrkkrrRR..", "..TRrkkkrrryrrrrRT..", "..TRyyrrrrkyrryRRT..", "..TkyRyyYrkyryRYTT..", "..TkykkkYrkryykYTT..", "..TkTyTkYRRkkTkYTT..", "..TTkTyyTTTTTTkTTT..", "..TTTkkTTTTyyTTTTT..", "..TTyyTTTTkkTyyYTT..", "WWTkkTyyTTTTbykTTTWW", "WWTTGkyTYTLyyyTTLTWW", "WWTTyyykYTkkkyyYLTWW", "VVTkkkyyTTLTkkkTLTVV", "VVTTGkkTTTLTTTTTLTVV", "UUTTGTTbTTLTbTTTLTUU", "..GTGTTTTTTTTGTTTG..", "..GTGTTTTTTTTGTTTG..", "...TGTTTTTTTTGTTT...", "...TGTTTTTTTTGTTT...", "....GTTTTTTTTGTT....", "......TTTTTTTT......"]}, {"id": "F", "name": "Silkscreen across, Press Start 2P up, italic", "x": [".....GGGGYYYTTYYYRRRrYYrrrRYYYTTYTTYLLLLT.....", "..TTTLLLLLykkTykkyrryrkyrryrkkkRykTykTTTTTTT..", ".TTTTTTTTTykTRyyyrkryyyykrryyrrRyyyykTTTGGGGG.", "TTTTTLbLLyTbRyrykkryrkykkrrrykryRkykkTTbTTTTTT", "TTTTTTTTTykTRykryrrykrykryyyrkrykRykGGGGGGGGGT", "TTTTTTTTYYYTRRkYYkrrYrrkYrkYYYrrkRYYTTTTTTTTTT", "TTTTTLbLykkyRRyrkyrryyrrykrykkyrRybkyTTbTTTTTT", "DTTTTTTTyyyTkRyyyykrykyrykrykrykRyyyykTTTTTTTD", ".DTTTTTyTkkkTyRkykkyrkyyrkyrkyRkyTkykkTTTTTTD.", "...DTTTykTTTTykTykRykrrykryyyRkTykTykTTTTTD...", ".....DDWWWWDDDDDDDDDDDDDDDDDDDDDDDDWWWWDD.....", "......WWWWWV......................WWWWWV......", "......VVVVVV......................VVVVVV......", "......VVVVVV......................VVVVVV......", ".......UUUU........................UUUU......."], "y": ["......TTTTTTTT......", "....TTTTTTTTTTTT....", "...TTTTTTTTTTTTTT...", "...yyTTTTTTTTTTTT...", "..kyyyyyTTTTTTTTTT..", "..kkkyyyyYGyyTTTTY..", "WWTLkykbyYkyyyyykYWW", "WWTLkyLkkYkkkyyyyYWW", "WWTLkyLTkYGTkkkkyYWW", "VVTLkyyykYGTTTTkkYVV", "VVTTkkyyyYTyyTTTkYVV", "UUTyykkbyTkyyyyykLUU", "..kyyyyyTTkkkyyyyY..", "..kkkyyyTTTGyykkyY..", "..TTkykTyTTyyyTkkY..", "..TTkyTkyYkyyyyTkY..", "..TyyyRkkYkykkyykY..", "..kyyyyyyYkrrkyyyY..", "..kkkyyyyrryykkkyT..", "..TyykkkrrkyyyyyRT..", "..kyyyyyrrkkkyyyRR..", "..kkkyyyyYrrkykryR..", "..RrkkkyyYrrkyrkyY..", "..RrrryyyrryyyrkkY..", "..RyyyykrrkyyyyyyY..", "..kyyyyyrrkkkyyyyR..", "..kkkyyyyYrrykkkRT..", "..TyykkkyYryyrryRT..", "..kyyyyykrkyrryyyT..", "..kykyyyyYkyRkykyY..", "..kykkkkyYkyRkykkY..", "..kyyTTkkYkyykyTkY..", "..kkyTTTkYkkyyyTkY..", "..TkTyyyyYTkkyTTyY..", "WWTTkyyyyTTyyTTkyTWW", "WWTyykkkTTkyyyyyLTWW", "WWkyyyyyTTkkkyyyyYWW", "VVkkkyyyTTLTkkykyYVV", "VVTTkykTyTLTTkykkTVV", "UUTTkyTbyYLyykyTLTUU", "..GyyyTkkYkyyyyyTG..", "..kyyyyyyYkkkyyyyY..", "...kkyyyyTTTkkkkyY..", "...TkkkkTTTTTGTkk...", "....GTTTTTTTTGTT....", "......TTTTTTTT......"]}, {"id": "G", "name": "Silkscreen, upright", "x": [".....GGGGYYYTTYYYRRRrYYrrrRYYYTTYTTYLLLLT.....", "..TTTLLLLLykkTykkyrryrkyrryrkkkRykTykTTTTTTT..", ".TTTTTTTTTykTRyyyrkryyyykrryyrrRyyyykTTTGGGGG.", "TTTTTLbLLLybRRykykrrykkykrrrkyrrykbykTTbTTTTTT", "TTTTTTTTTTykRRykryrrykrykryyyrkrykTykGGGGGGGGT", "TTTTTTTTYYYkRRrYYrkrYkrrYrrYYYrrRkYYkTTTTTTTTT", "TTTTTLbLykkyRRyrkyrryyrrykrykkyrRybkyTTbTTTTTT", "DTTTTTTTyyyTkRyyyykrykyrykrykrykRyyyykTTTTTTTD", ".DTTTTTTykkkTTykkykrykryykrykRykTykkykTTTTTTD.", "...DTTTTykTTTTykRykRykrrykRyyyTkTykTykTTTTD...", ".....DDWWWWDDDDDDDDDDDDDDDDDDDDDDDDWWWWDD.....", "......WWWWWV......................WWWWWV......", "......VVVVVV......................VVVVVV......", "......VVVVVV......................VVVVVV......", ".......UUUU........................UUUU......."], "y": ["......TTTTTTTT......", "....TTTTTTTTTTTT....", "...TTTTTTTTTTTTTT...", "...TTTTTTTTTTTTTT...", "..TTTTTTTTTTTTTTTT..", "..TLTTLTTTGTTTTTTL..", "WWTLTTLbTTGTbTTTTLWW", "WWTLTTLTTTGTTTTTTLWW", "WWTLTTLTTTGTTTTTTLWW", "VVTLyyyyYTGTTTTTTLVV", "VVTkkkykYTTGTTTYTLVV", "UUTTTkybYTTyyyyYTLUU", "..TTTkTyTTkkkkkYTL..", "..TTTTkTTTTGTTkTTL..", "..TTTTTTTTTGTTTTTL..", "..TTyyyyRRRyyyyYGT..", "..TkkkyRYrkkkykYGT..", "..TTRkykYrrryykYGT..", "..TRyyyyrrrykryRRT..", "..TkkkkrrrkrrkrrRT..", "..RRrrrrrrrrrrrrRR..", "..RryyyyYrryyyyrrR..", "..RkkkkyrrkkkyrYrR..", "..RrrryrrrrrkykYrR..", "..RrryrrrrryyyyrrR..", "..RRyyyyYrkkkkrrRR..", "..TkkkkkrrrrrrrrRT..", "..TRRrrrrrryrryRRT..", "..TGyyyyYrkyryRYTT..", "..TkykkkYrkykykYTT..", "..TkyTTkYRkRyTkYTT..", "..TkTyyyTTTkTTkTTT..", "..TTkkkTTTTTTTTTTT..", "..TTTTTTTTTyyyyYTT..", "WWTTyyyyTTkkbykTTTWW", "WWTkkkyTYTLTkyTTLTWW", "WWTTGkykYTLyyyyYLTWW", "VVTTyyyyTTkkkkkTLTVV", "VVTkkkkTTTLTTTTTLTVV", "UUTTGTTbTTLTbTTTLTUU", "..GTGTTTTTTTTGTTTG..", "..GTGTTTTTTTTGTTTG..", "...TGTTTTTTTTGTTT...", "...TGTTTTTTTTGTTT...", "....GTTTTTTTTGTT....", "......TTTTTTTT......"]}, {"id": "H", "name": "Silkscreen across, Press Start 2P up, upright", "x": [".....GGGGYYYTTYYYRRRrYYrrrRYYYTTYTTYLLLLT.....", "..TTTLLLLLykkTykkyrryrkyrryrkkkRykTykTTTTTTT..", ".TTTTTTTTTykTRyyyrkryyyykrryyrrRyyyykTTTGGGGG.", "TTTTTLbLLLybRRykykrrykkykrrrkyrrykbykTTbTTTTTT", "TTTTTTTTTTykRRykryrrykrykryyyrkrykTykGGGGGGGGT", "TTTTTTTTYYYkRRrYYrkrYkrrYrrYYYrrRkYYkTTTTTTTTT", "TTTTTLbLykkyRRyrkyrryyrrykrykkyrRybkyTTbTTTTTT", "DTTTTTTTyyyTkRyyyykrykyrykrykrykRyyyykTTTTTTTD", ".DTTTTTTykkkTTykkykrykryykrykRykTykkykTTTTTTD.", "...DTTTTykTTTTykRykRykrrykRyyyTkTykTykTTTTD...", ".....DDWWWWDDDDDDDDDDDDDDDDDDDDDDDDWWWWDD.....", "......WWWWWV......................WWWWWV......", "......VVVVVV......................VVVVVV......", "......VVVVVV......................VVVVVV......", ".......UUUU........................UUUU......."], "y": ["......TTTTTTTT......", "....TTTTTTTTTTTT....", "...TTTTTTTTTTTTTT...", "...TTTTTTTTTTTTTT...", "..TyyyyyyYTTTTTTTY..", "..kyyyyyyYGTTTTTkY..", "WWkkkykbkYGyyyyyyYWW", "WWTLkyLTkYkyyyyyyYWW", "WWTLkyLTkYkkkkkkkYWW", "VVTLkyyyyYGTTTTTkYVV", "VVTTkkyyyTTGTTTTkLVV", "UUTTTkkbTTTyyyyyyYUU", "..TyyyyyTTkyyyyyyY..", "..kyyyyyyTkkkykkkY..", "..kkkykkyYTGyyTTkY..", "..TTkyTkkYRyyyyTkY..", "..TTkyRRyYkyykyyyY..", "..TyyyyyyrkyrkyyyT..", "..kyyyyyrrkrrkkkRT..", "..kkkkkrrrryyyyyRT..", "..RyyyyyyYkyyyyyyR..", "..kyyyyyyYkkkykkyY..", "..kkkkkyyrrrkyrkkY..", "..RrrryyrrrrkyrryY..", "..RrryyrrrryyyyyyR..", "..RyyyyyyYkyyyyyRR..", "..kyyyyyyYkkkkkrRT..", "..kkkkkkkrrryrryyT..", "..TyyyyyyYryyryyyY..", "..kyyyyyyYkyRkykkY..", "..kykkkkkYkyRkyTkY..", "..kyTTTTkYkyTkyTkY..", "..kyyTTTyYkyyyyTyY..", "..kkyyyyyTkkyyTkyT..", "WWTkkyyyTTTkbTTkTTWW", "WWTTkkkTTTLyyyyyyYWW", "WWTyyyyyTTkyyyyyyYWW", "VVkyyyyyyTkkkkykkTVV", "VVkkkykkyYLTTkyTLTVV", "UUTTkyTbkYLTbkyTLTUU", "..GTkyTTyYTyyyyyyY..", "..GyyyyyyTkyyyyyyY..", "...yyyyyTTkkkkkkk...", "...kkkkTTTTTTGTTT...", "....GTTTTTTTTGTT....", "......TTTTTTTT......"]}];
+const sprite = rows => ({ w: rows[0].length, h: rows.length, px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]]))) });
+const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+const g = src.getContext('2d');
+const S = createPixelSprites({ ctx: g, art: await loadPixelArt(new URL('../../src/art/', import.meta.url)) });
+const board = (b, x, y, w, h) => { for (const [px, py, c] of b.px) { g.fillStyle = c; g.fillRect(x * C + Math.floor((w * C - b.w) / 2) + px, y * C + Math.floor((h * C - b.h) / 2) + py, 1, 1); } };
+
+function draw() {
+  $('zoom').textContent = `${zoom}×`;
+  $('views').innerHTML = '';
+  for (const opt of OPTIONS) {
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++)
+      (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1 ? S.wall(x, y) : S.floor(x, y));
+    const X = sprite(opt.x), Y = sprite(opt.y);
+    board(X, 2, 1, 2, 1); board(X, 5, 3, 2, 1);
+    board(Y, 1, 2, 1, 2); board(Y, 7, 1, 1, 2);
+    S.raccoon(1, 1, 'r'); S.bag(7, 1); S.bag(5, 3);
+    const box = document.createElement('div'), h = document.createElement('h3'), out = document.createElement('canvas');
+    h.textContent = `${opt.id}. ${opt.name}`; box.append(h, out); $('views').append(box);
+    out.width = src.width * zoom; out.height = src.height * zoom;
+    const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+  }
+}
+const setZoom = z => { zoom = z; try { localStorage.setItem(KEY, String(zoom)); } catch {} draw(); autosave(); };
+$('zout').onclick = () => setZoom(Math.max(1, zoom - 1));
+$('zin').onclick = () => setZoom(Math.min(12, zoom + 1));
+// The note saves itself to the notes file a moment after the last edit.
+let timer = 0;
+const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'skate-dot', settings: { zoom }, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600); };
+$('note').oninput = autosave;
+draw(); autosave();
+</script>
+</body>
+</html>

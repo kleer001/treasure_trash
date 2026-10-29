@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Skateboard clean</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 360px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">The hand-cleaned skateboard, each board centred on its two cells. Across: tipped 35°. Up: from straight above. Left: empty. Right: a bag riding it.</div>
+  <textarea id="note" placeholder="Note on the skateboard"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+<script type="module">
+import { loadPixelArt, createPixelSprites, PIXEL_CELL as C } from '../../src/pixel.js';
+import { SKATEBOARD } from '../../src/art/skateboard.js';
+
+const KEY = 'trash-skate-clean', COLS = 9, ROWS = 7, $ = id => document.getElementById(id);
+let zoom = 5;
+try { zoom = Number(localStorage.getItem(KEY)) || zoom; } catch {}
+const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+const g = src.getContext('2d');
+const S = createPixelSprites({ ctx: g, art: await loadPixelArt(new URL('../../src/art/', import.meta.url)) });
+const board = (b, x, y, w, h) => { for (const [px, py, c] of b.px) { g.fillStyle = c; g.fillRect(x * C + Math.floor((w * C - b.w) / 2) + px, y * C + Math.floor((h * C - b.h) / 2) + py, 1, 1); } };
+
+function draw() {
+  $('zoom').textContent = `${zoom}×`;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++)
+    (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1 ? S.wall(x, y) : S.floor(x, y));
+  board(SKATEBOARD.x, 2, 1, 2, 1); board(SKATEBOARD.x, 5, 1, 2, 1);
+  board(SKATEBOARD.y, 2, 3, 1, 2); board(SKATEBOARD.y, 5, 3, 1, 2);
+  S.raccoon(1, 1, 'r'); S.bag(5, 1); S.bag(5, 3); S.raccoon(2, 5, 'u');
+  const out = $('view'); out.width = src.width * zoom; out.height = src.height * zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+const setZoom = z => { zoom = z; try { localStorage.setItem(KEY, String(zoom)); } catch {} draw(); autosave(); };
+$('zout').onclick = () => setZoom(Math.max(1, zoom - 1));
+$('zin').onclick = () => setZoom(Math.min(12, zoom + 1));
+// The note saves itself to the notes file a moment after the last edit.
+let timer = 0;
+const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'skate-clean', settings: { zoom }, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600); };
+$('note').oninput = autosave;
+draw(); autosave();
+</script>
+</body>
+</html>

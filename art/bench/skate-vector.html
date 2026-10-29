@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Skateboard vector</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 8px; width: 400px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 150px 1fr 64px; gap: 8px; align-items: center; }
+  label.check { display: flex; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+  .cols label { grid-template-columns: 1fr 48px; }
+  input[type=number] { width: 60px; font: inherit; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+  h3 { margin: 8px 0 0; font-size: 15px; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">The vector skateboard as a 3D board: its top is the vector art snapped to its own colours, its edge, trucks and wheels are solid. Rendered live at game pixels, camera straight on; rotation applies Z, then Y, then X. X 90 is straight above. Left: empty. Right: a bag riding it.</div>
+  <h3>Rotation</h3>
+  <div id="turns"></div>
+  <h3>Deck shape</h3>
+  <div id="sliders"></div>
+  <h3>Parts</h3>
+  <div class="row" id="checks"></div>
+  <h3>Colours</h3>
+  <div class="cols" id="colours"></div>
+  <textarea id="note" placeholder="Note on the skateboard"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { loadPixelArt, createPixelSprites, PIXEL_CELL as C } from '../../src/pixel.js';
+
+const KEY = 'trash-skate-vector', COLS = 9, ROWS = 7, $ = id => document.getElementById(id);
+// [id, label, min, max, step]
+const TURNS = [['rx', 'X, tip toward you', -180, 180, 1], ['ry', 'Y, turn', -180, 180, 1], ['rz', 'Z, lean', -180, 180, 1], ['dy', 'up/down px', -12, 12, 1]];
+const SLIDERS = [
+  ['len', 'deck length px', 30, 48, 1], ['wid', 'deck width px', 8, 20, 1], ['waist', 'waist %', 60, 100, 1],
+  ['rim', 'ply rim px', 0, 3, 0.25], ['truck', 'trucks out %', 15, 40, 1],
+  ['wheelW', 'wheel length px', 2, 8, 0.5], ['wheelH', 'wheel width px', 1, 6, 0.5], ['wheelOut', 'wheels out px', -2, 3, 0.5],
+  ['lift', 'deck height px', 2, 12, 0.5], ['thick', 'deck thick px', 0.5, 4, 0.25],
+  ['step', 'band spacing px', 2, 8, 0.25], ['band', 'band px', 0.5, 4, 0.25],
+  ['logo', 'logo size %', 0, 100, 1], ['text', 'text size %', 10, 50, 1], ['ss', 'art detail ×', 1, 8, 1],
+];
+const CHECKS = [['bands', 'bands'], ['showLogo', 'logo'], ['showText', 'text'], ['bolts', 'bolts']];
+const COLOURS = ['ply', 'plyEdge', 'grip', 'bandA', 'bandB', 'cross', 'red', 'yel', 'ink', 'bolt', 'wheel', 'metal'];
+let s = { rx: 90, ry: 0, rz: 0, dy: 0, lift: 6, thick: 1.5, len: 44, wid: 14, waist: 86, rim: 1, truck: 29, wheelW: 5, wheelH: 3, wheelOut: 0.5, step: 4, band: 2, logo: 50, text: 26, ss: 4,
+  bands: true, showLogo: true, showText: true, bolts: true,
+  ply: '#c9a273', plyEdge: '#9c7647', grip: '#ffffff', bandA: '#8cb8e6', bandB: '#97e4dc', cross: '#57bdcf', red: '#ff4b3e', yel: '#ffcf00',
+  ink: '#1a1a1a', bolt: '#333a44', wheel: '#e9e3d3', metal: '#67819e', zoom: 5 };
+try { const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); for (const k in s) if (saved[k] !== undefined) s[k] = saved[k]; } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+
+const outline = (g, cx, cy, l, ww, wa) => {
+  const hx = l / 2, hw = ww / 2, hwa = wa / 2, e = hw * 0.95;
+  g.moveTo(cx - hx + e, cy - hw);
+  g.quadraticCurveTo(cx, cy - hwa, cx + hx - e, cy - hw);
+  g.quadraticCurveTo(cx + hx, cy - hw, cx + hx, cy);
+  g.quadraticCurveTo(cx + hx, cy + hw, cx + hx - e, cy + hw);
+  g.quadraticCurveTo(cx, cy + hwa, cx - hx + e, cy + hw);
+  g.quadraticCurveTo(cx - hx, cy + hw, cx - hx, cy);
+  g.quadraticCurveTo(cx - hx, cy - hw, cx - hx + e, cy - hw);
+};
+const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+
+/** The deck's top as the vector art, `k` texels a px over two cells, every texel snapped to the
+ *  nearest of the board's own colours so that none is a blend. */
+function topArt(k) {
+  const c = document.createElement('canvas'); c.width = 2 * C * k; c.height = C * k;
+  const g = c.getContext('2d');
+  const cx = C * k, cy = C * k / 2, L = s.len * k, W = s.wid * k, waist = W * s.waist / 100;
+  g.fillStyle = s.ply; g.beginPath(); outline(g, cx, cy, L, W, waist); g.fill();
+  g.strokeStyle = s.plyEdge; g.lineWidth = k / 2; g.beginPath(); outline(g, cx, cy, L, W, waist); g.stroke();
+  const inset = s.rim * 2 * k;
+  g.save(); g.beginPath(); outline(g, cx, cy, L - inset, W - inset, waist - inset); g.clip();
+  g.fillStyle = s.grip; g.fillRect(cx - L, cy - W, L * 2, W * 2);
+  if (s.bands) {
+    // Solid bands, no see-through: the crossings carry their own colour.
+    const st = s.step * k, th = s.band * k, xs = [], ys = [];
+    for (let x = cx - L / 2; x < cx + L / 2; x += st) xs.push(x);
+    for (let y = cy - W / 2; y < cy + W / 2; y += st * 0.85) ys.push(y);
+    g.fillStyle = s.bandA; for (const x of xs) g.fillRect(x, cy - W, th, W * 2);
+    g.fillStyle = s.bandB; for (const y of ys) g.fillRect(cx - L, y, L * 2, th * 0.86);
+    g.fillStyle = s.cross; for (const x of xs) for (const y of ys) g.fillRect(x, y, th, th * 0.86);
+  }
+  if (s.showLogo) { g.fillStyle = s.red; g.beginPath(); g.arc(cx, cy, W * s.logo / 100, 0, 7); g.fill(); }
+  if (s.showText) {
+    const size = W * s.text / 100, lead = size * 1.02, dx = size * 0.07, dy = size * 0.08;
+    g.save(); g.translate(cx, cy); g.rotate(-Math.PI / 6); g.translate(-cx, -cy);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `900 ${size}px -apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif`;
+    for (const [ex, ey, col] of [[dx, dy, s.ink], [0, 0, s.yel]]) {
+      g.fillStyle = col; ['TRASH', 'PANDA'].forEach((t, i) => g.fillText(t, cx + ex, cy + ey + (i - 0.5) * lead));
+    }
+    g.restore();
+  }
+  g.restore();
+  if (s.bolts) {
+    const bs = s.wid * 0.17; g.fillStyle = s.bolt;
+    for (const t of [-s.len * s.truck / 100, s.len * s.truck / 100]) for (const bx of [-bs, bs]) for (const by of [-bs, bs])
+      g.fillRect(Math.round(C + t + bx - 0.5) * k, Math.round(C / 2 + by - 0.5) * k, k, k);
+  }
+  const im = g.getImageData(0, 0, c.width, c.height), d = im.data, pal = COLOURS.map(n => rgb(s[n]));
+  for (let o = 0; o < d.length; o += 4) {
+    if (d[o + 3] < 128) { d[o + 3] = 0; continue; }
+    const q = pal.reduce((a, b) => ((b[0] - d[o]) ** 2 + (b[1] - d[o + 1]) ** 2 + (b[2] - d[o + 2]) ** 2 < (a[0] - d[o]) ** 2 + (a[1] - d[o + 1]) ** 2 + (a[2] - d[o + 2]) ** 2 ? b : a));
+    d[o] = q[0]; d[o + 1] = q[1]; d[o + 2] = q[2]; d[o + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
+  return c;
+}
+
+// ---- the board in 3D, one unit a px: lying on the floor (y up), its length along x -------------
+const BOX = 96;
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(BOX, BOX, false);
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-1, 1.5, 1.2); scene.add(sun);
+const camera = new THREE.OrthographicCamera(-BOX / 2, BOX / 2, BOX / 2, -BOX / 2, -200, 200); camera.position.set(0, 0, 100);
+const pivot = new THREE.Group(); scene.add(pivot);
+const lie = new THREE.Group(); pivot.add(lie);
+const lambert = col => new THREE.MeshLambertMaterial({ color: col });
+
+/** The board's parts from the settings, built fresh. */
+function build() {
+  for (const o of [...lie.children]) { lie.remove(o); o.geometry.dispose(); o.material.map?.dispose(); o.material.dispose(); }
+  const W = s.wid, waist = W * s.waist / 100, r = s.wheelW / 2;
+  const shape = new THREE.Shape(); outline(shape, 0, 0, s.len, W, waist);
+  const deck = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: s.thick, bevelEnabled: false, curveSegments: 16 }), lambert(s.ply));
+  deck.geometry.rotateX(-Math.PI / 2); deck.position.y = s.lift - s.thick; lie.add(deck);
+  const tex = new THREE.CanvasTexture(topArt(s.ss));
+  Object.assign(tex, { magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, generateMipmaps: false, colorSpace: THREE.SRGBColorSpace });
+  tex.repeat.set(1 / (2 * C), 1 / C); tex.offset.set(0.5, 0.5);
+  const top = new THREE.Mesh(new THREE.ShapeGeometry(shape, 16), new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5 }));
+  top.geometry.rotateX(-Math.PI / 2); top.position.y = s.lift + 0.01; lie.add(top);
+  for (const t of [-s.len * s.truck / 100, s.len * s.truck / 100]) {
+    const hang = s.lift - s.thick - r;
+    if (hang > 0) { const h = new THREE.Mesh(new THREE.BoxGeometry(2, hang, W * 0.6), lambert(s.metal)); h.position.set(t, r + hang / 2, 0); lie.add(h); }
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, W + 2 * s.wheelOut, 8), lambert(s.metal));
+    axle.geometry.rotateX(Math.PI / 2); axle.position.set(t, r, 0); lie.add(axle);
+    for (const side of [-1, 1]) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(r, r, s.wheelH, 16), lambert(s.wheel));
+      w.geometry.rotateX(Math.PI / 2); w.position.set(t, r, side * (W / 2 + s.wheelOut)); lie.add(w);
+    }
+  }
+}
+
+/** The board lying across the picture (`along` 'x') or up and down it ('y'), cropped to what was drawn. */
+function sprite(along) {
+  lie.rotation.y = along === 'x' ? 0 : Math.PI / 2;
+  pivot.rotation.set(...['rx', 'ry', 'rz'].map(k => THREE.MathUtils.degToRad(s[k])), 'XYZ');
+  renderer.render(scene, camera);
+  const c = document.createElement('canvas'); c.width = c.height = BOX;
+  const g = c.getContext('2d'); g.drawImage(renderer.domElement, 0, 0);
+  const { data } = g.getImageData(0, 0, BOX, BOX), px = [];
+  for (let y = 0; y < BOX; y++) for (let x = 0; x < BOX; x++) {
+    const o = (y * BOX + x) * 4;
+    if (data[o + 3] > 127) px.push([x, y, `rgb(${data[o]},${data[o + 1]},${data[o + 2]})`]);
+  }
+  if (!px.length) return { w: 0, h: 0, px };
+  const x0 = Math.min(...px.map(p => p[0])), y0 = Math.min(...px.map(p => p[1]));
+  return { w: Math.max(...px.map(p => p[0])) - x0 + 1, h: Math.max(...px.map(p => p[1])) - y0 + 1, px: px.map(([x, y, c]) => [x - x0, y - y0, c]) };
+}
+
+const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+const g = src.getContext('2d');
+const S = createPixelSprites({ ctx: g, art: await loadPixelArt(new URL('../../src/art/', import.meta.url)) });
+const put = (px, x0, y0) => { for (const [x, y, c] of px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
+
+function draw() {
+  for (const [id] of [...TURNS, ...SLIDERS]) { $(id).value = s[id]; $(id + 'n').value = s[id]; }
+  for (const [id] of CHECKS) $(id).checked = s[id];
+  for (const id of COLOURS) $(id).value = s[id];
+  $('zoom').textContent = `${s.zoom}×`;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++)
+    (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1 ? S.wall(x, y) : S.floor(x, y));
+  build();
+  const across = sprite('x'), up = sprite('y');
+  // Each board centred on the two cells it covers. Back to front by row: the boards under, then
+  // what stands on each row.
+  const board = (b, x, y, w, h) => put(b.px, x * C + Math.floor((w * C - b.w) / 2), y * C + Math.floor((h * C - b.h) / 2) + s.dy);
+  board(across, 2, 1, 2, 1); board(across, 5, 1, 2, 1);
+  board(up, 2, 3, 1, 2); board(up, 5, 3, 1, 2);
+  S.raccoon(1, 1, 'r'); S.bag(5, 1);
+  S.bag(5, 3);
+  S.raccoon(2, 5, 'u');
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+for (const [id, name, min, max, step] of [...TURNS, ...SLIDERS]) {
+  const l = document.createElement('label');
+  l.innerHTML = `${name} <input id="${id}" type="range" min="${min}" max="${max}" step="${step}"><input id="${id}n" type="number" step="${step}">`;
+  $(TURNS.some(q => q[0] === id) ? 'turns' : 'sliders').append(l);
+  l.querySelector(`#${id}`).oninput = e => { s[id] = Number(e.target.value); change(); };
+  l.querySelector(`#${id}n`).onchange = e => { s[id] = Math.round(Number(e.target.value) / step) * step; change(); };
+}
+for (const [id, name] of CHECKS) {
+  const l = document.createElement('label'); l.className = 'check';
+  l.innerHTML = `<input id="${id}" type="checkbox"> ${name}`; $('checks').append(l);
+  l.querySelector('input').onchange = e => { s[id] = e.target.checked; change(); };
+}
+for (const id of COLOURS) {
+  const l = document.createElement('label');
+  l.innerHTML = `${id} <input id="${id}" type="color">`; $('colours').append(l);
+  l.querySelector('input').oninput = e => { s[id] = e.target.value; change(); };
+}
+const change = () => { save(); draw(); autosave(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); change(); };
+$('zin').onclick = () => { s.zoom = Math.min(12, s.zoom + 1); change(); };
+// Every change saves itself to the notes file, the note with it, a moment after the last edit.
+let timer = 0;
+const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'skate-vector', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600); };
+$('note').oninput = autosave;
+draw(); autosave();
+</script>
+</body>
+</html>
