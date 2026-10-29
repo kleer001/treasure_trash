@@ -94,31 +94,3 @@ export function standRow(lie, view, foot, y0) {
   if (lie === 'y' && view === 'tilt') return Math.round(y0 + 24.5 + (foot - y0 - 24.5) * K - LIFT * K);
   return foot - LIFT;
 }
-
-/** The deck seen from straight above, as the board is drawn: a waisted deck of grip in a rim of
- *  ply, the graphic in its middle, a wheel out each side of each truck. `lie` 'x' runs across the
- *  picture and 'y' up and down it; px from the top-left of the two cells it covers. */
-export function deckAbove(lie) {
-  const k = `above,${lie}`;
-  if (CACHE.has(k)) return CACHE.get(k);
-  const at = new Map(), set = (u, v, col) => at.set(`${u},${v}`, col), MID = 12, U0 = 2;
-  const half = u => {
-    if (u < 0 || u >= LEN) return -1;
-    const e = end(u); return e < HALF ? Math.round(Math.sqrt(HALF * HALF - (HALF - e) ** 2)) : u > 14 && u < 29 ? HALF - 1 : HALF; };
-  for (const t of TRUCKS) for (const side of [-1, 1]) {
-    const v0 = side < 0 ? MID - HALF - 3 : MID + HALF + 1;
-    for (let du = -2; du <= 2; du++) for (let dv = 0; dv < 3; dv++)
-      set(U0 + t + du, v0 + dv, Math.abs(du) === 2 || dv === (side < 0 ? 0 : 2) ? INK : du === -1 && dv === 1 ? GLINT : WHEEL);
-  }
-  for (let u = 0; u < LEN; u++) {
-    const h = half(u);
-    for (let v = -h; v <= h; v++) {
-      const rim = v === -h || v === h || end(u) === 0 || Math.abs(v) > half(u - 1) || Math.abs(v) > half(u + 1);
-      const r = Math.hypot(u - (LEN - 1) / 2, v);
-      set(U0 + u, MID + v, rim ? PLY : r < 3.6 ? GRAPHIC : GRIP);
-    }
-  }
-  const px = [...at].map(([key, col]) => { const [u, v] = key.split(',').map(Number); return lie === 'x' ? [u, v, col] : [v, u, col]; });
-  CACHE.set(k, px);
-  return px;
-}

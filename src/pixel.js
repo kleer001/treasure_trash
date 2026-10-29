@@ -6,7 +6,7 @@ import { createTrash, pileLayout, drawPile } from './art/pile.js';
 import { wallTile } from './art/room.js';
 import { createStills } from './art/stills.js';
 import { puddle, crossing } from './art/water.js';
-import { deckAbove } from './art/skate.js';
+import { SKATEBOARD } from './art/skateboard.js';
 import { door } from './art/door.js';
 import { BARROW } from './art/barrow.js';
 import { SPONGE } from './art/sponge.js';
@@ -102,9 +102,10 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O } }) {
     jug(x, y, full = true) { thing(full ? JUG : JUG_EMPTY, x, y); },
     wheelie(x, y, full) { thing(full ? WHEELIE : WHEELIE_EMPTY, x, y); },
     pane(x, y) { thing(PANE, x, y); },
+    // Centred on the two cells it covers.
     skateboard(cells, ox = 0, oy = 0) {
-      const s = span(cells);
-      put(deckAbove(s.w > 1 ? 'x' : 'y'), P(s.x + ox), P(s.y + oy));
+      const s = span(cells), b = SKATEBOARD[s.w > 1 ? 'x' : 'y'];
+      put(b.px, P(s.x + ox) + Math.floor((s.w * C - b.w) / 2), P(s.y + oy) + Math.floor((s.h * C - b.h) / 2));
     },
     furniture(cells, ox = 0, oy = 0) {
       const s = span(cells);
