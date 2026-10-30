@@ -22,7 +22,8 @@ import { createPlay, tell } from './play.js';
 import { mulberry32 } from './rng.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
 import { createPixelSprites, loadPixelArt, PIXEL_CELL } from './pixel.js';
-import { press, moveStart, segAt } from './art/press.js';
+import { press, moveStart, moveStop, segAt, travelAt } from './art/press.js';
+import { tracings } from './art/canTip.js';
 import { LOOK as DOOR } from './art/door.js';
 import { createCompositor } from './compositor.js';
 import { P, PATTERNS, KINDS, layWall, drawWipe, wallFrom, roomBeats } from './wipe.js';
@@ -30,7 +31,7 @@ import { createWipeTune } from './wipeTune.js';
 // stage owns the objects, their motion and its envelopes
 import {
   CART, COUCH, RACCOON, SPLASH, advance, applyStep, cellSeed, easeOut, rollEase, settle,
-  stageFrom, timeline, face, CELL_MS,
+  stageFrom, timeline, face, shedOf, CELL_MS,
 } from './stage.js';
 
 const CANF = CAN_FULL, CANE = CAN_EMPTY;
@@ -204,32 +205,30 @@ function doorRoll(){
 }
 const doorLive = () => PIXEL && !!door && (door.lit || since(door.t0) < DOOR.roll * FRAME_MS);
 
-// A wheelie bin that sheds its bag plays its dump in its own time from the beat it stops on: it
-// tips, rocks back and throws the bag into the cell behind it, while moves go on. The clip draws
-// the bag too, so the bag's own sprite waits under it. It ends early if the bin moves again or
-// the stage is rebuilt under it.
+// A container that throws a bag out plays its clip while moves go on. The clip draws the bag too,
+// so the bag's own sprite waits under it.
 let dumps = [];
-function noteDump(step){
+function noteDump(step, moveFrames){
   if(!PIXEL) return;
   for(const m of step.moved){
-    if(m.o !== WHEELIE || m.becomes.o !== WHEELIE_EMPTY) continue;
-    const [x, y] = restsOn(m);
-    const shed = step.spawned.find(e => e.o === BAG && e.from?.[0] === x && e.from?.[1] === y);
-    if(!shed) continue;
-    const [bx, by] = shed.cells[0];
-    const bin = stage.sprites.find(sp => sp.kind === WHEELIE_EMPTY && sp.tx === x && sp.ty === y);
-    const bag = stage.sprites.find(sp => sp.kind === BAG && sp.tx === bx && sp.ty === by && !sp.spent && !sp.dying);
-    if(!bin || !bag) continue;
-    const dir = x > bx ? 'r' : x < bx ? 'l' : y > by ? 'd' : 'u';
-    dumps.push({ bin, bag, at: [x, y], dir, t0: clockMs() });
+    if(m.o === m.becomes.o) continue;
+    const shed = shedOf(step, m);
+    if(shed?.o !== BAG) continue;
+    const [x, y] = restsOn(m), [bx, by] = shed.cells[0];
+    const container = stage.sprites.find(sp => sp.kind === m.becomes.o && sp.tx === x && sp.ty === y);
+    const bag = stage.sprites.find(sp => sp.kind === BAG && sp.tx === bx && sp.ty === by
+      && !sp.dying && (!sp.spent || sp.falls));
+    const clip = container && bag
+      && SP.dump(m.becomes.o, { container, from: m.cells[0], to: [x, y], bagTo: [bx, by], moveFrames, down: !!bag.falls });
+    if(clip) dumps.push({ container, bag, at: [x, y], t0: clockMs(), ...clip });
   }
 }
 function dumpDraw(sp){
-  const d = dumps.find(d => d.bin === sp);
-  SP.wheelieDump(sp.x, sp.y, d.dir, since(d.t0) / FRAME_MS);
+  const d = dumps.find(d => d.container === sp);
+  d.draw(Math.round(since(d.t0) / FRAME_MS));
 }
-const dumpLive = d => since(d.t0) < SP.wheelieDumpFrames * FRAME_MS && stage.sprites.includes(d.bin)
-  && d.bin.x === d.at[0] && d.bin.y === d.at[1];
+const dumpLive = d => since(d.t0) < d.end * FRAME_MS && stage.sprites.includes(d.container)
+  && d.container.tx === d.at[0] && d.container.ty === d.at[1];
 const slow = matchMedia('(prefers-reduced-motion: reduce)');
 
 // The stage is NOT rebuilt per action. It is already standing on `prev` — `rest()` built it
@@ -252,7 +251,7 @@ function stepMv(){
   // Progress is measured in CELLS, so the whole part names the step and the fraction is the
   // progress inside it. That is what keeps velocity continuous across a step boundary: the
   // envelope spans the whole roll, and the steps are just where it crosses an edge.
-  const d = (anim.drawn && anim.si === 0 ? drawnTravel()
+  const d = (drawnBeat(seg) ? travelAt(pose.segs, poseAt())
     : seg.roll ? rollEase(t, seg.cells) : easeOut(t)) * seg.items.length;
   const k = Math.min(seg.items.length - 1, Math.floor(d));
   while(anim.k < k){
@@ -261,7 +260,7 @@ function stepMv(){
     const it = seg.items[anim.k];
     board = it.board;
     applyStep(stage, it.step, it.racTo);
-    noteDump(it.step);
+    noteDump(it.step, moveFrames(seg));
   }
   advance(stage, slow.matches ? 0 : d - k, seg.pace);
   if(t < 1) return true;
@@ -272,10 +271,12 @@ function stepMv(){
   return true;
 }
 
-/** How far through its cell the shove is, by the drawing on screen: the thing he pushes, or him. */
-function drawnTravel(){
-  const f = poseSeg().f;
-  return Math.max(0, Math.min(1, (f.thing ?? f.dx) / PIXEL_CELL));
+/** Whether his drawing, not the beat's clock, moves what `seg` moves. */
+const drawnBeat = seg => anim.drawn && seg === anim.segs[0];
+/** How many screen frames a beat of `seg` moves things for. */
+function moveFrames(seg){
+  if(drawnBeat(seg)) return moveStop(pose.segs) - moveStart(pose.segs);
+  return Math.round(seg.dur / seg.items.length / FRAME_MS);
 }
 
 /** Land the whole action at once — an input cutting an animation short still has to finish it. */
@@ -287,7 +288,7 @@ function landMv(){
     const items = anim.segs[s].items;
     for(let i = (s === anim.si ? anim.k + 1 : 0); i < items.length; i++){
       applyStep(stage, items[i].step, items[i].racTo);
-      noteDump(items[i].step);
+      noteDump(items[i].step, 0);
       settle(stage);
     }
   }
@@ -588,6 +589,7 @@ function rest(){ anim = null; board = state; stage = stageFrom(state, cur + 1, d
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 const SP = PIXEL ? createPixelSprites({ ctx, art: await loadPixelArt(new URL('./art/', import.meta.url)) })
   : createSprites({ ctx, cell: CS, pad: PAD });
+if(PIXEL) for(const job of tracings()) askIdle(job);
 // Couches under carts, carts under loose things, cargo over the cart it rides, him on top.
 const BANDS = ['couch','cart','loose','carried','raccoon'];
 const bandOf = sp => sp.kind === COUCH ? 0 : sp.kind === CART ? 1
@@ -653,9 +655,9 @@ function paintSprite(sp, f){
   }
   else if(sp.kind === SPLASH) SP.splash(sp.x, sp.y);
   else if(dumps.some(d => d.bag === sp)) return;
-  else if(dumps.some(d => d.bin === sp)) dumpDraw(sp);
+  else if(dumps.some(d => d.container === sp)) dumpDraw(sp);
   else drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
-    seed: sp.seed, face: sp.face, wet: sp.soaks ? (sp.soak ?? 1) : 0,
+    seed: sp.seed, face: sp.face, lie: sp.lie, wet: sp.soaks ? (sp.soak ?? 1) : 0,
     // a bag mid-refusal deflates where it stands; a torn one deflates as its fan grows
     k: sp.dying ? (sp.deflate ?? 1)
       : ph && fx.bx===Math.round(sp.x) && fx.by===Math.round(sp.y) ? 1-ph.burst : 1,

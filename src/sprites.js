@@ -971,17 +971,17 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
  * occupant constants; passing them keeps this file free of any dependency on the rules.
  */
 export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
-  const { k = 1, seed = 0, src = null, face = null, wet = 0 } = opts;
+  const { k = 1, seed = 0, src = null, face = null, wet = 0, lie = null } = opts;
   if (o === codes.TRASH) sprites.trash(x, y, { seed, k, src, wet });
   else if (o === codes.BAG) sprites.bag(x, y, k);
   else if (o === codes.CAN_FULL) sprites.can(x, y, true);
-  else if (o === codes.CAN_EMPTY) sprites.can(x, y, false);
+  else if (o === codes.CAN_EMPTY) sprites.can(x, y, false, lie);
   else if (o === codes.BIN) sprites.recycleBin(x, y, true);
-  else if (o === codes.BIN_EMPTY) sprites.recycleBin(x, y, false);
+  else if (o === codes.BIN_EMPTY) sprites.recycleBin(x, y, false, lie);
   else if (o === codes.WHEELIE) sprites.wheelie(x, y, true);
   else if (o === codes.WHEELIE_EMPTY) sprites.wheelie(x, y, false);
   else if (o === codes.JUG) sprites.jug(x, y, true);
-  else if (o === codes.JUG_EMPTY) sprites.jug(x, y, false);
+  else if (o === codes.JUG_EMPTY) sprites.jug(x, y, false, lie);
   else if (o === codes.SPONGE) sprites.sponge(x, y);
   else if (o === codes.CARDBOARD) sprites.cardboard(x, y);
   else if (o === codes.PANE) sprites.pane(x, y);

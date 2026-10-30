@@ -59,13 +59,12 @@
 
 <script type="module">
 import { loadPixelArt, createPixelSprites, PIXEL_CELL as C } from '../../src/pixel.js';
-import { press, moveStart, segAt } from '../../src/art/press.js';
-import { front, frame, restAt, bagIn, spun, CAN } from '../../src/art/can.js';
+import { press, moveStart, moveStop, segAt, travelAt } from '../../src/art/press.js';
+import { createCanTip, TIP } from '../../src/art/canTip.js';
 
 const KEY = 'trash-can-tip', N = 9, MIDCELL = 4, $ = id => document.getElementById(id);
 const KNOBS = ['hop', 'depth'];
-// Frames: `tip` from the stop, `fall` to lying, `pour` from the tip, `fly` to landing, `squash` to rest.
-let s = { dir: 'r', tip: -3, fall: 7, pour: 4, fly: 5, squash: 8, hop: 6, depth: 8, spin: true, zoom: 4 };
+let s = { dir: 'r', ...TIP, zoom: 4 };
 try { const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); for (const k in s) if (saved[k] !== undefined) s[k] = saved[k]; } catch {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
 
@@ -73,56 +72,20 @@ const art = await loadPixelArt(new URL('../../src/art/', import.meta.url));
 const src = document.createElement('canvas'); src.width = src.height = N * C;
 const g = src.getContext('2d');
 const S = createPixelSprites({ ctx: g, art });
-const BAG = art.A.bag;
-// The bag's last row is the shadow it stands on, so it stays behind while the bag is off the floor.
-const BAG_AIR = { ...BAG, px: BAG.px.filter(p => p[1] < BAG.h - 1) };
-const [BX, BY] = bagIn(BAG), MID = [BX + BAG.w / 2, BY + BAG.h / 2];
+const tipClip = createCanTip(art.A.bag);
 const STEP = { r: [1, 0], l: [-1, 0], u: [0, -1], d: [0, 1] };
-const sense = d => (d === 'r' ? 1 : d === 'l' ? -1 : 0);
-const easeOut = u => 1 - (1 - u) ** 2;
-/** The bag resized to w × h, nearest pixel, so every pixel stays one of the sprite's own. */
-function resize(w, h) {
-  const grid = Array.from({ length: BAG.h }, () => Array(BAG.w).fill(null));
-  for (const [x, y, c] of BAG.px) grid[y][x] = c;
-  const px = [];
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = grid[Math.floor(y * BAG.h / h)][Math.floor(x * BAG.w / w)]; if (c) px.push([x, y, c]); }
-  return { w, h, px };
-}
 
 // ---- the scene: him behind the can, the can in the middle, the bag's cell beyond ------------
 const scene = dir => {
   const [dx, dy] = STEP[dir], can = [MIDCELL, MIDCELL];
   const segs = press('push', dir, { lead: false });
-  const moves = segs.filter(q => q.f.beat === 'move');
-  // The can slides until its fall lays it where it rests in the next cell.
-  const O = restAt(...can, C), end = restAt(can[0] + dx, can[1] + dy, C, dir), f90 = frame(dir, 90);
-  const slide = (end[0] - (O[0] + f90.ox)) * dx + (end[1] - (O[1] + f90.oy)) * dy;
-  const bag = [can[0] + 2 * dx, can[1] + 2 * dy];
-  const landing = [bag[0] * C + Math.floor((C - BAG.w) / 2) + BAG.w / 2, bag[1] * C + C - BAG.h - 1 + BAG.h / 2];
-  return { dir, dx, dy, can, rac: [can[0] - dx, can[1] - dy], segs, move: moveStart(segs), stop: moves.at(-1).t1, end: segs.at(-1).t1, O, slide, bag, landing };
+  return { dir, dx, dy, can, rac: [can[0] - dx, can[1] - dy], segs, move: moveStart(segs), stop: moveStop(segs), end: segs.at(-1).t1, bag: [can[0] + 2 * dx, can[1] + 2 * dy] };
 };
 let B = scene(s.dir);
-
-const T = () => {
-  const tip = Math.max(B.move, B.stop + s.tip), flat = tip + Math.max(2, s.fall);
-  const pour = tip + Math.max(0, s.pour), land = pour + Math.max(2, s.fly), rest = land + Math.max(1, s.squash);
-  return { tip, flat, pour, land, rest };
-};
+/** The game's clip with this page's settings, in frames from the start of his press. */
+const clip = () => tipClip({ dir: B.dir, from: B.can, to: [B.can[0] + B.dx, B.can[1] + B.dy], bagTo: B.bag, moveFrames: B.stop - B.move, k: s });
+const T = () => Object.fromEntries(Object.entries(clip().keys).map(([k, v]) => [k, B.move + v]));
 const length = () => Math.max(B.end, T().flat, T().rest) + 24;
-
-/** How far the can has slid, px: as far as his drawing says the thing has gone. */
-const slidAt = f => { const q = segAt(B.segs, f).f; return f < B.move ? 0 : Math.round(B.slide * Math.min(1, Math.max(0, (f >= B.stop ? C : q.thing ?? q.dx) / C))); };
-/** How far over the can is, degrees: falling faster as it goes. */
-const degAt = f => { const t = T(); return f <= t.tip ? 0 : f >= t.flat ? 90 : Math.round(90 * ((f - t.tip) / (t.flat - t.tip)) ** 2); };
-const canAt = f => [B.O[0] + slidAt(f) * B.dx, B.O[1] + slidAt(f) * B.dy];
-/** The bag's centre and turn while it is in the can. */
-const inCan = f => { const O = canAt(f), d = degAt(f), [x, y] = frame(B.dir, d).place(MID[0], MID[1], CAN.R); return { x: O[0] + x, y: O[1] + y, turn: sense(B.dir) * d }; };
-/** The bag's centre and turn once it has left: its own arc to the landing. */
-const leaving = f => {
-  const t = T(), u = Math.min(1, (f - t.pour) / (t.land - t.pour)), a = inCan(t.pour), e = easeOut(u);
-  const to = s.spin ? sense(B.dir) * 360 : 0;
-  return { x: a.x + (B.landing[0] - a.x) * e, y: a.y + (B.landing[1] - a.y) * e - s.hop * 4 * u * (1 - u), turn: a.turn + (to - a.turn) * e };
-};
 
 let frame_ = 0;
 function draw() {
@@ -134,20 +97,11 @@ function draw() {
   timeline();
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) (x === 0 || y === 0 || x === N - 1 || y === N - 1 ? S.wall(x, y) : S.floor(x, y));
   // On twos: every drawing is held two screen frames.
-  const f = frame_ - frame_ % 2, t = T(), O = canAt(f), fr = frame(B.dir, degAt(f)), gx = O[0] + fr.ox, gy = O[1] + fr.oy;
-  const put = (px, x0, y0, keep = () => true) => { for (const [x, y, c] of px) if (keep(x0 + x, y0 + y)) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
-  const bagAt = (b, keep) => { const spr = spun(BAG_AIR, Math.round(b.turn)); put(spr.px, Math.round(b.x - BAG.w / 2), Math.round(b.y - BAG.h / 2), keep); };
+  const f = frame_ - frame_ % 2;
+  const put = px => { for (const [x, y, c] of px) { g.fillStyle = c; g.fillRect(x, y, 1, 1); } };
   const pressing = f < B.end;
-  const stand = [[gy + fr.s.h, () => {
-    put(fr.s.px, gx, gy);
-    if (f < t.pour) bagAt(inCan(f), (x, y) => fr.shows(x - O[0], y - O[1]));
-  }], [(B.rac[1] + 1) * C + (pressing ? 0.5 : 0), () => (pressing ? S.pressing(segAt(B.segs, f), B.dir, ...B.rac) : S.raccoon(...B.can, B.dir))]];
-  if (f >= t.pour && f < t.land) { const b = leaving(f); stand.push([b.y + BAG.h / 2, () => bagAt(b, (x, y) => !fr.hides(x - O[0], y - O[1]))]); }
-  if (f >= t.land) {
-    // The squash is deepest as it lands and gone by the rest.
-    const sq = f >= t.rest ? 0 : Math.round(s.depth * (1 - (f - t.land) / (t.rest - t.land))), b = resize(BAG.w + sq, BAG.h - sq);
-    stand.push([(B.bag[1] + 1) * C, () => put(b.px, B.bag[0] * C + Math.floor((C - b.w) / 2), B.bag[1] * C + C - b.h - 1)]);
-  }
+  const stand = [...clip().layers(frame_ - B.move, travelAt(B.segs, f)).map(([foot, px]) => [foot, () => put(px)]),
+    [(B.rac[1] + 1) * C + (pressing ? 0.5 : 0), () => (pressing ? S.pressing(segAt(B.segs, f), B.dir, ...B.rac) : S.raccoon(...B.can, B.dir))]];
   for (const [, paint] of stand.sort((a, b) => a[0] - b[0])) paint();
   if (pressing) S.pressing(segAt(B.segs, f), B.dir, ...B.rac, { over: true });
   const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;

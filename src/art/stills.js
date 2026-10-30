@@ -7,18 +7,22 @@ import * as BOX from './box.js';
 import * as JUGS from './jug.js';
 import * as GLASS from './pane.js';
 
-const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
-const moved = (px, dx, dy) => px.map(([x, y, col]) => [x + dx, y + dy, col]);
+/** The top-left of `spr` standing in cell (cx, cy), its foot a pixel above the cell's bottom edge. */
+export const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
+export const moved = (px, dx, dy) => px.map(([x, y, col]) => [x + dx, y + dy, col]);
+export const LYING = { [CAN_EMPTY]: CAN, [BIN_EMPTY]: BOX, [JUG_EMPTY]: JUGS };
 
-/** `still(o, cx, cy, seed)`: thing `o` in cell (cx, cy) as `{ px, x, y, h }`, its pixels from its
- *  top-left (x, y) and its foot `h` below that; `null` for a thing with no drawing here. */
+/** `still(o, cx, cy, seed, lie)`: thing `o` in cell (cx, cy) as `{ px, x, y, h }`, its pixels from its
+ *  top-left (x, y) and its foot `h` below that; `null` for a thing with no drawing here. `lie` is
+ *  the way a tipped thing fell, and it is drawn lying that way. */
 export function createStills({ T, A, O, LOOK }) {
   const heap = seed => BOX.contents(T, seed, LOOK.spread.edges, LOOK.spread.hues).sort((a, b) => b.by - a.by).flatMap(p => {
     const s = T.sprite(p.name, p.alt, p.turn), x0 = Math.round(p.bx - s.w / 2), y0 = Math.round(p.by - s.h / 2);
     return moved(s.px.filter(([x, y]) => y0 + y < 2 && x0 + x > 0 && x0 + x < BOX.BOX.W - 1), x0, y0);
   });
   const upright = (spr, P, under = []) => ({ px: [...under, ...spr.px], x: P[0], y: P[1], h: spr.h });
-  return (o, cx, cy, seed = 1) => {
+  return (o, cx, cy, seed = 1, lie = null) => {
+    if (lie) { const M = LYING[o]; return upright(M.rest(lie), M.restAt(cx, cy, C, lie)); }
     switch (o) {
       case CAN_EMPTY: return upright(CAN.front, CAN.restAt(cx, cy, C));
       case CAN_FULL: {

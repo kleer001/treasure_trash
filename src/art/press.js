@@ -24,9 +24,17 @@ export function press(act, dir, { recovery = RECOVERIES[0], holds = null, lead =
 
 /** The frame the thing starts to move on: the first frame of the move beat. */
 export const moveStart = segs => (segs.find(s => s.f.beat === 'move') ?? segs[0]).t0;
+/** The frame the thing stops moving on: the end of the move beat. */
+export const moveStop = segs => segs.filter(s => s.f.beat === 'move').at(-1).t1;
 
 /** The drawing on screen `g` frames into the press: the last one once the press is over. */
 export const segAt = (segs, g) => segs.find(s => g < s.t1) ?? segs[segs.length - 1];
+
+/** How far through its cell the thing he pushes is `g` frames into the press, 0 to 1. */
+export const travelAt = (segs, g) => {
+  const f = segAt(segs, g).f;
+  return Math.min(1, Math.max(0, (f.thing ?? f.dx) / C));
+};
 
 /** Drawing `seg` toward `dir` from cell (cx, cy): its pixels, its top-left, and the parts that go in
  *  front of the thing he pushes. */

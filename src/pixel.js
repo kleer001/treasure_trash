@@ -5,6 +5,7 @@ import { C, FLOOR, SEAM } from './art/flight.js';
 import { createTrash, pileLayout, drawPile } from './art/pile.js';
 import { wallTile } from './art/room.js';
 import { createStills } from './art/stills.js';
+import { createCanTip } from './art/canTip.js';
 import { puddle, crossing } from './art/water.js';
 import { SKATEBOARD } from './art/skateboard.js';
 import { door } from './art/door.js';
@@ -25,7 +26,7 @@ import { LOOKS, slickCell } from './art/slick.js';
 import { GLASS_LOOK, glassCell } from './art/glass.js';
 import { ACTIONS, draw, mirror } from './art/cartoon.js';
 import { VIEW, place } from './art/press.js';
-import { cell, inGrid, CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, JUG, JUG_EMPTY, PANE, GREASE, TAR, GLASS } from './rules.js';
+import { cell, inGrid, CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, JUG, JUG_EMPTY, WHEELIE_EMPTY, PANE, GREASE, TAR, GLASS } from './rules.js';
 
 export const PIXEL_CELL = C;
 
@@ -39,6 +40,7 @@ export async function loadPixelArt(base) {
 export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
   const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
   const still = createStills({ T, A, O, LOOK });
+  const tipClip = createCanTip(A.bag);
   const STYLE = { outline: LOOK.outline, shadow: LOOK.shadow };
   const BIKE = bicycle();
   // The sitting frame of each facing, the way he sits between presses.
@@ -54,7 +56,7 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
   const put = (px, x0, y0) => { for (const [a, b, col] of px) { ctx.fillStyle = col; ctx.fillRect(x0 + a, y0 + b, 1, 1); } };
   /** A sprite standing centred on cell (x, y), its foot a pixel above the cell's bottom edge. */
   const standing = (spr, x, y) => put(spr.px, P(x) + Math.floor((C - spr.w) / 2), P(y) + C - spr.h - 1);
-  const thing = (o, x, y, seed) => { const s = still(o, 0, 0, seed); put(s.px, P(x) + s.x, P(y) + s.y); };
+  const thing = (o, x, y, seed, lie) => { const s = still(o, 0, 0, seed, lie); put(s.px, P(x) + s.x, P(y) + s.y); };
   const placeholder = (x, y, label, w = 1, h = 1) => {
     const x0 = P(x) + 2, y0 = P(y) + 2, W = w * C - 4, H = h * C - 4;
     ctx.fillStyle = '#5b5560'; ctx.fillRect(x0, y0, W, H);
@@ -70,6 +72,19 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
     if (!decoded.has(f)) decoded.set(f, f.rows.flatMap((r, y) => Array.from({ length: f.w }, (_, x) => r.slice(2 * x, 2 * x + 2))
       .flatMap((h, x) => (h === '..' ? [] : [[f.x + x, f.y + y, W.palette[parseInt(h, 16)]]]))));
     return decoded.get(f);
+  };
+  /** The clip of a container that has just thrown its bag out, keyed by what it is once it has:
+   *  `{ end, draw(f) }`, drawn `f` screen frames from the start of its move; `null` when it cannot
+   *  draw where the bag went. */
+  const DUMPS = {
+    [CAN_EMPTY]: ({ container, from, to, bagTo, moveFrames, down }) => {
+      const { layers, end } = tipClip({ dir: container.lie, from, to, bagTo, moveFrames, down });
+      return { end, draw: f => { for (const [, px] of layers(f, container.along).sort((a, b) => a[0] - b[0])) put(px, 0, 0); } };
+    },
+    [WHEELIE_EMPTY]: ({ container: c, down }) => (down ? null : {
+      end: W.dump.r.length * 2,
+      draw: f => { const fs = W.dump[c.heading]; put(wheelieFrame(fs[Math.min(fs.length - 1, Math.floor(f / 2))]), P(c.x), P(c.y)); },
+    }),
   };
   const span = cells => {
     const xs = cells.map(c => c[0]), ys = cells.map(c => c[1]);
@@ -105,18 +120,12 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
       drawPile(ctx, T, { ...pile, pieces }, P(x), P(y), STYLE);
     },
     bag(x, y, k = 1) { if (k > 0) standing(k > 0.66 ? A.bag : k > 0.33 ? A.open : A.burst, x, y); },
-    can(x, y, full) { thing(full ? CAN_FULL : CAN_EMPTY, x, y); },
-    recycleBin(x, y, full, seed = 1) { thing(full ? BIN : BIN_EMPTY, x, y, seed); },
-    jug(x, y, full = true) { thing(full ? JUG : JUG_EMPTY, x, y); },
+    can(x, y, full, lie = null) { thing(full ? CAN_FULL : CAN_EMPTY, x, y, 1, lie); },
+    recycleBin(x, y, full, lie = null) { thing(full ? BIN : BIN_EMPTY, x, y, 1, lie); },
+    jug(x, y, full = true, lie = null) { thing(full ? JUG : JUG_EMPTY, x, y, 1, lie); },
     wheelie(x, y, full) { put(wheelieFrame(full ? W.full : W.empty), P(x), P(y)); },
-    /** How many screen frames the dump runs, from the bin stopping to its bag at rest. */
-    wheelieDumpFrames: W.dump.r.length * 2,
-    /** The bin stopped on (x, y) after rolling toward `dir`, `frame` screen frames into throwing its
-     *  bag out behind it: the bin and the bag both, drawn on twos. */
-    wheelieDump(x, y, dir, frame) {
-      const fs = W.dump[dir];
-      put(wheelieFrame(fs[Math.min(fs.length - 1, Math.floor(frame / 2))]), P(x), P(y));
-    },
+    /** `o`'s entry in `DUMPS` for `spec`, or `null` when `o` has none. */
+    dump(o, spec) { return DUMPS[o]?.(spec) ?? null; },
     pane(x, y) { thing(PANE, x, y); },
     // Centred on the two cells it covers.
     skateboard(cells, ox = 0, oy = 0) {

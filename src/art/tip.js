@@ -36,7 +36,8 @@ export function tipper(front, toward, away, fold, fall = null, opens = () => fal
   const W = front.w, H = front.h, D = toward.h, FRONT = at(front), TOWARD = at(toward), AWAY = at(away);
   /** The front turned a quarter: clockwise lays its top to the right. */
   const quarter = cw => ({ w: H, h: W, px: front.px.map(([x, y, col]) => cw ? [H - 1 - y, x, col] : [y, W - 1 - x, col]) });
-  const RESTS = { r: quarter(true), l: quarter(false), d: fall ? fallen('d', 90).s : toward, u: fall ? fallen('u', 90).s : away };
+  const FRAMES = new Map();
+  const RESTS = { r: quarter(true), l: quarter(false), d: fall ? frameOf('d', 90).s : toward, u: fall ? frameOf('u', 90).s : away };
 
   /** The px of `faces`, `[face, rows, shown]` from the foot up, each squeezed to the height it shows,
    *  stacked up from `bottom`. */
@@ -98,7 +99,12 @@ export function tipper(front, toward, away, fold, fall = null, opens = () => fal
     return { ...placed(px), place, shows, hides: () => false };
   }
 
-  const FRAMES = new Map();
+  function frameOf(dir, deg) {
+    const key = `${dir},${deg}`;
+    if (!FRAMES.has(key)) FRAMES.set(key, dir === 'l' || dir === 'r' ? turned(dir, deg) : fall ? fallen(dir, deg) : folded(dir, deg));
+    return FRAMES.get(key);
+  }
+
   return {
     /** The thing lying where it fell toward `dir`. */
     rest: dir => RESTS[dir],
@@ -113,10 +119,6 @@ export function tipper(front, toward, away, fold, fall = null, opens = () => fal
      *  from its front has gone; `shows(x, y)`, whether what it holds shows at that pixel over its
      *  rim; and `hides(x, y)`, whether its body is in front of that pixel. All in px from the
      *  upright thing's top-left. */
-    frame(dir, deg) {
-      const key = `${dir},${deg}`;
-      if (!FRAMES.has(key)) FRAMES.set(key, dir === 'l' || dir === 'r' ? turned(dir, deg) : fall ? fallen(dir, deg) : folded(dir, deg));
-      return FRAMES.get(key);
-    },
+    frame: frameOf,
   };
 }

@@ -128,17 +128,21 @@ const offsets = (cells, ox, oy) => cells.map(([x, y]) => [x - ox, y - oy]);
 // has a `lie` as well, and keeps it however it is shoved after: it fell the way its contents went,
 // which is ahead of a shove and behind a deck that set it down as it rolled on.
 
-/** What tips over as it empties, and so lies on its side from then on. */
-const LIES = new Set([CAN_EMPTY, BIN_EMPTY, JUG_EMPTY]);
+export const LIES = new Set([CAN_EMPTY, BIN_EMPTY, JUG_EMPTY]);
 /** The way a move of (dx, dy) went. A diagonal goes the way of its longer leg, across on a tie. */
 const wayOf = (dx, dy) => (!dx && !dy ? null
   : Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'r' : 'l') : (dy > 0 ? 'd' : 'u'));
 
-/** The way a container that emptied in step `step` as movement `m` fell: toward what came out
- *  of it, which the step spawns from the cell the container started on or the one it landed on. */
-function spilled(step, m) {
+/** What a container that moved as `m` in step `step` threw out, if anything. */
+export function shedOf(step, m) {
   const [x, y] = anchorOf(m.cells), [lx, ly] = restsOn(m);
-  const out = step.spawned.find(({ from: f }) => f && ((f[0] === x && f[1] === y) || (f[0] === lx && f[1] === ly)));
+  return step.spawned.find(({ from: f }) => f && ((f[0] === x && f[1] === y) || (f[0] === lx && f[1] === ly)));
+}
+
+/** The way a container that emptied in step `step` as movement `m` fell: toward what came out
+ *  of it. */
+function spilled(step, m) {
+  const [lx, ly] = restsOn(m), out = shedOf(step, m);
   if (!out) {
     // Down a grate it takes its contents with it, and lies nowhere.
     if (step.gone.some(g => g.handle === m.handle)) return null;
@@ -369,6 +373,7 @@ export function advance(stage, u, cells = 0) {
     const su = cells && d ? Math.min(1, (u * cells) / d) : u;
     sp.x = sp.ax + (sp.tx - sp.ax) * su;
     sp.y = sp.ay + (sp.ty - sp.ay) * su;
+    sp.along = su;
     if (sp.nudge) { sp.x += sp.nudge[0] * NUDGE * bump(u); sp.y += sp.nudge[1] * NUDGE * bump(u); }
     if (sp.rattle) sp.tilt = wobble(u) * (sp.rattle[0] || sp.rattle[1]);
     if (sp.dying) sp.deflate = 1 - u;
