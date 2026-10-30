@@ -9,8 +9,7 @@
 ;
 ;  Chapter 1 is the verbs, chapter 2 the containers, chapter 3 the floor,
 ;  chapter 4 the rollers, chapter 5 the bodies.
-;  Every room declares a :gate — what covers its lesson, and what verify.mjs takes away
-;  to prove the exit will not open without it.
+;  Every room declares a :gate — what covers its lesson.
 ;
 
 :level  T1
@@ -21,7 +20,6 @@
 :traps  0
 :solves 1
 :solve  rrr
-:note   No bags, so the exit is live from the first move; the lesson is reaching it.
 :grid
 #####
 #@--E
@@ -37,7 +35,6 @@
 :traps  0
 :solves 1
 :solve  D!ur
-:note   The exit is one step away and does nothing while the bag is out.
 :grid
 #####
 #-@E#
@@ -55,7 +52,6 @@
 :traps  0
 :solves 1
 :solve  RRdd
-:note   The can stands in the only corridor and is shoved past the turning, not out of it.
 :grid
 #######
 #@c---#
@@ -73,7 +69,6 @@
 :traps  0
 :solves 2
 :solve  ldRd
-:note   The can is in the mouth of the exit alcove; shoving it onto the exit is refused.
 :grid
 #######
 #--@--#
@@ -93,7 +88,6 @@
 :traps  0
 :solves 1
 :solve  ruL!ru
-:note   Struck from below or from the left the fan would reach the exit, and the strike is refused.
 :grid
 #######
 #---E-#
@@ -112,7 +106,6 @@
 :traps  4
 :solves 1
 :solve  U!dd
-:note   Four of the strikes here bury the way out, and none of them costs more than one undo.
 :grid
 #######
 #-----#
@@ -131,7 +124,6 @@
 :traps  2
 :solves 1
 :solve  RurDR!lu
-:note   The bag lands beside the can, and the can is then in every fan, so it is shoved clear
 :grid
 #######
 #--E--#
@@ -150,7 +142,6 @@
 :traps  2
 :solves 1
 :solve  R!lu
-:note   The can is still standing when the door opens, which is the whole of the lesson.
 :grid
 #######
 #E----#
@@ -169,7 +160,6 @@
 :traps  0
 :solves 1
 :solve  Ru
-:note   One shove clears the yard, and nothing is torn.
 :grid
 #######
 #-E---#
@@ -188,7 +178,7 @@
 :traps  0
 :solves 1
 :solve  urDu
-:note   The room before this one with one wall added, and the shove that solved it refused.
+:note   The room before this one with one wall added.
 :grid
 #######
 #-E---#
@@ -207,7 +197,6 @@
 :traps  0
 :solves 1
 :solve  RRRRdrru
-:note   The bin sheds into the water rather than onto the floor, and what it sheds is the bridge.
 :grid
 #########
 #@B----E#
@@ -230,7 +219,6 @@
 :traps  0
 :solves 1
 :solve  Rrrr
-:note   The corridor is cleared by losing the can, and the can is not coming back.
 :grid
 #######
 #@c--E#
@@ -251,7 +239,6 @@
 :traps  1
 :solves 1
 :solve  RRrrrr
-:note   The glass is still there under it; what changed is that it can be walked on.
 :grid
 #########
 #@d----E#
@@ -274,7 +261,6 @@
 :traps  1
 :solves 1
 :solve  RRRRdrru
-:note   The sponge is still a sponge afterwards, which is the whole of what it is for.
 :grid
 #########
 #@s----E#
@@ -297,7 +283,6 @@
 :traps  0
 :solves 1
 :solve  Rrd
-:note   One shove takes it the length of the run, and the turning is clear behind it.
 :grid
 #########
 #@w-----#
@@ -314,7 +299,6 @@
 :traps  0
 :solves 1
 :solve  Rrrd
-:note   They travel together and stay together, so one shove clears both.
 :grid
 ##########
 #@ww-----#
@@ -331,7 +315,6 @@
 :traps  0
 :solves 1
 :solve  RrRd
-:note   The first stops where it meets the second, and the second goes on without being touched.
 :grid
 ##########
 #@w--w---#
@@ -348,7 +331,6 @@
 :traps  0
 :solves 1
 :solve  Rrrrd
-:note   It was already going to the end of the run; the slick has nothing left to give it.
 :grid
 #########
 #@w-----#
@@ -371,7 +353,6 @@
 :traps  0
 :solves 4
 :solve  dRRRd
-:note   Three shoves to clear one turning, because it never travels further than it is shoved.
 :grid
 ##########
 #@F------#
@@ -389,7 +370,7 @@
 :traps  0
 :solves 4
 :solve  dRrrd
-:note   The room before this one, with the couch swapped for a rug: same par, one shove.
+:note   The room before this one, with the couch swapped for a rug.
 :grid
 ##########
 #@U------#
@@ -407,7 +388,6 @@
 :traps  0
 :solves 1
 :solve  RRRd
-:note   Turned the other way it is the couch again, and goes a cell at a time.
 :grid
 ##########
 #@UU-----#
@@ -424,7 +404,7 @@
 :traps  0
 :solves 1
 :solve  Rrrd
-:note   Same board as the rug end-on, same par, and one shove instead of three.
+:note   Same board as the rug end-on.
 :grid
 ##########
 #@YY-----#
@@ -441,7 +421,6 @@
 :traps  0
 :solves 1
 :solve  RRrd
-:note   The corridor is too short to shove it clear, so the only way past it is down.
 :grid
 #######
 #@FF--#
@@ -464,7 +443,6 @@
 :traps  0
 :solves 1
 :solve  RRRRRd
-:note   One cell of it is over the hole and the other is not, so it rides across.
 :grid
 ##########
 #@FF-----#
@@ -487,7 +465,6 @@
 :traps  0
 :solves 1
 :solve  Rrrrd
-:note   The corridor never lets him behind the bicycle; the rug is the only thing that moves it.
 :grid
 #############
 #@UU-YY-----#

@@ -2,26 +2,22 @@
 
 ### ▶ [Play it in your browser](https://kleer001.github.io/treasure_trash/)
 
-Thirty-one rooms, no install, no timer. Arrows or WASD, `U` to undo, `R` to restart.
+No install, no timer. Arrows or WASD, `U` to undo, `R` to restart.
 
 A **Trace ROM Studio** game.
-An untimed, single-raccoon, Sokoban-family **block-pusher**: you tear open garbage bags
-in an alley, and every torn bag sprays a **directional fan of trash that stays**.
-The puzzle is choosing each strike's direction and order so your own mess never blocks
-another bag's fan, your path, or your way out. Win by opening every bag **and** standing
-on the exit.
+An untimed, single-raccoon, Sokoban-family **block-pusher**: you tear open garbage bags in an alley. The puzzle is choosing each strike's direction and order.
 
-Lineage: Sokoban (Thinking Rabbit, 1982 — irreversible deadlock, no pull) × the
+Lineage: Sokoban (Thinking Rabbit, 1982) × the
 clear-the-objective-then-reach-the-exit shape of *Adventures of Lolo* (HAL, 1989) and
 *Chip's Challenge* (Epyx, 1989) × reactive objects (Stephen's Sausage Roll, A Monster's
-Expedition). The burst is additive — it *closes* space where bomb-Sokoban clears it.
+Expedition).
 
 ## What's in here
 | File | What it is |
 |---|---|
 | `src/` | The game: `rules.js` (the engine of record), `format.js`, `solver.js`, `stage.js`, `sprites.js`, `main.js`. |
 | `levels/`, `FORMATS.md` | The `.tt`/`.sol` level pack and the file syntax. |
-| `levels.md` | Index of the shipped rooms. |
+| `levels.md` | Index of the act rooms. |
 | `tools/` | Offline only: `verify.mjs`, `metrics.mjs`, `build-artifact.mjs`, `draft-room.mjs`. |
 | `bench-skate.html` | The mechanic bench: a served page that imports `src/` to try one piece at a time. Presentation only — it carries no copy of the engine, and `verify.mjs` fails on a second copy of one anywhere in the tree. |
 | `BREADCRUMB.md` | Where we are, what's open, and the next move. Written and read by `/bob`. |
@@ -36,11 +32,8 @@ Expedition). The burst is additive — it *closes* space where bomb-Sokoban clea
   the page. ES modules, `fetch` and relative paths all behave differently under `file://`,
   so a served page is the only supported way to run it.
   Arrows/WASD or the on-screen d-pad; `U` undo, `R` restart.
-- **Check every claim the level files make:** `node tools/verify.mjs` — it prints what it
-  checked and exits non-zero on the first failure.
+- **Check every claim the level files make:** `node tools/verify.mjs`.
 - **Run the tests:** `npm test`.
 
 ## Status in one line
-A prototype. The core mechanic is built and playable in `src/`, and every room's par is proven minimal
-by `tools/verify.mjs`. What's left is everything around it — art, audio, progression, the
-solvability indicator. See `BREADCRUMB.md`.
+A prototype. See `BREADCRUMB.md`.

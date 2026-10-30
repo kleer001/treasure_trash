@@ -1,7 +1,6 @@
 # Cargo into the canal
 
-Two recordings of one shove: a skateboard pinned against a wall tips its load backward into open
-water, which keeps it. `before.gif` is the build at `fcdd061`, `after.gif` the build at `20f2d44`.
+Two recordings of one shove. `before.gif` is the build at `fcdd061`, `after.gif` the build at `20f2d44`.
 
 Both walk the board from `#-x##` to `#--##`. What differs is only how the removal is drawn: the
 earlier build carried the spill across at full size and dropped the sprite on arrival, the later

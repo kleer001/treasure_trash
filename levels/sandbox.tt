@@ -1,11 +1,11 @@
-:pack   Treasure Trash — the sandbox (bench, never shipped)
+:pack   Treasure Trash — the sandbox (bench)
 
 :level  SB
 :name   Everything at once
 :teach  every piece the rules know, and every lane they play on
 :par    80
 :solve  rrrrrrDurrrrrrrrrrDrrrrRlllllllllllllllllllL!rdddrddrrddddddDDrrrrrrrrrrrdrrrrrrr
-:note   A sandbox: its par is a solution that was walked and checked action by action, not a proven minimum — a board holding every piece at once has a state graph nothing enumerates. The yard along the top is what the exit waits on, and the grated row under it drains so bursting things does not silt the place up. Everything below is there to be poked.
+:note   A sandbox: its par is a solution that was walked and checked action by action, not a proven minimum — a board holding every piece at once has a state graph nothing enumerates. Everything below is there to be poked.
 :grid
 ##########################
 #@-----------------------#

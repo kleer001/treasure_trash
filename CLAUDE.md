@@ -12,11 +12,10 @@ unbounded, so a room is never softened to spare anyone a wrong move.
 `src/rules.js` is the engine of record — the game, the solver and the tests all import it,
 and `tools/verify.mjs` proves every claim a level file makes against that same module.
 **It is also the only description of what the pieces do.** No doc and no comment restates the
-rules; either would be wrong within the week. `levels.md` indexes the shipped rooms;
+rules; either would be wrong within the week. `levels.md` indexes the act rooms;
 `BREADCRUMB.md` says where the work is.
 
-The core mechanic is built and playable: `./run.sh`, then the level picker. Missing is everything
-around it — art, audio, progression, and the solvability indicator.
+The core mechanic is built and playable: `./run.sh`, then the level picker.
 
 ## Run & test
 
@@ -29,13 +28,13 @@ around it — art, audio, progression, and the solvability indicator.
 - `npm test` — Node's built-in runner (`node --test`); specs in `tests/*.test.js`.
 - `index.html?acts=sandbox.tt` — one room holding every piece and every terrain lane, to be
   poked at by hand. Its par is a solution that was walked and checked action by action rather
-  than a minimum: a board of thirty movable pieces has a state graph nothing enumerates, which
+  than a minimum: this board has a state graph nothing enumerates, which
   is the price of having everything out at once.
 - `node tools/verify.mjs` — checks every claim the level files make, and that the engine is
   defined in one place. Run bare it verifies every `levels/act*.tt`; name a pack to check
   just one.
 - `node tools/conform.mjs [--engine CMD]` — differential conformance: does another
-  implementation of the rules answer as `src/rules.js` does, on every shipped room, on a seeded
+  implementation of the rules answer as `src/rules.js` does, on every act room, on a seeded
   batch of generated ones, and step by step over the boards they reach? With no `--engine` it
   runs `tools/conform-ref.mjs`, which is the protocol written out on top of `src/`. See
   **One engine**.
@@ -46,8 +45,8 @@ around it — art, audio, progression, and the solvability indicator.
   A piece is not one record: its code is a rule, its glyph is a file format, its drawing is a
   sprite sheet, and each lives with the concern that owns it. The codes in particular cannot be
   gathered — they are handed out and never renumbered, and several predicates read them as
-  contiguous ranges. So this gathers the reading instead. Three columns are owed by every piece
-  and `tests/totality.test.js` says so; the rest are behaviours most pieces do not have, which is
+  contiguous ranges. So this gathers the reading instead. `tests/totality.test.js` names the
+  columns every piece owes; the rest are behaviours most pieces do not have, which is
   why nothing can fail loudly about them.
 - `node tools/landings.mjs [--asked]` — the landing ledger: which `(site, lane, occupant)`
   questions the engine is ever ASKED, and which it never is. Not a comparison and not a gate — a
@@ -65,10 +64,9 @@ around it — art, audio, progression, and the solvability indicator.
   It stages a meeting at three depths, and the depth is the point: a PAIR cannot ask what a
   thing does to another thing on a particular ground, and a TRIPLE cannot ask what it does to
   something that is itself standing on one. `--fourth` adds that last position — the lane under
-  the thing being met, as against the lane it is driven onto — and costs 37s against 4s.
-  `--fifth` adds the ground the shoved thing is standing on, at 1.4M boards and five minutes.
-  Those two runs fail on a disagreement only: once lanes stack, a meeting that never happens
-  is often the true answer (tar holds a thing where it stands) rather than a hole in the gate.
+  the thing being met, as against the lane it is driven onto. `--fifth` adds the ground the
+  shoved thing is standing on. Those two runs fail on a disagreement only: once lanes stack, a
+  meeting that never happens is often the true answer rather than a hole in the gate.
 - `node tools/sweep.mjs [pack] [roomId...] [--write]` — routes a bench pack for the browser check
   below, and is **for a rules change, not for a room**. It plans keys that force the pieces to
   MEET: every meeting a shove can cause, piece against piece and piece onto terrain lane, filtered
@@ -81,7 +79,7 @@ around it — art, audio, progression, and the solvability indicator.
 - `node tools/harvest.mjs` — samples the fertile groups deeply, on outlines rather than open
   rectangles, and stores every metric per room in `levels/harvest.jsonl`.
 - Both are parallel, and both **use the sanctioned port when it is built**, which is where the
-  pipeline's hours were: the survey alone recorded 31.5 CPU-hours. Each run prints which engine
+  pipeline's hours were. Each run prints which engine
   it used; `--no-engine` forces `src/solver.js`. See **One engine**.
 - `node tools/score.mjs` — ranks that file. Scoring is a query over stored metrics, so new
   weights cost a second rather than another harvest.
@@ -169,9 +167,7 @@ left half-written by an abandoned approach fails the build too.
 *expensive*, and the expense is paid later and by whoever is holding it then. `src/rules.js`
 is what the game, the solver, the tests, `verify.mjs` and every tool in the pipeline agree on;
 a second one is a second answer to what a piece does, and the two only stay equal while someone
-keeps making them equal. The bill comes due on the next rules change, and there is one already
-written down: the crow is an open decision, not a closed one, and giving it powers lands
-occupant codes, refusals and `stateKey` lanes on every implementation at once.
+keeps making them equal. The bill comes due on the next rules change.
 
 What makes it affordable is the same thing that makes a par affordable: **proof, run every
 build, not a promise made once.** That is `tools/conform.mjs`, and it is already wired into CI
@@ -220,7 +216,7 @@ same hours at none of the cost above, and it is the thing to spend first.
 
 Raise a design concern **once**, in a sentence or two, and then build what was asked. The
 owner has the context; a second round of pushback is noise. The things worth stopping for are
-narrow and mechanical: a change that would make a shipped level unsolvable, silently
+narrow and mechanical: a change that would make an act level unsolvable, silently
 invalidate a declared par, or break `tools/verify.mjs`. Those are checkable — say which one,
 show the failure, and keep going.
 
@@ -306,7 +302,7 @@ form nothing checks, and it goes stale on the next edit.** Do not write one. Del
 - `CLEAN_PROSE.md` — what words here are for, in docs and comments alike. Read it before writing
   any of the others, and before writing a comment.
 - `README.md` — what it is, how to play, how to check it.
-- `levels.md` — index of the shipped rooms. The rooms themselves are `levels/act1.tt`.
+- `levels.md` — index of the act rooms. The rooms themselves are `levels/act*.tt`.
 - `FORMATS.md` — the `.tt`/`.sol` file syntax. Not what the pieces do.
 - `BREADCRUMB.md` — where we are, what's open, what's next. Written and read by `/bob`.
 - `GAME-SHEET.md` — the player-facing pitch.

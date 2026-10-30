@@ -36,12 +36,12 @@ Line-oriented. `;` starts a comment, `:` starts a directive, and everything insi
 |---|---|---|
 | `:pack` `:format` | text | file-level metadata, before the first `:level` |
 | `:level` | text | starts a level; the value is its id |
-| `:name` `:teach` `:note` | text | documentation; never affects play |
-| `:arm` | `on`/`off` | default off. Input-layer only |
-| `:gate` | `none`, `kind push\|tear\|move`, or `erase`/`wall`/`dry` then `x,y` cells | what covers the room's lesson, for `verify.mjs` to take away |
-| `:par` | int | solve length. Verified, not declared |
-| `:traps` | int | verified, not declared |
-| `:solves` | int | verified, not declared |
+| `:name` `:teach` `:note` | text | documentation |
+| `:arm` | `on`/`off` | default off |
+| `:gate` | `none`, `kind push\|tear\|move`, or `erase`/`wall`/`dry` then `x,y` cells | what covers the room's lesson |
+| `:par` | int | solve length. Checked by `verify.mjs` |
+| `:traps` | int | Checked by `verify.mjs` |
+| `:solves` | int | Checked by `verify.mjs` |
 | `:lead` `:tail` | int | optional. Dead travel at each end of the solve — see below |
 | `:solve` | LURD | the par solution, replayed by the verifier |
 | `:grid` … `:end` | glyphs | the occupant grid |
@@ -55,11 +55,9 @@ unclosed block throws.
 ### `:lead` and `:tail`
 
 `lead` is how many actions pass before the first one that touches a piece; `tail` is how many
-follow the last one. Both are measured over every shortest solve, so they are the best the
-player can do, and both are walking — nothing on the board changes during either.
+follow the last one.
 
-The verifier holds an undeclared room to a small bound at both ends. Writing the key raises the
-bound for that room and turns the number into a claim, checked exactly like `:par`: a room whose
+Writing the key turns the number into a claim, checked exactly like `:par`: a room whose
 distance is the point says so, and cannot then drift.
 
 ### Glyphs
@@ -83,8 +81,7 @@ viewer renders roughly right. `.` is floor here, not a goal square.
 | `x` | spilled trash |
 | `F` `G` `H` `K` `M` `N` | furniture — one letter per piece |
 
-Rows shorter than the widest row pad with floor. There is no glyph for an occupied exit; the
-writer throws rather than emit one.
+Rows shorter than the widest row pad with floor. There is no glyph for an occupied exit.
 
 ### The `:water` and `:cart` masks
 
@@ -101,9 +98,9 @@ shipped rooms spell it that way.
 | `%` | grease |
 | `T` | tar |
 | `*` | broken glass |
-| `_` | covered — a hazard something was laid over |
+| `_` | covered |
 | `O` | sewer grate |
-| `^` `v` `<` `>` | one-way, passable only in the direction shown |
+| `^` `v` `<` `>` | one-way |
 | `-` (or a floor alias) | dry ground |
 
 One value per cell: the block is a mask, so a cell carries exactly the lane its character names.
@@ -133,10 +130,6 @@ already a two-cell skateboard and the reader would match that first.
 ```
 *(shown side by side; in the file the blocks follow one another.)*
 
-The reader rejects a terrain mask that marks a wall or the exit, or that starts the raccoon in
-open water or on broken glass; and a cart cell that is a wall, the exit, the raccoon's start or
-furniture, or a cart blob whose size is not the one its glyph names.
-
 ### The `:hold` list
 
 A LIST, not a mask, and the only block that is one: what it says is not one character per cell.
@@ -155,18 +148,6 @@ indices (zero-based, from the top left) and then the chain from the outside in.
 Reads as: whatever stands at (4,2) is carrying a barrow facing right, and that barrow has a
 full can in it. The line is a statement ABOUT a cell the grid and the cart mask have already
 settled, so it is read last.
-
-The reader rejects a `:hold` line naming a cell off the grid, naming one twice, naming a cell
-that is not a carried barrow, putting something inside a glyph that is not a barrow, or holding
-a piece bigger than one cell. It also rejects a carried barrow in the grid with no cart under
-it: that is cargo with nothing to be cargo in, and neither the rules nor the writer can read it
-back.
-
-### What a piece is for
-
-Every piece on a board has to hinder: the verifier refuses a pack carrying one that neither any
-shortest solve touches nor changes the room by being removed. There is no directive for an
-exception, because nothing about a room makes decoration worth its cell.
 
 ### Multi-cell pieces
 
@@ -201,10 +182,8 @@ Same grammar, `:solution` sections carrying `:moves` instead of a grid.
 | `L! U! R! D!` | pounce-tear |
 
 `uU!dr` is four tokens. **Par is the token count**, so the solution string is the par claim.
-The verifier replays each action and rejects a solution whose declared kind disagrees with
-what the board actually does.
 
-Arming does not appear here — it spends no move, so it is not an action.
+Arming does not appear here.
 
 ---
 

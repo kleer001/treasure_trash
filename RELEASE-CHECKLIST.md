@@ -1,7 +1,7 @@
 # RELEASE-CHECKLIST — Treasure Trash 🔒
 
 **The one hard stop.** No itch.io page goes live, no GitHub release is cut, no build
-reaches a player until this list is worked. See `CLAUDE.md` → "The release gate."
+reaches a player until this list is worked.
 
 This is the studio's only binding document. Everything on it is something a player
 or a reader would catch: a build that won't run from a fresh clone, a page that

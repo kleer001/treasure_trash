@@ -1,6 +1,6 @@
 # LEVELS — Treasure Trash
 
-Index of the shipped pack. **The rooms themselves live in
+Index of the act rooms. **The rooms themselves live in
 [`levels/act1.tt`](./levels/act1.tt)** — grids, masks and every declared field. This file is
 not a second copy of them; it is the list, and the solve strings `tools/verify.mjs`
 cross-checks against the data.
@@ -56,23 +56,10 @@ repo; the bank of candidates it produced is, in `levels/bank.jsonl`.
 ## Act 2 — the H act
 
 Sets of three rooms, each set drawn on one **H** — two chambers joined by a neck, the one
-outline family whose state spaces stay deep rather than bushy. What ships is the part of that H
-the rooms use: the exit and the raccoon are sited where they leave the player the least walking,
-and then every cell no solution touches is walled and the frame cropped away, so a set whose
-second chamber was only ever the walk to the door comes out smaller than the H it was drawn on.
+outline family whose state spaces stay deep rather than bushy.
 Each set gets harder in a stated way — by filling a container that was already standing there,
 by adding a piece, or by rearranging the same cast. Sets are ordered by how much of the solution
 optimal play can still throw away.
-
-Ten sets, and the recycle bin is in 27 of the 30 rooms. That is deliberate. One shove slides the
-bin a cell, sheds permanent trash a cell beyond it, and leaves an empty bin behind — a body moves,
-an obstacle lands where you chose to put it, and the piece changes state. It is the piece with the
-most in it, which is why it tops the fertility map, and an act built on H outlines leans on it.
-
-Holding the bin down was tried and measured: a bin-free search returned eight sets and not one of
-them an upgrade, because the upgrade ramp works by filling a container and the bin is the
-container that reliably makes a room. `tools/act2.mjs` prints the piece counts every run, so the
-spread stays visible.
 
 The rooms themselves are [`levels/act2.tt`](./levels/act2.tt).
 

@@ -42,7 +42,7 @@ the line is rewritten.
 - **The ending, far in the future:** raccoon heaven. One beautiful screen, pixel-art parallax
   revealing clouds and garbage cans.
 
-Everything below this list is still a draft.
+Everything below this list is a draft.
 
 ---
 
@@ -157,7 +157,7 @@ trigger it with. Each row is something the player does, and what he says back.
 - `after` names an event that must have played before this one can, for a callback.
 - A key with an act suffix, such as `room.actFirst.act2`, is said in that act in place of the
   plain key.
-- `stretch: true` marks an event that needs a value the game does not work out today.
+- `stretch: true` marks an event that needs a value the game does not work out.
 - `actBound: true` marks lines that name what an act holds, so they get rewritten when the act's
   pieces change.
 - `{n}` is filled in by the game with the count the line is about.
@@ -253,10 +253,9 @@ Same settings as `alley-gold.png`. Untested drafts.
 
 Noticed by Claude, 2026-10-23. Not decisions.
 
-1. **"{n} moves back" (`lost.step4`)** looks cheap: walk the undo history back until a board is
-   not in `deadKeys`; the move after it is the one that lost the room. It fills the gap
-   GAME-SHEET answer #5 names. `lost.bagUnreachable` needs to know *why* the board is lost, which
-   nothing computes today.
+1. **"{n} moves back" (`lost.step4`)** looks cheap: walk the undo history back until a board is not
+   in `deadKeys`. It fills the gap GAME-SHEET answer #5 names. `lost.bagUnreachable` needs to know
+   *why* the board is lost, which nothing computes.
 2. **The `piece.*` lines** depend on what a move changed. The move's account in the stage looks
    like the place to read that.
 3. **Most events will repeat.** Refusals, undos and restarts each probably want three or so

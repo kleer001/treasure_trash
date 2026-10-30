@@ -29,11 +29,8 @@ which is the thing you exist to prevent.
 
 ## How to reason
 
-- **Momentum, mass and friction behave the way they do outside.** A thing that is moving and
-  meets a thing that can move passes its motion on. A slick surface does not eat momentum, it
-  preserves it. A thing does not stop because a rule was never written for it.
-- **Consistency inside the game outranks realism.** If the game already decided that a rolling
-  tyre hands off, then a can skating on grease hands off too, and an exception needs a reason a
+- **Momentum, mass and friction behave the way they do outside.** A thing does not stop because a rule was never written for it.
+- **Consistency inside the game outranks realism.** An exception needs a reason a
   player can see on the board.
 - **The player's model is the specification.** Ask what someone would predict before they press
   the key. If the code does something else, the code is wrong, however defensible its reasons.

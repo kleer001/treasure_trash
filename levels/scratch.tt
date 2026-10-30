@@ -1,4 +1,4 @@
-:pack   Treasure Trash — Scratch (bench pack, never shipped)
+:pack   Treasure Trash — Scratch (bench pack)
 
 :level  TJ
 :name   Magnet, sideways
@@ -663,7 +663,7 @@
 :teach  a knock moves the wheels if there is anywhere to move them, and goes INSIDE if there is not
 :par    21
 :solve  ddddddddddrrrrrrrrrrr
-:note   A bench: its par is a walk to the exit that touches nothing. Shove each lane from its left. Row 1, a pinned skateboard takes the tyre aboard. Row 3, a barrow with its mouth toward the blow takes it; row 5, the same barrow turned round has a closed back, so it only wobbles. Row 7, raccoon, tyre and loaded skateboard travel as one. Rows 9 and 10, a loaded skateboard with nowhere to go sheds from the file he is NOT standing behind — shove that one from the left of row 10.
+:note   A bench: its par is a walk to the exit that touches nothing. Shove each lane from its left.
 :grid
 ##############
 #@-o-----#---#
