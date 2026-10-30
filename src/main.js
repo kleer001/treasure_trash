@@ -7,7 +7,7 @@ import {
   MAG_U, MAG_D, MAG_L, MAG_R,
   FURNITURE,
   DIRS,
-  exitLit, fan, inGrid, cell, isMultiCell, stateKey,
+  exitLit, fan, inGrid, cell, isMultiCell, stateKey, restsOn,
   GREASE, TAR, GLASS, COVERED, isBarrow, barrowFace, gripTarget, OCCUPANTS as CODES,
 } from './rules.js';
 import { parseLevelPack, toGrid } from './format.js';
@@ -203,6 +203,33 @@ function doorRoll(){
   return { open: door.lit ? k : 1 - k, frame: Math.floor(clockMs() / FRAME_MS) };
 }
 const doorLive = () => PIXEL && !!door && (door.lit || since(door.t0) < DOOR.roll * FRAME_MS);
+
+// A wheelie bin that sheds its bag plays its dump in its own time from the beat it stops on: it
+// tips, rocks back and throws the bag into the cell behind it, while moves go on. The clip draws
+// the bag too, so the bag's own sprite waits under it. It ends early if the bin moves again or
+// the stage is rebuilt under it.
+let dumps = [];
+function noteDump(step){
+  if(!PIXEL) return;
+  for(const m of step.moved){
+    if(m.o !== WHEELIE || m.becomes.o !== WHEELIE_EMPTY) continue;
+    const [x, y] = restsOn(m);
+    const shed = step.spawned.find(e => e.o === BAG && e.from?.[0] === x && e.from?.[1] === y);
+    if(!shed) continue;
+    const [bx, by] = shed.cells[0];
+    const bin = stage.sprites.find(sp => sp.kind === WHEELIE_EMPTY && sp.tx === x && sp.ty === y);
+    const bag = stage.sprites.find(sp => sp.kind === BAG && sp.tx === bx && sp.ty === by && !sp.spent && !sp.dying);
+    if(!bin || !bag) continue;
+    const dir = x > bx ? 'r' : x < bx ? 'l' : y > by ? 'd' : 'u';
+    dumps.push({ bin, bag, at: [x, y], dir, t0: clockMs() });
+  }
+}
+function dumpDraw(sp){
+  const d = dumps.find(d => d.bin === sp);
+  SP.wheelieDump(sp.x, sp.y, d.dir, since(d.t0) / FRAME_MS);
+}
+const dumpLive = d => since(d.t0) < SP.wheelieDumpFrames * FRAME_MS && stage.sprites.includes(d.bin)
+  && d.bin.x === d.at[0] && d.bin.y === d.at[1];
 const slow = matchMedia('(prefers-reduced-motion: reduce)');
 
 // The stage is NOT rebuilt per action. It is already standing on `prev` — `rest()` built it
@@ -234,6 +261,7 @@ function stepMv(){
     const it = seg.items[anim.k];
     board = it.board;
     applyStep(stage, it.step, it.racTo);
+    noteDump(it.step);
   }
   advance(stage, slow.matches ? 0 : d - k, seg.pace);
   if(t < 1) return true;
@@ -259,6 +287,7 @@ function landMv(){
     const items = anim.segs[s].items;
     for(let i = (s === anim.si ? anim.k + 1 : 0); i < items.length; i++){
       applyStep(stage, items[i].step, items[i].racTo);
+      noteDump(items[i].step);
       settle(stage);
     }
   }
@@ -364,8 +393,9 @@ function tick(){
     }
     if(f >= wallFrom(t) + t.cover + t.hold + t.reveal) wipe = null;
   }
+  dumps = dumps.filter(dumpLive);
   render();
-  if(fx || anim || wipe || pose || doorLive()) raf ||= requestAnimationFrame(tick);
+  if(fx || anim || wipe || pose || doorLive() || dumps.length) raf ||= requestAnimationFrame(tick);
 }
 
 // The next room loads behind the wall, which then comes down over it; a key press goes straight
@@ -622,6 +652,8 @@ function paintSprite(sp, f){
     else SP.skateboard(sp.cells, sp.x, sp.y);
   }
   else if(sp.kind === SPLASH) SP.splash(sp.x, sp.y);
+  else if(dumps.some(d => d.bag === sp)) return;
+  else if(dumps.some(d => d.bin === sp)) dumpDraw(sp);
   else drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
     seed: sp.seed, face: sp.face, wet: sp.soaks ? (sp.soak ?? 1) : 0,
     // a bag mid-refusal deflates where it stands; a torn one deflates as its fan grows

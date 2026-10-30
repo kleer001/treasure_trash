@@ -75,6 +75,9 @@ import { C, FLOOR, SEAM } from '../../src/art/flight.js';
 import { wallTile } from '../../src/art/room.js';
 import { CELL_MS, rollEase } from '../../src/stage.js';
 
+// `?bake` draws only the bin and its bag on a clear ground, for the game's frames to be read off;
+// `&nobag` leaves the bag out.
+const BAKE = new URLSearchParams(location.search);
 const KEY = 'trash-wheelie-roll', COLS = 9, ROWS = 7, BOX = 128, $ = id => document.getElementById(id);
 const KNOBS = ['tip', 'rock', 'pop', 'rise', 'throwK', 'arc', 'depth'];
 // The bin as tuned on wheelie.html.
@@ -234,6 +237,7 @@ function draw() {
   const g = src.getContext('2d');
   const put = (px, x0, y0) => { for (const [x, y, c] of px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (BAKE.has('bake')) continue;
     if (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1) { wallTile(g, x, y, C); continue; }
     g.fillStyle = FLOOR; g.fillRect(x * C, y * C, C, C);
     g.fillStyle = SEAM; g.fillRect(x * C + C - 1, y * C, 1, C); g.fillRect(x * C, y * C + C - 1, C, 1);
@@ -276,11 +280,13 @@ function draw() {
     const turn = { r: -1, l: 1, d: 1, u: -1 }[s.dir] * (THREE.MathUtils.degToRad(tilt0) * (1 - u) - (s.flip ? 2 * Math.PI * u : 0));
     bag = { frame: new THREE.Matrix4().makeTranslation(x, y, c.z).multiply(new THREE.Matrix4().makeRotationAxis(axis, turn)), w, h };
   }
+  if (BAKE.has('nobag')) bag = null;
   const binDraw = () => put(render(tip, s.dir, bag), ox, oy);
-  const bagDraw = () => { if (k >= t.land) put(landed.px, lx * C + Math.floor((C - landed.w) / 2), ly * C + C - landed.h - 1); };
+  const bagDraw = () => { if (BAKE.has('nobag')) return; if (k >= t.land) put(landed.px, lx * C + Math.floor((C - landed.w) / 2), ly * C + C - landed.h - 1); };
   // Back to front by the row each thing stands on; the bag in the air goes over all.
-  const things = [[START[1] - dy, () => put(SIT[s.dir].px, (START[0] - dx) * C + Math.floor((C - SIT[s.dir].w) / 2), (START[1] - dy) * C + C - SIT[s.dir].h - 1)],
+  const things = BAKE.has('bake') ? [[by, binDraw], [ly, bagDraw]] : [[START[1] - dy, () => put(SIT[s.dir].px, (START[0] - dx) * C + Math.floor((C - SIT[s.dir].w) / 2), (START[1] - dy) * C + C - SIT[s.dir].h - 1)],
     [by, binDraw], [ly, bagDraw]];
+  window.baked = { n, stop: [START[0] + dx * n, START[1] + dy * n], start: START, rollF, t };
   for (const [, paint] of things.sort((a, b) => a[0] - b[0])) paint();
   const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
   const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);

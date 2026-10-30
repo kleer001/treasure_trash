@@ -25,18 +25,18 @@ import { LOOKS, slickCell } from './art/slick.js';
 import { GLASS_LOOK, glassCell } from './art/glass.js';
 import { ACTIONS, draw, mirror } from './art/cartoon.js';
 import { VIEW, place } from './art/press.js';
-import { cell, inGrid, CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, JUG, JUG_EMPTY, WHEELIE, WHEELIE_EMPTY, PANE, GREASE, TAR, GLASS } from './rules.js';
+import { cell, inGrid, CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, JUG, JUG_EMPTY, PANE, GREASE, TAR, GLASS } from './rules.js';
 
 export const PIXEL_CELL = C;
 
 /** The art's data files, fetched relative to `base`, the URL of `src/art/`. */
 export async function loadPixelArt(base) {
   const get = f => fetch(new URL(f, base)).then(r => { if (!r.ok) throw new Error(`${f}: HTTP ${r.status}`); return r.json(); });
-  const [A, D, LOOK, O] = await Promise.all(['assets.json', 'items.json', 'look.json', 'objects.json'].map(get));
-  return { A, D, LOOK, O };
+  const [A, D, LOOK, O, W] = await Promise.all(['assets.json', 'items.json', 'look.json', 'objects.json', 'wheelie.json'].map(get));
+  return { A, D, LOOK, O, W };
 }
 
-export function createPixelSprites({ ctx, art: { A, D, LOOK, O } }) {
+export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
   const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
   const still = createStills({ T, A, O, LOOK });
   const STYLE = { outline: LOOK.outline, shadow: LOOK.shadow };
@@ -62,6 +62,14 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O } }) {
     ctx.fillRect(x0, y0, W, 1); ctx.fillRect(x0, y0 + H - 1, W, 1); ctx.fillRect(x0, y0, 1, H); ctx.fillRect(x0 + W - 1, y0, 1, H);
     ctx.font = '7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(label, x0 + W / 2, y0 + H / 2);
+  };
+  // The wheelie bin's drawings, rendered from its 3D model: each is placed from the top-left of the
+  // cell the bin stands on, and its pixels are two hex digits into the palette, '..' for none.
+  const decoded = new Map();
+  const wheelieFrame = f => {
+    if (!decoded.has(f)) decoded.set(f, f.rows.flatMap((r, y) => Array.from({ length: f.w }, (_, x) => r.slice(2 * x, 2 * x + 2))
+      .flatMap((h, x) => (h === '..' ? [] : [[f.x + x, f.y + y, W.palette[parseInt(h, 16)]]]))));
+    return decoded.get(f);
   };
   const span = cells => {
     const xs = cells.map(c => c[0]), ys = cells.map(c => c[1]);
@@ -100,7 +108,15 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O } }) {
     can(x, y, full) { thing(full ? CAN_FULL : CAN_EMPTY, x, y); },
     recycleBin(x, y, full, seed = 1) { thing(full ? BIN : BIN_EMPTY, x, y, seed); },
     jug(x, y, full = true) { thing(full ? JUG : JUG_EMPTY, x, y); },
-    wheelie(x, y, full) { thing(full ? WHEELIE : WHEELIE_EMPTY, x, y); },
+    wheelie(x, y, full) { put(wheelieFrame(full ? W.full : W.empty), P(x), P(y)); },
+    /** How many screen frames the dump runs, from the bin stopping to its bag at rest. */
+    wheelieDumpFrames: W.dump.r.length * 2,
+    /** The bin stopped on (x, y) after rolling toward `dir`, `frame` screen frames into throwing its
+     *  bag out behind it: the bin and the bag both, drawn on twos. */
+    wheelieDump(x, y, dir, frame) {
+      const fs = W.dump[dir];
+      put(wheelieFrame(fs[Math.min(fs.length - 1, Math.floor(frame / 2))]), P(x), P(y));
+    },
     pane(x, y) { thing(PANE, x, y); },
     // Centred on the two cells it covers.
     skateboard(cells, ox = 0, oy = 0) {
