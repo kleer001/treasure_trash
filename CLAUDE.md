@@ -262,9 +262,25 @@ These govern how code is written. They are not design arguments.
   naming the sprite drawn that the board has not got and the one the board has that was never
   built. Screenshots are the artifact for a human to look at once something has already failed,
   not the check.
-- Comments carry what the code cannot — see [`CLEAN_PROSE.md`](./CLEAN_PROSE.md). A comment that
-  restates the line below it, or the signature above it, is deleted rather than reworded.
 - Atomic conventional commits: `feat:`, `fix:`, `docs:`, `test:`, `chore:`.
+
+### No comment says what the code does
+
+**The code says what it does. A comment that says it again is a second copy of the code, in a
+form nothing checks, and it goes stale on the next edit.** Do not write one. Delete one on sight.
+
+- A comment never states a rule: what a piece or terrain does, what refuses what, how far or
+  which way a thing goes, a count, a timing or a distance. `src/rules.js` holds the rules.
+- A comment never restates the line below it, the signature above it, or the function's name.
+- A comment never narrates a block step by step.
+- A comment may say what a file is, where a thing lives, WHY a non-obvious choice went that way,
+  a contract the code cannot show (units, ranges, a return shape), or a syntax you cannot infer.
+  [`CLEAN_PROSE.md`](./CLEAN_PROSE.md) has the full test.
+- Before you add a comment, ask whether the code already says it. If it does, do not add it.
+- When you change code, delete the comments the change makes false. Do not reword them.
+- This applies to every file: `src/`, `tools/`, `tests/`, the pages and the benches. In a test, a
+  comment that states a rule goes even with an assertion under it: the test name and the
+  assertion already say it.
 
 ## Architecture
 

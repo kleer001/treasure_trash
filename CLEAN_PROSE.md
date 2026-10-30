@@ -45,8 +45,7 @@ and goes; if nothing is left standing, put it back.
 Prose is safe when something checks it, when its reader is not holding the pencil, or when it
 declares itself non-binding.
 
-- **checked** — `levels.md`'s `:solve` strings, which `verify.mjs` asserts appear verbatim; a
-  comment whose assertions sit right below it
+- **checked** — `levels.md`'s `:solve` strings, which `verify.mjs` asserts appear verbatim
 - **not their pencil** — `GAME-SHEET.md`, `publishing/`
 
 An exception is a claim about the file, not about the sentence. In a file with no exception, a
