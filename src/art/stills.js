@@ -21,7 +21,11 @@ export function createStills({ T, A, O, LOOK }) {
   return (o, cx, cy, seed = 1) => {
     switch (o) {
       case CAN_EMPTY: return upright(CAN.front, CAN.restAt(cx, cy, C));
-      case CAN_FULL: { const [bx, by] = CAN.bagIn(A.bag); return upright(CAN.front, CAN.restAt(cx, cy, C), moved(A.bag.px, bx, by)); }
+      case CAN_FULL: {
+        // The bag goes over the can where the can shows what it holds: over its rim and inside it.
+        const [bx, by] = CAN.bagIn(A.bag), P = CAN.restAt(cx, cy, C), up = CAN.frame('r', 0);
+        return { px: [...CAN.front.px, ...moved(A.bag.px, bx, by).filter(([x, y]) => up.shows(x, y))], x: P[0], y: P[1], h: CAN.front.h };
+      }
       case BIN_EMPTY: return upright(BOX.front, BOX.restAt(cx, cy, C));
       case BIN: return upright(BOX.front, BOX.restAt(cx, cy, C), heap(seed));
       case JUG: case JUG_EMPTY: {

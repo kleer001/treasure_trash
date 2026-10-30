@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Can shape</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 420px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  label { display: grid; grid-template-columns: 150px 1fr 64px; gap: 10px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <label>body half-width px <input id="r" type="range" min="5" max="11" step="1"><input id="rn" type="number" step="1"></label>
+  <label>height px <input id="h" type="range" min="16" max="30" step="1"><input id="hn" type="number" step="1"></label>
+  <label>taper px a side <input id="taper" type="range" min="0" max="3" step="1"><input id="tapern" type="number" step="1"></label>
+  <label>flutes round it <input id="flutes" type="range" min="0" max="30" step="1"><input id="flutesn" type="number" step="1"></label>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div id="size" class="muted"></div>
+  <div class="muted">The game's floor, wall, raccoon and bag, 24 px cells. Empty, full, then him facing down and right beside full ones. The rim, the bands and the handles keep their size; the fluted part takes the height.</div>
+  <textarea id="note" placeholder="Note on the can"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+
+<script type="module">
+import { loadPixelArt, createPixelSprites, PIXEL_CELL as C } from '../../src/pixel.js';
+import { galvanized } from '../../src/art/can.js';
+
+const KEY = 'trash-can-shape', COLS = 7, ROWS = 4, $ = id => document.getElementById(id);
+const KNOBS = ['r', 'h', 'taper', 'flutes'];
+let s = { r: 9, h: 21, taper: 2, flutes: 12, zoom: 6 };
+try { const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); for (const k in s) if (saved[k] !== undefined) s[k] = saved[k]; } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+
+const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+const g = src.getContext('2d');
+const art = await loadPixelArt(new URL('../../src/art/', import.meta.url));
+const S = createPixelSprites({ ctx: g, art }), BAG = art.A.bag;
+const put = (px, x0, y0) => { for (const [x, y, c] of px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
+
+/** The can in cell (cx, cy), its foot a pixel above the cell's bottom edge; a full one has the bag
+ *  standing in it, its neck over the rim. */
+function can(spr, cx, cy, full) {
+  const x = cx * C + Math.floor((C - spr.w) / 2), y = cy * C + C - spr.h - 1;
+  // Only the part over the rim shows: the rest is inside the can.
+  const bx = x + Math.floor((spr.w - BAG.w) / 2), by = y - 7;
+  if (full) put(BAG.px.filter(([px_, py]) => by + py < y && bx + px_ > x + 2 && bx + px_ < x + spr.w - 3), bx, by);
+  put(spr.px, x, y);
+}
+
+function draw() {
+  for (const k of KNOBS) { $(k).value = s[k]; $(k + 'n').value = s[k]; }
+  $('zoom').textContent = `${s.zoom}×`;
+  const spr = galvanized(s);
+  $('size').textContent = `drawing ${spr.w} × ${spr.h} px, with the handles`;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) (y === 0 ? S.wall(x, y) : S.floor(x, y));
+  // Drawn back to front, row by row, as the game draws them.
+  can(spr, 1, 1, false); can(spr, 2, 1, true); can(spr, 4, 1, true); can(spr, 5, 1, false);
+  S.raccoon(3, 2, 'd'); can(spr, 4, 2, true);
+  S.raccoon(1, 3, 'r'); can(spr, 2, 3, true); can(spr, 3, 3, false);
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+const change = () => { save(); draw(); autosave(); };
+for (const k of KNOBS) {
+  $(k).oninput = () => { s[k] = Number($(k).value); change(); };
+  $(k + 'n').onchange = () => { s[k] = Math.round(Number($(k + 'n').value)); change(); };
+}
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(12, s.zoom + 1); save(); draw(); };
+// Every change saves itself to the notes file, the note with it, a moment after the last edit.
+let timer = 0;
+const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'can-shape', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600); };
+$('note').oninput = autosave;
+draw(); autosave();
+</script>
+</body>
+</html>

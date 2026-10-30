@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Can handles</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  #edit { cursor: crosshair; touch-action: none; border: 1px solid #c9c6bf; }
+  .side { display: grid; gap: 12px; }
+  .swatches, .side > .row, .side > .muted, textarea { max-width: 360px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .swatches { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .sw { display: flex; gap: 8px; align-items: center; padding: 4px 6px; border: 1px solid #c9c6bf; background: #fff; cursor: pointer; font: 14px system-ui, sans-serif; text-align: left; }
+  .sw.on { outline: 3px solid #1a1a1a; outline-offset: -1px; }
+  .chip { width: 22px; height: 22px; border: 1px solid #1a1a1a; flex: none; }
+  .chip.none { background: repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 0 0 / 8px 8px; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<canvas id="edit"></canvas>
+<div class="side">
+  <div class="swatches" id="swatches"></div>
+  <div class="row"><label><input id="mirror" type="checkbox"> mirror each pixel to the other side</label></div>
+  <div class="row"><button id="undo">Undo</button><button id="restart">Start over</button></div>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">Click or drag to paint one pixel at a time. The grid has two spare columns each side for the handles. Below, at game size ×3: the can empty and full, a wheelie bin, the exit, a water jug and him.</div>
+  <canvas id="game"></canvas>
+  <textarea id="note" placeholder="Note on the can's handles"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+
+<script type="module">
+import { loadPixelArt, createPixelSprites, PIXEL_CELL as C } from '../../src/pixel.js';
+import { galvanized, ZINC } from '../../src/art/can.js';
+
+const SHAPE = { r: 9, h: 21, taper: 2, flutes: 12 }, MARGIN = 2, KEY = 'trash-can-handles', $ = id => document.getElementById(id);
+const PALETTE = { k: ZINC.ink, D: ZINC.deep, d: ZINC.dark, m: ZINC.mid, l: ZINC.light, s: ZINC.shine };
+const NAMES = { k: 'ink', D: 'deep', d: 'dark', m: 'mid', l: 'light', s: 'shine' };
+const LETTER = Object.fromEntries(Object.entries(PALETTE).map(([k, v]) => [v, k]));
+const START = (() => {
+  const can = galvanized(SHAPE), grid = Array.from({ length: can.h }, () => Array(can.w + 2 * MARGIN).fill('.'));
+  for (const [x, y, c] of can.px) grid[y][x + MARGIN] = LETTER[c];
+  return grid.map(r => r.join(''));
+})();
+const W = START[0].length, H = START.length, history = [];
+let s = { rows: START, ink: 'k', zoom: 20, mirror: true, note: '' };
+try { const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); for (const k in s) if (saved[k] !== undefined) s[k] = saved[k]; } catch {}
+
+const art = await loadPixelArt(new URL('../../src/art/', import.meta.url));
+const COLS = 9, ROWS = 3, P = 3, src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+const g = src.getContext('2d'), S = createPixelSprites({ ctx: g, art }), BAG = art.A.bag;
+
+$('swatches').innerHTML = [...Object.keys(PALETTE), '.'].map(c => `<button class="sw" data-c="${c}"><span class="chip${c === '.' ? ' none' : ''}" style="${c === '.' ? '' : `background:${PALETTE[c]}`}"></span>${c === '.' ? 'empty' : NAMES[c]}</button>`).join('');
+for (const b of document.querySelectorAll('.sw')) b.onclick = () => { s.ink = b.dataset.c; draw(); };
+
+const put = (px, x0, y0) => { for (const [x, y, c] of px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
+const painted = () => s.rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]])));
+/** The painted can in cell (cx, cy), its foot a pixel above the cell's bottom edge; a full one shows
+ *  its bag over the rim. */
+function can(cx, cy, full) {
+  const x = cx * C + Math.floor((C - W) / 2), y = cy * C + C - H - 1;
+  const bx = x + Math.floor((W - BAG.w) / 2), by = y - 7;
+  if (full) put(BAG.px.filter(([px_, py]) => by + py < y && bx + px_ > x + MARGIN + 2 && bx + px_ < x + W - MARGIN - 3), bx, by);
+  put(painted(), x, y);
+}
+
+function draw() {
+  for (const b of document.querySelectorAll('.sw')) b.classList.toggle('on', b.dataset.c === s.ink);
+  $('zoom').textContent = `${s.zoom}×`; $('mirror').checked = s.mirror; $('note').value = s.note;
+  const z = s.zoom, e = $('edit'); e.width = W * z + 1; e.height = H * z + 1;
+  const o = e.getContext('2d');
+  o.fillStyle = '#896e6e'; o.fillRect(0, 0, e.width, e.height);
+  s.rows.forEach((r, y) => [...r].forEach((c, x) => { if (c !== '.') { o.fillStyle = PALETTE[c]; o.fillRect(x * z, y * z, z, z); } }));
+  o.fillStyle = 'rgba(255,255,255,0.18)';
+  for (let x = 0; x <= W; x++) o.fillRect(x * z, 0, 1, e.height);
+  for (let y = 0; y <= H; y++) o.fillRect(0, y * z, e.width, 1);
+  o.fillStyle = 'rgba(255,255,255,0.5)';
+  for (const x of [MARGIN, W - MARGIN]) o.fillRect(x * z - 1, 0, 2, e.height);
+
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) (y === 0 ? S.wall(x, y) : S.floor(x, y));
+  S.exit(5, 0, false, 'd');
+  can(1, 1, false); can(2, 1, true); S.wheelie(3, 1, true); S.jug(4, 1, true); can(6, 1, true);
+  S.raccoon(1, 2, 'r'); can(2, 2, true); S.jug(3, 2, false); S.raccoon(4, 2, 'd'); can(5, 2, false); S.wheelie(7, 2, false);
+  const m = $('game'); m.width = src.width * P; m.height = src.height * P;
+  const mo = m.getContext('2d'); mo.imageSmoothingEnabled = false; mo.drawImage(src, 0, 0, m.width, m.height);
+  autosave();
+}
+
+let painting = false;
+const at = ev => { const r = $('edit').getBoundingClientRect(); return [Math.floor((ev.clientX - r.left) / s.zoom), Math.floor((ev.clientY - r.top) / s.zoom)]; };
+const set = (rows, x, y) => rows.map((r, k) => (k === y ? r.slice(0, x) + s.ink + r.slice(x + 1) : r));
+const paint = ev => {
+  const [x, y] = at(ev);
+  if (x < 0 || y < 0 || x >= W || y >= H) return;
+  const rows = s.mirror ? set(set(s.rows, x, y), W - 1 - x, y) : set(s.rows, x, y);
+  if (rows.join() === s.rows.join()) return;
+  s.rows = rows; draw();
+};
+$('edit').onpointerdown = ev => { history.push(s.rows); painting = true; $('edit').setPointerCapture(ev.pointerId); paint(ev); };
+$('edit').onpointermove = ev => { if (painting) paint(ev); };
+$('edit').onpointerup = () => { painting = false; };
+$('mirror').onchange = () => { s.mirror = $('mirror').checked; draw(); };
+$('undo').onclick = () => { if (history.length) { s.rows = history.pop(); draw(); } };
+$('restart').onclick = () => { history.push(s.rows); s.rows = START; draw(); };
+$('zout').onclick = () => { s.zoom = Math.max(4, s.zoom - 2); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(40, s.zoom + 2); draw(); };
+$('note').oninput = () => { s.note = $('note').value; autosave(); };
+
+// Every change saves itself, to this browser and to the notes file, a moment after the last edit.
+let timer = 0;
+function autosave() {
+  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
+  clearTimeout(timer);
+  timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ page: 'can-handles', shape: SHAPE, margin: MARGIN, rows: s.rows, note: s.note, at: new Date().toISOString() }) })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+    .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600);
+}
+draw();
+</script>
+</body>
+</html>

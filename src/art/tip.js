@@ -30,8 +30,9 @@ function placed(px) {
  *  `toward`, and fallen away `away`, both as wide as `front` and as deep as each other; its foot
  *  moves `fold` px as it falls either of those ways. Given `fall(dir, deg)`, it falls toward the
  *  viewer or away as that draws it instead: its pixels `px` and its `place(bx, by, d)`, in px from
- *  the upright thing's top-left. */
-export function tipper(front, toward, away, fold, fall = null) {
+ *  the upright thing's top-left. What it holds also shows where `opens(bx, by)` says its upright
+ *  drawing looks into it. */
+export function tipper(front, toward, away, fold, fall = null, opens = () => false) {
   const W = front.w, H = front.h, D = toward.h, FRONT = at(front), TOWARD = at(toward), AWAY = at(away);
   /** The front turned a quarter: clockwise lays its top to the right. */
   const quarter = cw => ({ w: H, h: W, px: front.px.map(([x, y, col]) => cw ? [H - 1 - y, x, col] : [y, W - 1 - x, col]) });
@@ -67,7 +68,7 @@ export function tipper(front, toward, away, fold, fall = null) {
       }
     return { ...placed(px),
       place: (bx, by) => { const [u, v] = fwd(bx - pv[0], by - pv[1]); return [u + pv[0], v + pv[1]]; },
-      shows: (x, y) => { const [bx, by] = upright(x, y); return by < 0 && bx >= 1 && bx < W - 1; },
+      shows: (x, y) => { const [bx, by] = upright(x, y); return by < 0 && bx >= 1 && bx < W - 1 || opens(Math.floor(bx), Math.floor(by)); },
       hides: (x, y) => { const [bx, by] = upright(x, y); return bx >= 0 && bx < W && by >= 0 && by < H; } };
   }
 
@@ -81,15 +82,20 @@ export function tipper(front, toward, away, fold, fall = null) {
     const tall = faces[0][2] + faces[1][2];
     return { ...placed(stacked(bottom, faces)),
       place: (bx, by, d) => [bx, bottom - ((H - by) * cos + (towardViewer ? d : D - d) * sin)],
-      shows: (x, y) => x >= 1 && x < W - 1 && bottom - y - 0.5 >= rim,
+      shows: (x, y) => {
+        if (x >= 1 && x < W - 1 && bottom - y - 0.5 >= rim) return true;
+        // Which row of the upright front this pixel shows, squeezed as the front face is.
+        const up = bottom - y - 0.5 - (towardViewer ? 0 : D * sin), shown = H * cos;
+        return up >= 0 && up < shown && opens(x, H - 1 - Math.floor(up / (shown / H)));
+      },
       hides: (x, y) => !towardViewer && x >= 0 && x < W && y < bottom && bottom - y - 0.5 < tall };
   }
 
   /** A fall toward the viewer or away, `deg` degrees over, as the thing's own `fall` draws it.
-   *  Nothing it holds shows, and its body hides nothing. */
+   *  What it holds shows where its `shows` says, if it has one; its body hides nothing. */
   function fallen(dir, deg) {
-    const { px, place } = fall(dir, deg);
-    return { ...placed(px), place, shows: () => false, hides: () => false };
+    const { px, place, shows = () => false } = fall(dir, deg);
+    return { ...placed(px), place, shows, hides: () => false };
   }
 
   const FRAMES = new Map();
