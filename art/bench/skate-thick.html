@@ -44,8 +44,6 @@ const g = src.getContext('2d');
 const S = createPixelSprites({ ctx: g, art: await loadPixelArt(new URL('../../src/art/', import.meta.url)) });
 const board = (b, x, y, w, h) => { for (const [px, py, c] of b.px) { g.fillStyle = c; g.fillRect(x * C + Math.floor((w * C - b.w) / 2) + px, y * C + Math.floor((h * C - b.h) / 2) + py, 1, 1); } };
 
-/** The board across with its edge `n` px deep: the top lifts and the wheels stay on the floor. The
- *  edge's bottom line is colour 2, every line above it, and the edge round the ends, colour 1. */
 const across = n => {
   PALETTE[1] = s.c1; PALETTE[2] = s.c2;
   const top = ACROSS.slice(0, 10).map(r => r.replace(/D/g, '1')), edge = ACROSS[10], wheels = ACROSS.slice(11);
@@ -68,7 +66,6 @@ $('zin').onclick = () => { s.zoom = Math.min(12, s.zoom + 1); change(); };
 for (const k of ['c1', 'c2']) $(k).oninput = () => { s[k] = $(k).value; change(); };
 $('edge').oninput = () => { s.edge = Number($('edge').value); change(); };
 $('edgen').onchange = () => { s.edge = Math.min(5, Math.max(1, Math.round(Number($('edgen').value)))); change(); };
-// The note saves itself to the notes file a moment after the last edit.
 let timer = 0;
 const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ page: 'skate-thick', settings: s, note: $('note').value, at: new Date().toISOString() }) })

@@ -54,7 +54,6 @@ export function rankWall(wall, pattern) {
       case 'upRight': return x / W - y / H;
       case 'upLeft': return -x / W - y / H;
       case 'spiralCw': case 'spiralCcw': {
-        // Ring by ring inward, a course deep, each ring walked round from its top-left corner.
         const k = Math.floor(Math.max(0, Math.min(x, W - x, y, H - y)) / ring), i = k * ring;
         const x0 = i, y0 = i, x1 = W - i, y1 = H - i, top = y - y0, right = x1 - x, bottom = y1 - y, left = x - x0;
         const m = Math.min(top, right, bottom, left), across = x1 - x0, down = y1 - y0;
@@ -80,13 +79,12 @@ export function brickPhase(r, f, t) {
   return { laid, gone };
 }
 
-/** The frame the first brick drops, counted from when he starts to leave: he goes, then the room stands empty. */
+/** The frame the first brick drops, counted from when he starts to leave. */
 export const wallFrom = t => t.exit + t.empty;
 
 /**
  * The hold over the room that came in and the brick-in after it, for his line about it with `left`
- * frames still to run. The wall comes down so that he ends no more than `tail` frames after it is
- * down, and each of the two keeps to its own least and most.
+ * frames still to run.
  */
 export function roomBeats(left, t) {
   const within = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -94,7 +92,7 @@ export function roomBeats(left, t) {
   return { hold, reveal: within(left - t.tail - hold, t.reveal, t.revealMax) };
 }
 
-/** The wall `f` frames into the cover. A brick drops into its course; it shrinks away on the way out. */
+/** The wall `f` frames into the cover. */
 export function drawWipe(ctx, wall, pattern, t, f) {
   const K = KINDS[wall.kind], ranks = rankWall(wall, pattern), drop = 2 * K.h;
   const px = (x, y, w, h) => ctx.fillRect(x * wall.p, y * wall.p, w * wall.p, h * wall.p);

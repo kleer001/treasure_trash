@@ -1,7 +1,5 @@
-// The barrow, drawn by hand over orthographic renders of a model. Its tub points the way it
-// faces: away from us facing u, at us facing d. Each view is a grid of palette characters, its
-// bottom row on the ground. The front and back are drawn larger than the sides, so that no view
-// reaches more than two pixels past its cell.
+// The barrow, drawn by hand over orthographic renders of a model. Away from us facing u, at us facing d.
+// Each view is a grid of palette characters, its bottom row on the ground.
 const PALETTE = {
   k: '#19152b', R: '#d6d3b0', T: '#453d51', t: '#262440', M: '#67819e', w: '#ca8b68', W: '#d9ac87', g: '#06050e', m: '#9aa2a9', n: '#67819e', o: '#262440', O: '#453d51', h: '#7dafb3',
 };

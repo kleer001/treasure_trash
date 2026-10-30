@@ -12,17 +12,12 @@
 //
 // TWO GRAINS, and the coarse one exists to be diagnosed by the fine one.
 //
-//   ANSWER  a whole room: par, distinct shortest solves, traps, reachable states, exit
-//           refusals. What the pack is verified on, so a port that gets these right is a port
+//   ANSWER  a whole room. What the pack is verified on, so a port that gets these right is a port
 //           the level pipeline can use. Useless when it fails — it says a room came out wrong
 //           and nothing about which rule did it.
-//   STEP    one board, one direction: legal or not, which refusal, which action class, and the
-//           exact board it lands on. What actually pins the rules. A disagreement here IS the
-//           bug report: the board, the direction, and the two answers.
-//
-// So an ANSWER disagreement is not reported as itself. The room is re-run at STEP grain over
-// every state it can reach, and what comes out is the shallowest board where the two engines
-// first part company.
+//   STEP    one board, one direction, and the exact board it lands on. What actually pins the
+//           rules. A disagreement here IS the bug report: the board, the direction, and the two
+//           answers.
 //
 // The corpus is not written by hand. Every state of every shipped room is a legal board that
 // somebody's rules produced, which is a better fuzzing corpus than anything invented, and the
@@ -70,9 +65,7 @@ export function disagreement(mine, theirs) {
  * Lay terrain over a drawn room. Every lane the `:water` mask carries, not only the canal —
  * a corpus that cannot express grease or a one-way cannot catch an engine that gets them wrong.
  *
- * Walls and the exit refuse terrain and the raccoon may not start in water or on glass, so the
- * draw simply avoids his cell and theirs. An OCCUPIED cell is fair game and is the point: a can
- * standing on grease and a rug lying over a grate are where the two engines part company.
+ * An OCCUPIED cell is fair game and is the point: it is where the two engines part company.
  */
 function sprinkleTerrain(room, rnd, n) {
   const LANES = [...'~=%T*_O^v<>'];
@@ -97,7 +90,6 @@ export function generatedRooms(count, seed) {
                   '$Bw', 'xPC', 'F$', 'S$', '$bw',
                   // the roster added since
                   '$s', 'Cd', '$g', 'oO', '$o', 'UC', 'Y$', 'Uo', 'hC', '$h', 'r$', 'rC',
-                  // No lone drawer: it is half of an open cabinet and never stands by itself.
                   'a$', 'mC', 'eo', 'kU', 'qC', 'f$', 'pU', 'q$C', 'rh$', 'dg', 'sC', 'YU', 'Pq',
                   // the barrow, at every facing, forwards and backwards into things
                   'rF', 'r$', 'rC', 'lF', 'l$', 'lC', 'uF', 'u$', 'dC', 'd$', 'lo', '$rb',
@@ -110,8 +102,7 @@ export function generatedRooms(count, seed) {
     if (!plan) continue;
     let room = placeOn(GROUPS[Math.floor(rnd() * GROUPS.length)], plan, w, h, rnd);
     if (!room) continue;
-    // Half the corpus carries terrain. The other half keeps the bare-floor cases, which is
-    // where a piece's own rule shows without a lane on top of it.
+    // Half the corpus carries terrain. The other half keeps the bare-floor cases.
     if (rnd() < 0.5) room = sprinkleTerrain(room, rnd, 1 + Math.floor(rnd() * 4));
     try { toState(room); } catch { continue; }
     out.push({ name: `generated#${out.length}`, level: { id: 'gen', ...room } });
@@ -122,8 +113,7 @@ export function generatedRooms(count, seed) {
 /**
  * Rooms that START with a stack: a barrow holding a barrow that is holding something.
  *
- * A room only reaches one after a particular run of shoves, and rooms drawn at random walk it
- * about one time in a hundred — so the lane that carries a load inside a load would be asked
+ * Random rooms rarely reach one, so the lane that carries a load inside a load would be asked
  * for by nothing, and a port that dropped it on the floor would agree with everything the
  * corpus happened to try. These start on the boards that lane exists for, and the sampler then
  * takes them apart a direction at a time like any other room.
@@ -134,18 +124,13 @@ export function nestedRooms() {
     { grid: ['#########', '#-@->---#', '#------E#', '#########'], cart: ['---------', '----r----', '---------', '---------'], hold: ['4,1 C'] },
     { grid: ['#########', '#-@->-C-#', '#------E#', '#########'], cart: ['---------', '----r----', '---------', '---------'], hold: ['4,1 c'] },
     { grid: ['#########', '#-@->---#', '#------E#', '#########'], cart: ['---------', '----r-s--', '---------', '---------'], hold: ['4,1 $'] },
-    // Backwards down the same alley: it rolls, and takes nothing off it.
     { grid: ['#########', '#-@-<-C-#', '#------E#', '#########'], cart: ['---------', '----l----', '---------', '---------'], hold: ['4,1 C'] },
-    // Across the axis, where the whole stack goes over the front.
     { grid: ['#######', '#--@--#', '#-v---#', '#-----#', '#E----#', '#######'], cart: ['-------', '-------', '--d----', '-------', '-------', '-------'], hold: ['2,2 C'] },
-    // Into a cart, which is the one thing that can swallow it whole.
     { grid: ['##########', '#-@->----#', '#-------E#', '##########'], cart: ['----------', '----r-PP--', '----------', '----------'], hold: ['4,1 C'] },
-    // Onto every lane, one room: a grate that takes what falls in it, and water it plank over.
     { grid: ['##########', '#-@->----#', '#-------E#', '##########'], cart: ['----------', '----r-----', '----------', '----------'],
       water: ['----------', '------O%--', '----------', '----------'], hold: ['4,1 $'] },
     { grid: ['##########', '#-@->----#', '#-------E#', '##########'], cart: ['----------', '----r-----', '----------', '----------'],
       water: ['----------', '------~T--', '----------', '----------'], hold: ['4,1 C'] },
-    // And in reach of a magnet, which drags what it holds and never what is inside it.
     { grid: ['##########', '#-@->--q-#', '#-------E#', '##########'], cart: ['----------', '----r-----', '----------', '----------'], hold: ['4,1 C'] },
   ];
   return rooms.map((room, i) => ({ name: `nested#${i}`, level: { id: 'nest', ...room } }));

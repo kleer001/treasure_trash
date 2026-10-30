@@ -7,33 +7,33 @@ export const TALK = ['quiet', 'chatty', 'verbose'];
 // Every number the crow runs on, the watcher's thresholds included, so tuning him is one table.
 export const TUNING = {
   // ---- the director ----
-  preWaitMs: 1000,          // silence before he starts to talk
+  preWaitMs: 1000,
   cps: 40,                  // typing, characters a second
-  readPerCharMs: 38,        // a beat stays up as long as it takes to read, typing included,
-  holdMs: 900,              //   and then this much more at the end of a line,
-  beatGapMs: 400,           //   or this much between its beats
-  speechPerCharMs: 45,      // a speech, which has the screen to itself, at its own pace: holdMs after every beat
-  fastX: 3,                 // the first skip press: the rest of the monologue at this speed
-  monoGapMs: 10000,         // after a monologue, before another monologue may start
-  eventGapMs: 30000,        // a common event's own timer
-  momentMs: 6000,           // how long a line about a moment may wait its turn
+  readPerCharMs: 38,
+  holdMs: 900,
+  beatGapMs: 400,
+  speechPerCharMs: 45,
+  fastX: 3,
+  monoGapMs: 10000,
+  eventGapMs: 30000,
+  momentMs: 6000,
   repeatChance: { quiet: 0.15, chatty: 0.35, verbose: 0.7 },
-  faceMs: 1500,             // a face with no words, for an event his talk setting does not hear
+  faceMs: 1500,
   talkStart: 'chatty',
-  talkWindow: 8,            // the last lines, for whether he gets quieter
-  talkDown: 0.6,            // share of those the player skipped: one setting quieter
-  talkUpWindow: 16,         // the last lines, for whether he gets more talkative
-  talkUp: 0.1,              // share of those skipped at or under which: one setting chattier
+  talkWindow: 8,
+  talkDown: 0.6,
+  talkUpWindow: 16,
+  talkUp: 0.1,
 
   // ---- the watcher ----
   tinyPar: 4, hugePar: 30,
-  longWalk: 12,             // plain walks in a row
-  loopMin: 4,               // walks out and back to the same board
-  pacing: 4,                // walks, each the reverse of the one before
+  longWalk: 12,
+  loopMin: 4,
+  pacing: 4,
   fastRun: 8, fastGapMs: 350,
   slowRun: 4, slowGapMs: 6000,
-  facingMs: 5000,           // standing at a bag, facing it
-  halfBags: 4,              // fewest bags in a room for "half torn" to mean anything
+  facingMs: 5000,
+  halfBags: 4,
   longRoll: 4, longestRollMin: 5,
   sameRefusal: [3, 5, 8, 12],
   flail: 4, flailMs: 3000,
@@ -46,20 +46,16 @@ export const TUNING = {
   restartEarly: 5, restartDeep: 15,
   manyRestarts: 5, winRestarts: 3,
   sameOpening: 4,
-  lostLadder: [2, 5, 9, 14],  // moves made on a lost board before each step of the ladder
+  lostLadder: [2, 5, 9, 14],
   lostIdleMs: 10000,
   yodaLost: 4,
   idleMs: 20000, rambleMs: 60000, dozeMs: 120000,
   nemesis: 5,
-  streak: [3, 5, 8, 12],     // par wins in a row that he names
+  streak: [3, 5, 8, 12],
   loseStreak: 3,
 };
 
-// The rank is the order of this list: tier first, then place in the tier. An entry ending in a
-// dot is a family, and its members rank in the order `dialogue/crow.json` lists them. Every event
-// has a place, so which of two lines plays is never down to which was fired first.
-// `chance`: once an event of the tier has played, it speaks again only by chance.
-// `gap`: an event of the tier has a timer of its own. `name` is for the debug panel.
+// An entry ending in a dot is a family. `name` is for the debug panel.
 const TIERS = [
   { name: 'story', chance: false, gap: false, keys: ['story.', 'room.firstEver', 'room.backAllStars', 'room.backDone'] },
   { name: 'act and teach', chance: false, gap: false, keys: ['progress.actDone', 'room.actFirst', 'room.teach', 'meet.'] },
@@ -83,8 +79,7 @@ const TIERS = [
 /** Every name and family the rank list places, for a test to hold against the lines. */
 export const RANK_ENTRIES = TIERS.flatMap(t => t.keys);
 
-// How long a line that has to wait stays worth saying. `timed`: no longer than `momentMs`.
-// `arrive`: a new room ends it. `rewind`: an undo or a restart ends it. A win has been recorded
+// How long a line that has to wait stays worth saying. A win has been recorded
 // by the time anyone can undo it, so what is said about it outlives an undo. An act's first room
 // is often left before the line about the act can start, and the line is about the act, not the room.
 const MOMENT = { timed: true, arrive: true, rewind: true };
@@ -97,16 +92,15 @@ const LASTS = [
   ['progress.', { timed: false, arrive: false, rewind: false }],
 ];
 
-// A key with an act suffix is its base event said in that act's words, and ranks as the base.
+// A key with an act suffix is its base event said in that act's words.
 const variantOf = (key, events) => {
   const m = /^(.*)\.act\d+$/.exec(key);
   return m && m[1] in events ? m[1] : null;
 };
 
 /**
- * Rank, tier and lifetime for every event, built once from `events`. An event the list does not
- * place fails here; an entry that places nothing is a test's to catch, so a small table can stand
- * in for the lines.
+ * Rank, tier and lifetime for every event, built once from `events`. An entry that places nothing
+ * is a test's to catch, so a small table can stand in for the lines.
  */
 export function rankTable(events) {
   const keys = Object.keys(events).filter(k => !events[k].stretch && !variantOf(k, events));
@@ -136,7 +130,7 @@ export function createCrowMemory(store) {
     const raw = store.getItem(CROW_KEY);
     const parsed = raw ? JSON.parse(raw) : {};
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) data = parsed;
-  } catch { /* unreadable: he starts over */ }
+  } catch { /* unreadable */ }
   for (const k of ['said', 'count', 'bags', 'rooms', 'left', 'flags'])
     if (!data[k] || typeof data[k] !== 'object' || Array.isArray(data[k])) data[k] = {};
   for (const [k, bag] of Object.entries(data.bags)) if (!Array.isArray(bag)) delete data.bags[k];
@@ -155,8 +149,7 @@ export function beatMs(beats, i, speech, T = TUNING) {
 export const lineMs = (line, speech, T = TUNING) =>
   [line].flat().reduce((ms, s, i, beats) => ms + beatMs(beats, i, speech, T), 0);
 
-// His answers to being skipped. The director says these itself, and they are not lines the
-// player chose to hear or to skip.
+// His answers to being skipped.
 const SKIPPED = 'progress.skipped', QUIETER = 'progress.quieter';
 
 /**
@@ -198,8 +191,7 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
   // A variant is remembered by its first line, so the bag survives the file being reordered.
   const firstOf = v => [v].flat()[0];
 
-  // Variants he has not said yet, and when he has said them all the bag fills again, less the one
-  // he said last, so a refill never opens on a repeat. `pick` narrows it, for a monologue that has to wait.
+  // `pick` narrows it, for a monologue that has to wait.
   function draw(bagKey, lines, pick) {
     const ok = lines.map((v, i) => i).filter(i => pick(lines[i]));
     const bag = mem.bags[bagKey] ?? [];
@@ -213,7 +205,7 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
 
   const stale = (c, at) => c.rank.lasts.timed && at - c.t > T.momentMs;
 
-  /** Why a candidate cannot start at `at`, or null when it can. The talk setting comes last. */
+  /** Why a candidate cannot start at `at`, or null when it can. */
   function gate(c, at) {
     const e = events[c.key];
     if (e.once && said(c.key, e.once, c.ctx)) return 'said';
@@ -239,7 +231,7 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
       return;
     }
     wants.push(c);
-    // Earlier, never later: the timer may be set as far out as a waiting monologue's turn.
+    // The timer may be set as far out as a waiting monologue's turn.
     dueAt = Math.min(dueAt ?? Infinity, t + T.preWaitMs);
   }
 
@@ -317,7 +309,6 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
     if (wants.length) dueAt = Math.min(dueAt ?? Infinity, at + T.preWaitMs);
   }
 
-  /** Skips make him quieter, a setting at a time, and he says so; lines heard to the end make him chattier. */
   function listened(at, skipped) {
     recent.push(skipped);
     if (recent.length > T.talkUpWindow) recent.shift();
@@ -336,7 +327,6 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
     if (skipped) post(SKIPPED, at, {}, true);
   }
 
-  // Walks the director forward to `t`, landing every beat, line end and start at its own time.
   function advance(t) {
     if (t < now) throw new Error(`crow: time went back from ${now} to ${t}`);
     for (;;) {
@@ -355,7 +345,6 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
     now = t;
   }
 
-  /** Lines still waiting that `ends` says are over. */
   function drop(t, ends, why) {
     wants = wants.filter(c => {
       if (!ends(c)) return true;
@@ -367,18 +356,14 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
 
   return {
     fire(key, t, ctx) { advance(t); post(key, t, ctx); },
-    /** The wall between rooms is up for him: what waits for its turn starts now, not after the usual pause. */
     cue(t) { advance(t); if (!cur && wants.length) { dueAt = t; advance(t); } },
-    /** Esc, Space or Enter: the first press speeds the line up, the second skips the rest of it. */
     press(t) {
       advance(t);
       if (!cur) return;
       if (cur.speed === 1) { cur.speed = T.fastX; onLog({ t, type: 'fast', key: cur.key }); }
       else end(t, true);
     },
-    /** A new room: what is once a visit can be said again, and lines about the last room are over. */
     arrive(t) { advance(t); saidVisit = new Set(); drop(t, c => c.rank.lasts.arrive, 'left'); },
-    /** An undo or a restart: lines about the moves it took back are over. */
     rewind(t) { advance(t); drop(t, c => c.rank.lasts.rewind, 'rewound'); },
     /** The full ones left changed: a waiting line that counts them would say the old count. */
     recount(t, left) { advance(t); drop(t, c => 'left' in c.ctx && c.ctx.left !== left, 'recount'); },

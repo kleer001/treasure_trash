@@ -1,14 +1,10 @@
-// The filing cabinet. Shut it is one cell and an ordinary occupant; open it is one PIECE of two
-// cells lying along its facing, the drawer being the end the facing points at. Opening and
-// shutting are swaps: one piece is destroyed and the other put down, so nothing ever grows a cell
-// and no board can hold half a cabinet.
+// The filing cabinet.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { explain, isMultiCell, CABC_R, CABO_R, cell, isCart } from '../src/rules.js';
 import { BODY_LANE } from '../src/handles.js';
 
-/** The arrivals that are a body of their own rather than an occupant of a cell. */
 const bodies = born => born.filter(e => e.lane === BODY_LANE);
 import { toState, toGrid, toCart } from '../src/format.js';
 
@@ -21,8 +17,6 @@ test('open is a piece, shut is an occupant', () => {
   assert.equal(isMultiCell(CABC_R), false);
 });
 
-// A cabinet opens when it is struck on the BACK, and the blow is spent doing it: the cabinet
-// does not slide, because it is not a thing that rolls.
 test('struck on the back, the drawer comes out and the cabinet stays put', () => {
   const after = toGrid(push(S(['-------', '-------', '-@m----', '-------', 'E------']), 'r'));
   assert.equal(after[2], '-@JJ---', 'it did not move; it is two cells now');
@@ -37,9 +31,6 @@ test('the step says the shut one is gone and a piece was born', () => {
   assert.equal(body.handle, '2,1/body');
 });
 
-// A blow is a blow whoever lands it, and the account owes the same thing either way: the stage
-// mints the body from `born`, so an impact that opens a cabinet and says nothing leaves a piece
-// on the board that nothing on screen is drawing.
 test('an impact that opens a cabinet says so too', () => {
   const r = explain(S(['--------', '-@w--m--', '--------', 'E-------']), 'r', { trace: true });
   assert.ok(r.ok, `refused: ${r.reason}`);
@@ -56,7 +47,6 @@ test('struck on any other face it is an ordinary shove, and stays shut', () => {
     '-m@----', 'shoved back onto itself, still shut');
 });
 
-// The drawer comes out along the line the blow travelled, so it is an ordinary push.
 test('the drawer shoves what stands in its way', () => {
   const after = toGrid(push(S(['-------', '-@m-c--', '-------', 'E------']), 'r'));
   assert.equal(after[1], '-@JJc--', 'the can went on one cell to make room');
@@ -66,8 +56,6 @@ test('a drawer with nowhere to go refuses the blow', () => {
   assert.equal(refuse(S(['------', '-@m#--', '------', 'E-----']), 'r'), 'canRoom');
 });
 
-// Driven drawer-first into something, the drawer folds home and the body carries on into the
-// cell the drawer was filling — so it ends up shut, standing against whatever stopped it.
 test('run drawer-first into something, it shuts and comes to rest against it', () => {
   const after = toGrid(push(S(['-------', '-@JJ#--', '-------', 'E------']), 'r'));
   assert.equal(after[1], '--@m#--', 'the piece is gone and a shut one stands against the wall');
@@ -87,10 +75,10 @@ test('shoved anywhere else an open cabinet moves as one rigid thing', () => {
 
 test('a cabinet may start a level open, at any facing, and writes back as itself', () => {
   for (const grid of [
-    ['--@-', '--A-', '--A-', 'E---'],        // drawer above the body, facing up
-    ['--@-', '--D-', '--D-', 'E---'],        // and below it, facing down
-    ['-@--', '-II-', '----', 'E---'],        // to the left, facing left
-    ['-@--', '-JJ-', '----', 'E---'],        // to the right, facing right
+    ['--@-', '--A-', '--A-', 'E---'],
+    ['--@-', '--D-', '--D-', 'E---'],
+    ['-@--', '-II-', '----', 'E---'],
+    ['-@--', '-JJ-', '----', 'E---'],
   ]) assert.deepEqual(toGrid(S(grid)), grid);
 });
 
@@ -99,15 +87,11 @@ test('two cabinets standing flush are two pieces, and keep their letters', () =>
   assert.deepEqual(toGrid(S(grid)), grid);
 });
 
-// A board with half a cabinet on it is not refused, it is unwritable: there is no glyph for a
-// drawer, and a piece of one cell is not a cabinet.
 test('half a cabinet cannot be written down at all', () => {
   assert.throws(() => S(['-@--', '-J--', '----', 'E---']), /an open cabinet is exactly two/);
   assert.throws(() => S(['-@--', '-J--', '-J--', 'E---']), /across its own facing/);
 });
 
-// Opening is a blow, not a privilege of the raccoon's own shove: anything that comes to rest
-// against the back of a shut cabinet knocks its drawer out.
 test('a rolling thing that stops against its back knocks it open', () => {
   const after = toGrid(push(S(['--------', '-@w--m--', '--------', 'E-------']), 'r'));
   assert.equal(after[1], '--@-wJJ-', 'the bin rolled up to it and it opened');
@@ -128,14 +112,10 @@ test('a swept line knocks it open, and the sweep is spent doing it', () => {
   assert.equal(after[1], '-@rcJJ--', 'nothing swept; it opened');
 });
 
-// Shut, it is one cell and cart-sized. A cart the raccoon pushes onto one takes it aboard; a
-// cart that arrives on a knock has its mouth shut, so it strikes it instead and opens it.
 test('a cart pushed onto a shut cabinet takes it aboard', () => {
   const s = S(['---------', '-@--m---E', '---------'], null, ['---------', '--PP-----', '---------']);
   const r = explain(s, 'r');
   assert.ok(r.ok, `refused: ${r.reason}`);
-  // A cart cell's occupant IS its cargo, so where the cabinet is written says nothing on its
-  // own: what says it went aboard is that the cell it is written in belongs to the cart.
   const at = toGrid(r.next)[1].indexOf('m');
   assert.ok(at >= 0, 'the cabinet is still on the board');
   assert.ok(isCart(cell(r.next, at, 1)), 'and it is riding in the cart rather than standing');
@@ -148,8 +128,6 @@ test('a cart that rolls up against its back knocks it open and stops there', () 
   assert.equal(toGrid(r.next)[0].slice(8), 'JJE', 'struck by a knocked cart, it opened');
 });
 
-// Both states are on the lanes, and neither is written for the cabinet: one cell is taken by a
-// grate, and a body spans it.
 test('shut it goes down a grate; open it spans one', () => {
   const shut = push(S(['-------', '--@----', '--m----', '-------', 'E------'],
                       ['-------', '-------', '-------', '--O----', '-------']), 'd');
@@ -159,9 +137,6 @@ test('shut it goes down a grate; open it spans one', () => {
   assert.equal(toGrid(open)[1], '--@JJ---', 'and a body simply travels');
 });
 
-// A body spans a hole and one cell does not, so the moment a cabinet folds back to one cell over
-// a grate it is standing on nothing. Both ways of shutting it land the same occupant on the same
-// cell, so both owe the grate the same answer.
 test('folded in over a grate it goes down it', () => {
   const folded = push(S(['---------', '-@JJ#----', '---------', 'E--------'],
                         ['---------', '---O-----', '---------', '---------']), 'r');

@@ -17,19 +17,16 @@ const named = o => NAME[o] ?? `?${o}`;
 const at = ([x, y]) => `${x},${y}`;
 const cart = n => `cart#${n}`;
 
-// What a thing is once it lands, where the lane it rests in does not already say it: the code it
-// reads as, the id it takes, which cart holds it, and how deep in what that cart is carrying.
 const rests = m =>
   (m.becomes.o !== m.o ? ` becomes ${named(m.becomes.o)}` : '')
   + (m.becomes.lane === CART_LANE && m.becomes.ref !== m.ref ? ` into ${cart(m.becomes.ref)}` : '')
   + (m.parent != null ? ` in ${cart(m.parent)}` : '')
   + (laneDepth(m.becomes.lane) ? ` @${laneDepth(m.becomes.lane)}` : '');
 
-/** What an entry is about, and how much of the board it covers. */
 const span = e => `${e.o === null ? '' : named(e.o)}${e.ref === null ? '' : `#${e.ref}`} ${e.handle}`
   + (e.cells.length > 1 ? ` ${e.cells.map(at).join(' ')}` : '');
 
-/** One traced step, as lines: every mutation it billed, one lane at a time. */
+/** One traced step, as lines. */
 const linesOf = step => {
   const out = [];
   if (step.impact) out.push('impact');
@@ -60,13 +57,13 @@ export function createDebugLog(el, cap = 240) {
     el.scrollTop = el.scrollHeight;
   };
   return {
-    /** A move that landed: where he ended up, then what it did to the board. */
+    /** A move that landed. */
     action(n, dir, from, r) {
       add(`${n} ${dir} ${r.kind}`,
         [`rac ${at([from.x, from.y])}->${at([r.next.rac.x, r.next.rac.y])}`,
           ...r.steps.flatMap(linesOf)]);
     },
-    /** A move that did not: the engine's own reason, and the cells it blamed. */
+    /** A move that did not. */
     refused(dir, r) {
       add(`- ${dir} refused: ${r.reason}`, r.blame.map(b => `blame ${at(b)}`), 'no');
     },
@@ -84,10 +81,7 @@ export function createDebugLog(el, cap = 240) {
  * The probe: what a driver asks the running game, instead of looking at it.
  *
  * A screenshot answers "what is on the canvas" in pixels somebody then has to interpret, and it
- * cannot say what the board underneath believes. The stage already knows where every sprite is
- * going, and `census` is the same roll `tools/matrix.mjs` compares — so the question worth asking
- * is the one that tool asks, put to the REAL loop: does the stage the animation left behind hold
- * the same sprites as a stage built fresh from the board?
+ * cannot say what the board underneath believes.
  *
  * `matrix.mjs` lands steps on a stage directly. Everything between an arrow key and that call —
  * the input handler, the timeline, the animation frame that walks it — is only ever exercised by
@@ -115,8 +109,7 @@ export function createProbe(read) {
     };
   };
 
-  // A frame at a time until the game says it is at rest, so a beat is checked where the player
-  // would see it and not mid-slide. Bounded: a stuck animation is a result, not a hang.
+  // A beat is checked where the player would see it and not mid-slide. Bounded: a stuck animation is a result, not a hang.
   const settled = (limit = 600) => new Promise(done => {
     let n = 0;
     const spin = () => (read.idle() || ++n > limit) ? done(n <= limit) : requestAnimationFrame(spin);
@@ -128,10 +121,10 @@ export function createProbe(read) {
     grid: () => read.grid(),
     /** Which way things face, by handle: `[handle, { heading, lie }]` pairs. */
     decor: () => [...(read.decor() ?? [])],
-    /** Sound is off from the first `walk` on; a person debugging by hand gets it back with this. */
+    /** A person debugging by hand gets sound back with this. */
     mute: v => read.mute(v),
     /**
-     * Press each key through the page's own handler and check the beat it lands. Returns one
+     * Returns one
      * record per key, and stops at the first beat that disagrees or throws — after that the stage
      * and the board have already parted company and every later record says the same thing twice.
      */
@@ -151,8 +144,7 @@ export function createProbe(read) {
     },
 
     /**
-     * Drive a plan from `tools/sweep.mjs`: every run of every room, each beat checked, and the
-     * meetings each run was there to cause reported by name.
+     * Drive a plan from `tools/sweep.mjs`.
      *
      * The plan says what is worth pressing; this says whether the screen kept up with it. A run
      * that stops short stopped on a fault, so the meetings past that point were never had — they
@@ -193,10 +185,9 @@ export function createProbe(read) {
     hold: () => read.hold(),
     step: (n = 1) => read.step(n),
     run: () => read.run(),
-    /** Whether nothing is moving: no beat, no refusal, no wall between rooms. */
     idle: () => read.idle(),
 
-    /** Step the picker round to a room and start it clean. False when the pack has no such id. */
+    /** False when the pack has no such id. */
     goto(id) {
       for (let i = 0; i < LEVEL_SEARCH && read.level() !== id; i++) press('>');
       if (read.level() !== id) return false;
@@ -206,12 +197,12 @@ export function createProbe(read) {
   };
 }
 
-// The pack wraps, so a full turn round it is the most any search of it can need.
+// A full turn round it is the most any search of it can need.
 const LEVEL_SEARCH = 400;
 const press = key => dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
 
-// The solve alphabet the level files are written in. Upper case is the same direction: a `.sol`
-// says which shoves are shoves by capitalising them, and the keyboard has no such distinction.
+// The solve alphabet the level files are written in. A `.sol` says which shoves are shoves by
+// capitalising them, and the keyboard has no such distinction.
 const KEYNAME = {
   u: 'ArrowUp', d: 'ArrowDown', l: 'ArrowLeft', r: 'ArrowRight',
   U: 'ArrowUp', D: 'ArrowDown', L: 'ArrowLeft', R: 'ArrowRight',

@@ -125,7 +125,7 @@ function show() {
   document.getElementById('frame-read').textContent = `frame ${j} of ${FRAMES - 1} · ${Math.round(t)} ms after the push · ${air} in the air · ${down} landed`;
 }
 
-/** The chosen piece over bare floor at each height, landed first. */
+/** The chosen piece over bare floor at each height. */
 function strip() {
   const root = document.getElementById('strip'); root.innerHTML = '';
   const s = T.sprite(ui.piece, 0, 0), TW = 44, TH = 40 + Math.max(...HEIGHTS), z = ui.zoom;

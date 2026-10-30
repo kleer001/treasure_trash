@@ -1,9 +1,4 @@
-// The wheelbarrow: a cart of ONE cell that FACES the way its tub points, and cannot turn.
-// Three things can happen to it and the facing decides which — shoved the way it faces it
-// swallows what it meets, which is the scoop; shoved back along the same line it rolls and picks
-// nothing up; shoved across the line, it tips.
-// Carrying without a carry verb: the barrow carries, and you push it.
-//
+// The wheelbarrow.
 // In the `:cart` mask a barrow is written as the direction it faces.
 
 import { test } from 'node:test';
@@ -16,22 +11,16 @@ const push = (s, dir) => { const r = explain(s, dir); assert.ok(r.ok, `refused: 
 const refuse = (s, dir) => { const r = explain(s, dir); assert.ok(!r.ok, 'expected a refusal'); return r.reason; };
 
 test('shoved the way it faces, a barrow scoops what it is TOUCHING', () => {
-  // What it was already touching when the shove began, and nothing further. It is aimed, not
-  // open-mouthed: a barrow that took things in for as far as it rolled would empty a corridor
-  // in one press, and no one could read the board it left.
   const after = push(S(['@-c--E', '------'], ['-r----', '------']), 'r');
   assert.equal(toGrid(after)[0], '-@c--E', 'the can is riding, not left behind');
   assert.equal(toCart(after)[0], '--r---', 'and it is riding in the barrow');
 });
 
-// A cart pushes its load out the back when it stops rolling. A barrow does not — what it
-// scooped stays in until it is tipped, which is the whole of what scooping buys.
 test('a barrow does not eject what it scooped the way a cart does', () => {
   const after = push(S(['@--C-E', '------'], ['-r----', '------']), 'r');
   assert.ok(toGrid(after)[0].includes('C'), 'still a full can, still aboard');
 });
 
-// Cargo rides cart-style, so the win condition keeps counting it without being told anything.
 test('a bag in a barrow still counts against the room', () => {
   const s = S(['@--$-E', '------'], ['-r----', '------']);
   assert.equal(bagsLeft(s), 1);
@@ -39,7 +28,6 @@ test('a bag in a barrow still counts against the room', () => {
 });
 
 test('shoved across its line it tips, and the load carries one cell further', () => {
-  //  The recycle bin's shape exactly: the dump is a shed, not a new mechanic.
   const s = S(['------', '-@----', '-c----', '------', 'E-----'], ['------', '------', '-r----', '------', '------']);
   const after = push(s, 'd');
   assert.equal(toGrid(after)[2], '-@----', 'he took the cell it left');
@@ -47,8 +35,6 @@ test('shoved across its line it tips, and the load carries one cell further', ()
   assert.equal(toGrid(after)[4], 'Ec----', 'and its load went one cell further');
 });
 
-// Same barrow, same board, two directions. Along its line it travels the alley; across it, it
-// goes one cell and tips. Nothing stores the facing but the glyph, and it never turns.
 test('the facing decides which of the three things a shove is', () => {
   const along = push(S(['@----E', '------'], ['-r----', '------']), 'r');
   assert.equal(toCart(along)[0], '----r-', 'along: it travelled the alley');
@@ -57,10 +43,7 @@ test('the facing decides which of the three things a shove is', () => {
   assert.equal(toCart(across)[2], '-r----', 'and went exactly one cell');
 });
 
-// The whole of what the facing buys. Backwards it is a cart with no mouth: it rolls the same
-// alley and takes nothing off it.
 test('shoved against its facing it rolls, and picks nothing up', () => {
-  // It faces LEFT and is shoved RIGHT, so it is going backwards: no mouth that way.
   const after = push(S(['E@---c', '------'], ['--l---', '------']), 'r');
   assert.equal(toCart(after)[0], '----l-', 'it rolled up to the can and stopped');
   assert.equal(toGrid(after)[0], 'E-@--c', 'the can is still on the floor, not aboard');
@@ -73,7 +56,6 @@ test('backwards down a clear alley it rolls to the end, still empty', () => {
 });
 
 test('the same barrow turned round, the other way: it scoops', () => {
-  // The one difference the facing makes, put beside itself.
   const after = push(S(['c-@--E', '------'], ['-l----', '------']), 'l');
   assert.equal(toCart(after)[0], 'l-----', 'it took the cell the can was in');
   assert.equal(toGrid(after)[0], 'c@---E', 'and the can went with it, aboard');
@@ -85,13 +67,9 @@ test('a barrow keeps its kind when it moves, or two boards would key alike', () 
 });
 
 // --- the tow --------------------------------------------------------------------------------
-// One cell cannot swallow a couch, so the barrow is the HANDLE rather than the container: it
-// hooks what it cannot scoop and the pair moves as one. This is the link lane, and the magnet's
-// chain rides in the same one.
 
 import { inAHold } from '../src/rules.js';
 
-/** Every cell in a hold — the holder gripping, and the body it has hold of. */
 const linked = s => s.cells.flatMap((row, y) => row.map((c, x) => [x, y]))
   .filter(([x, y]) => inAHold(s, x, y));
 
@@ -102,7 +80,7 @@ test('shoved at something too big to scoop, the barrow hooks on instead of refus
 });
 
 test('a hooked pair moves as one rigid thing', () => {
-  let s = push(S(['@--FF--E', '--------'], ['-r------', '--------']), 'r');   // rolls up and hooks
+  let s = push(S(['@--FF--E', '--------'], ['-r------', '--------']), 'r');
   assert.equal(linked(s).length, 3, 'barrow and both couch cells, one complex');
   s = push(s, 'r');
   assert.equal(toGrid(s)[0], '--@-FF-E', 'the couch came along');
@@ -113,8 +91,6 @@ test('a blocked tow refuses; a barrow shoved again would only take the same hold
   assert.equal(refuse(s, 'r'), 'canRoom', 'the couch is against the wall, so the shove has nowhere to go');
 });
 
-// Shoved from the far side the load drags its barrow behind it. That is the board pulling, not
-// the raccoon — the one place pulling was ever allowed.
 test('pushing the load drags the barrow along', () => {
   let s = push(S(['------', '@-FF--', '------', 'E-----'], ['------', '-r----', '------', '------']), 'r');
   const from = S(['------', '--FF@-', '------', 'E-----'], ['------', '-r----', '------', '------']);
@@ -126,14 +102,11 @@ test('pushing the load drags the barrow along', () => {
 test('tipping lets go of what it was towing', () => {
   let s = push(S(['------', '@-FF--', '------', 'E-----'], ['------', '-r----', '------', '------']), 'r');
   for (const d of ['u', 'r']) s = push(s, d);
-  s = push(s, 'd');                                   // across the axis: it tips
+  s = push(s, 'd');
   assert.equal(linked(s).length, 0, 'the link is gone');
 });
 
 test('a tipping barrow is a BODY, not an occupant that moved', () => {
-  // Across its axis the barrow turns over: it goes one cell and its load carries on one
-  // further. The barrow has a cart sprite of its own — an occupant entry on that cell asks the
-  // stage for a sprite of code NONE, which it does not hold.
   const s = S(['-----', '--@--', '--C--', '-----', '-----', 'E----'],
               ['-----', '-----', '--d--', '-----', '-----', '-----']);
   const r = explain(s, 'd', { trace: true });
@@ -147,8 +120,6 @@ test('a tipping barrow is a BODY, not an occupant that moved', () => {
 });
 
 // --- a barrow in a barrow -------------------------------------------------------------------
-// One cell holds one cart, so a barrow riding in something cannot still BE a cart: it is cargo
-// like everything else that rides, and it is a barrow again wherever cargo is put down.
 
 test('a barrow scoops an empty barrow and carries it off', () => {
   const after = push(S(['@----E', '------'], ['-rs---', '------']), 'r');
@@ -167,7 +138,7 @@ test('tipped out, it is a barrow again', () => {
 
 test('a loaded barrow is picked up with its load still in it', () => {
   const s = S(['-@---E', '------'], ['--rs--', '------']);
-  s.cells[0][3].o = CAN_FULL;                        // a full can riding in the far barrow
+  s.cells[0][3].o = CAN_FULL;
   const r = explain(s, 'r');
   assert.ok(r.ok, `refused: ${r.reason}`);
   assert.equal(toCart(r.next)[0], '---r--', 'one barrow left, holding the other');
@@ -177,11 +148,6 @@ test('a loaded barrow is picked up with its load still in it', () => {
 });
 
 test('a barrow carries a barrow carrying a barrow, and every load comes back', () => {
-  // Nothing bounds the stack: what a barrow holds is a chain, and a chain is as long as it is.
-  //
-  // But only an EMPTY barrow scoops, so depth costs one barrow per level and the stack is built
-  // from the INSIDE OUT — B takes C, and only then can A take B. Do it the other way round and A
-  // is full after the first bite, with nothing left that can pick anything up.
   const s = toState({ id: 't',
     grid: ['-----C--', '---@----', 'E-------'],
     cart: ['-r--st--', '--------', '--------'] });
@@ -195,14 +161,13 @@ test('a barrow carries a barrow carrying a barrow, and every load comes back', (
   assert.deepEqual(chainOf(cell(at, 5, 0)), [BAR_R, BAR_R, CAN_FULL], 'three deep');
   assert.equal(bagsLeft(at), 1, 'the can is still a can the exit is waiting on');
 
-  // And it all comes out again: tipped across its axis, the barrow turns the stack out whole.
   const back = toState({ id: 'rt', grid: toGrid(at), cart: toCart(at), hold: toHold(at) });
   assert.deepEqual(chainOf(cell(back, 5, 0)), [BAR_R, BAR_R, CAN_FULL], 'and it round-trips');
 });
 
 test('a hooked barrow is spoken for, and cannot be picked up', () => {
   const s = S(['@---FF-E', '--------'], ['-r-r----', '--------']);
-  s.cells[0][3].grip = 1;                                            // the far one is towing
+  s.cells[0][3].grip = 1;
   const r = explain(s, 'r');
   assert.ok(r.ok, `refused: ${r.reason}`);
   assert.equal(toCart(r.next)[0], '--rs----', 'it stopped against it rather than taking it');

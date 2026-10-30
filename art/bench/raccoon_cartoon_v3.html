@@ -85,16 +85,13 @@ const KEY = 'trash-cartoon-v3';
 // `CELL_MS` in src/main.js.
 const FRAME_MS = 1000 / 60, MOVE_FR = 7, WINDUP_FR = 4;
 const N = 9, VIEW = { l: 'side', r: 'side', d: 'front', u: 'back' };
-// Where he starts for each press: one cell in from the wall behind him, so a run has room ahead.
+// So a run has room ahead.
 const START = { r: [1, 4], l: [7, 4], d: [4, 1], u: [4, 7] };
-// The frames that shove: the raccoon touches the thing on each of them and never overlaps it.
 const TOUCH = /^(slam|drive|thud|hold|strain|tremble)/;
 const BEAT = { rest: 'R', windup: 'W', move: 'M', tail: 'T', idle: 'I', turn: '↻' };
 const authored = Object.fromEntries(Object.entries(ACTIONS).flatMap(([v, as]) => Object.entries(as).map(([a, fs]) => [`${v} ${a}`, fs.map(f => f.fr)])));
 const ui = load(KEY, { act: 'crawl', dir: 'r', from: 'r', presses: 1, interval: 12, recovery: 'look', seed: 1,
   playing: true, speed: 100, zoom: 5, onion: false, holds: structuredClone(authored), thing: 'c', stop: 0 });
-// What he pushes, and how many cells past it a wall stands for a push: a thing that rolls goes on
-// until something stops it.
 const [A, D, LOOK, O] = await Promise.all(['../../src/art/assets.json', '../../src/art/items.json', '../../src/art/look.json', '../../src/art/objects.json'].map(f => fetch(f).then(r => r.json())));
 const stillOf = createStills({ T: createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals }), A, O, LOOK });
 for (const k in authored) if (ui.holds[k]?.length !== authored[k].length) ui.holds[k] = [...authored[k]];
@@ -106,7 +103,6 @@ const frOf = f => f.hold ?? (f.i === undefined ? f.fr : ui.holds[timing()][f.i])
 
 const canvasOf = (w, h = w) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 const drawPx = (ctx, list, x, y) => { for (const [px, py, col] of list) { ctx.fillStyle = col; ctx.fillRect(x + px, y + py, 1, 1); } };
-// A sprite stands centred on its cell, its feet one pixel above the cell's bottom edge.
 const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
 
 /** The room, the board before the run, and the board after each press. */
@@ -149,7 +145,6 @@ function timeline() {
   let moveEnd = begin;
   for (let k = 0; k < ui.presses; k++) {
     const start = Math.max(begin + k * ui.interval, moveEnd), cut = segs.filter(s => s.t0 < start).at(-1).f;
-    // A press that comes while he is still low goes straight into the move; from any other pose he winds up.
     const chained = k > 0 && (cut.beat === 'move' || cut.low === true);
     if (k > 0) {
       while (segs[segs.length - 1].t0 >= start) segs.pop();
@@ -159,7 +154,6 @@ function timeline() {
     const base = ui.act === 'crawl' || ui.act === 'push' ? k * C : 0, thing = ui.act === 'push' ? k * C : 0;
     for (const f of fs) {
       if (f.beat === 'rest' || (f.recovery && f.recovery !== rec) || (chained && f.beat === 'windup')) continue;
-      // Every other press in a run takes the frame's other stride.
       add(k % 2 && f.alt ? { ...f.alt, beat: f.beat, i: f.i } : f, { base, thing, mirrored, first: !chained, press: k + 1 });
       if (f.beat === 'move') moveEnd = segs[segs.length - 1].t1;
     }
@@ -173,13 +167,12 @@ function ground(ctx, s) {
   for (let k = 0; k < N; k++) { ctx.fillRect(k * C + C - 1, 0, 1, N * C); ctx.fillRect(0, k * C + C - 1, N * C, 1); }
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (cell(s, x, y).wall) wallTile(ctx, x, y, C);
 }
-/** Sprites `[{px, x, y, h, rac}]` drawn nearest last: the lower foot in front, the raccoon on a tie. */
+/** Sprites `[{px, x, y, h, rac}]`, drawn nearest last. */
 const sprites = (ctx, list) => { for (const p of list.sort((a, b) => (a.y + a.h) - (b.y + b.h) || a.rac - b.rac)) drawPx(ctx, p.px, p.x, p.y); };
 const things = s => { const out = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const t = stillOf(cell(s, x, y).o, x, y); if (t) out.push([x, y, t]); } return out; };
 const spriteOf = (seg, o) => { const spr = draw(seg.f, o); return seg.mirrored ? mirror(spr) : spr; };
 
-/** Segment `seg` laid on the board before the run: every can, the shoved one moved along, and the
- *  raccoon. `o` says whether to draw the dust and the sparks. */
+/** `o` says whether to draw the dust and the sparks. */
 function layout(seg, o = { dust: seg.first, fx: true }) {
   const s = B.states[0], spr = spriteOf(seg, o), [x0, y0] = at(spr, s.rac.x, s.rac.y), [vx, vy] = B.v, list = [];
   for (const [x, y, t] of things(s)) {
@@ -190,14 +183,12 @@ function layout(seg, o = { dust: seg.first, fx: true }) {
   list.push({ px: spr.px, x: x0 + vx * d, y: y0 + vy * d, h: spr.h, rac: 1 });
   return list;
 }
-/** Segment `seg` on the board, with the parts of the raccoon that go in front of the shoved can last. */
 function paint(ctx, seg) {
   ground(ctx, B.states[0]);
   const list = layout(seg), rac = list.find(p => p.rac);
   sprites(ctx, list);
   if (seg.f.over?.length) drawPx(ctx, spriteOf(seg, { layer: 'over' }).px, rac.x, rac.y);
 }
-/** A still of board `s`: its cans, and the raccoon sitting, facing `dir`. */
 function still(ctx, s, dir) {
   ground(ctx, s);
   const list = things(s).map(([, , t]) => ({ px: t.px, x: t.x, y: t.y, h: t.h, rac: 0 }));
@@ -207,8 +198,7 @@ function still(ctx, s, dir) {
 }
 const alone = f => ({ f, base: 0, thing: 0, mirrored: ui.dir === 'l', first: true });
 const BARE = { dust: false, fx: false };
-/** Empty px between the raccoon and the shoved can along a push across the screen, in the nearest row
- *  both fill; below zero they overlap. */
+/** Empty px between the raccoon and the shoved can along a push across the screen, in the nearest row both fill. */
 function gap(f) {
   const [rac, can] = layout(alone(f), BARE).sort((a, b) => b.rac - a.rac), rows = new Map(), d = B.v[0];
   for (const [x, y] of rac.px) { const k = rac.y + y, a = (rac.x + x) * d; rows.set(k, Math.max(rows.get(k) ?? -Infinity, a)); }
@@ -216,8 +206,7 @@ function gap(f) {
   for (const [x, y] of can.px) { const k = can.y + y; if (rows.has(k)) best = Math.min(best, (can.x + x) * d - rows.get(k) - 1); }
   return best;
 }
-/** Screen px the raccoon and the shoved can share: up and down the screen, contact is the one drawn
- *  over the other. */
+/** Screen px the raccoon and the shoved can share. */
 function overlap(f) {
   const [rac, can] = layout(alone(f), BARE).sort((a, b) => b.rac - a.rac), seen = new Set(rac.px.map(([x, y]) => `${rac.x + x},${rac.y + y}`));
   return can.px.filter(([x, y]) => seen.has(`${can.x + x},${can.y + y}`)).length;

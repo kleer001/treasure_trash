@@ -176,9 +176,8 @@ export function reroot(a, start) {
  * The set of boards from which the room can no longer be won — everything `analyze` computes
  * about liveness, and nothing else.
  *
- * A GENERATOR, driven a slice at a time, because this runs in the page: the rooms this pack
- * is heading toward reach tens of thousands of states, and computing that in one go would
- * stall the frame it started on. Yields `{ scanned }` every `budget` expansions and RETURNS
+ * A GENERATOR, driven a slice at a time, because this runs in the page: computing that in one go
+ * would stall the frame it started on. Yields `{ scanned }` every `budget` expansions and RETURNS
  * the dead set.
  *
  * Where `analyze` keeps a cloned board per state so it can report paths and pars, this keeps
@@ -254,7 +253,7 @@ function countShortestPaths(states, rootKey, targets, minMoves) {
       const w = ways.get(k) ?? 0;
       if (!w) continue;
       for (const e of states.get(k).edges) {
-        if (states.get(e.to).depth !== d + 1) continue;   // stay on the shortest-path DAG
+        if (states.get(e.to).depth !== d + 1) continue;
         ways.set(e.to, (ways.get(e.to) ?? 0) + w);
       }
     }

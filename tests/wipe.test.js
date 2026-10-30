@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { P, PATTERNS, KINDS, layWall, rankWall, brickPhase, wallFrom, roomBeats } from '../src/wipe.js';
 
-// A small room and a large one, in canvas pixels at 76 a cell.
 const SIZES = [[5 * 76, 4 * 76], [14 * 76, 11 * 76]];
 const T = { cover: 40, hold: 50, reveal: 30, lay: 8, order: 'same' };
 const centre = b => [b.x + b.w / 2, b.y + b.h / 2];
@@ -66,7 +65,6 @@ test('the cover ends with every brick down, and the reveal ends with every brick
       assert.equal(brickPhase(r, t.cover + t.hold, t).gone, 0);
       assert.equal(brickPhase(r, t.cover + t.hold + t.reveal, t).gone, 1);
     }
-    // The order the bricks come down in: the same way the wall went up, or back the way it came.
     const half = t.cover + t.hold + t.reveal / 2;
     const first = brickPhase(0, half, t).gone, last = brickPhase(1, half, t).gone;
     assert.ok(order === 'same' ? first > last : last > first, order);

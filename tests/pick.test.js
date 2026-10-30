@@ -16,21 +16,17 @@ const room = (over = {}) => ({
 // metric loves, and an act of twenty rooms about one piece is one room twenty times.
 
 test('the act is spread across par bands rather than heaped where the metric scores best', () => {
-  // Twenty rooms, all high-scoring, but pars only at the two extremes.
   const scored = [];
   for (let i = 0; i < 40; i++)
     scored.push(room({ par: i % 2 ? 34 : 15, group: `g${i}`, total: 100 - i }));
   const { picked, byBand, short } = choose(scored, { want: 10, lo: 14, hi: 35, bands: 5 });
   assert.ok(byBand.every(n => n <= 2), `no band may exceed its quota, got ${byBand}`);
   assert.ok(byBand[0] > 0 && byBand[byBand.length - 1] > 0, 'both ends should be represented');
-  // Three bands have nothing to offer, so the act is short by design and says which bands.
   assert.equal(picked.length, 4);
   assert.equal(short.length, 3);
 });
 
 test('no single piece may take over the act', () => {
-  // Every room contains B. The cap has to bite, and the act comes up short rather than
-  // quietly becoming twenty rooms about one piece.
   const scored = Array.from({ length: 40 }, (_, i) =>
     room({ group: 'BBBB', par: 14 + (i % 20), total: 100 - i }));
   const { picked, byPiece } = choose(scored, { want: 10, lo: 14, hi: 35, bands: 5, perGroup: 99 });
@@ -46,7 +42,6 @@ test('one room per piece group, so the act is not variations on a single mixture
 });
 
 test('a band that cannot be filled is reported, never topped up from another', () => {
-  // Nothing at all in the low bands: the act must come up short and say where.
   const scored = Array.from({ length: 30 }, (_, i) =>
     room({ group: `g${i}`, par: 33, total: 100 - i }));
   const { picked, short, byBand } = choose(scored, { want: 10, lo: 14, hi: 35, bands: 5 });
@@ -104,14 +99,13 @@ test('a cart room carries its mask into the pack', () => {
 // --- refit -------------------------------------------------------------------
 
 test('tightening preserves par and never loosens the room', () => {
-  // A deliberately roomy board: tighten should wall off floor the solve never used.
   const row = {
     group: '$Bj', states: 99999,
     grid: ['--------', '-@-$----', '--------', 'E-------', '--------'],
   };
   const before = analyze(toState({ id: 'b', grid: row.grid }));
   const after = refit(row);
-  if (after === null) return;                       // nothing to tighten is a legal outcome
+  if (after === null) return;
   assert.equal(after.par, before.minMoves, 'tightening must not change what the room asks');
   assert.ok(after.solves <= before.shortestCount, 'and must not add solutions');
   assert.ok(after.states <= before.reachable, 'walls only ever remove options');

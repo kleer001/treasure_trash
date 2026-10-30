@@ -4,20 +4,15 @@
 //   node tools/resite.mjs [--in F] [--out F] [--workers N]
 //
 // `placeOn` hands the exit and the raccoon two random free cells and never looks at them
-// again. Nothing downstream looks either: par counts the walk, `walks` counts it wherever it
-// falls, and every score is a rate over a par the walk inflated. So a room can be sound on
-// every number in the harvest and still open with a march to the first piece and close with a
-// longer one to the door, and the numbers will call it a long room rather than an empty one.
+// again.
 //
 // This searches the two cells the generator threw away, and keeps the best pair by
-// `deadTravel`. Walls cannot fix it — `shrink` may only take floor no solution touches, and
-// the floor between the last decision and a distant door is floor every solution crosses.
+// `deadTravel`. Walls cannot fix it — `shrink` may only take floor no solution touches.
 //
 // PER SET, like `shrink`: the three rooms share an outline, a raccoon and an exit, and that
 // sharing is the set. A pair has to be affordable to all three or to none.
 //
-// RUN IT BEFORE `shrink`. Moving the raccoon off the end of a corridor is what makes the
-// corridor unused, and `shrink` is what then walls it away.
+// RUN IT BEFORE `shrink`.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -78,8 +73,8 @@ function read(grid, cart, { parMin, parMax }, cache = null) {
   if (a.minMoves === null) return null;
   if (a.minMoves < parMin || a.minMoves > parMax) return null;
   if (a.silentTraps.length) return null;
-  if (bagsLeft(s) > 0 && a.exitRefusals === 0) return null;   // a door that refuses nothing
-  if (a.traps.length < 1) return null;                        // nothing to get wrong
+  if (bagsLeft(s) > 0 && a.exitRefusals === 0) return null;
+  if (a.traps.length < 1) return null;
   const onDag = shortestDag(a);
   return { par: a.minMoves, solves: a.shortestCount,
            onPath: pathBite(a, onDag).onPath, ...deadTravel(a, onDag) };
@@ -96,7 +91,7 @@ function read(grid, cart, { parMin, parMax }, cache = null) {
 export function cost(reads) {
   if (!reads || reads.some(r => r === null)) return null;
   const pars = reads.map(r => r.par);
-  if (!(pars[0] < pars[1] && pars[1] < pars[2])) return null;   // the ladder is the set
+  if (!(pars[0] < pars[1] && pars[1] < pars[2])) return null;
   const sum = k => reads.reduce((a, r) => a + r[k], 0);
   return [
     Math.max(...reads.map(r => r.tail)),
@@ -107,7 +102,6 @@ export function cost(reads) {
   ];
 }
 
-/** Lexicographic, and a placement the set will not take never beats one it will. */
 const beats = (candidate, best) => {
   if (candidate === null) return false;
   if (best === null) return true;
@@ -116,8 +110,6 @@ const beats = (candidate, best) => {
 };
 
 /**
- * Move the set's exit and raccoon to the pair that walks the player least.
- *
  * Returns the set re-measured, or null if it could not be read where it stands — a set whose
  * rooms disagree about where the raccoon starts is not one this can speak for.
  */
@@ -127,8 +119,6 @@ export function resiteSet(set, floor = FLOOR) {
   const exit = find(grids[0], 'E'), rac = find(grids[0], '@');
   if (!same(grids.map(g => find(g, 'E'))) || !same(grids.map(g => find(g, '@')))) return null;
 
-  // Every cell the pair could stand on: bare floor in all three rooms, plus the two cells the
-  // pair is vacating. A cart cell is not floor, and neither is the cargo standing in one.
   const spots = [];
   for (let y = 0; y < grids[0].length; y++) for (let x = 0; x < grids[0][y].length; x++) {
     const here = (x === exit[0] && y === exit[1]) || (x === rac[0] && y === rac[1]);
@@ -139,8 +129,6 @@ export function resiteSet(set, floor = FLOOR) {
 
   const at = (ex, rc) => grids.map(g =>
     put(put(put(put(g, exit, '-'), rac, '-'), ex, 'E'), rc, '@'));
-  // Stops at the first room that will not hold: `cost` sinks the whole set on one null, and the
-  // rooms after it are a full enumeration each for an answer already decided.
   const readsAt = (ex, rc, caches = null) => {
     const out = [];
     for (const [i, g] of at(ex, rc).entries()) {
@@ -164,8 +152,7 @@ export function resiteSet(set, floor = FLOOR) {
   let sweptExitAt = null, sweptRacAt = null;
 
   for (let round = 0; round < ROUNDS; round++) {
-    // Moving the EXIT rebuilds the room: the exit refuses what may be shoved onto it, and it
-    // decides which boards are won. Every candidate is a different graph and has to be built.
+    // Every candidate is a different graph and has to be built.
     if (!same([sweptExitAt, bestRac])) {
       sweptExitAt = bestRac;
       for (const s of spots) {
@@ -173,8 +160,7 @@ export function resiteSet(set, floor = FLOOR) {
         if (beats(c, best)) { best = c; bestExit = s; }
       }
     }
-    // Moving the RACCOON does not. One graph per room serves the whole sweep, and each
-    // candidate is a walk of it rather than a rebuild of it.
+    // One graph per room serves the whole sweep, and each candidate is a walk of it rather than a rebuild of it.
     if (!same([sweptRacAt, bestExit])) {
       sweptRacAt = bestExit;
       const caches = grids.map(() => ({ graph: null }));
@@ -194,8 +180,7 @@ export function resiteSet(set, floor = FLOOR) {
   return {
     ...set, rooms,
     resited: !same([bestExit, exit]) || !same([bestRac, rac]),
-    // How far the set walked the player before this ran. A diff against a state the file no
-    // longer holds, so it is for the run's report and is stripped before writing.
+    // A diff against a state the file no longer holds, so it is for the run's report and is stripped before writing.
     walkWas: base.reduce((a, r) => a + r.lead + r.tail, 0),
   };
 }

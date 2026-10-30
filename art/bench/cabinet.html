@@ -117,8 +117,6 @@ function sprite() {
   return { px, ax: Math.round(base.reduce((a, p) => a + p[0], 0) / 4), ay: Math.round(Math.max(...base.map(p => p[1]))) };
 }
 
-// A wall row over four rows of floor. The cabinet's cell is column 2, row 3. The raccoon sits
-// facing right at the bottom left and facing down at the bottom right.
 function draw() {
   for (const k of VIEWS) { $(k).value = v()[k]; $(k + 'n').value = v()[k]; }
   $('out').value = s.out; $('outn').value = s.out;

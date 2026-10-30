@@ -45,7 +45,6 @@ test('every room has something to clear and a way to lose', () => {
   }
 });
 
-// The upgrade ramp's whole claim: the board does not change, the containers do.
 test('an upgrade set moves nothing — it only fills containers', () => {
   const ups = SETS.filter(s => s.ramp === 'upgrade');
   assert.ok(ups.length > 0, 'the search found no upgrade sets to check');
@@ -55,7 +54,6 @@ test('an upgrade set moves nothing — it only fills containers', () => {
     assert.equal(bodies(b), bodies(c), `${s.shape}: a body appeared`);
     assert.deepEqual(occupied(a), occupied(b), `${s.shape}: something moved`);
     assert.deepEqual(occupied(b), occupied(c), `${s.shape}: something moved`);
-    // Only container cells may differ, and only ever empty -> full.
     for (const [p, q] of [[a, b], [b, c]])
       p.forEach((row, y) => [...row].forEach((ch, x) => {
         if (ch === q[y][x]) return;

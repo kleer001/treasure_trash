@@ -5,15 +5,13 @@ import { mulberry32 } from '../rng.js';
 const SLOT_KEYS = { A: '1234', B: 'abcd', C: 'wxyz' };
 export const SHADOW = '#765c62';
 
-/** A palette-index grid (an array of equal-length strings, '.' empty) mirrored if `o & 4`,
- *  then turned clockwise `o & 3` quarter turns. */
+/** A palette-index grid (an array of equal-length strings, '.' empty). */
 function dihedral(grid, o) {
   let g = o & 4 ? grid.map(r => [...r].reverse().join('')) : grid;
   for (let k = 0; k < (o & 3); k++) g = [...g[0]].map((_, x) => g.map(r => r[x]).reverse().join(''));
   return g;
 }
 
-/** Scale2x on a palette-index grid: corners take a neighbour's index where two edges agree. */
 function scale2x(g) {
   const h = g.length, w = g[0].length, at = (x, y) => (x < 0 || y < 0 || x >= w || y >= h ? '.' : g[y][x]);
   const out = Array.from({ length: h * 2 }, () => []);
@@ -27,8 +25,7 @@ function scale2x(g) {
   return out.map(r => r.join(''));
 }
 
-/** A grid turned 45° clockwise the RotSprite way: Scale2x three times, sample the 8× grid at
- *  each turned pixel centre, crop the empty edge. Indices stay indices, so palettes still swap. */
+/** Indices stay indices, so palettes still swap. */
 function turn45(grid) {
   const big = scale2x(scale2x(scale2x(grid))), w = grid[0].length, h = grid.length;
   const side = Math.ceil((w + h) / Math.SQRT2) + 2, k = Math.SQRT1_2;
@@ -49,8 +46,7 @@ function turn45(grid) {
   return g.map(r => r.slice(x0, x1 + 1));
 }
 
-/** Sprites for every item in `D` (items.json), with accent ramps or their gold stand-ins.
- *  `diagonals` adds the 45° turns to each item's quarter turns and mirrors. */
+/** Sprites for every item in `D` (items.json). `diagonals` adds the 45° turns to each item's quarter turns and mirrors. */
 export function createTrash(D, { accents = true, diagonals = true } = {}) {
   const ramp = name => name in D.ramps ? D.ramps[name]
     : accents ? D.accents[name].ramp : D.ramps[D.accents[name].gold];
@@ -68,7 +64,7 @@ export function createTrash(D, { accents = true, diagonals = true } = {}) {
     return m;
   }
 
-  /** Every distinct grid an item can lie as. A symmetric item has fewer than an asymmetric one. */
+  /** Every distinct grid an item can lie as. */
   function turnsOf(name) {
     if (turnCache.has(name)) return turnCache.get(name);
     const seen = new Map();
@@ -80,8 +76,7 @@ export function createTrash(D, { accents = true, diagonals = true } = {}) {
     return list;
   }
 
-  /** The turn an item lies in when mirrored if `m`, then turned `k` eighths clockwise. Without
-   *  its 45° grid, an odd `k` lies at the eighth before it. */
+  /** The turn an item lies in when mirrored if `m`, then turned `k` eighths clockwise. */
   function pose(name, m, k) {
     k = ((k % 8) + 8) % 8;
     if (!diag(name)) k &= ~1;
@@ -113,18 +108,15 @@ export function createTrash(D, { accents = true, diagonals = true } = {}) {
            hero: bySize('hero'), mid: bySize('mid'), bit: bySize('bit') };
 }
 
-const REACH = { hero: 2, mid: 5, bit: 7 };          // px from the pile's centre a piece may sit
-const MARGIN = 1;                                    // floor left clear inside the cell's edge
-// Ramps any pile may use. A pile adds `ACCENTS` more from the rest, so it reads as one heap
-// and not as every colour in the catalog at once.
+const REACH = { hero: 2, mid: 5, bit: 7 };          // px
+const MARGIN = 1;
+// So a pile reads as one heap, not as every colour in the catalog at once.
 const NEUTRAL = new Set(['paper', 'news', 'kraft', 'foam', 'cream', 'slate', 'brown', 'black', 'peach', 'plum']);
 const ACCENTS = 2;
 export const ORDER = { flat: 0, mid: 1, hero: 2, bit: 3 };  // draw order, bottom first
 const PICKS = new WeakMap();                         // per trash set: its accent hues, and the item pool for each pair of them
 
-/** The item picker for one pile: `ACCENTS` hues drawn from `rnd`, then `choose(size, r, avoid)`
- *  draws a piece `{ name, alt, turn, size, layer }` of that size from `r` (default `rnd`) in the
- *  neutral ramps and those hues, never a name in `avoid`. */
+/** The item picker for one pile: `choose(size, r, avoid)` draws a piece `{ name, alt, turn, size, layer }` of that size from `r` (default `rnd`). */
 export function chooser(T, rnd) {
   const pickWith = r => list => list[Math.floor(r() * list.length)];
   const items = T.D.items;
@@ -157,17 +149,16 @@ export function sizes(n) {
 
 /** One pile: its centre `cx, cy` and its pieces `{ name, alt, turn, size, x, y }`, x and y the
  *  sprite's top-left in a cell of side `C`, listed bottom first. `spill` is how far past the
- *  cell's edge the pile may reach, as a fraction of the cell; the pile spreads out to fill it. */
+ *  cell's edge the pile may reach, as a fraction of the cell. */
 export function pileLayout(T, seed, { min = 9, max = 25, C = 24, spill = 0 } = {}) {
   const rnd = mulberry32(seed >>> 0);
   const choose = chooser(T, rnd);
   const n = min + Math.floor(rnd() * (max - min + 1));
   const want = sizes(n);
   const cx = C / 2 + (rnd() - 0.5) * 2, cy = C / 2 + (rnd() - 0.5) * 2;
-  // Inside the cell keeps MARGIN clear of its seams; a spill reaches that far past them.
   const over = Math.round(spill * C), grow = 1 + spill * 4.8;
-  const lo = over ? -1 - over : MARGIN, hi = over ? C - 1 + over : C - 2 - MARGIN;  // first and last pixel a piece may cover
-  const P = C, G = C + 2 * P;                          // the owner grid runs a cell past every edge
+  const lo = over ? -1 - over : MARGIN, hi = over ? C - 1 + over : C - 2 - MARGIN;
+  const P = C, G = C + 2 * P;
   const owner = new Int8Array(G * G).fill(-1);         // which size class covers each pixel
   const at = (x, y) => (y + P) * G + x + P;
   const placed = [], usedHeroes = new Set();
@@ -193,8 +184,7 @@ export function pileLayout(T, seed, { min = 9, max = 25, C = 24, spill = 0 } = {
   return { cx, cy, pieces: placed.sort((a, b) => ORDER[a.layer] - ORDER[b.layer]) };
 }
 
-/** The pile with each piece pulled back toward the pile's centre until none of its pixels is
- *  `blocked(x, y)` (cell-local), as if it flew out and stopped against what is there. */
+/** `blocked(x, y)` takes cell-local pixels. */
 export function settle(T, pile, blocked) {
   const pieces = pile.pieces.map(p => {
     const s = T.sprite(p.name, p.alt, p.turn);
@@ -209,10 +199,9 @@ export function settle(T, pile, blocked) {
   return { ...pile, pieces };
 }
 
-/** Draw a pile laid out by pileLayout() with its cell's top-left at (ox, oy). Pieces past the
- *  cell's edge draw over the neighbouring cells.
- *  outline: 'none' | 'pile' (ink round the whole pile) | 'piece' (ink round every piece)
- *  shadow:  'none' | 'drop' (each piece one pixel down-right) | 'base' (the pile grown by one pixel) */
+/** Draw a pile laid out by pileLayout() with its cell's top-left at (ox, oy).
+ *  outline: 'none' | 'pile' | 'piece'
+ *  shadow:  'none' | 'drop' | 'base' */
 export function drawPile(ctx, T, pile, ox, oy, { outline = 'pile', shadow = 'base' } = {}) {
   const sprites = pile.pieces.map(p => [T.sprite(p.name, p.alt, p.turn), p.x, p.y]);
   const mask = new Set();

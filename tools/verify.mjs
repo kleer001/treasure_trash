@@ -27,12 +27,9 @@ watchAccounts(true);
 
 // Neither end of a solve is free. The walk IN is the room withholding its first decision; the
 // walk OUT is worse, because it comes after the last one — the puzzle is over and the player is
-// still holding the controller. Both are invisible to every other check: par counts them,
-// `:solves` and `:traps` are indifferent to them, and a room can pass everything above and
-// still open with a march down a corridor and close with a march to a door in the far corner.
-//
-// A room whose distance is the point declares it with `:lead`/`:tail`, and the declaration is
-// checked exactly — a claim about the room rather than a way out of the bound.
+// still holding the controller. Both are invisible to every other check, and a room can pass
+// everything above and still open with a march down a corridor and close with a march to a door
+// in the far corner.
 
 // Every act, unless a pair is named on the command line.
 const PACKS = process.argv[2]
@@ -83,13 +80,9 @@ for (const { levelPath, solPath } of PACKS) {
     const exitCell = start.cells.flat().find(c => c.exit);
     check('exit starts empty', exitCell.o === 0);
     check('raccoon does not start on the exit', !start.cells[start.rac.y][start.rac.x].exit);
-    // One room, not two. Only bare floor is ever walled, so a wall pass cannot wall a piece
-    // away — it walls AROUND it, and what is left is a cart in a sealed pocket: drawn, part of
-    // the room to look at, and reachable from nowhere in it.
     check('every open cell is in one region', isOneRoom(start));
-    // A board opens with its fields already holding, so the `:grid` an author writes is only the
-    // room if a magnet had nothing left to pull. Asked before the round-trip because it fails the
-    // same comparison for a different reason, and the round-trip's name would hide it.
+    // Asked before the round-trip because it fails the same comparison for a different reason,
+    // and the round-trip's name would hide it.
     if (start.cells.flat().some(c => isMagnet(c.o)))
       check('the board is authored at rest',
         toGrid(start).join('\n') === level.grid.join('\n'),
@@ -108,7 +101,6 @@ for (const { levelPath, solPath } of PACKS) {
     check('declared :solve is a shortest solve', a.shortestLurd !== null && level.solve.length >= 1
       && parseLurd(level.solve).length === a.minMoves, `canonical=${a.shortestLurd}`);
 
-    // the declared solution actually wins, and every action's declared KIND is right
     let replayed = null;
     try { replayed = replay(start, parseLurd(level.solve, level.id)); } catch (e) {
       check('declared :solve replays', false, e.message);
@@ -118,7 +110,6 @@ for (const { levelPath, solPath } of PACKS) {
       check('declared :solve is exactly par', parseLurd(level.solve).length === level.par);
     }
 
-    // the .sol file must agree with the level's inline claim
     const sol = byId.get(level.id);
     check('solution file has an entry', !!sol);
     if (sol) check('solution file agrees with :solve', sol.moves === level.solve, `${sol.moves} vs ${level.solve}`);
@@ -128,37 +119,27 @@ for (const { levelPath, solPath } of PACKS) {
         `found ${a.shortestCount}`);
     else console.log(`    · ${a.shortestCount} distinct shortest solve(s)`);
 
-    // INVARIANT: no reachable state may have an object on the exit. Checked over the whole
-    // graph rather than the solve path, so it tests the engine and not the level design.
+    // Checked over the whole graph rather than the solve path, so it tests the engine and not the
+    // level design.
     const occupied = [...a.states.values()].find(n =>
       n.state.cells.some(row => row.some(c => c.exit && c.o !== 0)));
     check('the exit is never occupied, in any reachable state', !occupied,
       `${a.reachable} states searched`);
 
-    // Traps that remain are stranding traps: the exit stays clear, but your trash has walled
-    // you off from it.
     if (level.traps !== undefined)
       check('trap count as declared', a.traps.length === level.traps,
         `${a.traps.length} stranding trap(s)`);
     else console.log(`    · ${a.traps.length} stranding trap(s)`);
 
-    // Vacuous today: walking writes nothing to the board, so it cannot change liveness and
-    // this cannot fail. It is a regression guard — it fires only if some future verb makes a
-    // plain step alter the board (a conveyor, a trapdoor), which would be a silent loss.
     check('guard: no lethal plain move (vacuous while walking writes nothing)',
       a.silentTraps.length === 0,
       a.silentTraps.length ? `e.g. ${a.silentTraps[0].lurd}` : '');
 
-    // Every piece hinders, or it is not a piece. The sealed cart and the sealed trash pile that
-    // prompted this rule were caught by the region check above, but being unreachable was the
-    // least of what was wrong with them — a piece standing in the open, on a route, doing
-    // nothing is the same fault without the tell.
     const onDag = shortestDag(a);
     const inert = inertPieces(level, a, { onDag });
     check('every piece is handled or binding', inert.length === 0,
       inert.map(p => `${p.what} at (${p.cells.map(([x, y]) => `${x + 1},${y + 1}`).join(') (')})`).join(', '));
 
-    // Dead travel, at both ends of the best line the player could take.
     const { lead, tail } = deadTravel(a, onDag);
     const walk = (what, got, declared, max) => check(
       declared === undefined ? `the ${what} is at most ${max}` : `the declared ${what} is exact`,
@@ -167,9 +148,7 @@ for (const { levelPath, solPath } of PACKS) {
     walk('walk to the first piece', lead, level.lead, WALK_MAX.lead);
     walk('walk to the exit', tail, level.tail, WALK_MAX.tail);
 
-    // The teaching gate: with its lesson covered, the room must have no way out. The inert
-    // check above is a weaker question and does not stand in for this one — a room passes it
-    // while the player walks around the lesson to the door.
+    // The inert check above is a weaker question and does not stand in for this one.
     if (level.gate !== undefined) {
       const g = parseGate(level.gate, level.id);
       if (g.mode === 'none') console.log('    \u00b7 gate none — the room declares it has none');
@@ -185,7 +164,6 @@ for (const { levelPath, solPath } of PACKS) {
       }
     }
 
-    // A room that arms has to say which piece it is introducing.
     if (level.arm) check('an arming room declares what it teaches', !!level.teach, level.teach ?? '');
     console.log(`    · arming ${level.arm ? 'ON (introduces a piece)' : 'off'}`);
 
@@ -237,8 +215,8 @@ for (const { levelPath, solPath } of PACKS) {
 // bundle behind a CSP has to inline, and a copy that is rebuilt from source cannot drift.
 section('one engine');
 const GENERATED = new Set(['artifact.html']);
-// Owner-sanctioned second implementations, by path, with what makes each one safe. Empty is
-// the expected state and adding to it is not an agent's call.
+// Owner-sanctioned second implementations, by path, with what makes each one safe. Adding to
+// it is not an agent's call.
 const SANCTIONED = {
   'engine/src/rules.rs':
     'cargo build --release --manifest-path engine/Cargo.toml'
@@ -310,7 +288,6 @@ const PLACES_BY_HAND = {
   'c.o = what; c.hold = cell(s, x, y).hold; c.grip = cell(s, x, y).grip;': 'a swept line, with what it holds',
 };
 
-/** One scan, asked twice: which lines match, and are they the ones written down? */
 const onlyAsListed = (lines, what, hits, listed) => {
   const unlisted = [];
   lines.forEach((line, i) => { const t = line.trim(); if (hits(t) && !(t in listed)) unlisted.push(`src/rules.js:${i + 1} ${t}`); });

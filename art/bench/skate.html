@@ -85,7 +85,7 @@ const SLIDERS = {
 };
 const LOADS = { none: null, trash: 'x', bag: '$', can: 'C', box: 'B' };
 const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
-const REACH = 5;                                   // px the raccoon leans into the deck as he shoves
+const REACH = 5;                                   // px
 const SEED = 7;                                    // every pile and every box's heap on this page is laid from it
 
 const [D, A, LOOK] = await Promise.all(['../../src/art/items.json', '../../src/art/assets.json', '../../src/art/look.json'].map(f => fetch(f).then(r => r.json())));
@@ -107,10 +107,6 @@ function report(id, ok, text) { const el = document.getElementById(id); el.textC
 const deckCells = s => s.cells.flatMap((row, y) => row.flatMap((c, x) => isCart(c) ? [[x, y]] : []));
 const lieOf = cells => new Set(cells.map(c => c[1])).size === 1 ? 'x' : 'y';
 
-/** The board: the deck with the raccoon behind it, ready to shove; the shove `explain()` makes of
- *  it; and every load's place at each step of it, read off the steps. A roll runs the deck along
- *  itself past whatever is in its path; a scoot shoves it across; pinned, it is shoved across
- *  against two pillars. */
 function setup() {
   const roll = ui.shove === 'roll', N = roll ? 9 : 7, c = Math.floor(N / 2), [dx, dy] = DIRS[ui.dir];
   const xy = (a, b) => ({ r: [a, b], l: [N - 1 - a, b], d: [b, a], u: [b, N - 1 - a] })[ui.dir];
@@ -145,7 +141,7 @@ function setup() {
       return [it, { x: x + m.dx, y: y + m.dy, ride: m.parent !== null && m.parent !== undefined, o: m.becomes.o }];
     });
     for (const it of B.items) {
-      if (it.segs.length < k) continue;                 // born later
+      if (it.segs.length < k) continue;
       const from = it.at, n = named.find(([i]) => i === it);
       const to = n ? n[1] : from.ride && rolling ? { ...from, x: from.x + d[0], y: from.y + d[1] } : from;
       it.segs.push({ from, to, how: n ? 'named' : from.ride && rolling ? 'deck' : 'still' });
@@ -165,13 +161,11 @@ function setup() {
 /** The way the thing at (x, y) on the floor or on the deck lies in decoration `decor`: null standing. */
 const lieAt = (decor, x, y) => decor?.get(`${x},${y}/0`)?.lie ?? null;
 
-/** When each step happens: a rolling step while the deck covers its cell, a still one over `slop`
- *  ms once the roll has stopped. */
 function timing(B) {
   const t0 = ui.contact, n = B.steps.filter(s => s.rolling).length, across = ui.shove !== 'roll', D = n * C;
   const v = C / ui.cell, da = Math.min(D, ui.ease * C), ta = da ? 2 * da / v : 0;
   const run = !n ? 0 : across ? ui.scoot : ta + (D - da) / v;
-  /** How far the deck has gone `t` ms after the push, px, not counting its knock at the stop. */
+  /** How far the deck has gone `t` ms after the push, px. */
   const dist = t => {
     const u = t - t0;
     if (u <= 0 || !n) return 0;
@@ -220,7 +214,7 @@ function itemAt(B, it, t) {
 const put = (ctx, px, x, y) => { for (const [a, b, col] of px) { ctx.fillStyle = col; ctx.fillRect(x + a, y + b, 1, 1); } };
 const MODULE = { [CAN_FULL]: CAN, [CAN_EMPTY]: CAN, [BIN]: BOX, [BIN_EMPTY]: BOX };
 
-/** A full can, its bag over the rim; or a full box, its heap over the rim: upright, top-left at O. */
+/** A full can or a full box, upright, top-left at O. */
 function drawFull(ctx, o, O) {
   if (o === CAN_FULL) {
     const [bx, by] = CAN.bagIn(A.bag);
@@ -251,16 +245,12 @@ function draw(ctx, B, box, turn, items, [rx, ry]) {
     const M = MODULE[it.o];
     if (!M) throw new Error(`no drawing on this page for occupant ${it.o}`);
     if (it.tip && !it.tip.lie) {
-      // Emptied where it stands, the deck rolling out from under it: it drops upright, full until
-      // what it held is thrown out of it.
       const O = M.restAt(0, 0, C), at = [X + O[0], Y + O[1] + dy];
       standing.push([foot, () => it.tip.emptied ? put(ctx, M.front.px, ...at) : drawFull(ctx, it.o, at)]);
       continue;
     }
     if (it.tip) {
       const fall = it.tip.lie;
-      // Off the back of the deck and over: the upright thing's top-left goes from where it rode to
-      // where its fall lays it in the cell it lands in.
       const f = M.frame(fall, Math.round(it.tip.deg)), f90 = M.frame(fall, 90), { from: c0, to: c1 } = it.tip;
       const [sx, sy] = M.restAt(c0.x, c0.y, C), [ex, ey] = M.restAt(c1.x, c1.y, C, fall), rode = c0.y * C + C - 2;
       const from = [sx, sy + (c0.ride ? standRow(B.lie, ui.view, rode, box[1]) - rode : 0)], end = [ex - f90.ox, ey - f90.oy];
@@ -403,7 +393,6 @@ document.getElementById('fast').onclick = () => { ui.speed = Math.min(200, ui.sp
 document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.zoom - 1); save(); bar(); shown = -1; show(); };
 document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zoom + 1); save(); bar(); shown = -1; show(); };
 window.__skate = { ui, build, get B() { return B; }, get TM() { return TM; }, frameAt: (ctx, t) => frameAt(ctx, B, t), still: (ctx, s, decor) => still(ctx, B, s, decor) };
-// A shove that leaves him where he stands is drawn as one held fast: the cartoon has no push without a step.
 const steps = () => B.r.ok && (B.r.next.rac.x !== B.s.rac.x || B.r.next.rac.y !== B.s.rac.y);
 embed(view, {
   set: o => { Object.assign(ui, o, { playing: false }); B = setup(); setPress(ui.dir, steps() ? 'push' : 'stuck'); build(); },

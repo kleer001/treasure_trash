@@ -58,7 +58,6 @@ function draw() {
   g.fillStyle = 'rgba(255,255,255,0.18)';
   for (let x = 0; x <= W; x++) g.fillRect(x * z, 0, 1, e.height);
   for (let y = 0; y <= H; y++) g.fillRect(0, y * z, e.width, 1);
-  // A floor of 24 px cells; each open cabinet stands in its cell as the game stands it, the drawer in the next.
   const m = $('game'), p = 3, COLS = 12, ROWS = 4; m.width = COLS * C * p; m.height = ROWS * C * p;
   const o = m.getContext('2d'); o.fillStyle = FLOOR; o.fillRect(0, 0, m.width, m.height);
   o.fillStyle = SEAM;
@@ -89,7 +88,6 @@ $('zout').onclick = () => { s.zoom = Math.max(4, s.zoom - 2); draw(); };
 $('zin').onclick = () => { s.zoom = Math.min(40, s.zoom + 2); draw(); };
 $('note').oninput = () => { s.note = $('note').value; autosave(); };
 
-// Every change saves itself, to this browser and to the notes file, a moment after the last edit.
 let timer = 0;
 function autosave() {
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}

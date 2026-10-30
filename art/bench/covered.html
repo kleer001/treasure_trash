@@ -97,8 +97,6 @@ function build() {
   }
 }
 
-// Each panel is 4 × 3 cells: the hazard in a cross with the thing on its middle cell, and the
-// plain thing on dry floor to its right.
 const PW = 4, PH = 3, CROSS = [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]];
 function panel(item, kind, look) {
   const c = document.createElement('canvas'); c.width = PW * C; c.height = PH * C;
@@ -108,8 +106,6 @@ function panel(item, kind, look) {
   g.fillStyle = SEAM;
   for (let k = 1; k <= PW; k++) g.fillRect(k * C - 1, 0, 1, c.height);
   for (let k = 1; k <= PH; k++) g.fillRect(0, k * C - 1, c.width, 1);
-  // What is left under the middle: the sheet lies on what it covers, and the sponge takes up water
-  // and grease but sticks in tar.
   const under = item === 'cardboard' || kind === 'tar';
   const lane = CROSS.filter(([x, y]) => under || !(x === 1 && y === 1));
   const has = (x, y) => lane.some(([a, b]) => a === x && b === y);
@@ -148,7 +144,6 @@ $('snext').onclick = () => { cur().seed += 1; change(); };
 $('reset').onclick = () => { const [item, kind] = TABS[s.tab]; s.look[item][kind] = fresh()[item][kind]; change(); };
 $('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); change(); };
 $('zin').onclick = () => { s.zoom = Math.min(8, s.zoom + 1); change(); };
-// Every change saves itself to the notes file, the note with it, a moment after the last edit.
 let timer = 0;
 function autosave() {
   clearTimeout(timer);

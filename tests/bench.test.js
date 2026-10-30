@@ -1,9 +1,4 @@
 // The bench packs — the rooms that exist to be played by hand rather than shipped.
-//
-// `verify.mjs` proves every claim the SHIPPED acts make and does not look at these, which is
-// right: a bench room's par is often a solution somebody walked rather than a minimum nobody
-// could enumerate. But a declared solve that no longer plays is a rotten file either way, and
-// a rules change is exactly what would rot it — so the one claim that must hold is checked.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

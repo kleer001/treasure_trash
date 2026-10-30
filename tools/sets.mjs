@@ -7,15 +7,10 @@
 // here, because an act that runs one device ten times is one idea told ten times:
 //
 //   UPGRADE   same outline AND the same piece positions; each rung swaps an empty container
-//             for a full one. `BAGS_IN` counts an empty can, wheelie or bin as nothing and a
-//             full one as a bag, so a rung adds work without adding a body. The room looks
-//             almost unchanged and is quietly heavier. Aymeric du Peloux's Minicosmos pairs a
-//             layout with itself plus a stone "as a nice way of providing hints"; this is that
-//             device in a game whose mess is permanent, where an extra body would choke the
-//             board instead of deepening it.
-//   ADDITION  same outline, three then four then five pieces, earlier pieces left where they
-//             stand. Measured cost: yield falls from 18.5% to 6.8% at five pieces and the par
-//             ceiling drops, so this one is used sparingly.
+//             for a full one. Aymeric du Peloux's Minicosmos pairs a layout with itself plus a
+//             stone "as a nice way of providing hints"; this is that device in a game whose mess
+//             is permanent, where an extra body would choke the board instead of deepening it.
+//   ADDITION  same outline, three then four then five pieces, earlier pieces left where they stand.
 //   PAR       same outline, three independent rooms at ascending par. Loosest and easiest to
 //             find; weakest as a set, which is what makes it right for the opening.
 //
@@ -42,30 +37,27 @@ const MAX_STATES = 50_000;
 export const UPGRADE = { c: 'C', w: 'W', b: 'B' };
 export const DOWNGRADE = { C: 'c', W: 'w', B: 'b' };
 
-// Two different floors, because they answer different questions. A ROOM must not be trivial:
-// something to clear, an exit that refuses, a way to lose, and long enough to be a room. A SET
-// must reach Act 2 — its top rung is where the set actually lands, and a set opening easy is
-// the point of a ramp rather than a fault in it.
+// Two different floors, because they answer different questions. A SET must reach Act 2 — its
+// top rung is where the set actually lands, and a set opening easy is the point of a ramp rather
+// than a fault in it.
 export const PAR_MIN = 8;
 export const PAR_MAX = 40;
 export const SET_TOP_MIN = 18;
 
-/** A room is worth keeping if it is winnable, has something to clear, teeth, and a real exit.
- *  Every field here is on the wire, which is what lets the engine answer it. */
+/** Every field here is on the wire, which is what lets the engine answer it. */
 function keep(s, r, parMin) {
   if (r.par === null) return false;
   if (r.par < parMin || r.par > PAR_MAX) return false;
-  if (bagsLeft(s) < 1) return false;             // nothing to clear is not a puzzle
+  if (bagsLeft(s) < 1) return false;
   if (r.silentTraps) return false;
-  if (r.exitRefusals === 0) return false;        // an exit that refuses nothing is a destination
+  if (r.exitRefusals === 0) return false;
   return r.traps >= 1;
 }
 
 /**
- * The engine SCREENS; the full row is still built here. Most draws never become a rung — they
- * are too big, out of the par band, toothless or a door that refuses nothing — and deciding
- * that needs only what the protocol carries. The graph is enumerated a second time in process
- * for the few that get past it, because a row wants the solve string and the inert test.
+ * The engine SCREENS; the full row is still built here. The graph is enumerated a second time
+ * in process for the few that get past it, because a row wants the solve string and the inert
+ * test.
  */
 async function look(engine, room, group, w, h, parMin = PAR_MIN) {
   let s;
@@ -75,14 +67,11 @@ async function look(engine, room, group, w, h, parMin = PAR_MIN) {
   if (r === TOO_BIG) return null;
   if (!keep(s, r, parMin)) return null;
   const row = measure(group, room, s, analyze(s, { maxStates: MAX_STATES }), w, h);
-  // A rung is the group it draws, and a piece that hinders nothing is not in the room in any
-  // sense the player can act on. Rejecting the rung rejects the set: three rooms cannot share
-  // a cast when one of them is short a member.
+  // Rejecting the rung rejects the set: three rooms cannot share a cast when one of them is short a member.
   if (row.inert) return null;
   return row;
 }
 
-/** Pars ascend, and the set finishes somewhere an Act 2 room belongs. */
 const ladderOk = rungs =>
   rungs[0].par < rungs[1].par && rungs[1].par < rungs[2].par
   && rungs[2].par >= SET_TOP_MIN;
@@ -96,19 +85,11 @@ const cellsOf = (grid, pred) => {
   return out;
 };
 
-/**
- * Three rooms, one board, one piece added to the bag count per rung — by filling a container
- * that was already standing there rather than by putting anything new down.
- *
- * The joint constraint is what makes this the hardest ramp to find: ONE placement has to hold
- * up at all three weights.
- */
 export async function upgradeSet(engine, plan, group, rnd) {
   const room = placeOn(group, plan, plan.w, plan.h, rnd);
   if (!room) return null;
   const empties = cellsOf(room.grid, ch => UPGRADE[ch] !== undefined);
   if (empties.length < 2) return null;
-  // Two of them, in a fixed order, give the three rungs.
   const pick = [...empties].sort(() => (rnd() < 0.5 ? -1 : 1)).slice(0, 2);
 
   const rungs = [];
@@ -118,7 +99,7 @@ export async function upgradeSet(engine, plan, group, rnd) {
       const [x, y] = pick[i - 1];
       grid = swapAt(grid, [x, y], UPGRADE[grid[y][x]]);
     }
-    const g = [...group].map(c => c).join('');   // the group label stays the base mixture
+    const g = [...group].map(c => c).join('');
     const m = await look(engine, { grid, ...(room.cart && { cart: room.cart }) }, g, plan.w, plan.h);
     if (!m) return null;
     rungs.push(m);
@@ -128,7 +109,6 @@ export async function upgradeSet(engine, plan, group, rnd) {
   return { ramp: 'upgrade', shape: plan.label, group, rooms: rungs };
 }
 
-/** Three rooms, one board, a piece added each rung and the earlier ones left where they are. */
 export async function additionSet(engine, plan, group, extras, rnd) {
   const room = placeOn(group, plan, plan.w, plan.h, rnd);
   if (!room) return null;
@@ -155,7 +135,6 @@ export async function additionSet(engine, plan, group, extras, rnd) {
 }
 
 /**
- * Three independent rooms on one outline at ascending par, all drawing the SAME piece mixture.
  * Fixing the mixture is what makes this a set rather than three rooms that happen to share a
  * silhouette: the player meets the same cast three times, arranged three ways.
  */
@@ -188,9 +167,9 @@ export async function parSet(engine, plan, groups, rnd, tries = 40, gap = 3) {
  * What each ramp draws from, derived from the fertility map rather than surveyed again.
  *
  * An UPGRADE base is a fertile group with its full containers emptied: the top rung is then a
- * mixture already known to make rooms, and the rungs below it are the same board carrying less.
- * An ADDITION base is a fertile group with a piece removed, and the pieces added back are the
- * ones that were in it. Both are better aimed than a fresh survey and cost nothing.
+ * mixture already known to make rooms. An ADDITION base is a fertile group with a piece removed,
+ * and the pieces added back are the ones that were in it. Both are better aimed than a fresh
+ * survey and cost nothing.
  */
 export function rampGroups(fertile) {
   const upgrade = [], addition = [];
@@ -203,9 +182,7 @@ export function rampGroups(fertile) {
     }
     for (let i = 0; i < g.length; i++) {
       const cut = [...g]; const gone = cut.splice(i, 1)[0];
-      // First put back what was taken out, so rung 2 is the fertile mixture again. The last
-      // rung then adds a CARRIER: a piece that brings a bag with it, so the step is more work
-      // and not just more furniture.
+      // The last rung then adds a CARRIER, so the step is more work and not just more furniture.
       const carrier = [...g].find(c => '$CWB'.includes(c)) ?? '$';
       addition.push({ base: cut.join(''), extras: [gone, carrier] });
     }
@@ -248,9 +225,6 @@ if (!isMainThread && workerData?.tool === 'sets') {
   const inPath = str('--in', 'levels/fertility.jsonl');
   const outPath = str('--out', 'levels/sets.jsonl');
 
-  // `--without` drops mixtures containing a piece. The map is honest that the recycle bin is
-  // the most fertile piece in the roster, which means an unfiltered pool puts it in almost
-  // every set — good rooms, one-note act. Excluding it deliberately is how the rest get found.
   const engineBin = engineFor(process.argv);
   const without = str('--without', '');
   const fertile = readFileSync(inPath, 'utf8').trim().split('\n').map(JSON.parse)

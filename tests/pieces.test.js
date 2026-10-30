@@ -1,5 +1,4 @@
-// The pieces that answer a terrain lane. Each is one shove branch and one glyph; what makes
-// them worth a code is that each undoes something the board could not otherwise undo.
+// The pieces that answer a terrain lane.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,17 +18,12 @@ test('the sponge takes water off the cell it lands on, and is not spent doing it
   assert.ok(toGrid(s)[0].includes('s'), 'and the sponge is still a sponge');
 });
 
-// The ordering that decides the whole piece: soak resolves on landing, so there is no grease
-// left underneath to slide along. A sponge is therefore grease's counter rather than its victim.
 test('a sponge does not skate across grease — it stops on the first cell and dries it', () => {
   const s = push(S(['@s---E'], ['--%%%-']), 'r');
   assert.deepEqual(toGrid(s), ['-@s--E']);
   assert.equal(toWater(s)[0], '---%%-', 'only the cell it landed on');
 });
 
-// An unlimited sponge needs a bound, and the bound is that it can be lost. Tar holds it; glass
-// holds it too, though a shove is refused a step earlier than that — he cannot stand on the
-// shards to reach it at all, so the sponge is stranded rather than gripped.
 test('the sponge is lost to tar, and stranded on glass', () => {
   const tarred = push(S(['@s---E'], ['--T---']), 'r');
   assert.equal(refuse(tarred, 'r'), 'tar');
@@ -69,19 +63,14 @@ test('a pane shatters into the next cell and leaves broken glass there', () => {
   assert.equal(toWater(s)[0][2], '*', 'and what it left is a hazard, not trash');
 });
 
-// The inversion worth having: room is what breaks it, so boxing it in is how you keep it.
 test('a pane with nowhere to break rides intact, and against water it will not break at all', () => {
   assert.equal(refuse(S(['@gc--E']), 'r'), 'canRoom', 'boxed in behind a can');
   assert.equal(refuse(S(['@g---E'], ['--~---']), 'r'), 'water', 'and glass does not go in the canal');
 });
 
 // --- the multi-cell rollers -----------------------------------------------------------------
-// A rug takes its axis from the cells it already occupies, so anisotropy costs no field of its
-// own and nothing in the state key. That is the whole reason it is cheaper than a turnstile.
 
 test('a rug rolls broadside and shifts one cell along its length', () => {
-  // It is a rolled rug — a cylinder lying on the floor. Shoved end-on it only slides; the shove
-  // against its side is the one that sets it rolling.
   assert.deepEqual(toGrid(push(S(['@UUU---E']), 'r')), ['-@UUU--E'], 'end-on: one cell');
   const broadside = toGrid(push(S(['--------', '-@------', '-UUU----', '--------', '--------', 'E-------']), 'd'));
   assert.deepEqual(broadside,

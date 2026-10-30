@@ -1,7 +1,4 @@
-// The bicycle standing on its wheels, two cells long, drawn to a real bike's proportions at about
-// 27 px a metre. Across the screen it is a side profile, front wheel to the right, and its saddle
-// and bars rise past the top of its cells. Up the screen it is seen from above, leaning a little,
-// front wheel at the bottom; that view is a Blender render cleaned by hand.
+// The bicycle. Across the screen it is a side profile; up the screen it is a Blender render cleaned by hand, seen from above.
 //   k ink, a tyre, f frame, F frame lit, m metal, M metal lit, s saddle and grips, p spoke
 const BASE = { k: '#06050e', a: '#262440', m: '#9aa2a9', M: '#d6d3b0', s: '#34192b', p: '#67819e' };
 export const FRAMES = {

@@ -22,7 +22,6 @@ function armedTear() {
   return { i, before: acts.slice(0, k).map(a => a.dir), dir: acts[k].dir };
 }
 
-/** A room and a direction its raccoon cannot go from the start. */
 function refusedAtStart() {
   for (let i = 0; i < LEVELS.length; i++)
     for (const d of 'lrud') if (!explain(toState(LEVELS[i]), d).ok) return { i, dir: d };

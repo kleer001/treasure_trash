@@ -1,4 +1,4 @@
-// The one-way: a double chevron painted on the floor, seen from above, worn where feet cross it.
+// The one-way: a double chevron painted on the floor, seen from above.
 // Drawn pointing right; the other three facings are it turned.
 //   p paint, s worn paint
 const PALETTE = { p: '#e3c35a', s: '#b8913a' };

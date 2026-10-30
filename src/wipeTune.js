@@ -9,7 +9,6 @@ const FRAMES = [['exit', 'he leaves'], ['empty', 'the room stands empty'], ['cov
   ['roomHold', 'over the new room, the wall stays up at least'], ['roomHoldMax', 'at most'],
   ['reveal', 'the wall comes down in at least'], ['revealMax', 'at most'],
   ['tail', 'he talks on after it is down, at most'], ['lay', 'one brick drops']];
-// Each pair of limits is held in order, the most never under the least.
 const PAIRS = [['roomHold', 'roomHoldMax'], ['reveal', 'revealMax']];
 const LEAVES = ['hop', 'dissolve', 'fade'];
 const CHOICES = {
@@ -18,7 +17,7 @@ const CHOICES = {
 };
 const LABEL = { room: 'by room', same: 'the same way', back: 'back the way it came', ...ARROW };
 
-/** The live settings: the game reads them at every win. */
+/** The live settings. */
 /** `key`: where the settings are kept. `leaves`: the ways he can leave, where the screen has fewer. */
 export function createWipeTune(el, defaults, { replay, snap, send, key = WIPE_KEY, leaves = LEAVES }) {
   const C = { ...CHOICES, leave: leaves };
@@ -30,7 +29,7 @@ export function createWipeTune(el, defaults, { replay, snap, send, key = WIPE_KE
       if (!(k in saved)) continue;
       if (C[k] ? C[k].includes(saved[k]) : Number.isInteger(saved[k]) && saved[k] > 0) set[k] = saved[k];
     }
-  } catch { /* a private window: the defaults stand */ }
+  } catch { /* a private window */ }
   const order = () => { for (const [lo, hi] of PAIRS) set[hi] = Math.max(set[hi], set[lo]); };
   order();
   const save = () => { try { localStorage.setItem(key, JSON.stringify(set)); } catch { /* as above */ } };
@@ -59,7 +58,6 @@ export function createWipeTune(el, defaults, { replay, snap, send, key = WIPE_KE
     const lo = PAIRS.find(p => p[1] === k)?.[0];
     set[k] = Math.max(lo ? set[lo] : 1, n); order();
   };
-  // A typed count lands on Enter or when the box loses focus; anything that is not a number puts the old one back.
   el.addEventListener('change', e => {
     const k = e.target.dataset.show, n = Math.round(Number(e.target.value));
     if (!k) return;

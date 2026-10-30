@@ -65,10 +65,8 @@ const crop = ({ px }) => {
 const sitting = d => crop(d === 'l' ? mirror(drawRaccoon(ACTIONS[VIEW[d]].crawl[0])) : drawRaccoon(ACTIONS[VIEW[d]].crawl[0]));
 const RACCOON = { d: sitting('d'), r: sitting('r') };
 const RAW = (await fetch('../../src/art/assets.json').then(r => r.json())).bag;
-// The bag body starts below its knot; any gap inside a body row is a hole to the floor.
 const BODY_ROW = 6;
 let BAG = mend();
-/** The bag with its floor-coloured sheen recoloured and the holes in its body filled with it. */
 function mend() {
   const grid = Array.from({ length: RAW.h }, () => Array(RAW.w).fill(null));
   for (const [x, y, c] of RAW.px) grid[y][x] = c === FLOOR ? s.sheen : c;
@@ -116,11 +114,8 @@ function bagPicture() {
 }
 // The model's rim height and its plain band of wall, in metres, as model.py builds them.
 const RIM_H = 1.10, BAND = 0.42, DEPTH = 0.77;
-// The end's width comes from the two flat stretches between the lifting plate and the grab
-// handles, front and back of the middle: from ZA to ZB out from the middle, where no part of the
-// model has a vertex of its own. Those stretch; everything further out moves out with them.
 const ZA = 0.085, ZB = 0.11;
-// The walls taper: their half width at height y, for how far an end detail stands out of them.
+// The walls taper: their half width at height y.
 const BW = 1.12, TW = 1.20, Z0 = 0.24, ZT = 1.05, wallX = y => (BW + (TW - BW) * (y - Z0) / (ZT - Z0)) / 2;
 const DETAIL = /^(plate|pin|handle|strip)/;
 let ready = false, band, upper, upperY, rest = [], built = '';
@@ -139,8 +134,6 @@ const warp = z => {
   const a = Math.abs(z), g = (s.dep / 100 - DEPTH) / 2;
   return a <= ZA ? z : Math.sign(z) * (a <= ZB ? ZA + (a - ZA) * (ZB - ZA + g) / (ZB - ZA) : a + g);
 };
-/** Rebuilds every mesh at the end width, the end details pushed out `deep` times as far, with the
- *  band unstretched. */
 function widen() {
   if (built === `${s.dep} ${s.deep}`) return;
   band.scale.y = 1; upper.position.y = upperY;
@@ -166,7 +159,6 @@ function sprite() {
   const half = BOX / 2 / s.pxm;
   Object.assign(camera, { left: -half, right: half, top: half, bottom: -half }); camera.updateProjectionMatrix();
   widen();
-  // Height comes from the plain band alone: it stretches, and all above it rides up.
   const grow = (s.h - RIM_H * 100) / 100;
   band.scale.y = (BAND + grow) / BAND; upper.position.y = upperY + grow;
   pivot.rotation.set(THREE.MathUtils.degToRad(s.rx), THREE.MathUtils.degToRad(s.ry), THREE.MathUtils.degToRad(s.rz), 'XYZ');
@@ -186,8 +178,6 @@ function sprite() {
   return px.length ? crop({ px }) : { w: 0, h: 0, px };
 }
 
-// A wall row over three rows of floor: the bin on the bottom row's middle cell, with the raccoon
-// facing right on its left and facing down on its right.
 function draw() {
   for (const k of KNOBS) { $(k).value = s[k]; $(k + 'n').value = s[k]; }
   $('zoom').textContent = `${s.zoom}×`;
@@ -219,7 +209,6 @@ $('sheen').oninput = () => { s.sheen = $('sheen').value; BAG = mend(); save(); d
 $('reset').onclick = () => { Object.assign(s, { rx: 0, ry: 0, rz: 0 }); save(); draw(); autosave(); };
 $('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
 $('zin').onclick = () => { s.zoom = Math.min(16, s.zoom + 1); save(); draw(); };
-// Every change saves itself to the notes file, the note with it, a moment after the last edit.
 let timer = 0;
 const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ page: 'wheelie-3d', settings: s, note: $('note').value, at: new Date().toISOString() }) })

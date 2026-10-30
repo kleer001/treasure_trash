@@ -3,9 +3,8 @@
 //
 //   node tools/act2.mjs [--in F] [--sets N] [--first ID] [--out DIR] [--dry]
 //
-// `sets.mjs` finds three-room sets on H outlines; this chooses ten of them and writes the act.
-// Ordering is by `onPath` — how much of the solve optimal play can still throw away — because
-// trap COUNT does not say whether a player will ever meet one.
+// `sets.mjs` finds three-room sets on H outlines; this chooses sets from them and writes the act.
+// Ordering is by `onPath`, because trap COUNT does not say whether a player will ever meet one.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { chooseSets, emit } from './pick.mjs';
@@ -16,23 +15,12 @@ const num = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d :
 const inPath = str('--in', 'levels/sets.jsonl');
 const outDir = str('--out', 'levels');
 const want = num('--sets', 10);
-// 0.9, which puts the recycle bin in 27 of the 30 rooms — and that is a FINDING, not a bill.
-//
-// The bin tops the fertility map at 86.6 solvable rooms per 1000 placements against 62.0 for the
-// next piece, and it earns that: one shove slides it a cell, sheds PERMANENT trash a cell beyond
-// it, and leaves an empty bin behind. A body moves, an obstacle lands where the player chose to
-// put it, and the piece changes state. Nothing else in the roster does that much at once.
-//
-// So the cap is a proxy for variety, and a measured one costs more than it buys. A bin-free
-// search ten times deeper than the one that built this act returned eight sets and NOT ONE of
-// them an upgrade: the upgrade ramp fills a container each rung (`c`→`C`, `w`→`W`, `b`→`B`) and
-// the bin is the container that reliably makes a room. Squeezing the bin does not flatten the
-// act, it deletes its best device. Piece share is `:traps` all over again — a count standing in
-// for an experience — and the act already varies where a player can feel it: ten outlines, three
-// ramps, pars 8 to 32.
+// The cap is a proxy for variety, and a measured one costs more than it buys. Piece share is
+// `:traps` all over again — a count standing in for an experience — and the act already varies
+// where a player can feel it.
 //
 // Kept as a loose backstop rather than removed, because nothing has tested what an unbounded
-// pool looks like. Half buys 24 rooms, 0.8 buys 27, 0.9 buys 30.
+// pool looks like.
 const maxPieceShare = num('--maxpiece', 0.9);
 const first = num('--first', 31);
 const dry = process.argv.includes('--dry');
@@ -54,7 +42,6 @@ sets.forEach((s, i) => {
     + `  ${s.rooms.map(r => String(r.traps).padStart(3)).join(' ')}`);
 });
 
-// Rooms in running order: set by set, easiest rung first.
 const rooms = sets.flatMap(s => s.rooms.map((r, j) => ({ ...r, _set: s, _rung: j })));
 const RAMP_SAYS = {
   upgrade: 'the same board as the last one, with one more container full',

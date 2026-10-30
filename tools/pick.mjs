@@ -6,17 +6,14 @@
 //
 // Three jobs the ranking alone cannot do.
 //
-// TIGHTEN FIRST. `tighten` walls off the floor a room's solution never needed, and it is not
-// cosmetic: it routinely cuts the state graph by an order of magnitude and drops alternate
-// solutions with it. Since it moves `traps`, `solves` and the graph — all scored terms — a
-// score taken before it is a score of a different room. So the shortlist is tightened and
-// then measured again, with the same `measure` the harvest used.
+// TIGHTEN FIRST. `tighten` walls off the floor a room's solution never needed. Since it moves
+// `traps`, `solves` and the graph — all scored terms — a score taken before it is a score of a
+// different room. So the shortlist is tightened and then measured again, with the same `measure`
+// the harvest used.
 //
-// PICK FOR AN ACT, NOT A TOP-N. Ranking alone hands back whatever the metric loves most: the
-// bin, the wheelie and the cart generate the most work per room, so they crowd out everything
-// else and the plain bag — the game's first verb — nearly vanishes. Selection is therefore
-// constrained: par bands to fill, a ceiling on how much of the act any one piece may appear
-// in, and one room per piece group.
+// PICK FOR AN ACT, NOT A TOP-N. Ranking alone hands back whatever the metric loves most.
+// Selection is constrained: par bands to fill, a ceiling on how much of the act any one piece
+// may appear in, and one room per piece group.
 //
 // EMIT ALL THREE FILES. A room lands in `.tt`, `.sol` and the `levels.md` table, and a room
 // present in two of the three is a broken pack.
@@ -33,9 +30,6 @@ import { score, dedupe, REQUIRE, WEIGHTS } from './score.mjs';
 import { SET_TOP_MIN } from './sets.mjs';
 import { WALK_MAX } from './metrics.mjs';
 
-// The indicator now tells the player the room is lost, so a long dead tail costs far less
-// than it did when the loss was silent. It is still a cost — a room that ends promptly ties
-// the mistake to its cause — but it no longer outweighs a room that can be lost at all.
 export const ACT_WEIGHTS = { ...WEIGHTS, blindness: -0.3 };
 
 /** Tighten one harvested room and measure the room that comes out. Null if it will not hold. */
@@ -98,12 +92,7 @@ export function choose(scored, { want, lo, hi, bands = 5, maxPieceShare = 0.5, p
  * Choose an act made of SETS rather than of loose rooms. A set is three rooms sharing one
  * outline and one way of getting harder; `tools/sets.mjs` builds them.
  *
- * Ordered by `onPath` — how much of the solve optimal play can still lose from — with par as
- * the tie-break. Trap COUNT is deliberately not the axis: L29 shipped seventeen ways to lose
- * and every one of them hung off a branch a solver would never walk.
- *
- * One outline per set, so ten sets are ten different H variants rather than one drawn ten
- * times, and the ramps are spread so the act does not run a single device end to end.
+ * The ramps are spread so the act does not run a single device end to end.
  */
 export function chooseSets(sets, { want = 10, maxPieceShare = 0.5, maxPerRamp = 5 } = {}) {
   const rank = s => {
@@ -127,9 +116,8 @@ export function chooseSets(sets, { want = 10, maxPieceShare = 0.5, maxPerRamp = 
     // takes back whatever par was padding. Where the top rung lands after that is where the
     // set actually lands.
     if (s.rooms[s.rooms.length - 1].par < SET_TOP_MIN) continue;
-    // `resite` moves the pair to the best cells the outline has; on some outlines the best
-    // available is still a march. Those sets are not chosen, rather than chosen and then found
-    // by the verifier — a set the pack cannot accept is not a candidate.
+    // `resite` moves the pair to the best cells the outline has. Those sets are not chosen,
+    // rather than chosen and then found by the verifier — a set the pack cannot accept is not a candidate.
     if (s.rooms.some(r => r.lead > WALK_MAX.lead || r.tail > WALK_MAX.tail)) continue;
     // And re-siting and walling both change what a piece is doing, so a set that left the
     // search with every piece working can arrive here with one standing idle.
@@ -144,7 +132,6 @@ export function chooseSets(sets, { want = 10, maxPieceShare = 0.5, maxPerRamp = 
     byRamp[s.ramp] = (byRamp[s.ramp] ?? 0) + 1;
     for (const p of piecesOf(s)) byPiece[p] = (byPiece[p] ?? 0) + s.rooms.length;
   }
-  // Easiest first: the act climbs in the axis it was ranked on.
   taken.reverse();
   return { sets: taken, byRamp, byPiece, short: Math.max(0, want - taken.length) };
 }
@@ -198,8 +185,7 @@ if (!isMainThread && workerData?.tool === 'pick') {
   const ranked = dedupe(eligible.map(r => ({ ...r, ...score(r, ACT_WEIGHTS) }))
     .sort((a, b) => b.total - a.total));
   // Shortlist PER BAND. Taken globally, the whole budget goes to whatever par the metric
-  // happens to favour — longer rooms score higher on lines and changes — and the short bands
-  // arrive at selection with nothing tightened to offer.
+  // happens to favour, and the short bands arrive at selection with nothing tightened to offer.
   const BANDS = 5;
   const edge = i => lo + Math.round((hi - lo) * i / BANDS);
   const rough = [];

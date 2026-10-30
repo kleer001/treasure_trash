@@ -1,5 +1,3 @@
-// The clip has to start on the drawing of the full can standing and end on the drawings of the
-// can lying and the bag standing, or the game pops as the clip takes over and hands back.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

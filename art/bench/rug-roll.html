@@ -40,7 +40,7 @@ import { C, FLOOR, SEAM } from '../../src/art/flight.js';
 import { wallTile } from '../../src/art/room.js';
 
 const KEY = 'trash-rug-roll-2', COLS = 6, ROWS = 4, BOX = 96, $ = id => document.getElementById(id);
-// The size and the view the rug page settled on; the length is a share of the 1.70 m rug.
+// The size and the view the rug page settled on.
 const LEN = 0.63, R = 0.20, VIEWS = { across: { rx: 9, ry: 44, rz: -6, pxm: 43 }, up: { rx: 45, ry: 90, rz: 0, pxm: 44 } };
 const COLOURS = { body: '#c8453f', band: '#8a2a26', roll: '#d9ac87', edge: '#7a4e30', core: '#8a2a26', fringe: '#d9ac87' };
 const ENDS = [['roll', 'roll'], ['edge_c', 'edge'], ['core', 'core']];
@@ -72,15 +72,12 @@ const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10); camera.posit
 const pivot = new THREE.Group(); scene.add(pivot);
 const mat = Object.fromEntries(Object.entries(COLOURS).map(([k, c]) => [k, new THREE.MeshLambertMaterial({ color: c })]));
 
-/** The rolled rug, its axis along X and its middle at the origin, in metres: a smooth roll, with the
- *  wound sheet showing only as a thin spiral on each end over a dark disc. */
+/** The rolled rug, its axis along X and its middle at the origin, in metres. */
 function rug() {
-  // A spiral too big for the end is scaled down to fit it, sheet, gap and edge alike.
   const n = s.turns, end = R - 0.01, want = ((s.thick + s.gap) * n + s.thick + s.edge) / 1000 + 0.01;
   const fit = Math.min(1, end / want), L = 1.70 * LEN, t = fit * s.thick / 1000, p = t + fit * s.gap / 1000, edge = fit * s.edge / 1000;
   const r0 = end - p * n - t - edge, steps = Math.ceil(n * 64);
   const at = (k, d) => { const a = (2 * Math.PI * n * k) / steps, r = r0 + (p * a) / (2 * Math.PI) + d; return new THREE.Vector2(r * Math.cos(a), r * Math.sin(a)); };
-  // The wound sheet in section, `w` wider on each side: out along its outer face, back along its inner one.
   const strip = w => {
     const pts = [];
     for (let k = 0; k <= steps; k++) pts.push(at(k, t + w));
@@ -88,26 +85,21 @@ function rug() {
     return new THREE.Shape(pts);
   };
   for (const k of ['roll', 'edge', 'core']) mat[k].color.set(s.ends[k]);
-  // The roll is open at its ends; each end is a dark disc with the spiral on it, set just inside, so
-  // nothing at the far end shows past the roll's outline.
   const g = new THREE.Group(), side = new THREE.Mesh(new THREE.CylinderGeometry(R, R, L, 48, 1, true), mat.body);
   side.rotation.z = Math.PI / 2; g.add(side);
   for (const e of [-1, 1]) {
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.0005, R - 0.0005, 0.006, 48), mat.core);
     disc.rotation.z = Math.PI / 2; disc.position.x = e * (L / 2 - 0.005); g.add(disc);
-    // The tan sheet over a wider dark brown one, which shows as its edge.
     for (const [w, out, m] of [[edge, -0.004, mat.edge], [0, -0.0035, mat.roll]]) {
       const cap = new THREE.ExtrudeGeometry(strip(w), { depth: 0.006, bevelEnabled: false, curveSegments: 1 });
       cap.rotateY(Math.PI / 2); cap.translate(e * (L / 2 + out) - 0.003, 0, 0);
       g.add(new THREE.Mesh(cap, m));
     }
   }
-  // Bands round the roll where the rug's border pattern lies wound up.
   for (const x of [-0.62, -0.52, 0.52, 0.62]) {
     const b = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.006, R + 0.006, 0.05, 48), mat.band);
     b.rotation.z = Math.PI / 2; b.position.x = x * LEN; g.add(b);
   }
-  // The tassels come out of each end along the sheet's edge, which winds as the sheet does.
   const len = s.tlen / 1000, w = s.twide / 1000, up = new THREE.Vector3(0, 1, 0);
   for (const e of [-1, 1]) for (let k = 0; k < s.tassels; k++) {
     const a = 2 * Math.PI * n * (k + 0.5) / s.tassels, r = r0 + (p * a) / (2 * Math.PI) + t / 2;
@@ -141,8 +133,6 @@ function sprite() {
   return px.length ? crop({ px }) : { w: 0, h: 0, px };
 }
 
-// A wall row over three rows of floor: the rug centred on its footprint, the raccoon facing right
-// on its left and facing down on its right.
 function draw() {
   for (const [k] of SLIDERS) { $(k).value = s[k]; $(k + 'n').value = s[k]; }
   for (const [id, k] of ENDS) $(id).value = s.ends[k];
@@ -176,7 +166,6 @@ for (const [id, k] of ENDS) $(id).oninput = () => { s.ends[k] = $(id).value; dra
 $('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); draw(); };
 $('zin').onclick = () => { s.zoom = Math.min(16, s.zoom + 1); draw(); };
 
-// Every change saves itself to the notes file, the note with it, a moment after the last edit.
 let timer = 0;
 function autosave() {
   clearTimeout(timer);

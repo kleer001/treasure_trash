@@ -34,8 +34,6 @@ test('an emptied recycle bin slides like an empty can — it has nothing left to
                           ['-----', '--b--', '--@--', '-----', 'E----']);
 });
 
-// The room's objective, not scenery: it is one shove from spent, and until it is taken the
-// exit stays dark.
 test('a full recycle bin is worth a bag, and shoving it once spends it', () => {
   assert.equal(bagsLeft(S(['--B--', '--@--', 'E----'])), 1);
   assert.equal(bagsLeft(S(['--b--', '--@--', 'E----'])), 0);
@@ -54,8 +52,6 @@ test('wheelie bin rolls until stopped, dumps out the back, and he takes the cell
 });
 
 test('a one-cell roll drops the bag on the cell the bin just vacated — so he cannot follow', () => {
-  // The one push that does not advance him, and the bag is the reason. Same test the cart
-  // applies to the cell it vacated.
   assert.deepEqual(after(['--#--', '-----', '--W--', '--@--', 'E----'], 'u'),
                           ['--#--', '--w--', '--$--', '--@--', 'E----']);
 });
@@ -82,8 +78,6 @@ test('the raccoon will not step into open water', () => {
                        ['-----', '--~--', '-----', '-----']), 'water');
 });
 
-// A fan that reaches the canal FILLS it. The trash is spent doing that, so the cell comes
-// out as floor — terrain, no occupant — which is what lets anything stand on it afterwards.
 test('a fan fires into water and fills it — a filled cell is floor', () => {
   const g = ['-----', '-----', '--$--', '--@--', 'E----'];
   assert.deepEqual(after(g, 'u', CANAL), ['-----', '-----', '-x@x-', '-----', 'E----']);
@@ -96,29 +90,26 @@ test('a bridge is walkable, and stays walkable', () => {
                           ['-----', '--@--', '-x-x-', '-----', 'E----']);
 });
 
-// A bridge is terrain, not an occupant, so the cell still has room for something else.
 test('an object can be shoved across a bridge, because a bridge is floor', () => {
   const w = ['-----', '~===~', '-----', '-----', '-----'];
   const g = ['-----', '-----', '--c--', '--@--', 'E----'];
   assert.deepEqual(after(g, 'u', w), ['-----', '--c--', '--@--', '-----', 'E----']);
-  assert.deepEqual(afterWet(g, 'u', w), w);        // the crossing is unchanged under it
+  assert.deepEqual(afterWet(g, 'u', w), w);
 });
 
-// And it cuts both ways: floor takes trash, so a later fan can re-block a crossing you made.
 test('a fan can land on a bridge and wall your own crossing off again', () => {
   const w = ['-----', '~===~', '-----', '-----', '-----'];
   const s = act(['-----', '-----', '--$--', '--@--', 'E----'], 'u', w);
   assert.deepEqual(toGrid(s), ['-----', '-xxx-', '-x@x-', '-----', 'E----']);
-  assert.deepEqual(toWater(s), w);                 // still a bridge underneath…
-  assert.equal(explain(s, 'u').reason, 'trash');   // …and now unwalkable, like any floor
+  assert.deepEqual(toWater(s), w);
+  assert.equal(explain(s, 'u').reason, 'trash');
 });
 
-// A push puts him where the thing was, so one shove into the canal is the last it gets.
 test('a can shoved at the canal goes in, and is then out of reach forever', () => {
   const g = ['-----', '-----', '--c--', '--@--', 'E----'];
   const w = ['-----', '--~--', '-----', '-----', '-----'];
   assert.deepEqual(after(g, 'u', w), ['-----', '--c--', '--@--', '-----', 'E----']);
-  assert.equal(explain(act(g, 'u', w), 'u').reason, 'water');   // he will not wade in after it
+  assert.equal(explain(act(g, 'u', w), 'u').reason, 'water');
 });
 
 test('a full can ejects its bag into the water, and that bag can never be opened', () => {
@@ -126,8 +117,8 @@ test('a full can ejects its bag into the water, and that bag can never be opened
   const w = ['--~--', '-----', '-----', '-----', '-----'];
   const s = act(g, 'u', w);
   assert.deepEqual(toGrid(s), ['--$--', '--c--', '--@--', '-----', 'E----']);
-  assert.equal(explain(s, 'u').reason, 'canRoom');   // the emptied can is in the way…
-  assert.equal(bagsLeft(s), 1);                      // …and the bag still counts, so it is lost
+  assert.equal(explain(s, 'u').reason, 'canRoom');
+  assert.equal(bagsLeft(s), 1);
 });
 
 test('the recycle bin bridges one cell — one spent for one gained', () => {
@@ -137,9 +128,6 @@ test('the recycle bin bridges one cell — one spent for one gained', () => {
   assert.deepEqual(afterWet(g, 'u', w), ['--=--', '-----', '-----', '-----', '-----']);
 });
 
-// A water cell's only dry neighbours are its two banks, so the bin ends up standing on the
-// one cell that approaches the bridge it just made — and it is spent, so it can be shoved
-// out onto its own plank rather than standing there as a second obstacle.
 test('a spent bin steps aside onto the plank it laid', () => {
   const w = ['--~--', '-----', '-----', '-----', '-----'];
   const s = act(['-----', '-----', '--B--', '--@--', 'E----'], 'u', w);
@@ -148,15 +136,11 @@ test('a spent bin steps aside onto the plank it laid', () => {
 });
 
 test('a wheelie bin rolls clean across a canal, and he steps only into the cell it left', () => {
-  // Objects rest in water and the raccoon does not, but that never comes up: he advances one
-  // cell, into the dry cell the bin vacated, however far the bin itself went.
   const w = ['-----', '--~--', '-----', '-----', '-----'];
   assert.deepEqual(after(['-----', '-----', '--w--', '--@--', 'E----'], 'u', w),
                           ['--w--', '-----', '--@--', '-----', 'E----']);
 });
 
-// The water jug: the same two-cell shove as the recycle bin, but what lands two ahead is
-// terrain rather than an occupant.
 const JUGBOARD = ['-----', '-----', '--j--', '--@--', 'E----'];
 
 test('water jug slides one and spills a cell of water directly ahead', () => {
@@ -164,20 +148,16 @@ test('water jug slides one and spills a cell of water directly ahead', () => {
   assert.deepEqual(afterWet(JUGBOARD, 'u'), ['--~--', '-----', '-----', '-----', '-----']);
 });
 
-// A second shove the same way is legal — objects enter the canal — but it drives the jug into
-// the very puddle it poured, out of reach.
 test('a jug shoved twice the same way drives itself into its own puddle', () => {
   const twice = explain(act(['-----', '-----', '-----', '--j--', '--@--', 'E----'], 'u'), 'u');
   assert.ok(twice.ok, 'the second shove is legal now — objects go in the canal');
   assert.deepEqual(toGrid(twice.next),
     ['-----', '--i--', '--@--', '-----', '-----', 'E----']);
   assert.deepEqual(toWater(twice.next),
-    ['-----', '--~--', '-----', '-----', '-----', '-----']);   // and it is standing in it
-  assert.equal(explain(twice.next, 'u').reason, 'water');      // and now nothing can reach it
+    ['-----', '--~--', '-----', '-----', '-----', '-----']);
+  assert.equal(explain(twice.next, 'u').reason, 'water');
 });
 
-// One cell of water is the whole charge. What comes back round is an empty jug, and an empty
-// jug is an ordinary slider — the only thing in the game that undoes grease or tar is spent.
 test('the jug pours once and is empty after', () => {
   let s = act(['-----', '-----', '-----', '--j--', '--@--', 'E----'], 'u');
   for (const d of ['l', 'u']) s = explain(s, d).next;
@@ -191,8 +171,6 @@ test('the jug is refused when its water would land on the exit', () => {
   assert.equal(refused(['--E--', '-----', '--j--', '--@--', '-----'], 'u'), 'exit');
 });
 
-// Water is the one load that needs DRY ground to land on: pouring into water changes
-// nothing, and pouring onto trash would un-block a cell, which this game never does.
 test('the jug will not pour into water it has already spilled', () => {
   assert.equal(refused(JUGBOARD, 'u', ['--~--', '-----', '-----', '-----', '-----']), 'water');
 });
@@ -201,7 +179,6 @@ test('the jug will not pour onto spilled trash — nothing in this game un-block
   assert.equal(refused(['--x--', '-----', '--j--', '--@--', 'E----'], 'u'), 'canRoom');
 });
 
-// Water is the one obstacle a later fan removes, because trash on water is a bridge.
 test('a fan bridges water the jug poured, and the raccoon walks over it', () => {
   const w = ['-----', '-~---', '-----', '-----', '-----'];
   const bridged = act(['-----', '-----', '-$---', '-@---', 'E----'], 'u', w);
@@ -215,16 +192,11 @@ test('the jug will not pour on a bridge — nothing in this game reverses a fill
   assert.equal(refused(JUGBOARD, 'u', ['--=--', '-----', '-----', '-----', '-----']), 'canRoom');
 });
 
-// Furniture: the first piece that spans cells. A rigid polyomino, translate-only, and the
-// clearance test covers only the ground it moves INTO — not the ground it moves out of.
 test('a couch shoves as one unit and the raccoon takes the cell he pushed', () => {
   assert.deepEqual(after(['-----', '-FF--', '-@---', 'E----'], 'u'),
                           ['-FF--', '-@---', '-----', 'E----']);
 });
 
-// A three-long couch shoved along its own length asks for ONE new cell, not three — the two
-// it is stepping out of are its own. That is the difference between clearing the translated
-// footprint and clearing the leading edge, and it is what makes long pieces manoeuvrable.
 test('a couch may slide along its own length — vacated cells are not blockers', () => {
   assert.deepEqual(after(['-----', '--F--', '--F--', '--F--', '--@--', 'E----'], 'u'),
                           ['--F--', '--F--', '--F--', '--@--', '-----', 'E----']);
@@ -245,7 +217,6 @@ test('once the end he is touching is afloat, the couch is beyond him', () => {
   assert.equal(refused(g, 'u', w), 'water');
 });
 
-// The two-couch problem, and the reason the glyphs are a pool rather than one letter.
 test('two letters flush together are two couches, and shove independently', () => {
   const g = ['-----', '-FFGG', '-@---', 'E----'];
   assert.deepEqual(after(g, 'u'), ['-FF--', '-@-GG', '-----', 'E----']);
@@ -257,7 +228,6 @@ test('the same letter, touching, is one couch and shoves whole', () => {
 });
 
 test('the same letter used twice, not touching, is two couches', () => {
-  // Written with one letter; the writer hands out canonical letters, so it comes back F and G.
   assert.deepEqual(toGrid(S(['FF-FF', '--@--', 'E----'])), ['FF-GG', '--@--', 'E----']);
 });
 
@@ -271,16 +241,12 @@ test('furniture blocks a fan, like anything else standing in one', () => {
 
 test('glyphs round-trip through the serialiser, water layer and all', () => {
   const g = ['Cb---', '-Wwj-', '--@--', 'E--x-', 'FFGGc'];
-  const w = ['-----', '-----', '-----', '---~-', '----~'];   // a bridge, and a can afloat
+  const w = ['-----', '-----', '-----', '---~-', '----~'];
   assert.deepEqual(toGrid(S(g, w)), g);
   assert.deepEqual(toWater(S(g, w)), w);
 });
 
 test('a slider still travelling hands its motion on, and one that is not does not', () => {
-  // Momentum is what decides this, not what the piece is. A can carried three cells by a slick
-  // arrives moving and passes it on exactly as a rolling tyre does; the same can shoved a single
-  // cell on dry floor has nothing to give away, and a piece that bulldozed from a standing shove
-  // would be a different game.
   const skated = explain(toState({ id: 'a', grid: ['#########', '#@c--o-E#', '#########'],
                                    water: ['---------', '--%%%----', '---------'] }), 'r');
   assert.ok(skated.ok);
@@ -289,7 +255,6 @@ test('a slider still travelling hands its motion on, and one that is not does no
   const rolled = explain(toState({ id: 'b', grid: ['#########', '#@o--o-E#', '#########'] }), 'r');
   assert.equal(toGrid(rolled.next)[1], '#-@-o-oE#', 'which is the shape a tyre hand-off already had');
 
-  // Shoved rather than carried: it never reaches the tyre at all.
   const shoved = explain(toState({ id: 'c', grid: ['#########', '#@co---E#', '#########'] }), 'r');
   assert.equal(shoved.ok, false, 'a standing shove has no momentum to hand on');
 });

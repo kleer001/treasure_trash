@@ -1,7 +1,5 @@
-// The exit: a roller shutter under an EXIT sign. Shut, it is slats; lit, the shutter rolls up
-// into its housing and the light of the next room shimmers in the opening.
-//
-// Pixels are [x, y, colour] from the cell's top-left. The sign stands RISE rows above the cell.
+// The exit: a roller shutter under an EXIT sign.
+// Pixels are [x, y, colour] from the cell's top-left.
 export const RISE = 9;
 // The look of the door, in pixels, 60 Hz frames and pixels a second. `light` runs from the top
 // of the opening to the bottom. A sine `amp` pixels high bends its bands; `wave` and `waveY` are
@@ -43,7 +41,6 @@ export function door(open, frame = 0, look = LOOK) {
   }
   fill(LEFT, TOP, 18, OPEN_TOP - TOP, HOUSING);
   fill(LEFT, TOP, 18, 1, HOUSING_TOP);
-  // The slats left below the housing ride up with the shutter's bottom edge.
   const rows = BOTTOM - OPEN_TOP + 1, hang = Math.round((1 - Math.min(1, open)) * rows), lift = rows - hang;
   for (let y = OPEN_TOP; y < OPEN_TOP + hang; y++) fill(LEFT, y, 18, 1, (y + lift) % 2 ? SLAT : SLAT_LIT);
   if (hang) fill(LEFT, OPEN_TOP + hang - 1, 18, 1, FRAME);

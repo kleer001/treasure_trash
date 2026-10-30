@@ -11,11 +11,8 @@ import { score, dedupe, TERMS } from '../tools/score.mjs';
 const S = grid => toState({ id: 't', grid });
 
 // --- solve shape -------------------------------------------------------------
-// Sokoban counts LINES, not pushes: a run of shoves on one piece in one direction is one
-// decision however long the corridor. Anything that counts the corridor measures tedium.
 
 test('a run of shoves on one piece in one direction is a single line', () => {
-  // Four shoves right on the same can: one line, one piece, no changes.
   const s = S(['--------', '-@c----E', '--------']);
   const sh = solveShape(s, parseLurd('RRRR'));
   assert.equal(sh.pushes, 4, 'four shoves happened');
@@ -25,7 +22,6 @@ test('a run of shoves on one piece in one direction is a single line', () => {
 });
 
 test('turning the same piece a corner starts a new line but is not a piece change', () => {
-  // Shove the can right twice, walk around it, then shove it down: two runs, one can.
   const s = S(['-------', '-@c----', '-------', '------E']);
   const sh = solveShape(s, parseLurd('RRurD'));
   assert.equal(sh.pushes, 3);
@@ -53,8 +49,6 @@ test('two different pieces in one solve is one change', () => {
 // --- where the traps sit -----------------------------------------------------
 
 test('a room whose traps all hang off branches reads zero on the optimal line', () => {
-  // L29 is the pack's worked example of the failure: many ways to lose, none of them on
-  // the road. Whatever its trap count, `onPath` is what says the traps are not doing work.
   const pack = parseLevelPack(readFileSync('levels/act1.tt', 'utf8'));
   const l29 = pack.levels.find(l => l.id === 'L29');
   const a = analyze(toState(l29));
@@ -82,7 +76,6 @@ test('firstOnPath is the earliest depth optimal play can throw the room away', (
     assert.ok(b.firstOnPath >= 0 && b.firstOnPath < a.minMoves,
       `${l.id}: firstOnPath ${b.firstOnPath} outside 0..${a.minMoves - 1}`);
     assert.ok(b.bitten >= 1, `${l.id}`);
-    // A bite on the line implies a trap exists; the converse is exactly what does not hold.
     assert.ok(a.traps.length > 0, `${l.id}: bite on the line but no traps`);
   }
 });
@@ -146,7 +139,6 @@ test('a room you can keep playing long after losing is penalised', () => {
 });
 
 test('the refined on-path reading overrides the raw trap-depth stand-in', () => {
-  // Same room, but optimal play can never actually go wrong. The stand-in cannot see that.
   const raw = TERMS.firstBite({ ...ROOM });
   const refined = TERMS.firstBite({ ...ROOM, firstOnPath: null });
   assert.ok(raw > 0, 'the stand-in reads an early trap');

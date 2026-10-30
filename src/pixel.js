@@ -1,6 +1,6 @@
 // The pixel art as a sprite set: the calls `createSprites` in sprites.js answers, drawn at C px a
 // cell with every pixel whole. A position comes in cells and may be part way through a move; it
-// is rounded to the pixel. A piece with no pixel art yet is drawn as a labelled placeholder.
+// is rounded to the pixel.
 import { C, FLOOR, SEAM } from './art/flight.js';
 import { createTrash, pileLayout, drawPile } from './art/pile.js';
 import { wallTile } from './art/room.js';
@@ -43,7 +43,7 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
   const tipClip = createCanTip(A.bag);
   const STYLE = { outline: LOOK.outline, shadow: LOOK.shadow };
   const BIKE = bicycle();
-  // The sitting frame of each facing, the way he sits between presses.
+  // The sitting frame of each facing.
   const SIT = Object.fromEntries(['u', 'd', 'l', 'r'].map(d => {
     const s = draw(ACTIONS[VIEW[d]].crawl[0]);
     return [d, d === 'l' ? mirror(s) : s];
@@ -54,7 +54,6 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
 
   const P = v => Math.round(v * C);
   const put = (px, x0, y0) => { for (const [a, b, col] of px) { ctx.fillStyle = col; ctx.fillRect(x0 + a, y0 + b, 1, 1); } };
-  /** A sprite standing centred on cell (x, y), its foot a pixel above the cell's bottom edge. */
   const standing = (spr, x, y) => put(spr.px, P(x) + Math.floor((C - spr.w) / 2), P(y) + C - spr.h - 1);
   const thing = (o, x, y, seed, lie) => { const s = still(o, 0, 0, seed, lie); put(s.px, P(x) + s.x, P(y) + s.y); };
   const placeholder = (x, y, label, w = 1, h = 1) => {
@@ -65,8 +64,8 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
     ctx.font = '7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(label, x0 + W / 2, y0 + H / 2);
   };
-  // The wheelie bin's drawings, rendered from its 3D model: each is placed from the top-left of the
-  // cell the bin stands on, and its pixels are two hex digits into the palette, '..' for none.
+  // The wheelie bin's drawings, rendered from its 3D model. Its pixels are two hex digits into the
+  // palette, '..' for none.
   const decoded = new Map();
   const wheelieFrame = f => {
     if (!decoded.has(f)) decoded.set(f, f.rows.flatMap((r, y) => Array.from({ length: f.w }, (_, x) => r.slice(2 * x, 2 * x + 2))
@@ -92,7 +91,7 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
   };
 
   return {
-    /** The board the ground is read from: whether a neighbouring cell is water. */
+    /** The board the ground is read from. */
     setBoard(b) { board = b; },
     wall(x, y) { wallTile(ctx, x, y, C); },
     floor(x, y) {
@@ -106,16 +105,14 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
     grease(x, y) { this.floor(x, y); put(slickCell(x, y, lane(GREASE), LOOKS.grease), P(x), P(y)); },
     tar(x, y) { this.floor(x, y); put(slickCell(x, y, lane(TAR), LOOKS.tar), P(x), P(y)); },
     glass(x, y) { this.floor(x, y); put(glassCell(x, y, lane(GLASS), GLASS_LOOK), P(x), P(y)); },
-    // A covered cell is the cardboard lying soaked where it went down, each cell its own soak.
     covered(x, y) { this.floor(x, y); put(wetCardboard(Math.imul(x + 1, 73856093) ^ Math.imul(y + 1, 19349663)).px, P(x), P(y)); },
     grate(x, y) { this.floor(x, y); put(GRATE.px, P(x), P(y)); },
     oneway(x, y, dir) { this.floor(x, y); put(ONEWAY[dir].px, P(x), P(y)); },
-    /** `roll` is how far the shutter is up and the shimmer's frame; without one it is at rest. */
+    /** `roll` is how far the shutter is up and the shimmer's frame. */
     exit(x, y, lit, dir, roll = { open: lit ? 1 : 0, frame: 0 }) { put(door(roll.open, roll.frame), P(x), P(y)); },
 
     trash(x, y, { seed = 0, k = 1 } = {}) {
       const pile = pileLayout(T, seed, { min: LOOK.min, max: LOOK.max, C, spill: LOOK.spill });
-      // A burst being refused: its pieces come out and go back in, so only some are down.
       const pieces = k >= 1 ? pile.pieces : pile.pieces.slice(0, Math.round(pile.pieces.length * k));
       drawPile(ctx, T, { ...pile, pieces }, P(x), P(y), STYLE);
     },
@@ -127,7 +124,6 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
     /** `o`'s entry in `DUMPS` for `spec`, or `null` when `o` has none. */
     dump(o, spec) { return DUMPS[o]?.(spec) ?? null; },
     pane(x, y) { thing(PANE, x, y); },
-    // Centred on the two cells it covers.
     skateboard(cells, ox = 0, oy = 0) {
       const s = span(cells), b = SKATEBOARD[s.w > 1 ? 'x' : 'y'];
       put(b.px, P(s.x + ox) + Math.floor((s.w * C - b.w) / 2), P(s.y + oy) + Math.floor((s.h * C - b.h) / 2));
@@ -140,7 +136,7 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
     },
     raccoon(x, y, heading = 'd') { standing(SIT[heading], x, y); },
     /** He mid-press: drawing `seg` toward `dir` from cell (x, y). `stay`: he ends on the cell he
-     *  started from, so the drawing gives up its travel forward. `over` draws only the parts that go
+     *  started from. `over` draws only the parts that go
      *  in front of what he pushes. */
     pressing(seg, dir, x, y, { stay = false, over = false } = {}) {
       const p = place(stay && seg.f.dx > 0 ? { f: { ...seg.f, dx: 0 } } : seg, dir, x, y);
@@ -166,8 +162,6 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
       const b = s.h > 1 ? BIKE.up : BIKE.side;
       put(b.px, P(s.x + ox) + Math.floor((s.w * C - b.w) / 2), P(s.y + oy) + s.h * C - b.h - 1);
     },
-    // The turn comes from where it lies along the way it rolls, a drawing every quarter cell, so it
-    // turns as it rolls, back as it rolls back, and never as it slides along its length.
     rug(cells, ox = 0, oy = 0) {
       const s = span(cells), x = s.x + ox, y = s.y + oy, across = s.w > s.h;
       const k = ((Math.round((across ? y : x) * 4) % TURNS) + TURNS) % TURNS;

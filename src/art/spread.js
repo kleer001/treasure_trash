@@ -1,6 +1,5 @@
-// Three ways to lay trash over a board's TRASH cells, next to pileLayout's mound per cell. Each
-// returns a Map 'x,y' -> pile { cx, cy, pieces } with cell-local pieces, as pileLayout does, so
-// settle() and drawPile() take them unchanged.
+// Ways to lay trash over a board's TRASH cells, next to pileLayout's mound per cell.
+// Each returns a Map 'x,y' -> pile { cx, cy, pieces } with cell-local pieces, as pileLayout does, so settle() and drawPile() take them unchanged.
 import { mulberry32 } from '../rng.js';
 import { cellSeed } from '../stage.js';
 import { ORDER, sizes, pileLayout, chooser } from './pile.js';
@@ -45,7 +44,6 @@ export function noise(seed, x, y, scale = 6) {
   return a + (b - a) * fy;
 }
 
-/** The chance a piece centred `d` px past the trash's edge lands: 1 inside, 0 at `reach`. */
 const fringe = (d, reach, gamma) => d <= 0 ? 1 : d >= reach ? 0 : (1 - d / reach) ** gamma;
 
 const byLayer = pieces => pieces.sort((a, b) => ORDER[a.layer] - ORDER[b.layer]);
@@ -56,8 +54,7 @@ function centred(T, p, x, y) {
   return { ...p, x: Math.round(x - s.w / 2), y: Math.round(y - s.h / 2) };
 }
 
-/** A. Each cell on its own, its pieces spread evenly over the cell and `spill` past it: one
- *  piece to each square of a jittered grid. */
+/** A: each cell on its own. */
 export function flatLayout(T, cells, chooseOf, rndOf, { C, min, max, spill, jitter }) {
   const out = new Map(), over = Math.round(spill * C), span = C + 2 * over;
   for (const [x, y] of cells) {
@@ -77,15 +74,10 @@ export function flatLayout(T, cells, chooseOf, rndOf, { C, min, max, spill, jitt
   return out;
 }
 
-/** B's test for cell (x, y): `ext`, how far past each edge its grid reaches, and `weigh(piece,
- *  px, py)`, the chance the piece centred on (px, py) lands. Toward trash the two cells' piece
- *  centres cross-fade over `knit` px each side of the seam; toward anything else the pieces thin
- *  out until no pixel of theirs reaches `spill` past it, the edge eaten up to `rough` px in. */
+/** B's test for cell (x, y): `ext`, how far past each edge its grid reaches, and `weigh(piece, px, py)`, the chance the piece centred on (px, py) lands. */
 function edgeTest(T, x, y, isTrash, { C, spill, knit, falloff, rough, seed }) {
   const over = spill * C;
   const toTrash = [isTrash(x - 1, y), isTrash(x + 1, y), isTrash(x, y - 1), isTrash(x, y + 1)];
-  // Edge k's share of a piece: by its centre `centre` px past a seam to trash, or by its
-  // outermost pixel, `pixel` px past an edge to anything else.
   const side = (k, centre, pixel, bite) => toTrash[k]
     ? (knit ? Math.max(0, Math.min(1, 0.5 - centre / (2 * knit))) : centre < 0 ? 1 : 0)
     : fringe(pixel + bite, over, falloff);
@@ -94,8 +86,7 @@ function edgeTest(T, x, y, isTrash, { C, spill, knit, falloff, rough, seed }) {
     const xs = s.px.map(p => piece.x + p[0]), ys = s.px.map(p => piece.y + p[1]);
     const past = [-Math.min(...xs), Math.max(...xs) - C + 1, -Math.min(...ys), Math.max(...ys) - C + 1];
     const bite = rough * noise(seed, x * C + px, y * C + py);
-    // The farthest any pixel lands from the nearest TRASH cell, which the edges alone miss at
-    // an inside corner: two edges to trash, the cell between them not.
+    // The farthest any pixel lands from the nearest TRASH cell, which the edges alone miss at an inside corner.
     let far = 0;
     for (const [a, b] of s.px) {
       const X = x * C + piece.x + a, Y = y * C + piece.y + b, gx = Math.floor(X / C), gy = Math.floor(Y / C);
@@ -111,9 +102,7 @@ function edgeTest(T, x, y, isTrash, { C, spill, knit, falloff, rough, seed }) {
   return { ext: toTrash.map(t => t ? knit : over), weigh };
 }
 
-/** B. Each cell on its own, but each of its four edges reads the cell beyond it, as `edgeTest`
- *  says. The cell's count comes from its seed; each square of its grid draws its piece from its
- *  own hash. */
+/** B: each cell on its own, its four edges reading the cell beyond. */
 export function edgeLayout(T, cells, isTrash, chooseOf, rndOf, o) {
   const { C, min, max, jitter, seed } = o, out = new Map();
   for (const [x, y] of cells) {
@@ -135,9 +124,6 @@ export function edgeLayout(T, cells, isTrash, chooseOf, rndOf, o) {
   return out;
 }
 
-/** Every piece of `given` laid in cell (x, y) by B's test, in the order given: each takes the
- *  next square of a jittered grid, in an order hashed from `key`, that its test lets it land on.
- *  The grid has one square a piece, and is laid again with new jitter until every piece is down. */
 export function pourLayout(T, x, y, given, isTrash, o, key) {
   const { C, jitter, seed } = o, step = C / Math.sqrt(given.length);
   const { ext, weigh } = edgeTest(T, x, y, isTrash, o);
@@ -158,9 +144,7 @@ export function pourLayout(T, x, y, given, isTrash, o, key) {
   return { cx: C / 2, cy: C / 2, pieces: byLayer(pieces) };
 }
 
-/** C. One field of points over the whole board, a jittered grid per size class, that knows no
- *  cells: a point inside a TRASH cell lands and belongs to it; a point past the trash's edge
- *  lands with a chance that thins to nothing `spill` out, and belongs to the nearest TRASH cell. */
+/** C: one field of points over the whole board, knowing no cells. */
 export function fieldLayout(T, board, chooseOf, { C, n, spill, falloff, rough, jitter, seed }) {
   const { W, H, isTrash } = board, over = spill * C, out = new Map();
   const R = Math.ceil((over + rough) / C) + 1;

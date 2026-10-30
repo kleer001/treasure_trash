@@ -34,7 +34,7 @@ const src = document.createElement('canvas'); src.width = COLS * C; src.height =
 const g = src.getContext('2d');
 const S = createPixelSprites({ ctx: g, art: await loadPixelArt(new URL('../../src/art/', import.meta.url)) });
 
-// [row, paint]; drawn back to front by the row each thing stands on, as the game draws them.
+// [row, paint].
 const THINGS = [
   [1, () => S.wheelie(1, 1, true)], [1, () => S.wheelie(3, 1, false)], [1, () => S.raccoon(4, 1, 'd')],
   [1, () => S.can(6, 1, true)], [1, () => S.recycleBin(7, 1, true)],
@@ -53,7 +53,6 @@ function draw() {
 const setZoom = z => { zoom = z; try { localStorage.setItem(KEY, String(zoom)); } catch {} draw(); autosave(); };
 $('zout').onclick = () => setZoom(Math.max(1, zoom - 1));
 $('zin').onclick = () => setZoom(Math.min(12, zoom + 1));
-// The note saves itself to the notes file a moment after the last edit.
 let timer = 0;
 const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ page: 'wheelie-context', settings: { zoom }, note: $('note').value, at: new Date().toISOString() }) })

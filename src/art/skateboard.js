@@ -1,8 +1,4 @@
-// The skateboard, two cells long, drawn by hand over a 3D render of the board: a stained teal deck
-// with its grain along it, a red dot, and "TRASH PANDA" in Silkscreen, italic, yellow lit along its
-// top over a black extrude, spilling past the dot. Across the screen it is seen from the front,
-// tipped 35° toward the viewer, its edge two lines deep and the near wheels under it. Up the screen
-// it is seen from straight above, the words reading down it and the wheels out each side.
+// The skateboard, drawn by hand over a 3D render of the board.
 //   T teal, G grain, L light grain, r red, R the dot's rim, y yellow, Y its lit top, k extrude,
 //   b bolt, 1 2 the edge's upper and lower lines, W V U the wheels, lit to dark
 const PALETTE = { T: '#2e8c99', G: '#236f7b', L: '#4aa6b0', r: '#ff4b3e', R: '#c7302a', y: '#ffcf00', Y: '#fff27a', k: '#1a1a1a', b: '#333a44', '1': '#241f31', '2': '#5e4a33', W: '#e9e3d3', V: '#a9a498', U: '#8d8578' };

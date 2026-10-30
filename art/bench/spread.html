@@ -66,7 +66,7 @@ const METHODS = [
 ].map(m => ({ ...m, keys: Object.keys(ui[m.id]) }));
 
 // The room. W wall, p trash, @ raccoon; standing objects b bin, j jug; lying objects C couch
-// (two cells), x box, t tyre. The raccoon walks, so it blocks nothing.
+// (two cells), x box, t tyre.
 const ROOM = [
   'WWWWWWWWWWWW',
   'Wppp...pCCbW',
@@ -93,7 +93,7 @@ const OBJECTS = [
   ...Object.entries(STAND).flatMap(([ch, spr]) => cellsOf(ch).map(([x, y]) => [spr, ...at(spr, x, y)])),
 ];
 
-/** Object pixels more than `under` pixels in from their object's edge: trash stops there. */
+/** Object pixels more than `under` pixels in from their object's edge. */
 function deepMask(under) {
   let m = new Uint8Array(PW * PH);
   for (const [spr, x0, y0] of OBJECTS) for (const [px, py] of spr.px) m[(y0 + py) * PW + x0 + px] = 1;

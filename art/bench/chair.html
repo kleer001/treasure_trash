@@ -45,8 +45,6 @@ const crop = ({ px }) => {
 const sitting = d => crop(d === 'l' ? mirror(drawRaccoon(ACTIONS[VIEW[d]].crawl[0])) : drawRaccoon(ACTIONS[VIEW[d]].crawl[0]));
 const RACCOON = { d: sitting('d'), r: sitting('r') };
 
-// A wall row over two rows of floor: the chair in the middle of the bottom row, standing as the
-// game stands it, with the raccoon facing right on its left and facing down on its right.
 function draw() {
   $('stem').value = s.stem; $('stemn').value = s.stem; $('zoom').textContent = `${s.zoom}×`;
   const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;

@@ -14,39 +14,24 @@
 // WHY H AND NOT L OR U. Every family here has to pass the same structural rules a random
 // outline does, and the load-bearing one rejects a large clear rectangle: those make state
 // spaces "very bushy, but not very deep" (Taylor & Parberry, GAMEON-NA 2011). An L is a
-// rectangle minus a corner and a U is a rectangle minus a bite, so both leave a big open hall
-// and fail at every size tried. H takes bites from two opposite edges, which leaves two
-// chambers and a neck, and passes.
-//
-// A consequence worth knowing before designing rooms on these: every legal H has a TWO-cell
-// crossbar or neck, because a wider one would be a clear rectangle again. Two rows is enough
-// to walk and shove through but it constrains bursting, since a sideways tear needs a row
-// above AND below the bag.
+// rectangle minus a corner and a U is a rectangle minus a bite, so both leave a big open hall.
 //
 // WHY THE RING IS DEFINED BY MARGINS. One block in a rectangle is the obvious second family and
 // the obvious version of it does not work: a fixed 2x2 block leaves a slab beside it that widens
-// with the room, and past about 7x6 that slab IS the open hall. Sizing the block to leave a one
-// or two cell margin instead keeps the lane narrow at every size, which is why the family is
-// large where a centred square is a handful of lucky arithmetic.
-//
-// Most of the ring family is ASYMMETRIC, and that is the point: a one-cell squeeze down one side
-// against a two-cell lane down the other is a different room from a symmetric ring. A one-cell
-// margin is also a lane a shoved piece can never be got around — a commitment rather than a
-// fault, and whether it is a fertile one is a question for the survey and not for this comment.
+// with the room. Sizing the block to leave a margin instead keeps the lane narrow at every size,
+// which is why the family is large where a centred square is a handful of lucky arithmetic.
 
 import { largestOpenBlock, floorIsConnected, floorComponents, hasNiche } from './metrics.mjs';
 import { WET } from '../src/format.js';
 import { fan } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 
-// A clear rectangle at least this side and this area is what the family must not contain.
 const OPEN_BLOCK_MIN_SIDE = 3;
 const OPEN_BLOCK_MIN_AREA = 12;
-const MIN_FLOOR = 16;                 // below this there is no room for four pieces and a walk
+const MIN_FLOOR = 16;
 
 const blank = (w, h) => Array.from({ length: h }, () => Array.from({ length: w }, () => false));
 
-/** Vertical legs, horizontal crossbar: bites out of the top and bottom edges. */
 function upright(w, h, gapX0, gapW, topCut, botCut) {
   const wall = blank(w, h);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++)
@@ -54,7 +39,6 @@ function upright(w, h, gapX0, gapW, topCut, botCut) {
   return wall;
 }
 
-/** The same H turned on its side: horizontal legs, vertical neck. */
 function rotated(w, h, gapY0, gapH, leftCut, rightCut) {
   const wall = blank(w, h);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++)
@@ -64,10 +48,6 @@ function rotated(w, h, gapY0, gapH, leftCut, rightCut) {
 
 /**
  * Every structural rule, applied to the empty room before anything stands in it.
- *
- * `water`, when given, is judged as NOT floor: the rules here are about where the raccoon may
- * walk and stand, and open water is neither. It is what lets terrain carry a room's structure
- * instead of walls.
  */
 export function judge(wall, w, h, water = null) {
   const isFloor = (x, y) => x >= 0 && y >= 0 && x < w && y < h
@@ -91,9 +71,6 @@ const SIZES = [[7, 5], [8, 5], [9, 5], [10, 5], [8, 6], [9, 6], [10, 6], [11, 5]
  * The H family: every variant of both orientations that passes. Plans come out in the shape
  * `harvest.mjs`'s `outline()` returns — `{ wall, floor }` — so `placeOn` and everything
  * downstream take them unchanged.
- *
- * An ASYMMETRIC cut is a member of the family, not a defect. The variations are the point:
- * one leg deeper than the other is a different room with the same silhouette.
  */
 export function hFamily() {
   const out = [];
@@ -125,15 +102,9 @@ export function hFamily() {
   return out;
 }
 
-// Margins the lane may be, on each of the four sides. Two is enough to walk round a shoved
-// piece; one is not, and both are members.
 const MARGINS = [1, 2];
-const RING_BLOCK_MIN = 2;             // a one-cell block is a pillar, and pillars make niches
+const RING_BLOCK_MIN = 2;
 
-// Room sizes the block families are enumerated over. Par tracks floor count and nothing else
-// here — measured on a lake harvest, a room of 51+ floor cells runs a median par of 27 against
-// 19 at 25-32 — while the state cap is nowhere near binding at any of these sizes. So the range
-// is set by how long a solve an act wants, not by what the solver can afford.
 const BLOCK_SIZES = [];
 for (let h = 5; h <= 11; h++) for (let w = 6; w <= 14; w++) BLOCK_SIZES.push([w, h]);
 
@@ -163,7 +134,7 @@ const fill = (w, h, l, t, bw, bh) => {
  *
  * Enumerated over the four margins rather than over block positions, which is the same set of
  * rooms said the way that makes the bound obvious — see the header for why a fixed-size block
- * does not survive the open-block rule past about 7x6.
+ * does not survive the open-block rule.
  */
 export function ringFamily() {
   const out = [];
@@ -181,18 +152,6 @@ export function ringFamily() {
 
 /**
  * The lake family: the ring's silhouette with the block made of WATER instead of wall.
- *
- * The two are the same shape and opposite mechanics, and the difference is one line of the rules
- * — `isOccupiable`, which `fanBlockers` tests, refuses a wall and accepts water. So a tear aimed
- * at a wall block is refused, and the very same tear aimed at a lake lands in it and turns three
- * cells to bridge. A ring's lane cannot host the game's core verb; a lake's lane is built for it.
- *
- * That makes the water a SHORTCUT rather than a barrier: the lane always goes round, and a bag
- * spent on the pool buys a way through the middle. The same tear on dry floor lays five cells of
- * permanent trash instead, so where to spend one is the room's question rather than whether to.
- *
- * No walls at all. The pool does the structural work the ring's block was doing, which is the
- * whole claim being made, and `judge` checks it on the dry floor the same way.
  */
 export function lakeFamily() {
   const out = [];
@@ -213,20 +172,10 @@ export function lakeFamily() {
 export const FAMILIES = { h: hFamily, ring: ringFamily, lake: lakeFamily };
 
 // ---------------------------------------------------------------- water
-// Terrain is laid ON an outline rather than being part of one, and that split decides which
-// rules get re-asked. The structural tests above run over floor AND water, because a water
-// cell is floor the moment something bridges it — so a plan that passed them still passes
-// them, and none of it is recomputed here. What water changes is where the raccoon may STAND,
-// which is a different question and gets the two rules below instead.
-//
-// A CANAL is one connected run of water; a PUDDLE FIELD is water cells no two of which touch.
-// The distinction is not decorative. Only a canal can cut the dry floor in two, and that is the
-// one thing terrain can do that walls cannot: a wall that severs a room is a broken room, while
-// a canal that severs one is a room with a crossing to build.
 
-const CANAL_MIN = 3;        // shorter than this is a puddle field wearing a canal's name
-const MIN_DRY_FLOOR = 14;   // pieces, a raccoon and an exit all want somewhere dry to start
-const MIN_BANK = 6;         // a bank smaller than this is a pocket, and crossing to it is a chore
+const CANAL_MIN = 3;
+const MIN_DRY_FLOOR = 14;
+const MIN_BANK = 6;
 
 /**
  * `plan` with `cells` under water. Null when the result is not worth drawing on.
@@ -246,9 +195,8 @@ function flood(plan, cells, label) {
   const dry = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (isDry(x, y)) dry.push([x, y]);
   if (dry.length < MIN_DRY_FLOOR) return null;
-  // `sides` is what tells a barrier from a nick in a corner. Severing is cheap — a canal laid
-  // along a wall cuts two cells off and reads as severing — so the number a consumer wants is
-  // how big the SMALLER bank is, not whether there are two of them.
+  // `sides` is what tells a barrier from a nick in a corner. Severing is cheap, so the number a
+  // consumer wants is how big the SMALLER bank is, not whether there are two of them.
   const sides = floorComponents(isDry, w, h);
   return {
     ...plan, water, floor: dry, wet: cells.length, sides,
@@ -257,8 +205,7 @@ function flood(plan, cells, label) {
   };
 }
 
-/** A canal worth building a crossing over: it severs, and the far bank is a room rather than a
- *  pocket. `min` is the smallest that bank may be. */
+/** `min` is the smallest the far bank may be. */
 export const isBarrier = (plan, min = MIN_BANK) =>
   plan.severs && plan.sides.length === 2 && plan.sides[1] >= min;
 
@@ -298,16 +245,11 @@ export function bankOf(plan) {
 
 /**
  * Every seat a bridging tear could be made from: a dry cell to stand a bag on and the direction
- * to shove it, such that the fan lands in the canal and JOINS THE TWO BANKS. `fan` comes back
- * so placement can keep the exit and every other piece off those five cells.
+ * to shove it. `fan` comes back so placement can keep the exit and every other piece off those
+ * cells.
  *
- * Random placement finds these at about one draw in two thousand, which is the whole reason
- * this exists: the bag has to sit in the row beside the water with its fan pointing across, and
- * uniform sampling almost never does that.
- *
- * Clear-at-the-start is SUFFICIENT for the tear to be legal, not necessary. A room where the
- * player must first shove something out of the fan is one this pass declines to find, and that
- * is the trade for finding any at all.
+ * The bag has to sit in the row beside the water with its fan pointing across, and uniform
+ * sampling almost never does that.
  */
 export function bridgeSeats(plan) {
   const hit = SEATS.get(plan);
@@ -319,15 +261,12 @@ export function bridgeSeats(plan) {
   const out = [];
   for (const [bx, by] of plan.floor) {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      // The raccoon has to have somewhere to shove FROM, and it has to be his own bank.
       const [hx, hy] = [bx - dx, by - dy];
       if (!inGrid(hx, hy) || wall[hy][hx] || water[hy][hx]) continue;
       const cells = fan(bx, by, dx, dy);
       if (!cells.every(([x, y]) => inGrid(x, y) && !wall[y][x])) continue;
       const wet = cells.filter(([x, y]) => water[y][x]);
       if (!wet.length) continue;
-      // Laying trash on exactly these cells is what the tear does. If that does not join the
-      // banks it is a splash, not a crossing.
       const filled = new Set(wet.map(([x, y]) => `${x},${y}`));
       const joined = (x, y) =>
         inGrid(x, y) && !wall[y][x] && (!water[y][x] || filled.has(`${x},${y}`));
@@ -343,9 +282,6 @@ export function bridgeSeats(plan) {
  * Every straight canal on a plan: each contiguous run of `CANAL_MIN` cells or more along a
  * wall-free row or column. Enumerated rather than sampled, for the reason the families are —
  * a canal is part of the silhouette an act is built on, and a run is three numbers.
- *
- * A line carrying a wall is not offered at all: the wall would break the run into two canals,
- * and two runs is a puddle field by the definition above.
  */
 export function canals(plan) {
   const { w, h, wall } = plan;
@@ -376,8 +312,7 @@ export function puddles(plan, n, rnd, tries = 40) {
   for (let t = 0; t < tries; t++) {
     const cells = [];
     for (let k = 0; k < n; k++) {
-      // Manhattan 1 is exactly the neighbourhood `floorIsConnected` walks, so two puddles left
-      // touching would read as one short canal. Diagonals are free.
+      // Manhattan 1 is exactly the neighbourhood `floorIsConnected` walks.
       const open = plan.floor.filter(([x, y]) =>
         cells.every(([cx, cy]) => Math.abs(cx - x) + Math.abs(cy - y) > 1));
       if (!open.length) break;
@@ -385,7 +320,6 @@ export function puddles(plan, n, rnd, tries = 40) {
     }
     if (cells.length < n) continue;
     const p = flood(plan, cells, `puddles ${n}`);
-    // A puddle field that cuts the walk in two is a canal drawn wrong, whatever it looks like.
     if (p && !p.severs) return p;
   }
   return null;

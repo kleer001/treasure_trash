@@ -13,8 +13,6 @@ const fakeStore = (seed = {}) => {
 };
 
 // --- stars -------------------------------------------------------------------
-// Par is the provably minimal action count, so three stars is a claim about optimality and
-// has to be exact. The middle band is proportional on purpose.
 
 test('three stars means the player matched the proven minimum', () => {
   assert.equal(stars(10, 10), 3);
@@ -22,11 +20,10 @@ test('three stars means the player matched the proven minimum', () => {
 });
 
 test('the near-miss band scales with the room, so short rooms are not brutal', () => {
-  // +1 on a par-8 room costs a star's worth of slack; the same +1 on a par-38 room does not.
   assert.equal(stars(8, 8), 3);
-  assert.equal(stars(10, 8), 2);           // ceil(8 * 1.25) = 10
+  assert.equal(stars(10, 8), 2);
   assert.equal(stars(11, 8), 1);
-  assert.equal(stars(47, 38), 2);          // ceil(38 * 1.25) = 48
+  assert.equal(stars(47, 38), 2);
   assert.equal(stars(49, 38), 1);
   assert.ok(SLACK > 1, 'the band must be wider than par itself');
 });
@@ -102,10 +99,10 @@ const PACK = [{ id: 'L1', par: 10 }, { id: 'L2', par: 10 }, { id: 'L3', par: 10 
 test('an act tallies what is done and what it was worth', () => {
   const p = createProgress(fakeStore());
   assert.deepEqual(p.tally(PACK), { done: 0, total: 3, earned: 0, possible: 9, complete: false });
-  p.record('L1', 10);                       // optimal
-  p.record('L2', 12);                       // within the band
+  p.record('L1', 10);
+  p.record('L2', 12);
   assert.deepEqual(p.tally(PACK), { done: 2, total: 3, earned: 5, possible: 9, complete: false });
-  p.record('L3', 40);                       // finished, badly
+  p.record('L3', 40);
   assert.equal(p.tally(PACK).complete, true, 'complete counts finishing, not perfection');
   assert.equal(p.tally(PACK).earned, 6);
 });

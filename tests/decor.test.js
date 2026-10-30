@@ -1,7 +1,3 @@
-// Which way things face is decoration: no rule reads it and no board holds it. It comes from what
-// came before — the presses, and what the rules traced for them — so these replay presses and ask
-// the stage what it is left wearing.
-
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { explain, BIN_EMPTY, CAN_EMPTY } from '../src/rules.js';

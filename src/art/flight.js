@@ -1,5 +1,4 @@
-// The bag rip frame by frame: the board and its tear from src/rules.js, each piece's flight from
-// the bag to its rest in layout B, and the shadow each piece casts on the way.
+// The bag rip frame by frame; its board and tear come from src/rules.js.
 import { explain, TRASH, cell } from '../rules.js';
 import { toState } from '../format.js';
 import { cellSeed } from '../stage.js';
@@ -10,8 +9,7 @@ import { wallTile } from './room.js';
 
 export const C = 24, FLOOR = '#896e6e', SEAM = '#584c62';
 const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
-// The bag and the raccoon from the push on, ms: from each key's time, the bag sprite (none once it
-// has burst), the bag's nudge and the raccoon's lunge toward the bag, px.
+// The bag and the raccoon from the push on, ms: from each key's time, the bag sprite, the bag's nudge and the raccoon's lunge toward the bag, px.
 export const KEYS = [
   { t: 0, body: 'bag', lunge: 0 },
   { t: 160, body: 'bag', nudge: 1, lunge: 3 },
@@ -36,23 +34,18 @@ export const FLIGHT_SLIDERS = {
 };
 
 const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
-// What a full shadow does to each channel: the floor times this is SHADOW.
 const DARKEN = rgb(SHADOW).map((c, i) => c / rgb(FLOOR)[i]);
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-// The shadow a landed piece has in each pile shadow style: how far it reaches past the piece, px,
-// and its offset. A flying shadow ends on it.
+// The shadow a landed piece has in each pile shadow style: how far it reaches past the piece, px, and its offset.
 const LANDED = { base: { r: 1.5, dx: 0, dy: 0 }, drop: { r: 0.5, dx: 1, dy: 1 }, none: { r: 0.5, dx: 0, dy: 0 } };
 const DRIFT = { s: [0, 1], se: [Math.SQRT1_2, Math.SQRT1_2], e: [1, 0] };
 
-/** Drawing and flight for one trash set `T`, sprites `A`, pile look `STYLE`, and `OBJ`, the sprite
- *  of each occupant code a still draws standing on its cell. */
+/** Drawing and flight for one trash set `T`, sprites `A`, pile look `STYLE`, and `OBJ`, the sprite of each occupant code. */
 export function createFlight({ T, A, STYLE, OBJ }) {
   const drawSpr = (ctx, spr, x, y) => { for (const [px, py, col] of spr.px) { ctx.fillStyle = col; ctx.fillRect(x + px, y + py, 1, 1); } };
-  // A sprite stands centred on its cell, its feet one pixel above the cell's bottom edge.
   const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
 
-  /** A square N×N board, walled round if `room` is 'walled', its exit in the corner, and each
-   *  `[x, y, glyph]` of `put` placed on it. */
+  /** A square N×N board, each `[x, y, glyph]` of `put` placed on it. */
   function board(N, room, put) {
     const rows = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) =>
       room === 'walled' && (x === 0 || y === 0 || x === N - 1 || y === N - 1) ? '#' : '-'));
@@ -61,9 +54,6 @@ export function createFlight({ T, A, STYLE, OBJ }) {
     return toState({ id: 'bench', grid: rows.map(r => r.join('')) });
   }
 
-  /** The pieces at rest on the TRASH cells of `next`, laid by `lay(cells, isTrash)` and stopped by
-   *  the walls of `s`: every piece in drawing order, cell by cell in reading order, each cell's pile
-   *  bottom first. */
   function rest(s, next, N, lay) {
     const isTrash = (x, y) => x >= 0 && y >= 0 && x < N && y < N && cell(next, x, y).o === TRASH;
     const cells = [];
@@ -78,8 +68,7 @@ export function createFlight({ T, A, STYLE, OBJ }) {
     return { cells, pieces };
   }
 
-  /** The board: a bag with the raccoon behind it, ready to push `dir`, the tear `explain()` makes
-   *  of it, and the piles its TRASH cells hold afterwards, laid as the Trash Spread page `S` lays B. */
+  /** The piles the TRASH cells hold after the tear, laid as the Trash Spread page `S` lays B. */
   function setup(dir, room, S) {
     const [dx, dy] = DIRS[dir], N = room === 'walled' ? 5 : 7, b = (N - 1) / 2;
     const s = board(N, room, [[b, b, '$'], [b - dx, b - dy, '@']]);
@@ -91,10 +80,8 @@ export function createFlight({ T, A, STYLE, OBJ }) {
     return { s, r, N, W: N * C, dx, dy, bx, by, sourceOf: () => middle, aimed: spawned.map(e => e.cells[0]), ...rest(s, r.next, N, (cells, isTrash) => spreadPiles(T, 'edges', S.edges, { C, W: N, H: N, cells, isTrash, seed: S.seed, hues: S.hues })), wrap: S.wrap };
   }
 
-  /** When each piece leaves and lands, in ms after the first could leave, how high it arcs and how
-   *  far it turns, from the Landing Bench's settings `f`. A piece's natural arrival comes from its
-   *  distance, its own speed and its size; the arrivals are then stretched to fill the landing
-   *  window exactly. `B.sourceOf(q, launch)` is where piece `q` is when it leaves. */
+  /** Each piece's leave and land times, in ms after the first could leave, its arc height and turn, from the settings `f`.
+   *  `B.sourceOf(q, launch)` is where piece `q` is when it leaves. */
   function plan(B, f) {
     const v = f.spread / 100, far = f.far / 100, heavy = f.heavy / 100, BIAS = { hero: -1, mid: 0, bit: 1 };
     const P = B.pieces.map(q => {
@@ -128,9 +115,7 @@ export function createFlight({ T, A, STYLE, OBJ }) {
     return { s, gx: Math.round(q.sx + (q.rx - q.sx) * u - s.w / 2), gy: Math.round(q.sy + (q.ry - q.sy) * u - s.h / 2), hc, h: Math.round(hc) };
   }
 
-  /** How strongly each pixel of a W×H canvas lies in the shadow of `flying`, 0..1. A piece casts its
-   *  silhouette grown past its edge: at height 0 that is the landed shadow, and at `cast.height` px
-   *  and above it is the widest, softest, roundest and faintest. Shadows that overlap do not add up. */
+  /** How strongly each pixel of a W×H canvas lies in the shadow of `flying`, 0..1. */
   function shade(W, H, flying, cast) {
     const a = new Float32Array(W * H), L = LANDED[STYLE.shadow], [ux, uy] = DRIFT[cast.light];
     for (const f of flying) {
@@ -155,8 +140,7 @@ export function createFlight({ T, A, STYLE, OBJ }) {
     return a;
   }
 
-  /** Darken a W×H canvas by the shade `a`, as `blend`: 'smooth' alpha, 'steps' of a quarter, or a
-   *  4×4 'dither' pinned to the canvas so it does not crawl as a shadow moves. */
+  /** Darken a W×H canvas by the shade `a`, as `blend`. A dither is pinned to the canvas so it does not crawl as a shadow moves. */
   function darken(ctx, W, H, a, blend) {
     const img = ctx.getImageData(0, 0, W, H), d = img.data;
     for (let i = 0; i < a.length; i++) {
@@ -173,7 +157,6 @@ export function createFlight({ T, A, STYLE, OBJ }) {
   const castShadows = (ctx, W, H, casters, cast) => darken(ctx, W, H, shade(W, H, casters, cast), cast.blend);
   const drawAirborne = (ctx, flying) => { for (const f of [...flying].sort((a, b) => a.hc - b.hc)) drawSpr(ctx, f.s, f.gx, f.gy - f.h); };
 
-  /** Pieces in the air over a W×H canvas: their shadows, then the pieces, highest last. */
   function drawFlying(ctx, W, H, flying, cast) {
     castShadows(ctx, W, H, flying, cast);
     drawAirborne(ctx, flying);
@@ -197,7 +180,6 @@ export function createFlight({ T, A, STYLE, OBJ }) {
   }
   function walls(ctx, B) { for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++) if (cell(B.s, x, y).wall) wallTile(ctx, x, y, C); }
 
-  /** A still of board `s`, drawn from the board alone, with the pieces `trash` at rest. */
   function still(ctx, B, s, trash) {
     ground(ctx, B);
     drawTrash(ctx, B, trash);
@@ -209,7 +191,7 @@ export function createFlight({ T, A, STYLE, OBJ }) {
     drawSpr(ctx, A.raccoon, ...at(A.raccoon, s.rac.x, s.rac.y));
   }
 
-  /** The frame `t` ms after the push, with flying shadows cast as `cast` says. */
+  /** The frame `t` ms after the push. */
   function frameAt(ctx, B, P, t, cast) {
     const since = t - TEAR;
     ground(ctx, B);

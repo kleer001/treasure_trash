@@ -75,7 +75,7 @@ const S = createPixelSprites({ ctx: g, art });
 const tipClip = createCanTip(art.A.bag);
 const STEP = { r: [1, 0], l: [-1, 0], u: [0, -1], d: [0, 1] };
 
-// ---- the scene: him behind the can, the can in the middle, the bag's cell beyond ------------
+// ---- the scene ----
 const scene = dir => {
   const [dx, dy] = STEP[dir], can = [MIDCELL, MIDCELL];
   const segs = press('push', dir, { lead: false });
@@ -96,7 +96,6 @@ function draw() {
   $('frame').value = frame_; $('of').textContent = `of ${length() - 1}`; $('scrub').max = length() - 1; $('scrub').value = frame_;
   timeline();
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) (x === 0 || y === 0 || x === N - 1 || y === N - 1 ? S.wall(x, y) : S.floor(x, y));
-  // On twos: every drawing is held two screen frames.
   const f = frame_ - frame_ % 2;
   const put = px => { for (const [x, y, c] of px) { g.fillStyle = c; g.fillRect(x, y, 1, 1); } };
   const pressing = f < B.end;
@@ -108,7 +107,7 @@ function draw() {
   const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
 }
 
-// ---- the timeline: the can's row and the bag's, with draggable keys ---------------------------
+// ---- the timeline ----
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const KEYS = {
   move:  { rows: ['can'], fixed: true, at: () => B.move },
@@ -187,7 +186,6 @@ for (const k of KNOBS) {
 $('spin').onchange = () => { s.spin = $('spin').checked; change(); };
 $('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
 $('zin').onclick = () => { s.zoom = Math.min(12, s.zoom + 1); save(); draw(); };
-// Every change saves itself to the notes file, the note with it, a moment after the last edit.
 let timer = 0;
 const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ page: 'can-tip', settings: s, note: $('note').value, at: new Date().toISOString() }) })

@@ -35,7 +35,7 @@ const old = DRAFTS.find(d => d.id === 'cardboard-A');
 const BEFORE = { w: old.rows[0].length, h: old.rows.length,
   px: old.rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, old.palette[c]]]))) };
 
-// One floor cell, the sheet lying on it from the cell's top-left, as the game lays it.
+// One floor cell, the sheet lying on it from the cell's top-left.
 function cell(s) {
   const src = document.createElement('canvas'); src.width = C; src.height = C;
   const ctx = src.getContext('2d');

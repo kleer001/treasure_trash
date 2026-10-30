@@ -128,7 +128,7 @@ export function session({ levels, acts, seed = 1, tuning = TUNING, stores = {}, 
     if (dead) watch.scanned(t, k => dead.has(k));
   }
 
-  /** A direction key, as `act()` in the game takes it. A speech holds the board, so a player waits it out. */
+  /** A direction key, as `act()` in the game takes it. */
   function press(dir) {
     while (speaking) wait(TICK);
     const res = last = play.press(dir, t < animUntil);
@@ -138,7 +138,6 @@ export function session({ levels, acts, seed = 1, tuning = TUNING, stores = {}, 
     return res.r;
   }
 
-  /** One action: in a room with `:arm on`, a tear takes a second press, and the player gives it. */
   function act(dir) {
     const r = press(dir);
     if (play.armed !== dir) return r;
@@ -158,7 +157,6 @@ export function session({ levels, acts, seed = 1, tuning = TUNING, stores = {}, 
     /** Plays LURD actions `pace` apart, each once the last has finished moving, as a player would. */
     play(actions, pace) { for (const a of actions) { wait(Math.max(pace, animUntil - t)); act(a.dir); } },
     step(dir, pace = 400) { wait(Math.max(pace, animUntil - t)); return act(dir); },
-    /** Waits until he has nothing on screen and nothing coming. */
     quiet(most = 60000) {
       const until = t + most;
       for (let v = crow.view(t); (v.talking || v.waiting) && t < until; v = crow.view(t)) wait(TICK);
@@ -334,7 +332,6 @@ function plan(opt) {
     g.quiet();
   });
 
-  // Every refusal, where the solution paths first offer it.
   const reasons = ['edge', 'wall', 'trash', 'fan', 'canRoom', 'exit', 'water', 'afloat', 'pour', 'glass', 'tar', 'oneway'];
   const matrix = matrixPack();
   const packsFor = [main, loadPacks(['scratch.tt']), matrix];
@@ -389,7 +386,6 @@ function plan(opt) {
     g.undo(); g.wait(TUNING.undoSettleMs + 200); g.quiet();
     while (isDead(L, g.state)) g.undo();
     g.quiet();
-    // A lost board counts once an attempt, so each further loss takes a restart.
     for (let k = 0; k < TUNING.yodaLost - 1; k++) {
       g.restart(); g.play(lose.prefix, fast); g.step(lose.dir); g.wait(fast); g.undo();
     }
@@ -465,7 +461,6 @@ function plan(opt) {
     g.step(off); g.step(OPP[off]); g.quiet();
   });
 
-  // Nothing full and still dark: a solution path that carries trash on a cart for a while.
   const onExit = b => !exitLit(b) && exitsOf(b).some(([x, y]) => b.rac.x === x && b.rac.y === y);
   const cartPacks = [main, loadPacks(['scratch.tt'])];
   const carted = find(cartPacks.flatMap(p => p.levels), ({ s, dir }) => dir === DIR_ORDER[0] && bagsLeft(s) === 0 && !exitLit(s) && walkTo(s, onExit));

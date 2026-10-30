@@ -1,11 +1,7 @@
 // Trace ROM Studio wordmark, rendered procedurally to Canvas.
-//
-// TRACE / ROM / STUDIO stacked in three width-justified rows, then cut by horizontal
-// scanlines whose thickness tapers thin -> thick -> thin from the poles to the equator
-// (a cos² profile). Flat lines read as one lit, curved surface — the Saul Bass AT&T
-// globe (1983) trick, recast as a CRT readout.
+// Flat lines read as one lit, curved surface.
 
-/** Tuning for the mark. Tuned against a 900×560 field; scales via options. */
+/** Tuning for the mark. Scales via options. */
 export const LOGO_DEFAULTS = {
   width: 900,
   height: 560,
@@ -15,14 +11,14 @@ export const LOGO_DEFAULTS = {
   fontWeight: 900,
   fontSize: 130,
   rows: ['TRACE', 'ROM', 'STUDIO'],
-  targetWidth: 600, // every row is justified (glyph-stretched) to this width
-  rowGap: 100, // center-to-center row spacing; near-touching at fontSize 130
+  targetWidth: 600,
+  rowGap: 100, // center-to-center row spacing
   pitch: 11, // scanline center-to-center spacing
-  thicknessMax: 9.0, // band thickness at the equator (densest)
-  thicknessMin: 1.4, // band thickness at the poles (airiest)
+  thicknessMax: 9.0,
+  thicknessMin: 1.4,
 };
 
-/** The cos² luminance profile: 1 at the vertical center, 0 at the poles. Returns [0,1]. */
+/** Returns [0,1]. */
 function taperAt(y, height) {
   const d = (y - height / 2) / (height / 2); // -1..1
   const c = Math.cos((d * Math.PI) / 2);
@@ -75,8 +71,6 @@ export function drawLogo(ctx, options = {}) {
   ctx.font = `${cfg.fontWeight} ${cfg.fontSize}px ${cfg.fontFamily}`;
 
   const rows = rowLayout(cfg);
-  // Clip to each scanline band and paint the rows through it — the band acts as
-  // the mask, so only the lit stripes of each letter survive.
   for (const band of scanlineBands(cfg.height, cfg)) {
     ctx.save();
     ctx.beginPath();
@@ -87,7 +81,7 @@ export function drawLogo(ctx, options = {}) {
   }
 }
 
-// Auto-render when a <canvas id="logo"> is present (skipped under `node --test`).
+// Skipped under `node --test`.
 if (typeof document !== 'undefined') {
   const canvas = document.getElementById('logo');
   if (canvas) {

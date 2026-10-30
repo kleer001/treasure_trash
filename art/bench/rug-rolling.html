@@ -56,15 +56,12 @@ const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10); camera.posit
 const pivot = new THREE.Group(); scene.add(pivot);
 const mat = Object.fromEntries(Object.entries(COLOURS).map(([k, c]) => [k, new THREE.MeshLambertMaterial({ color: c })]));
 
-/** The rolled rug, its axis along X and its middle at the origin, in metres: a smooth roll, with the
- *  wound sheet showing only as a thin spiral on each end over a dark disc. */
+/** The rolled rug, its axis along X and its middle at the origin, in metres. */
 function rug() {
-  // A spiral too big for the end is scaled down to fit it, sheet, gap and edge alike.
   const n = s.turns, end = R - 0.01, want = ((s.thick + s.gap) * n + s.thick + s.edge) / 1000 + 0.01;
   const fit = Math.min(1, end / want), L = 1.70 * LEN, t = fit * s.thick / 1000, p = t + fit * s.gap / 1000, edge = fit * s.edge / 1000;
   const r0 = end - p * n - t - edge, steps = Math.ceil(n * 64);
   const at = (k, d) => { const a = (2 * Math.PI * n * k) / steps, r = r0 + (p * a) / (2 * Math.PI) + d; return new THREE.Vector2(r * Math.cos(a), r * Math.sin(a)); };
-  // The wound sheet in section, `w` wider on each side: out along its outer face, back along its inner one.
   const strip = w => {
     const pts = [];
     for (let k = 0; k <= steps; k++) pts.push(at(k, t + w));
@@ -72,26 +69,21 @@ function rug() {
     return new THREE.Shape(pts);
   };
   for (const k of ['roll', 'edge', 'core']) mat[k].color.set(s.ends[k]);
-  // The roll is open at its ends; each end is a dark disc with the spiral on it, set just inside, so
-  // nothing at the far end shows past the roll's outline.
   const g = new THREE.Group(), side = new THREE.Mesh(new THREE.CylinderGeometry(R, R, L, 48, 1, true), mat.body);
   side.rotation.z = Math.PI / 2; g.add(side);
   for (const e of [-1, 1]) {
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.0005, R - 0.0005, 0.006, 48), mat.core);
     disc.rotation.z = Math.PI / 2; disc.position.x = e * (L / 2 - 0.005); g.add(disc);
-    // The tan sheet over a wider dark brown one, which shows as its edge.
     for (const [w, out, m] of [[edge, -0.004, mat.edge], [0, -0.0035, mat.roll]]) {
       const cap = new THREE.ExtrudeGeometry(strip(w), { depth: 0.006, bevelEnabled: false, curveSegments: 1 });
       cap.rotateY(Math.PI / 2); cap.translate(e * (L / 2 + out) - 0.003, 0, 0);
       g.add(new THREE.Mesh(cap, m));
     }
   }
-  // Bands round the roll where the rug's border pattern lies wound up.
   for (const x of [-0.62, -0.52, 0.52, 0.62]) {
     const b = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.006, R + 0.006, 0.05, 48), mat.band);
     b.rotation.z = Math.PI / 2; b.position.x = x * LEN; g.add(b);
   }
-  // The tassels come out of each end along the sheet's edge, which winds as the sheet does.
   const len = s.tlen / 1000, w = s.twide / 1000, up = new THREE.Vector3(0, 1, 0);
   for (const e of [-1, 1]) for (let k = 0; k < s.tassels; k++) {
     const a = 2 * Math.PI * n * (k + 0.5) / s.tassels, r = r0 + (p * a) / (2 * Math.PI) + t / 2;
@@ -132,22 +124,17 @@ function sprite(a) {
   return out;
 }
 
-// Which way the roll's top runs for a positive turn, so a roll turns the way it travels: toward
-// the viewer when it rolls down the screen, and to the right when it rolls right.
 function topRuns() {
   const r = VIEWS[u.foot], e = new THREE.Euler(...[r.rx, r.ry, r.rz].map(THREE.MathUtils.degToRad), 'XYZ');
   const v = new THREE.Vector3(0, 0, 1).applyEuler(e);
   return u.foot === 'across' ? v.z : v.x;
 }
 const travel = () => (u.foot === 'across' ? [0, 1] : [1, 0]).map(k => k * (u.back ? -1 : 1));
-// The turn at a distance travelled: a whole turn a cell, or the turn its own girth gives it.
 const angleAt = d => {
   const girth = 2 * Math.PI * R * VIEWS[u.foot].pxm, sign = Math.sign(topRuns()) * (u.back ? -1 : 1);
   return sign * (u.spin === 'turn' ? (2 * Math.PI * d) / C : (2 * Math.PI * d) / girth);
 };
 
-// The roll runs down a lane of cells: down a column for ↑↓, along a row for ←→. Each drawing is
-// chosen by how far the rug has gone, so the frame counter only says where along the lane it is.
 let tick = 0;
 function draw() {
   for (const b of ['across', 'up']) $(b).className = u.foot === b ? 'on' : '';
@@ -170,7 +157,6 @@ function draw() {
   for (let q = 1; q <= ROWS; q++) g.fillRect(0, q * C - 1, src.width, 1);
   for (let x = 0; x < COLS; x++) wallTile(g, x, 0, C);
   const put = (spr, x0, y0) => { for (const [x, y, c] of spr.px) { g.fillStyle = c; g.fillRect(x0 + x - spr.ax, y0 + y - spr.ay, 1, 1); } };
-  // The footprint's middle at the lane's first cell, then moved along it.
   const [tx, ty] = travel(), first = u.back ? LANE - 1 : 0;
   const mx = across ? 2 * C + C : C + first * C + C / 2, my = across ? (1 + first) * C + C / 2 : C + C;
   put(sprite(angleAt(d)), Math.round(mx + tx * d), Math.round(my + ty * d));
@@ -179,7 +165,6 @@ function draw() {
   try { localStorage.setItem(KEY, JSON.stringify(u)); } catch {}
 }
 
-// 60 Hz, on twos: a new drawing every other frame.
 let frame = 0;
 const loop = () => { if (u.playing && ++frame % 2 === 0) { tick++; draw(); } requestAnimationFrame(loop); };
 const set = (k, v) => { u[k] = v; tick = 0; draw(); autosave(); };
@@ -194,7 +179,6 @@ $('next').onclick = () => { u.playing = false; tick++; draw(); };
 $('zout').onclick = () => { u.zoom = Math.max(1, u.zoom - 1); draw(); };
 $('zin').onclick = () => { u.zoom = Math.min(12, u.zoom + 1); draw(); };
 
-// Every change saves itself to the notes file, the note with it, a moment after the last edit.
 let timer = 0;
 function autosave() {
   clearTimeout(timer);

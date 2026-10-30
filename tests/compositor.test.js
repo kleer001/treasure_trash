@@ -2,8 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCompositor, activeLayers } from '../src/compositor.js';
 
-// A stand-in context: the compositor only needs save()/restore() plus whatever the
-// layers use. These fakes record the call order so we can assert on it.
 const recordingCtx = (events) => ({
   save: () => events.push('save'),
   restore: () => events.push('restore'),
@@ -64,8 +62,8 @@ test('activeLayers is pure and filters disabled, preserving order', () => {
 });
 
 test('add() rejects a malformed layer', () => {
-  assert.throws(() => createCompositor().add({ name: 'x' }), /must be/); // no draw
-  assert.throws(() => createCompositor().add({ draw() {} }), /must be/); // no name
+  assert.throws(() => createCompositor().add({ name: 'x' }), /must be/);
+  assert.throws(() => createCompositor().add({ draw() {} }), /must be/);
   assert.throws(() => createCompositor().add(null), /must be/);
 });
 

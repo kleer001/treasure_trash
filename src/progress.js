@@ -3,16 +3,8 @@
 
 export const STORE_KEY = 'treasure-trash:progress:1';
 
-// Three stars is not "very good", it is OPTIMAL. Par here is the provably minimal action count
-// — `tools/verify.mjs` re-proves it against the whole state graph for every shipped room — so a
-// player matching it has matched the machine, and the game can say so without hedging.
-//
-// The second band is proportional rather than a flat "+3": being three actions over on a par-8
-// room is a different mistake from being three over on a par-38 one, and a flat band would
-// make the short rooms brutal and the long ones free.
 export const SLACK = 1.25;
 
-/** 3 optimal, 2 close, 1 finished, 0 never finished. */
 export function stars(best, par) {
   if (best == null) return 0;
   if (best <= par) return 3;

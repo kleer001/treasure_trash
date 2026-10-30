@@ -1,7 +1,5 @@
-// Broken glass on the floor, seen from above: a pile of shards about as much glass as the pane
-// that fell, a few long slivers and many small bits, heaped toward the middle of the cell. Each
-// cell seeds its own pile, and a pile may spill a little into a neighbouring glass cell, so the
-// field is in floor pixels and each cell draws only its own.
+// Broken glass on the floor, seen from above.
+// The field is in floor pixels and each cell draws only its own.
 import { mulberry32 } from '../rng.js';
 import { C } from './flight.js';
 
@@ -20,11 +18,9 @@ function pile(cx, cy, look) {
   const gauss = () => (rnd() + rnd() + rnd() - 1.5) * 1.4;
   const out = [], x0 = cx * C, y0 = cy * C, seen = new Set();
   let left = look.area;
-  // After the glass budget is spent, more bits go on until `visible` px of the cell show glass.
   for (let k = 0; (left > 0 || seen.size < look.visible) && k < 5000; k++) {
     const big = k < look.big;
     const L = big ? look.bigMin + rnd() * (look.bigMax - look.bigMin) : 1 + rnd() * (look.smallMax - 1);
-    // Big slivers lie further out than the crumbs, which heap where the pane landed.
     const r = look.spread * (big ? 1.4 : 1);
     const mx = cx * C + C / 2 + gauss() * r, my = cy * C + C / 2 + gauss() * r;
     const a = rnd() * Math.PI, dx = Math.cos(a), dy = Math.sin(a), w = Math.max(0.6, L * look.width);
@@ -60,10 +56,9 @@ export function glassShards(cx, cy, has, look) {
     const at = (x, y) => own.has(x * 100003 + y);
     const lit = rnd() < look.glint, out = [];
     for (const [x, y] of shard) {
-      // Only glass cells hold glass: a pile is cut where the glass ends.
       if (!has(Math.floor(x / C), Math.floor(y / C))) continue;
       let c = look.fill;
-      if (!at(x - 1, y) || !at(x, y - 1)) c = lit ? look.glare : look.edge;   // the edge facing the light
+      if (!at(x - 1, y) || !at(x, y - 1)) c = lit ? look.glare : look.edge;
       else if (!at(x + 1, y) || !at(x, y + 1)) c = look.dark;
       if (shard.length <= 2) c = lit ? look.glare : look.edge;
       out.push([x, y, c]);

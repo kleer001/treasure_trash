@@ -46,10 +46,8 @@ export function draft(room) {
 
   const bags = bagsLeft(s);
   if (a.silentTraps.length) no(`a plain move can lose the room (${a.silentTraps[0].lurd})`);
-  // The two design rules a room can fail — see verify.mjs.
+  // The design rules a room can fail — see verify.mjs.
   if (bags > 0 && a.exitRefusals === 0) no('the exit forbids no action — it is only a destination');
-  // Checked after `tighten` walls, not only before: a wall can take away the lane a piece was
-  // shutting, and leave the piece standing in the open shutting nothing.
   const onDag = shortestDag(a);
   const inert = inertPieces(room, a, { onDag });
   if (inert.length) no(`does nothing: ${inert.map(p => p.what).join(' ')}`);
@@ -67,9 +65,7 @@ export function draft(room) {
     }
   }
 
-  // `lead` and `tail` are reported, not judged. Verify holds them to a bound because a shipped
-  // room has to be sited well; a room still being drafted has not been sited yet, and rejecting
-  // it here would throw away the candidate instead of moving its exit.
+  // A room still being drafted has not been sited yet, and rejecting it here would throw away the candidate instead of moving its exit.
   Object.assign(out, { par: a.minMoves, solve: a.shortestLurd, solves: a.shortestCount,
                        traps: a.traps.length, bags, exitRefusals: a.exitRefusals,
                        ...deadTravel(a, onDag) });
@@ -77,8 +73,7 @@ export function draft(room) {
 }
 
 /**
- * Must the cart actually be SHOVED? False means it is scenery the player walks around: it may
- * lengthen the route, but the room teaches nothing about the piece.
+ * Must the cart actually be SHOVED? False means it is scenery the player walks around.
  */
 export function cartMustMove(room) {
   if (!room.cart) return null;
@@ -86,7 +81,7 @@ export function cartMustMove(room) {
     [...row].map((ch, x) => (room.cart[y][x] !== '-' ? '#' : ch)).join(''));
   try {
     return analyze(toState({ ...room, grid, cart: undefined })).minMoves === null;
-  } catch { return true; }                 // frozen board is not even legal: it has to move
+  } catch { return true; }
 }
 
 const wallAt = (room, x, y) => ({
@@ -97,13 +92,10 @@ const wallAt = (room, x, y) => ({
 
 /**
  * Fill in the floor the solve never needed, so the room comes out shaped rather than
- * rectangular. Walls only ever remove options, so par cannot fall — what they buy is fewer
- * alternate solutions and a smaller graph. Greedy in raster order to a fixed point.
+ * rectangular.
  *
  * `accept` sees the walled room's draft and the unwalled one's, and says whether the wall is
- * worth it. The default keeps par, refuses extra solutions, and will not wall away a room's
- * last way to lose: a wall that removes the final trap is a wall that removes the lesson.
- * Walls can only ever take traps away, so a room that arrives with none keeps none.
+ * worth it.
  */
 export function tighten(room, accept = (d, base) =>
   d.par === base.par && d.solves <= base.solves && d.traps >= Math.min(base.traps, 1)) {
@@ -204,8 +196,7 @@ export function hunt(shape, want, limit = 12) {
   return { hits, seen };
 }
 
-// Run directly: a worked example of the shape a teaching room wants — short, few solutions,
-// and impossible without shoving the cart.
+// Run directly: a worked example of the shape a teaching room wants — short, few solutions.
 if (import.meta.url === `file://${process.argv[1]}`) {
   const t0 = Date.now();
   const { hits, seen } = hunt({ w: 5, h: 3, pieces: ['$'] },

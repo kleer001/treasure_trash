@@ -35,7 +35,6 @@ const old = DRAFTS.find(d => d.id === 'sponge-A');
 const BEFORE = { w: old.rows[0].length, h: old.rows.length,
   px: old.rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, old.palette[c]]]))) };
 
-// One floor cell, the sprite standing on it as the game stands it.
 function cell(s) {
   const src = document.createElement('canvas'); src.width = C; src.height = C;
   const ctx = src.getContext('2d');

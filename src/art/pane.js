@@ -1,18 +1,15 @@
-// The pane of glass seen straight from the side, standing on its edge facing the viewer, and the
-// glass it leaves on the floor once a shove has toppled it: shards seen from above, placed from the
-// cell's own hash. Toppling toward the viewer or away it folds down flat, its face growing in.
+// The pane of glass seen straight from the side, and the shards it leaves on the floor.
 import { paint, tipper } from './tip.js';
 import { hash } from './spread.js';
 
 export const PANE = { W: 18, H: 20 };
-const FOLD = 20;                              // px the pane's foot moves as it falls toward the viewer or away: it lands flat in the next cell
+const FOLD = 20;                              // px the pane's foot moves
 const FRAME = '#67819e', TINT = '#7dafb3', GLINT = '#f1eccb', PALE = '#d6d3b0';
 
-/** The pane's face: a thin edge round it, the floor showing through the glass, two streaks of light. */
 const face = (w, h) => {
   const s = paint(w, h, (c, r) => c >= 0 && r >= 0 && c < w && r < h, (c, r) => {
     if (c === 1 || r === 1 || c === w - 2 || r === h - 2) return (c + r) % 3 ? TINT : FRAME;
-    const d = c + r;                                                    // the streaks run corner to corner
+    const d = c + r;
     return d === Math.round(h * 0.55) || d === Math.round(h * 0.55) + 1 ? GLINT : d === Math.round(h * 0.55) + 4 ? PALE
       : (c * 7 + r * 3) % 11 === 0 ? TINT : null;
   });
@@ -21,7 +18,7 @@ const face = (w, h) => {
 export const front = face(PANE.W, PANE.H);
 export const { frame, restAt } = tipper(front, face(PANE.W, PANE.H), face(PANE.W, PANE.H), FOLD);
 
-const SHAPES = [                              // shards as rows of px, the long edge catching the light
+const SHAPES = [
   [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [0, 2]],
   [[0, 0], [1, 0], [1, 1], [2, 1], [2, 2]],
   [[0, 0], [1, 0], [2, 0], [3, 0], [1, 1], [2, 1]],

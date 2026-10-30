@@ -1,13 +1,11 @@
-// The clip of a full can tipping over and throwing its bag out, in 60 Hz frames.
+// The clip of a full can tipping over, in 60 Hz frames.
 import { DIRS } from '../rules.js';
 import { C } from './flight.js';
 import { frame, restAt, bagIn, spun, CAN } from './can.js';
 import { at, moved } from './stills.js';
 import { stretch } from './stretch.js';
 
-/** Frames: `tip` from the move's stop, `fall` to lying, `pour` from the tip, `fly` to landing,
- *  `squash` to rest. `hop` is how high the bag arcs and `depth` how far it squashes, in px;
- *  `spin` turns it a whole turn as it flies. */
+/** `hop` is how high the bag arcs and `depth` how far it squashes, in px. */
 export const TIP = { tip: -3, fall: 7, pour: 4, fly: 5, squash: 8, hop: 6, depth: 8, spin: true };
 
 /** The clip's keys, in frames from the start of a move that takes `moveFrames`. */
@@ -42,11 +40,8 @@ export function createCanTip(BAG) {
     return { w, h, px: rows.flatMap((r, y) => r.flatMap((c, x) => (c ? [[x, y, c]] : []))) };
   };
 
-  /** The can falling toward `dir` as it moves out of cell `from` to lie in cell `to`, its bag
-   *  landing in cell `bagTo`, its move taking `moveFrames`; `down`, the bag goes down a grate there.
-   *  `layers(f, along)` is the can and its bag `f` frames from the start of its move, on twos, as
-   *  `[foot, px]` pairs in px on the room, where `along` is how far along its move the can is, 0 to
-   *  1. `end` is the first frame drawn at rest; `keys` is when each part happens. */
+  /** `layers(f, along)` is the can and its bag `f` frames from the start of its move, as `[foot, px]` pairs
+   *  in px on the room, where `along` is how far along its move the can is, 0 to 1. `end` is the first frame drawn at rest. */
   return ({ dir, from, to, bagTo, moveFrames, down = false, k = TIP }) => {
     const keys = tipKeys(moveFrames, k), [dx] = DIRS[dir];
     const O = restAt(...from, C), end = restAt(...to, C, dir), f90 = frame(dir, 90);

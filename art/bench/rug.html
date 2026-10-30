@@ -107,9 +107,6 @@ function sprite() {
   return px.length ? crop({ px }) : { w: 0, h: 0, px };
 }
 
-// A wall row over three rows of floor: the rug standing on its footprint, across two cells of the
-// bottom row or up two cells of one column, with the raccoon facing right on its left and facing
-// down on its right.
 function draw() {
   for (const k of ['rx', 'ry', 'rz', 'pxm', 'dy']) { $(k).value = v()[k]; $(k + 'n').value = v()[k]; }
   $('len').value = s.len; $('lenn').value = s.len;
@@ -127,7 +124,6 @@ function draw() {
     const x0 = col * C + Math.floor((cw * C - spr.w) / 2), y0 = ROWS * C - spr.h - 1;
     put(spr, x0, y0);
   };
-  // The rug is centred on its footprint, then moved `dy` pixels down.
   const centred = (spr, col, cw, ch) => put(spr, col * C + Math.floor((cw * C - spr.w) / 2),
     (ROWS - ch) * C + Math.floor((ch * C - spr.h) / 2) + v().dy);
   const put = (spr, x0, y0) => {
@@ -152,7 +148,6 @@ for (const b of ['across', 'up']) $(b).onclick = () => { s.foot = b; save(); dra
 for (const b of Object.keys(PALETTES)) $(b).onclick = () => { s.colours = b; save(); draw(); };
 $('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
 $('zin').onclick = () => { s.zoom = Math.min(16, s.zoom + 1); save(); draw(); };
-// Every change saves itself to the notes file, the note with it, a moment after the last edit.
 let timer = 0;
 function autosave() {
   clearTimeout(timer);

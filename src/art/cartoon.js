@@ -1,13 +1,7 @@
-// The raccoon, cartoon, in three views. From the side the body is drawn in four shapes (squash,
-// normal, gather, stretch), and every frame places body, head, tail and feet by hand, the legs drawn
-// from the hip down to where the frame puts the foot; facing left is the mirror. From the front
-// and the back every frame is a list of whole parts and where each goes, in drawing order.
-//
-// Every frame of an action carries a beat. `rest` is the sit before the press. `windup` is skipped by
-// a press that comes during the move or a frame marked `low`, and plays from any other pose. `move` is
-// the travel the board makes in one game step. `tail` is the settle back to the sit, and the next press
-// cuts it. A frame with an `alt` has a second stride, which every other press in a run takes. A
-// frame's `fr` is its hold in 60 Hz screen frames.
+// The raccoon, cartoon. Facing left is the mirror.
+// From the front and the back every frame is a list of whole parts and where each goes, in drawing order.
+// Every frame of an action carries a beat.
+// A frame's `fr` is its hold in 60 Hz screen frames.
 
 import { ART } from './raccoon.js';
 
@@ -16,7 +10,6 @@ const GROUND = H - 1;
 
 /** Rows `rows` with the pixels `[x, y, colour]` changed. */
 const swap = (rows, list) => rows.map((r, y) => [...r].map((c, x) => list.find(([px, py]) => px === x && py === y)?.[2] ?? c).join(''));
-/** Rows `rows` with the box `[x0, y0, x1, y1]` moved by `dx, dy`, cleared where it was. */
 const shift = (rows, [x0, y0, x1, y1], dx, dy) => {
   const g = rows.map(r => [...r]), box = [];
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (rows[y][x] !== '.') box.push([x, y, rows[y][x]]);
@@ -24,7 +17,7 @@ const shift = (rows, [x0, y0, x1, y1], dx, dy) => {
   for (const [x, y, c] of box) if (g[y + dy]?.[x + dx] !== undefined) g[y + dy][x + dx] = c;
   return g.map(r => r.join(''));
 };
-/** Rows `rows` with the box moved by `dx, dy` and drawn over itself where it was, so nothing opens up. */
+/** Rows `rows` with the box moved by `dx, dy`, so nothing opens up. */
 const drag = (rows, box, dx, dy) => shift(rows, box, dx, dy).map((r, y) => [...r].map((c, x) => (c === '.' ? rows[y][x] : c)).join(''));
 const pad = (rows, n) => rows.map(r => r + '.'.repeat(n));
 const ghost = (rows, ch) => rows.map(r => r.replace(/[^.]/g, ch));
@@ -35,9 +28,7 @@ const curl = (rows, lift, extra) => {
   rows.forEach((r, y) => [...r].forEach((c, x) => { if (c !== '.') g[y + extra - (lift[x] ?? 0)][x] = c; }));
   return g.map(r => r.join(''));
 };
-/** Rows `rows` with columns `at` to `at + n - 1` drawn twice, `n` px longer. */
 const widen = (rows, at, n) => rows.map(r => r.slice(0, at + n) + r.slice(at, at + n) + r.slice(at + n));
-/** Head `h` squashed on an impact: 1 px lower, 1 px wider at the back. */
 const flatten = h => widen(h.filter((_, y) => y !== 4), 2, 1);
 
 const HEAD = [
@@ -76,10 +67,8 @@ const FRONT_HEAD = swap([
 const flat = rows => ['................', '.aal........laa.', ...rows.slice(2)];
 const frontBlink = h => swap(h, [[4, 7, 'd'], [5, 7, 'd'], [10, 7, 'd'], [11, 7, 'd'], [4, 8, 'e'], [5, 8, 'e'], [10, 8, 'e'], [11, 8, 'e']]);
 const frontWide = h => swap(h, [[4, 7, 'm'], [6, 7, 'm'], [5, 6, 'm'], [9, 7, 'm'], [11, 7, 'm'], [10, 6, 'm']]);
-// The front face at the side head's size, to turn to the viewer on the side body.
 const FRONT_SMALL = frontWide(FRONT_HEAD).map(r => r.slice(1, 15)).map((r, y) => (y >= 2 && y <= 9 ? 'a' + r.slice(1, 13) + 'a' : r));
 
-// The side sit: the head is the box from column 9 to 21, rows 0 to 10.
 const SIDE_HEAD_BOX = [9, 0, 21, 10];
 const sideEar = rows => ['......................', '...........aaa........', rows[2].slice(0, 9) + '.alldaaaa....', ...rows.slice(3)];
 const SIDE = ART.SIDE_ART;
@@ -100,7 +89,6 @@ const NORMAL = [
 ];
 
 const PARTS = {
-  // From the side, sitting: the sprite, and its idle beats.
   sit: SIDE,
   sitBlink: swap(SIDE, [[13, 7, 'd'], [14, 7, 'e']]),
   sitWide: swap(SIDE, [[12, 7, 'm'], [13, 7, 'a'], [14, 7, 'm'], [13, 6, 'm']]),
@@ -111,7 +99,6 @@ const PARTS = {
   sitLook: shift(SIDE, SIDE_HEAD_BOX, 1, 1),
   sitTilt: shift(SIDE, SIDE_HEAD_BOX, 0, 1),
   sideBody: shift(SIDE, SIDE_HEAD_BOX, 0, 40),
-  // From the side, low: the head and its faces, the body's four shapes, the tail.
   head: HEAD,
   headBack: earsBack(HEAD),
   headStrain: squint(earsBack(HEAD)),
@@ -172,9 +159,6 @@ const PARTS = {
   dustSmall: ['j'],
   tongue: ['j'],
   pip: ['m.m', '.m.', 'm.m'],
-  // From the front: the head and its faces, the haunches it sits on, and for the low frames the
-  // hump of the back over the head, the shoulders, a chest between the fore legs, legs by length,
-  // and the paws that grip a thing's rim in front of it.
   frontHead: FRONT_HEAD,
   frontHeadBlink: frontBlink(FRONT_HEAD),
   frontHeadStrain: flat(swap(FRONT_HEAD, [[4, 7, 'd'], [5, 7, 'd'], [10, 7, 'd'], [11, 7, 'd'], [4, 8, 'm'], [5, 8, 'm'], [10, 8, 'm'], [11, 8, 'm']])),
@@ -204,8 +188,6 @@ const PARTS = {
   leg4: ['aiia', 'aiia', 'aiia', 'alla', 'aaaa'],
   rimPaw: ['.aa.', 'alla', 'aaaa'],
   paw: ['alla', 'aaaa'],
-  // From the back: the back sprite to sit, and for the low frames its skull over a round rump, the
-  // tail hanging down the rump or curled up one side, the hind feet flat or kicking up their soles.
   backSit: ART.BACK_ART,
   backSitEar: ['..aa...............', '.adda.......aaa....', ...ART.BACK_ART.slice(2)],
   backSitTail: ART.BACK_TAIL,
@@ -229,7 +211,7 @@ const PARTS = {
   sole: ['akka', 'alla', 'aaaa'],
 };
 
-/** A leg as a line `w` px thick from `[x0, y0]` to `[x1, y1]`: `fill` along it, a 2 px `paw` at the end, outlined. */
+/** A leg as a line `w` px thick from `[x0, y0]` to `[x1, y1]`. */
 function limb([x0, y0], [x1, y1], fill, paw, w = 1) {
   const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)), core = new Map();
   for (let i = 0; i <= n; i++) {
@@ -274,25 +256,21 @@ const F = (name, fr, dx, [body, bx, by], [head, hdx, hdy], [tail, tdy], feet, o 
 const P = [0, 0], PLANT = [P, P, P, P];
 /** A sit: `under` is drawn beneath the sprite `art`, `top` over it. */
 const sitting = (name, fr, dx, thing, art, o) => ({ name, fr, dx, thing, seated: true, parts: [...(o.under ?? []), ...art, ...(o.top ?? [])] });
-/** The side sit, the raccoon's rest, centred as the game centres it. */
+/** The side sit, the raccoon's rest. */
 const S = (name, fr, dx, thing, art = 'sit', o = {}) => sitting(name, fr, dx, thing, [[art, 11, 0]], o);
 
 const as = beat => fs => fs.map(f => ({ ...f, beat }));
 const rest = f => ({ ...f, beat: 'rest' });
 const windup = as('windup'), move = as('move'), after = as('tail');
 const recovery = (name, fs) => after(fs).map(f => ({ ...f, recovery: name }));
-/** The recoveries after a push held fast; a run of refusals takes them in turn. */
 export const RECOVERIES = ['look', 'shake', 'hmph', 'puff', 'rub'];
 const idleBeat = (name, fs) => fs.map(f => ({ ...f, beat: 'idle', idle: name }));
-/** Frame `a` with `b` as its second stride. */
 const stride = (a, b) => ({ ...a, alt: b });
 const SHAKE = [['shakeL', -1], ['shakeR', 1], ['shakeL', -1], ['centre', 0]];
 const shakes = make => SHAKE.map(([n, d], k) => make(n, d, k));
 
-// The side push's contact: the nose on the can's edge, the spark just past it.
 const SPARK = ['pip', 40, 10];
 const SIDE_ACTIONS = {
-  // Hunker, smear forward, one patter, land 1 px past the mark, settle back, rise to the sit.
   crawl: [
     rest(S('sit', 12, 0)),
     ...windup([F('hunker', 3, 0, ['squash', 14, 7], ['headBack', 0, 0], ['tailUp', 0], PLANT)]),
@@ -308,8 +286,6 @@ const SIDE_ACTIONS = {
       S('sit', 18, 24),
     ]),
   ],
-  // Back off, slam the head in with a spark, drive it across on the hind feet, thud it 1 px past
-  // its mark, pop back.
   push: [
     rest(S('sit', 12, 0, 0)),
     ...windup([F('windup', 3, -2, ['squash', 14, 7], ['headBack', -1, 0], ['tailUp', 0], [P, P, [-1, 0], [-1, 0]], { thing: 0 })]),
@@ -325,8 +301,6 @@ const SIDE_ACTIONS = {
       S('sit', 18, 24, 24),
     ]),
   ],
-  // The same slam, the head flattened on it, then a hold where nothing moves; he strains, bounces off
-  // it wide-eyed, lands, plays one recovery, and sits with an ear down before it pricks up again.
   stuck: [
     rest(S('sit', 12, 0, 0)),
     ...windup([F('windup', 3, -2, ['squash', 14, 7], ['headBack', -1, 0], ['tailUp', 0], [P, P, [-1, 0], [-1, 0]], { thing: 0 })]),
@@ -341,12 +315,10 @@ const SIDE_ACTIONS = {
       F('land',    2, -3, ['squash', 14, 6], ['headWide', 0, 1], ['tailUp', 0], PLANT, { thing: 0, low: true }),
     ]),
     ...recovery('look', [F('look', 12, -3, ['normal', 14, 5], ['frontSmall', 0, 0], ['tailCurve', 0], PLANT, { thing: 0 })]),
-    // The ears drag a frame behind the head.
     ...recovery('shake', shakes((n, d, k) => F(n, 3, -3, ['normal', 14, 5], [k === 1 || k === 2 ? 'headBack' : 'head', d, 0],
       [d < 0 ? 'tailLow' : d > 0 ? 'tailUp' : 'tailCurve', 0], PLANT, { thing: 0 }))),
     ...recovery('hmph', [F('hmph', 13, -3, ['normal', 14, 5], ['headSulk', 0, 2], ['tailUp', 0], PLANT, { thing: 0 })]),
     ...recovery('puff', [F('puff', 8, -3, ['normal', 14, 5], ['headWide', 0, 0], ['tailPuff', 0], PLANT, { thing: 0 })]),
-    // On three legs, the near fore paw rubbing the nose.
     ...recovery('rub', [0, 1, 0, 1].map(k => F(k ? 'rubB' : 'rubA', 3, -3, ['normal', 14, 5], ['headBlink', 0, -1], ['tailCurve', 0], [null, P, P, P],
       { thing: 0, top: [['limb', [29, 16], k ? [35, 11] : [36, 10], 'i', 'd', 2]] }))),
     ...after([
@@ -357,10 +329,7 @@ const SIDE_ACTIONS = {
   ],
 };
 
-// The side scratch: the body leans 1 px away, the head tilts down with the eye shut, and a hind foot
-// comes up from the haunch to behind the ear.
 const scratch = (name, fr, to) => sitting(name, fr, 0, undefined, [['sitDown', 12, 0]], { top: [['limb', [17, 13], to, 'i', 'l', 2]] });
-// The paw lick: the other fore paw up to the mouth, the head down to it.
 const lick = (name, fr, to, tongue) => S(name, fr, 0, undefined, 'sitDown', { top: [['limb', [25, 13], to, 'i', 'd', 2], ...(tongue ? [['tongue', 30, 11]] : [])] });
 SIDE_ACTIONS.idle = [
   ...idleBeat('blink', [S('flash', 7, 0, undefined, 'sitWide'), S('blink', 7, 0, undefined, 'sitBlink')]),
@@ -376,7 +345,6 @@ SIDE_ACTIONS.idle = [
 
 // The front and back parts' left edge in the frame, so they stand centred as the sit does.
 const X = 14;
-// The front push's paws on the thing's rim, drawn over the thing.
 const RIM = [['rimPaw', X + 1, 13], ['rimPaw', X + 11, 13]];
 /** From the front, low: the hump `hump` px over the head, the head `hy` from the top, a fore leg of
  *  length `lh` and `rh` each side of the chest, and their paws drawn over the chin, each moved
@@ -396,9 +364,7 @@ const front = (name, fr, dx, hy, [lh, rh], o = {}) => {
 };
 const frontSit = (name, fr, dx, thing, head = 'frontHead', o = {}) => sitting(name, fr, dx, thing,
   [['frontSitTail', X + 15 + (o.flick ?? 0), 11 - (o.flick ?? 0)], ['frontSitBody', X, 12], [head, X + (o.hx ?? 0), 0]], o);
-/** From the back, low: the rump's top on row `ry`, the ears and the top of the skull over it, the
- *  hind feet `lf` and `rf`. The rump sways `sway` px; the tail swings `wag` px the other way, a frame
- *  behind it. `o.under` goes behind the rump, `o.top` over all. */
+/** From the back, low: the rump's top on row `ry`, the ears and the top of the skull over it, the hind feet `lf` and `rf`. `o.under` goes behind the rump, `o.top` over all. */
 const back = (name, fr, dx, ry, [lf, rf], o = {}) => {
   const sway = o.sway ?? 0, s = o.splay ?? 0, wag = o.wag ?? 0;
   const tail = { up: ['backTailUp', X - 1 + sway, ry - 6], stiff: ['backTailDown', X + 6 + sway, ry - 7],
@@ -416,10 +382,8 @@ const backSit = (name, fr, dx, thing, art = 'backSit', o = {}) => sitting(name, 
   [[art, X, 0], ['backSitTail', X - (o.flick ?? 0), -(o.flick ?? 0)]], o);
 const puff = (x, y, small) => [small ? 'dustSmall' : 'dust', x, y];
 const FEET = ['foot', 'foot'], SOLES = ['sole', 'sole'];
-// A hind foot raised beside the head to the ear, behind the sprite: from the front, or the back.
 const frontLeg = to => [['limb', [X + 15, 13], to, 'i', 'l', 2]];
 const backLeg = to => [['limb', [X + 14, 13], to, 'i', 'l', 2]];
-// From the front, the frame between the sit and the hunker: the head still up, the rump down.
 const frontLower = (dx, thing) => front('lower', 2, dx, 2, [4, 4], { hump: 0, tail: 0, thing });
 const backLower = (dx, thing) => back('lower', 2, dx, 9, FEET, { bow: -4, thing });
 
@@ -443,7 +407,6 @@ export const ACTIONS = {
         frontSit('sit', 18, 24),
       ]),
     ],
-    // He rests his chin on the thing's rim, his paws on it and his shoulders up past his cheeks.
     push: [
       rest(frontSit('sit', 12, 0, 0)),
       ...windup([frontLower(-1, 0), front('windup', 2, -2, 6, [2, 2], { splay: 1, hump: 3, head: 'frontHeadBack', tail: -2, thing: 0 })]),
@@ -514,7 +477,6 @@ export const ACTIONS = {
         backSit('sit', 18, 24),
       ]),
     ],
-    // Rump up, ears flat, head in under the thing's base; the hind feet kick up their soles.
     push: [
       rest(backSit('sit', 12, 0, 0)),
       ...windup([backLower(-1, 0), back('windup', 2, -2, 10, FEET, { splay: 1, tail: 'up', thing: 0 })]),
@@ -547,7 +509,6 @@ export const ACTIONS = {
       ...recovery('shake', shakes((n, d) => back(n, 3, -1, 9, FEET, { hx: d, sway: -d, wag: d > 0 ? 1 : 0, thing: 0 }))),
       ...recovery('hmph', [back('hmph', 13, -1, 9, FEET, { skull: 'skullFlat', bow: 1, thing: 0 })]),
       ...recovery('puff', [back('puff', 8, -1, 9, FEET, { tail: 'puff', thing: 0 })]),
-      // A fore leg's elbow out past the skull, the paw at the face out of sight.
       ...recovery('rub', [0, 1, 0, 1].map(k => back(k ? 'rubB' : 'rubA', 3, -1, 9, FEET,
         { thing: 0, under: [['limb', [X + 3, 15], k ? [X, 9] : [X - 1, 8], 'i', 'l', 2]] }))),
       ...after([
@@ -570,9 +531,6 @@ export const ACTIONS = {
   },
 };
 
-// The frame between two facings, its head leading: the old body with the new head on it. Facings
-// opposite each other cross through a third: right and left through the front, up and down
-// through the side.
 const CROSS = {
   'r>d': [['sideBody', 11, 0], ['frontHead', 18, 0]],
   'r>u': [['sideBody', 11, 0], ['backHead', 18, 0]],
@@ -583,8 +541,7 @@ const CROSS = {
   'u>d': [['sit', 11, 0]],
 };
 const OTHER = { r: 'l', l: 'r', u: 'u', d: 'd' };
-/** The frames that turn him from facing `from` to facing `to`, each marked with whether it is drawn
- *  mirrored; none when they are the same. */
+/** The frames that turn him from facing `from` to facing `to`, each marked with whether it is drawn mirrored. */
 export function turn(from, to) {
   if (from === to) return [];
   const mirror = from === 'l' || (to === 'l' && from !== 'r');

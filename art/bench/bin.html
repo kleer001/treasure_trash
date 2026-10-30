@@ -84,14 +84,11 @@ let S = loadSpread(LOOK);                               // the Trash Spread page
 let CAST = load(SHADE, shadowDefaults(LOOK)).cast;      // the Shadow Bench's shadow
 
 const easeOut = u => 1 - (1 - u) ** 2, easeInOut = u => u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) ** 2;
-const FLAT = () => ui.slide + ui.tip;                                // ms from the push: the box lies on its side
-const POUR = () => ui.slide + ui.tip * Math.sqrt(ui.pour / 90);      // the first piece can leave
-/** How far over the box is `t` ms after the push, in degrees. It falls faster as it goes. */
+const FLAT = () => ui.slide + ui.tip;                                // ms from the push
+const POUR = () => ui.slide + ui.tip * Math.sqrt(ui.pour / 90);
+/** How far over the box is `t` ms after the push, in degrees. */
 const degAt = t => t <= ui.slide ? 0 : t >= FLAT() ? 90 : 90 * ((t - ui.slide) / ui.tip) ** 2;
 
-/** The board: the raccoon behind a full box, ready to push `dir`, the shove `explain()` makes of it,
- *  what the box holds, and those same pieces poured as B into the TRASH cell the shove makes. A
- *  walled room puts that cell against the wall. */
 function setup(dir, room) {
   const [dx, dy] = DIRS[dir], N = room === 'walled' ? 6 : 7, c = Math.floor(N / 2);
   const along = a => dx > 0 ? [a, c] : dx < 0 ? [N - 1 - a, c] : dy > 0 ? [c, a] : [c, N - 1 - a];
@@ -103,7 +100,6 @@ function setup(dir, room) {
   if (!mv || !sp) throw new Error(`no tip-out: ${r.reason ?? JSON.stringify(r.steps)}`);
   const seed = hash(S.seed, bx, by, 31), held = contents(T, seed, S.edges, S.hues), [tx, ty] = sp.cells[0];
   const lay = (cells, isTrash) => new Map([[`${tx},${ty}`, pourPile(T, S.edges, { C, cell: [tx, ty], given: held, isTrash, seed: S.seed, key: seed })]]);
-  // The box slides until its fall lays it where it rests in the next cell.
   const O = restAt(bx, by, C), end = restAt(bx + dx, by + dy, C, dir), f90 = frame(dir, 90), at90 = [O[0] + f90.ox, O[1] + f90.oy];
   if (dx ? at90[1] !== end[1] : at90[0] !== end[0]) throw new Error('the box lands off its cell across the push');
   const slide = (end[0] - at90[0]) * dx + (end[1] - at90[1]) * dy;
@@ -126,8 +122,7 @@ function centreAt(B, q, t) {
 /** The turn piece `q` leaves at: where its spin in the air starts. */
 function startTurn(q) { const { m, k } = T.poseOf(q.p.name, q.p.turn); return T.pose(q.p.name, m, k - q.spin); }
 
-/** The pieces `held` in box frame `fr` at `O`, lowest first, `centre(q)` placing each: only the
- *  pixels the box does not hide. */
+/** The pieces `held` in box frame `fr` at `O`, lowest first, `centre(q)` placing each. */
 function drawHeld(ctx, O, fr, held, centre) {
   for (const q of [...held].sort((a, b) => b.p.by - a.p.by)) {
     const s = T.sprite(q.p.name, q.p.alt, startTurn(q)), { x, y } = centre(q);
@@ -136,10 +131,9 @@ function drawHeld(ctx, O, fr, held, centre) {
   }
 }
 
-/** The shadow a box drawing `s` at (gx, gy) casts: from the two rows it stands on. */
 const foot = (s, gx, gy) => ({ s: { ...s, px: s.px.filter(p => p[1] >= s.h - 2) }, gx, gy, hc: 0, h: 0 });
 
-/** Things standing on the floor, `[feet, draw]`, drawn from the back row forward. */
+/** Things standing on the floor, `[feet, draw]`. */
 const byFeet = list => list.sort((a, b) => a[0] - b[0]).forEach(([, draw]) => draw());
 
 function frameAt(ctx, B, P, t) {
@@ -157,8 +151,7 @@ function frameAt(ctx, B, P, t) {
   raccoonOver(ctx);
 }
 
-/** A still of board `s`, drawn from the board, with what the board does not say taken from the
- *  bench: the way an empty box fell, and the pieces a full one holds or a pile is made of. */
+/** A still of board `s`, drawn from the board, with what the board does not say taken from the bench. */
 function still(ctx, B, P, s, trash) {
   F.ground(ctx, B);
   F.drawTrash(ctx, B, trash);
@@ -228,7 +221,6 @@ function show() {
     `frame ${j} of ${FRAMES - 1} · ${Math.round(t)} ms after the push · box ${Math.round(degAt(t))}° over · ${inBox} in the box · ${air} in the air · ${P.length - inBox - air} landed`;
 }
 
-/** The box full and upright, falling over toward the push direction, and on its side every way it can lie. */
 function strip() {
   const root = document.getElementById('strip'); root.innerHTML = '';
   const z = ui.zoom, size = 44, arrow = d => '↑↓←→'['udlr'.indexOf(d)];

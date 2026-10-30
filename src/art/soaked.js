@@ -1,8 +1,5 @@
-// The cardboard and the sponge marked by what they met: the sheet lying over water or tar, or on
-// grease, and the sponge after it soaked up water or grease, or stuck in tar. Every mark is mixed
-// into the colour under it, its amount of the way to its own colour, so each pixel stays solid.
-//   A tint over the whole thing; a soak in from its edges; blots, darker at a ring if asked; specks
-//   of shine; and, from outside, tar oozing over the sheet's edges or coating the sponge's foot.
+// The cardboard and the sponge marked by what they met.
+// Marks are mixed into the colour under them, so each pixel stays solid.
 import { mulberry32 } from '../rng.js';
 import { CARDBOARD_ROWS, CARDBOARD_PALETTE } from './cardboard.js';
 import { SPONGE_LOOK, SPONGE_PALETTE, spongeRows } from './sponge.js';
@@ -51,7 +48,6 @@ function marked(rows, palette, L, { ooze = false, coat = false }) {
     return [cx + 0.5, cy + 0.5, L.rmin + rand() * Math.max(0, L.rmax - L.rmin)];
   });
   const specks = new Set(Array.from({ length: Math.round(L.specks) }, () => key(...pick())));
-  // The sponge's foot: how high the wet line and the tar come up each column, ragged by `…Jag`.
   const rise = (n, jag) => Array.from({ length: w }, () => (n > 0 ? n + Math.round((rand() - 0.5) * 2 * jag) : 0));
   const low = coat ? rise(L.lowH, L.lowJag) : [], tar = coat ? rise(L.coat, L.coatJag) : [];
   const out = new Map();
@@ -70,12 +66,10 @@ function marked(rows, palette, L, { ooze = false, coat = false }) {
     if (specks.has(key(x, y))) c = L.speck;
     out.set(key(x, y), [x, y, c]);
   }
-  // Tar coats the foot, ink and all, its top pixel catching the light.
   if (coat) for (let x = 0; x < w; x++) for (let up = 0; up < tar[x]; up++) {
     const y = h - 1 - up;
     if (out.has(key(x, y))) out.set(key(x, y), [x, y, up === tar[x] - 1 ? L.coatLit : L.coatColour]);
   }
-  // Tar oozes up over the sheet's edge from where it lies, out into the margin round it.
   if (ooze) for (let k = 0; k < Math.round(L.ooze); k++) {
     const edge = [...out.values()].filter(([x, y]) => rows[y][x] === 'k');
     const [cx, cy] = edge[Math.floor(rand() * edge.length)], r = L.oozeSize * (0.6 + rand() * 0.8);

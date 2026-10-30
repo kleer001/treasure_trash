@@ -1,18 +1,13 @@
-// The galvanized can seen from the side and a little above: open at the top, its rim an ellipse round
-// the dark inside, a tied bag standing in it with its neck over the rim, or lying on its side once a
-// shove has tipped the bag out. Lying fallen toward the viewer it shows its open mouth; fallen away,
-// its base.
+// The galvanized can seen from the side and a little above.
 import { tipper } from './tip.js';
 
 export const CAN = { W: 22, H: 26, R: 10 };   // px: width with the handles, height, radius of the rim
-const FOLD = 10;                              // px the can's foot moves as it falls toward the viewer or away
+const FOLD = 10;                              // px the can's foot moves
 
 export const ZINC = { ink: '#1e2128', deep: '#3e434d', dark: '#5d646f', mid: '#868d97', light: '#adb3bb', shine: '#dde0e3' };
 const HANDLE = 3;                             // px a side handle stands out from the body
-/** The galvanized can upright, from the side, no lid: a rolled rim, a smooth band under it with a
- *  wire handle each side, fluted between a rib above and a rib below, a smooth foot band. `r` is
- *  the body's half-width at the top, `h` its height, `taper` how many px each side it narrows to its
- *  foot, `flutes` how many go round it. The rim, the bands and the handles keep their size. */
+/** The galvanized can upright, from the side. `r` is the body's half-width at the top, `h` its
+ *  height, `taper` how many px each side it narrows to its foot, `flutes` how many go round it. */
 export function galvanized({ r, h, taper, flutes }) {
   const W = 2 * r + 2 * HANDLE, Z = ZINC, px = [];
   const left = y => y < 2 ? HANDLE - 1 : HANDLE + Math.round(taper * (y - 2) / Math.max(1, h - 3));
@@ -34,8 +29,7 @@ export function galvanized({ r, h, taper, flutes }) {
   return { w: W, h, px };
 }
 
-/** Upright: drawn by hand over the painted can wrapped round a cylinder and seen 30° from above.
- *  One letter a pixel, '.' for none. */
+/** Upright: drawn by hand over the painted can wrapped round a cylinder. One letter a pixel, '.' for none. */
 const ROWS = [
   ".......kkkkkkkk.......",
   "....kkksssssssskkk....",
@@ -65,15 +59,10 @@ const ROWS = [
   "......kkkkkkkkkk......",
 ];
 const LETTERS = { k: ZINC.ink, D: ZINC.deep, d: ZINC.dark, m: ZINC.mid, l: ZINC.light, s: ZINC.shine };
-// What a bag standing in the can shows over: everything above the near rim, so the far rim and the
-// inside. Down each column to the last row of the inside, or the top of the far rim where none shows.
 const INSIDE = x => Math.max(2, ...ROWS.slice(0, 8).flatMap((r, y) => ('dD'.includes(r[x]) ? [y] : [])));
 const OPEN = new Set(ROWS[0].split('').flatMap((_, x) => Array.from({ length: INSIDE(x) + 1 }, (_, y) => `${x},${y}`)));
-/** Letter rows as a drawing. */
 const drawn = rows => ({ w: rows[0].length, h: rows.length,
   px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, LETTERS[c]]]))) });
-/** Fallen toward the viewer: its open mouth, seen past the rim, the side above it running back to
- *  the foot: the painted can traced as a solid and turned 120° about X. */
 const mouth = drawn([
   "........kkkkkk........",
   "......kklDDDDmkk......",
@@ -101,8 +90,6 @@ const mouth = drawn([
   "......kkddddddkk......",
   "........kkkkkk........",
 ]);
-/** Fallen away: its base, pressed with a ring, the side above it running back to the rim. Drawn by
- *  hand over the same solid turned −60° about X. */
 const base = drawn([
   "........kkkkkk........",
   "......kksssssskk......",
@@ -132,9 +119,8 @@ const base = drawn([
 ]);
 export const front = drawn(ROWS);
 
-/** The can as it was painted, straight from the side: the solid a fall toward the viewer or away is
- *  traced from. Each row a slice of the round can, from its first ink pixel to its last; what lies
- *  outside that is a handle. */
+/** The can as it was painted, straight from the side. Each row a slice of the round can, from its
+ *  first ink pixel to its last; what lies outside that is a handle. */
 const PAINTED = [
   "....kkkkkkkkkkkkkkkkkkkk....",
   "....kssssssssssssssssssk....",
@@ -165,12 +151,10 @@ const HANDLES = PAINTED.flatMap((r, k) => [...r].flatMap((ch, c) => (ch === '.' 
 const FOOT = SLICES[PH - 1].hw, FX = (CAN.W) / 2;
 // px down the upright drawing to the level of the foot's centre: its front edge is its bottom row.
 const BASE_Y = CAN.H + FOOT * Math.sin(VIEW * Math.PI / 180);
-/** Turns (h, z) by `deg` about the x axis: up the can and toward the viewer. */
+/** `h` is up the can and `z` toward the viewer. */
 const turnX = (h, z, deg) => { const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a); return [h * c - z * s, h * s + z * c]; };
 
-/** The can `deg` degrees into a fall toward the viewer ('d') or away ('u'), about the edge of its
- *  foot on that side, traced pixel by pixel from the painted solid as the eye sees it, VIEW degrees
- *  down. Upright and lying it is the hand-drawn can. In px from the upright drawing's top-left. */
+/** The can `deg` degrees into a fall toward the viewer ('d') or away ('u'). In px from the upright drawing's top-left. */
 function fall(dir, deg) {
   const sg = dir === 'd' ? 1 : -1, zp = sg * FOOT, a = VIEW + sg * deg;
   // Where a point of the can, `x` across, `h` up and `z` toward the viewer, shows: px from the top-left.
@@ -182,7 +166,6 @@ function fall(dir, deg) {
   if (deg === 0) return { px: front.px, place, shows: (x, y) => OPEN.has(`${x},${y}`) || y < 0 && x >= 1 && x < CAN.W - 1 };
   const hits = traced(seen, sg, zp, deg);
   if (deg === 90) {
-    // Lying: the hand-drawn end, where the traced one lies.
     const d = dir === 'd' ? mouth : base, xs = [...hits.keys()].map(k => +k.split(',')[0]), ys = [...hits.keys()].map(k => +k.split(',')[1]);
     const x0 = Math.round((Math.min(...xs) + Math.max(...xs) + 1 - d.w) / 2), y0 = Math.max(...ys) + 1 - d.h;
     return { px: d.px.map(([x, y, c]) => [x + x0, y + y0, c]), place };
@@ -193,13 +176,11 @@ function fall(dir, deg) {
     const edge = ch[0] !== 'h' && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([p, q]) => !hits.has(`${x + p},${y + q}`));
     px.push([x, y, LETTERS[edge ? 'k' : ch.length > 1 ? ch[1] : ch]]);
   }
-  // The inside and the rim's lip show what the can holds over them, as does the air round it.
   return { px, place, shows: (x, y) => { const ch = hits.get(`${x},${y}`); return !ch || ch[0] === 'i'; } };
 }
 
 /** What each pixel sees of the can tipped `deg` about the foot edge at `zp`: a letter for its
- *  outside, 'h' or 'i' and a letter for a handle or for the inside and the rim's lip. Rays march into the screen through its sheet metal, a
- *  pixel thick. */
+ *  outside, 'h' or 'i' and a letter for a handle or for the inside and the rim's lip. */
 function traced(seen, sg, zp, deg) {
   const corners = [];
   for (const x of [-PCX, PCX]) for (const h of [0, PH]) for (const z of [-PCX, PCX]) corners.push(seen(x, h, z));
@@ -226,7 +207,7 @@ function traced(seen, sg, zp, deg) {
             const inward = (px_ * dx + z * (dz - z)) < 0;
             if (prev && prev[1] >= PH) hit = 'is';
             else if (inward) { const u = Math.max(-1, Math.min(1, px_ / hw)); hit = PAINTED[row][a + Math.min(b - a, Math.floor((u + 1) / 2 * (b - a + 1)))]; }
-            else hit = PH - h < 1.5 ? 'id' : PH - h < 6 ? 'iD' : 'ik';    // darker deeper down
+            else hit = PH - h < 1.5 ? 'id' : PH - h < 6 ? 'iD' : 'ik';
           }
         }
         prev = [px_, h, z];
@@ -238,7 +219,7 @@ function traced(seen, sg, zp, deg) {
 
 export const { rest, restAt, frame } = tipper(front, mouth, base, FOLD, fall, (x, y) => OPEN.has(`${x},${y}`));
 
-/** Where the bag stands in the upright can: its top-left, in px from the can's, its neck over the rim. */
+/** Where the bag stands in the upright can: its top-left, in px from the can's. */
 export const bagIn = bag => [Math.floor((CAN.W - bag.w) / 2), -5];
 
 const trig = deg => {

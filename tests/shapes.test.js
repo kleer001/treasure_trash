@@ -42,8 +42,6 @@ test('every variant has floor enough for four pieces and a walk', () => {
   for (const v of FAM) assert.ok(v.floor.length >= 16, `${v.label} has ${v.floor.length} floor`);
 });
 
-// A consequence of the open-block rule worth pinning: it forces the waist narrow. Anything
-// wider would be a clear rectangle again, and rooms designed on these have to expect it.
 test('the crossbar or neck is never wider than two cells', () => {
   for (const v of FAM) {
     const isFloor = (x, y) => x >= 0 && y >= 0 && x < v.w && y < v.h && !v.wall[y][x];
@@ -68,7 +66,6 @@ test('a variant claiming symmetry actually is symmetric', () => {
 test('a variant drawn as a grid reads back as a legal board', () => {
   const v = FAM[0];
   const rows = draw(v);
-  // Drop a raccoon and an exit on the first two floor cells and the reader should accept it.
   const [[ax, ay], [bx, by]] = v.floor;
   const grid = rows.map((row, y) => [...row].map((ch, x) => {
     if (x === ax && y === ay) return '@';
@@ -109,8 +106,6 @@ test('every ring passes the same structural rules the H family does', () => {
   }
 });
 
-// One block, not two, and a lane all the way round it — that is what makes it a ring rather
-// than a rectangle with a bite out of it.
 test('every ring is one solid block with a lane on all four sides', () => {
   for (const v of RING) {
     const wallCells = [];
@@ -142,7 +137,6 @@ test('the lake family matches the ring silhouette for silhouette', () => {
     assert.ok(v.floor.length >= 16, `${v.label} has ${v.floor.length} floor`);
     for (const [x, y] of v.floor) assert.ok(!v.water[y][x], `${v.label} offers a wet cell as floor`);
     assert.ok(!v.wall.flat().some(Boolean), `${v.label} has walls — the pool should be the structure`);
-    // The lane always goes round, so a lake is never a barrier. It is a shortcut you may build.
     assert.equal(v.severs, false, `${v.label} severs`);
   }
 });
@@ -156,9 +150,6 @@ test('a lake passes the open-block rule on its DRY floor', () => {
   }
 });
 
-// The whole reason the family exists. `isOccupiable` — which `fanBlockers` tests — refuses a
-// wall and accepts water, so the tear a ring's block would refuse lands in a lake and bridges it.
-// A ring and a lake of the same silhouette must therefore answer this differently.
 test('a bag beside a pool tears into it, and the same bag beside a block cannot', async () => {
   const { explain, BAG } = await import('../src/rules.js');
   const lake = LAKE.find(v => v.label === 'lake 7x6 pool3x2@2,2');
@@ -228,8 +219,6 @@ test('severs and sides agree with a walk over the dry floor', () => {
   }
 });
 
-// Severing is cheap — a canal laid along a wall cuts two cells off and reads as severing — so
-// the barrier test has to ask how big the FAR bank is, not whether there are two of them.
 test('isBarrier refuses a canal that only nicks a pocket off the room', () => {
   const nicked = WET_PLANS.find(p => p.severs && p.sides[1] < 6);
   assert.ok(nicked, 'expected at least one canal that severs a pocket');
@@ -313,7 +302,6 @@ test('an across draw strands the exit and reserves the fan', () => {
   assert.ok(made > 100, `only ${made} across draws succeeded`);
 });
 
-// The point of the whole pass: the room cannot be finished without tearing a bag into the water.
 test('an across draw yields rooms that solve by bridging', () => {
   const rnd = mulberry32(2);
   let solved = 0;

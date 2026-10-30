@@ -6,7 +6,7 @@ import { toState } from './format.js';
 import { decorAfter } from './stage.js';
 
 /**
- * `levels` is the running order. `progress` records a win the moment it lands. Every call answers
+ * `levels` is the running order. Every call answers
  * with what happened, as `{ kind, ... }`; `tell` passes that on to the crow.
  */
 export function createPlay({ levels, progress }) {
@@ -33,15 +33,12 @@ export function createPlay({ levels, progress }) {
     press(dir, moving) {
       if (won) return { kind: 'handover' };
       const r = explain(state, dir, { trace: true });
-      // His feet are not busy: a walk writes nothing to the board, so it goes through.
       if (moving && (!r.ok || r.kind !== MOVE)) return { kind: 'busy', dir, r };
       const prev = state;
       if (!r.ok) {
-        // He turns to it all the same. That is not a move, so undo goes back past it.
         decor = decorAfter(state, decor, dir, r); armed = null;
         return { kind: 'refused', dir, r, prev };
       }
-      // Arming (`:arm on`, per level) is input only: the first press aims, the second commits.
       if (levels[cur].arm === true && r.kind !== MOVE && armed !== dir) {
         armed = dir;
         return { kind: 'armed', dir, r };

@@ -61,7 +61,6 @@ import { load, save as store } from './trash/settings.js';
 
 const KEY = 'trash-cartoon';
 const N = 5, MID = 2, VIEW = { l: 'side', r: 'side', d: 'front', u: 'back' };
-// The frames that shove: the raccoon touches the thing on each of them and never overlaps it.
 const TOUCH = /^(slam|scrab|strain|thud)/;
 const authored = Object.fromEntries(Object.entries(ACTIONS).flatMap(([v, as]) => Object.entries(as).map(([a, fs]) => [`${v} ${a}`, fs.map(f => f.ms)])));
 const timing = () => `${VIEW[ui.dir]} ${ui.act}`;
@@ -70,12 +69,9 @@ const save = () => store(KEY, ui);
 
 const canvasOf = (w, h = w) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 const drawPx = (ctx, list, x, y) => { for (const [px, py, col] of list) { ctx.fillStyle = col; ctx.fillRect(x + px, y + py, 1, 1); } };
-// A sprite stands centred on its cell, its feet one pixel above the cell's bottom edge.
 const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
 const sprite = f => (ui.dir === 'l' ? mirror(draw(f)) : draw(f));
 
-/** The raccoon in the middle of an open room; for a push, an empty can ahead of it, held fast by a
- *  wall when the push is to fail. What the rules make of the press. */
 function setup() {
   const [vx, vy] = DIRS[ui.dir], put = { [`${MID},${MID}`]: '@', '0,0': 'E' };
   if (ui.act === 'push' || ui.act === 'stuck') put[`${MID + vx},${MID + vy}`] = 'c';
@@ -95,11 +91,11 @@ function ground(ctx, s) {
   for (let k = 0; k < N; k++) { ctx.fillRect(k * C + C - 1, 0, 1, N * C); ctx.fillRect(0, k * C + C - 1, N * C, 1); }
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (cell(s, x, y).wall) wallTile(ctx, x, y, C);
 }
-/** Sprites `[{px, x, y, h, rac}]` drawn nearest last: the lower foot in front, the raccoon on a tie. */
+/** Sprites `[{px, x, y, h, rac}]`, drawn nearest last. */
 const sprites = (ctx, list) => { for (const p of list.sort((a, b) => (a.y + a.h) - (b.y + b.h) || a.rac - b.rac)) drawPx(ctx, p.px, p.x, p.y); };
 const cans = s => { const out = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (cell(s, x, y).o === CAN_EMPTY) out.push([x, y]); return out; };
 
-/** Frame `f` laid on board `s`: the raccoon's sprite and every can, the shoved one `f.thing` px along. */
+/** Frame `f` laid on board `s`. */
 function layout(f) {
   const spr = sprite(f), [x0, y0] = at(spr, B.s.rac.x, B.s.rac.y), [vx, vy] = B.v, list = [];
   for (const [x, y] of cans(B.s)) {
@@ -110,7 +106,6 @@ function layout(f) {
   return list;
 }
 const paint = (ctx, f) => { ground(ctx, B.s); sprites(ctx, layout(f)); };
-/** A still of board `s`: its cans, and the raccoon sitting. */
 function still(ctx, s) {
   ground(ctx, s);
   const list = cans(s).map(([x, y]) => { const [cx, cy] = at(CAN, x, y); return { px: CAN.px, x: cx, y: cy, h: CAN.h, rac: 0 }; });
@@ -118,8 +113,7 @@ function still(ctx, s) {
   list.push({ px: spr.px, x: rx, y: ry, h: spr.h, rac: 1 });
   sprites(ctx, list);
 }
-/** Empty px between the raccoon and the shoved can along a push across the screen, in the nearest row
- *  both fill; below zero they overlap. */
+/** Empty px between the raccoon and the shoved can along a push across the screen, in the nearest row both fill. */
 function gap(f) {
   const [rac, can] = layout(f).sort((a, b) => b.rac - a.rac), rows = new Map(), d = B.v[0];
   for (const [x, y] of rac.px) { const k = rac.y + y, a = (rac.x + x) * d; rows.set(k, Math.max(rows.get(k) ?? -Infinity, a)); }
@@ -127,8 +121,7 @@ function gap(f) {
   for (const [x, y] of can.px) { const k = can.y + y; if (rows.has(k)) best = Math.min(best, (can.x + x) * d - rows.get(k) - 1); }
   return best;
 }
-/** Screen px the raccoon and the shoved can share: up and down the screen, contact is the one drawn
- *  over the other. */
+/** Screen px the raccoon and the shoved can share. */
 function overlap(f) {
   const [rac, can] = layout(f).sort((a, b) => b.rac - a.rac), seen = new Set(rac.px.map(([x, y]) => `${rac.x + x},${rac.y + y}`));
   return can.px.filter(([x, y]) => seen.has(`${can.x + x},${can.y + y}`)).length;

@@ -119,11 +119,9 @@ scene.add(new THREE.AmbientLight(0xffffff, 1.4));
 const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-1, 1.5, 1.2); scene.add(sun);
 const half = BOX / 2 / LOOK.pxm;
 const camera = new THREE.OrthographicCamera(-half, half, half, -half, -10, 10); camera.position.set(0, 0, 5);
-// `tilt` rocks the whole bin, bag and all, about the bottom edge it tips over.
 const tilt = new THREE.Group(); tilt.matrixAutoUpdate = false; scene.add(tilt);
 const pivot = new THREE.Group(); tilt.add(pivot);
 const bagMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ alphaTest: 0.5, side: THREE.DoubleSide }));
-// The bag's own frame: the bin's while it sits in it, its own from the moment it starts to rise.
 const free = new THREE.Group(); free.matrixAutoUpdate = false; scene.add(free);
 free.add(bagMesh);
 const gltf = await new Promise((ok, no) => new GLTFLoader().load('../../tmp/wheelie/wheelie.glb', ok, undefined, no));
@@ -167,13 +165,12 @@ function bagPicture(w, h) {
 const snap = v => Math.round(v * LOOK.pxm) / LOOK.pxm;
 const at = bin.localToWorld(new THREE.Vector3(0, RIM_H + (LOOK.h - RIM_H * 100) / 100, 0));
 const BAG_AT = { x: snap(at.x + (LOOK.bx - LOOK.bw / 2) / LOOK.pxm) + LOOK.bw / 2 / LOOK.pxm, y: snap(at.y - LOOK.sink / LOOK.pxm) + LOOK.bh / 2 / LOOK.pxm, z: at.z };
-// Where the castor wheels meet the floor: the bin tips over its leading wheels and rocks back onto
-// its trailing ones, so each way it turns about the ground it is standing on.
+// Where the castor wheels meet the floor.
 const WHEELS = new THREE.Box3();
 pivot.updateMatrixWorld(true);
 bin.traverse(o => { if (o.isMesh && /^wheel/.test(o.name)) WHEELS.expandByObject(o); });
 
-/** The bin's tip as a matrix: about its leading wheels' contact forward, its trailing ones back. */
+/** The bin's tip as a matrix. */
 function tilted(tip, dir) {
   const lead = tip >= 0, W = WHEELS;
   const p = { r: [lead ? W.max.x : W.min.x, W.min.y, 0], l: [lead ? W.min.x : W.max.x, W.min.y, 0],
@@ -209,14 +206,11 @@ const REST = (() => {
 const STEP = { r: [1, 0], l: [-1, 0], u: [0, -1], d: [0, 1] };
 const START = [4, 3];
 const CELL_FRAMES = Math.round(CELL_MS * 60 / 1000);
-// The cells it rolls: up to the one against the wall.
 const cells = d => { const [dx, dy] = STEP[d]; let n = 0; while (START[0] + (n + 1) * dx > 0 && START[0] + (n + 1) * dx < COLS - 1 && START[1] + (n + 1) * dy > 0 && START[1] + (n + 1) * dy < ROWS - 1) n++; return n; };
 const key = (t, keys) => {
   for (let i = 1; i < keys.length; i++) if (t <= keys[i][0]) { const [t0, v0] = keys[i - 1], [t1, v1] = keys[i]; return v0 + (v1 - v0) * (t - t0) / (t1 - t0); }
   return keys.at(-1)[1];
 };
-// After the stop, in frames: the bin's tip forward, rock back and settle; the bag's rise in the bin,
-// its launch, and its landing. Each row's beats come after the one before, the rows free of each other.
 const T = () => {
   const peak = s.peak, thr = Math.max(s.throw, peak + 1), settle = Math.max(s.settle, thr + 2);
   const launch = Math.max(s.launch, 1), land = launch + s.fly, rest = land + s.squash;
@@ -242,7 +236,6 @@ function draw() {
     g.fillStyle = FLOOR; g.fillRect(x * C, y * C, C, C);
     g.fillStyle = SEAM; g.fillRect(x * C + C - 1, y * C, 1, C); g.fillRect(x * C, y * C + C - 1, C, 1);
   }
-  // On twos: every drawing is held two screen frames.
   const f = frame - frame % 2, n = cells(s.dir), [dx, dy] = STEP[s.dir], rollF = n * CELL_FRAMES, k = f - rollF, t = T();
   const along = f < rollF ? rollEase(f / rollF, n) * n : n;
   const bx = START[0] + dx * along, by = START[1] + dy * along;
@@ -250,15 +243,9 @@ function draw() {
   const tip = tipAt(k);
   // The bin's picture stands on its cell from this corner of the BOX it is rendered in.
   const ox = Math.round(bx * C) + Math.floor((C - REST.w) / 2) - REST.x0, oy = Math.round(by * C) + C - REST.h - 1 + LOOK.dy - REST.y0;
-  // The bag lands standing on the cell the bin just left.
   const lx = START[0] + dx * (n - 1), ly = START[1] + dy * (n - 1);
-  // The squash is deepest as it lands and gone by the rest.
   const sq = k < t.land || k >= t.rest ? 0 : Math.round(s.depth * (1 - (k - t.land) / (t.rest - t.land)));
   const landed = resize(BAG.w + sq, BAG.h - sq);
-  // In the bin the bag tips with it. The tip jolts it up as the bin goes over, slowing to the tip's
-  // peak; the rock back then lifts it on, faster as it goes. At the
-  // launch it leaves on a curve of its own: it sets off at the speed the bin gave it, and comes down
-  // onto its landing from the arc above it, straightening and growing to the regular bag as it goes.
   const part = (kf, a, b) => clamp(b > a ? (kf - a) / (b - a) : kf >= a ? 1 : 0, 0, 1);
   const up = kf => s.pop * (1 - (1 - part(kf, 0, Math.min(t.peak, t.launch))) ** 2) + s.rise * part(kf, t.peak, t.launch) ** 2;
   const ride = kf => tilted(tipAt(kf), s.dir).multiply(new THREE.Matrix4().makeTranslation(BAG_AT.x, BAG_AT.y + up(kf) / LOOK.pxm, BAG_AT.z));
@@ -276,14 +263,12 @@ function draw() {
     const w = Math.round(LOOK.bw + (BAG.w - LOOK.bw) * u), h = Math.round(LOOK.bh + (BAG.h - LOOK.bh) * u);
     const x = snap(c.x - w / 2 / LOOK.pxm) + w / 2 / LOOK.pxm, y = snap(c.y + h / 2 / LOOK.pxm) - h / 2 / LOOK.pxm;
     const axis = s.dir === 'r' || s.dir === 'l' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
-    // With the flip, it also turns over once backward, the way the rock back threw it.
     const turn = { r: -1, l: 1, d: 1, u: -1 }[s.dir] * (THREE.MathUtils.degToRad(tilt0) * (1 - u) - (s.flip ? 2 * Math.PI * u : 0));
     bag = { frame: new THREE.Matrix4().makeTranslation(x, y, c.z).multiply(new THREE.Matrix4().makeRotationAxis(axis, turn)), w, h };
   }
   if (BAKE.has('nobag')) bag = null;
   const binDraw = () => put(render(tip, s.dir, bag), ox, oy);
   const bagDraw = () => { if (BAKE.has('nobag')) return; if (k >= t.land) put(landed.px, lx * C + Math.floor((C - landed.w) / 2), ly * C + C - landed.h - 1); };
-  // Back to front by the row each thing stands on; the bag in the air goes over all.
   const things = BAKE.has('bake') ? [[by, binDraw], [ly, bagDraw]] : [[START[1] - dy, () => put(SIT[s.dir].px, (START[0] - dx) * C + Math.floor((C - SIT[s.dir].w) / 2), (START[1] - dy) * C + C - SIT[s.dir].h - 1)],
     [by, binDraw], [ly, bagDraw]];
   window.baked = { n, stop: [START[0] + dx * n, START[1] + dy * n], start: START, rollF, t };
@@ -373,7 +358,6 @@ for (const k of KNOBS) {
 $('flip').onchange = () => { s.flip = $('flip').checked; save(); draw(); autosave(); };
 $('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
 $('zin').onclick = () => { s.zoom = Math.min(12, s.zoom + 1); save(); draw(); };
-// Every change saves itself to the notes file, the note with it, a moment after the last edit.
 let timer = 0;
 const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ page: 'wheelie-roll', settings: s, note: $('note').value, at: new Date().toISOString() }) })

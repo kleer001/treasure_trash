@@ -79,11 +79,9 @@ const F = createFlight({ T, A, STYLE: { outline: LOOK.outline, shadow: LOOK.shad
 let CAST = load(SHADE, shadowDefaults(LOOK)).cast;      // the Shadow Bench's shadow
 
 const easeOut = u => 1 - (1 - u) ** 2, easeInOut = u => u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) ** 2;
-/** How far over the pane is `t` ms after the push, in degrees. It falls faster as it goes. */
+/** How far over the pane is `t` ms after the push, in degrees. */
 const degAt = t => t >= ui.tip ? 90 : 90 * (t / ui.tip) ** 2;
 
-/** The board: the raccoon behind a pane, ready to push `dir`, the shove `explain()` makes of it, and
- *  each shard's flight from where the pane hits the floor to where the glass cell has it. */
 function setup(dir, room) {
   const [dx, dy] = DIRS[dir], N = room === 'walled' ? 5 : 7, c = Math.floor(N / 2);
   const along = a => dx > 0 ? [a, c] : dx < 0 ? [N - 1 - a, c] : dy > 0 ? [c, a] : [c, N - 1 - a];
@@ -93,8 +91,6 @@ function setup(dir, room) {
   const st = r.ok && r.steps[0], gone = st && st.gone?.find(g => g.o === PANE_CODE), sp = st && st.spawned.find(e => e.from);
   if (!gone || !sp) throw new Error(`no shatter: ${r.reason ?? JSON.stringify(r.steps)}`);
   const [gx, gy] = sp.cells[0], O = restAt(px, py, C), f90 = frame(dir, 90);
-  // Where the fallen pane's middle is when it hits, and how high off the floor: it stands on an
-  // edge after a fall across the picture, and lies flat after one toward the viewer or away.
   const hit = [O[0] + f90.ox + f90.s.w / 2, O[1] + f90.oy + f90.s.h / 2], lift = dx ? f90.s.h / 2 : 0;
   const mid = [gx * C + C / 2, gy * C + C / 2], list = shards(gx, gy, C);
   const far = Math.max(...list.map(q => Math.hypot(q.x - mid[0], q.y - mid[1])));
@@ -105,11 +101,11 @@ function setup(dir, room) {
   return { s, r, N, W: N * C, dx, dy, dir, from: [px, py], O, aimed: [gx, gy], hit, lift, flights };
 }
 
-/** When shard flight `f` lands, ms after the pane hits: the ones going furthest land last. */
+/** When shard flight `f` lands, ms after the pane hits. */
 const landOf = f => ui.scatter * (0.55 + 0.45 * f.out);
 const END = B => ui.tip + Math.max(...B.flights.map(landOf));
 
-/** Every shard of `B` `since` ms after the pane hit: on the floor where it has landed, in the air where not. */
+/** Every shard of `B` `since` ms after the pane hit. */
 function drawShards(ctx, B, since) {
   for (const f of B.flights) {
     const u = Math.min(1, since / landOf(f)), e = easeOut(u);
@@ -123,9 +119,8 @@ function glassFloor(ctx, B, s) {
     for (const q of shards(x, y, C)) for (const [px, py, col] of q.px) { ctx.fillStyle = col; ctx.fillRect(q.x + px, q.y + py, 1, 1); }
 }
 
-/** The shadow a drawing `s` at (gx, gy) casts: from the two rows it stands on. */
 const foot = (s, gx, gy) => ({ s: { ...s, px: s.px.filter(p => p[1] >= s.h - 2) }, gx, gy, hc: 0, h: 0 });
-/** Things standing on the floor, `[feet, draw]`, drawn from the back row forward. */
+/** Things standing on the floor, `[feet, draw]`. */
 const byFeet = list => list.sort((a, b) => a[0] - b[0]).forEach(([, draw]) => draw());
 
 function frameAt(ctx, B, t) {
@@ -144,7 +139,6 @@ function frameAt(ctx, B, t) {
   raccoonOver(ctx);
 }
 
-/** A still of board `s`, drawn from the board alone. */
 function still(ctx, B, s) {
   F.ground(ctx, B);
   F.walls(ctx, B);
@@ -205,7 +199,6 @@ function show() {
     `frame ${j} of ${FRAMES - 1} · ${Math.round(t)} ms after the push · ${t < ui.tip ? `pane ${Math.round(degAt(t))}° over` : 'shattered'}`;
 }
 
-/** The pane upright, falling toward the push direction, and the glass it leaves. */
 function strip() {
   const root = document.getElementById('strip'); root.innerHTML = '';
   const z = ui.zoom, size = 48, arrow = d => '↑↓←→'['udlr'.indexOf(d)];

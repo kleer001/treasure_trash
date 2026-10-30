@@ -4,14 +4,13 @@
 // sprite sheet, and what it does when shoved is a rule again — and each of those lives with the
 // thing that owns the concern, which is right and is also why adding a piece means touching
 // several files. The codes themselves cannot be gathered into one sheet: they are handed out
-// and never renumbered, and five predicates read them as contiguous ranges, so a sheet that
+// and never renumbered, and several predicates read them as contiguous ranges, so a sheet that
 // regenerated them would quietly change what a saved board means.
 //
 // So this gathers the READING rather than the declarations. Three columns must be filled for
-// every piece and a specification asserts they are. The rest are optional by design — most
-// pieces do not slide and most do not roll — which is exactly why nothing can fail loudly about
-// them, and why a piece that was meant to slide and never got its entry looks like a piece that
-// was meant not to.
+// every piece and a specification asserts they are. The rest are optional by design, which is
+// exactly why nothing can fail loudly about them, and why a piece that was meant to slide and
+// never got its entry looks like a piece that was meant not to.
 //
 //   node tools/pieces.mjs [--missing]
 

@@ -12,18 +12,15 @@ import { chooseSets } from '../tools/pick.mjs';
 const travel = grid => deadTravel(analyze(toState({ id: 't', grid })));
 
 test('a room with nothing to touch is all tail', () => {
-  // Three steps to the door and no piece anywhere: the whole solve is the walk out.
   assert.deepEqual(travel(['#E#', '#-#', '#-#', '#@#']), { lead: 0, tail: 3 });
 });
 
 test('the walk in and the walk out are counted at their own ends', () => {
-  // uuU!ddddd — two steps up to the bag, the tear, and five back down to the door.
   const t = travel(['-----', '--$--', '-----', '-----', '--@--', '-----', '--E--']);
   assert.deepEqual(t, { lead: 2, tail: 5 });
 });
 
 test('dead travel is the best line, not the canonical one', () => {
-  // The bag can be reached in one step or in three; only the short way counts.
   const grid = ['-----', '-$---', '--@--', '----E'];
   const a = analyze(toState({ id: 't', grid }));
   assert.ok(a.minMoves !== null, 'the room has to be solvable for this to mean anything');
@@ -43,7 +40,6 @@ test('draft refuses a room whose open cells fall in two regions', () => {
 });
 
 test('draft reports the walk at both ends', () => {
-  // uRRlD!ul — one step in, two out, and the room passes every check that gates `ok`.
   const d = draft({ id: 'walk', grid: ['Eb---', '@$---', '-----'], cart: ['--P--', '--P--', '-----'] });
   assert.equal(d.ok, true, d.notes.join('; '));
   assert.equal(d.lead, 1);
@@ -59,33 +55,23 @@ test('pieces are read the way the file writes them', () => {
     grid: ['FFGG-', '@--x-', 'E--$c'],
     cart: ['-----', '----P', '----P'],
   }));
-  // The can rides in the cart, so that one cell is two pieces: the cart, and its cargo.
   assert.deepEqual(p.map(x => `${x.what}${x.cells.length}`).sort(), ['$1', 'F2', 'G2', 'P2', 'c1', 'x1']);
 });
 
 test('a piece nothing touches and nothing needs is inert', () => {
-  // Two lanes down to the door. Trash in the near one sends the player round the far one and
-  // costs two moves; the same trash in a corner costs nothing and is never so much as looked at.
   assert.deepEqual(inert({ grid: ['-----', '--$--', '-----', '--@--', '#x#-#', 'E----'] }), []);
   assert.deepEqual(inert({ grid: ['x----', '--$--', '-----', '--@--', '#-#-#', 'E----'] }), ['x']);
 });
 
 test('binding is not the same as being in the way of the best line', () => {
-  // Trash in the lane the solve does not take. It blocks a route, but not one anybody wanted,
-  // and the room answers exactly as it does without it.
   assert.deepEqual(inert({ grid: ['-----', '--$--', '-----', '--@--', '#-#x#', 'E----'] }), ['x']);
 });
 
 test('a piece the solve handles is not inert, even where the room could spare it', () => {
-  // The can is shoved into the cart. Neither is load-bearing — par is 5 with or without them —
-  // and both are still doing the thing the room is about.
   const room = { grid: ['Ec--#', '@$-##', '---##'], cart: ['--PP-', '-----', '-----'] };
   assert.deepEqual(inert(room), []);
 });
 
-// One outline, three ascending rungs, and the pair the generator would have thrown down: the
-// raccoon in the far right of the middle row, the door in the opposite corner. Measured where
-// it stands, the top rung walks eight steps before the first decision and five after the last.
 const SET = {
   shape: 'test', ramp: 'par',
   rooms: [
@@ -95,7 +81,6 @@ const SET = {
   ],
 };
 
-// Three rungs is not thirty rooms, so the fixture is held to a floor it can actually clear.
 const TOY = { parMin: 3, parMax: 40 };
 
 test('re-siting cuts the walk at both ends', () => {
@@ -108,10 +93,8 @@ test('re-siting cuts the walk at both ends', () => {
   assert.equal(out.resited, true);
   assert.ok(walk(out.rooms) < walk(before) / 2, `${walk(out.rooms)} of ${walk(before)}`);
   assert.ok(Math.max(...out.rooms.map(r => r.lead)) <= 1, out.rooms.map(r => r.lead).join('/'));
-  // The ladder is the set: re-siting may not flatten or reorder it.
   assert.ok(out.rooms[0].par < out.rooms[1].par && out.rooms[1].par < out.rooms[2].par,
     out.rooms.map(r => r.par).join('/'));
-  // One pair for the whole set — the outline is shared, so the two cells on it are too.
   const cellOf = ch => out.rooms.map(r => {
     const y = r.grid.findIndex(row => row.includes(ch));
     return `${r.grid[y].indexOf(ch)},${y}`;
@@ -121,8 +104,6 @@ test('re-siting cuts the walk at both ends', () => {
 });
 
 test('the par floor is what a room may not fall below to get there', () => {
-  // Act 2's floor pins the easy rung at par 8, and the pair that would suit the other two
-  // cannot be bought by making that one trivial.
   const out = resiteSet(SET);
   assert.ok(out.rooms.every(r => r.par >= 8), out.rooms.map(r => r.par).join('/'));
 });
@@ -148,8 +129,6 @@ test('a set that still walks too far is not chosen', () => {
 });
 
 test('shrinking will not seal a piece into a pocket', () => {
-  // The cart in the corner is on nobody's route, and only bare floor may be walled — so the
-  // one thing a wall pass must not do here is take the last cell joining it to the room.
   const set = {
     shape: 'test', ramp: 'par',
     rooms: [

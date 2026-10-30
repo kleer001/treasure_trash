@@ -467,8 +467,7 @@ const WHY = {
 };
 
 function go(dir) {
-  // Locked while a shove plays: the board and the drawing stay in step, and nothing about what
-  // is legal depends on what is on screen. Cleared the instant the move lands — see `tick`.
+  // Locked while a shove plays, so the board and the drawing stay in step.
   if (anim) { log = { busy: true, text: 'one thing at a time — he only has the two paws' };
               draw(); return; }
   const before = state;
@@ -493,9 +492,7 @@ function tick() {
   if (!anim) return;
   const seg = anim.segs[anim.si];
   const t = Math.min(1, (performance.now() - anim.t0) / seg.dur);
-  // Distance is measured in CELLS, so its whole part names the step and its fraction is the
-  // progress inside it. That is what keeps velocity continuous across a step boundary: the
-  // envelope spans the whole roll, and the steps are just where it happens to cross an edge.
+  // Distance is measured in CELLS, so its whole part names the step and its fraction is the progress inside it. That is what keeps velocity continuous across a step boundary.
   const d = (seg.roll ? rollEase(t, seg.cells) : easeOut(t)) * seg.items.length;
   const k = Math.min(seg.items.length - 1, Math.floor(d));
   while (anim.k < k) {
@@ -518,7 +515,6 @@ function tick() {
 // Cancel the queued frame, not just the state: dropping `anim` alone leaves the previous
 // loop's callback scheduled, and it would find the NEW anim and drive it alongside the new
 // loop — two callers stepping the same clock.
-//
 // Cutting an action short still has to LAND it. The board was committed the moment the shove
 // was legal, so the stage has to be walked through whatever steps are left or it would keep
 // drawing a skateboard halfway down a corridor it has already finished rolling along.
@@ -558,8 +554,6 @@ function sprites() {
   return SP;
 }
 
-// Couch under everything, then the deck, then what is standing on the ground, then what is
-// riding, then him. Cargo draws over the deck it rides on, at full size.
 const LAYER = sp => sp.kind === COUCH ? 0 : sp.kind === CART ? 1
   : sp.kind === RACCOON ? 4 : (sp.parent === null ? 2 : 3);
 
@@ -577,7 +571,6 @@ function draw() {
   const wall = tok('--wall');
   const lit = bagsLeft(s) === 0 && trashHeld(s) === 0;
 
-  // terrain, from the board — only the ground is a property of the square now
   for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++) {
     const c = cell(s, x, y);
     if (c.wall) { ctx.fillStyle = wall; ctx.fillRect(x * CS, y * CS, CS, CS); continue; }

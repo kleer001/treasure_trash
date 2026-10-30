@@ -42,8 +42,6 @@ test('every surveyed group can actually be cleared and lands in the target bag b
   }
 });
 
-// Emptied, a recycle bin slides one and sheds nothing — which is the empty can's whole
-// behaviour. Sampling both would rank one piece twice under two names.
 test('the empty bin is not a starting piece: it is what a full one becomes', () => {
   assert.ok(!groups().some(g => g.includes('b')));
   assert.ok(groups().some(g => g.includes('B')), 'the full bin is drawn');
@@ -71,9 +69,6 @@ test('the pre-filter never discards a board that can be won', () => {
       let s;
       try { s = toState(room); } catch { continue; }
       if (!staticallyDead(s)) continue;
-      // Bounded, at the cap the survey itself uses. A loaded cart shuffles a cell at a time
-      // rather than rolling to the wall, so a cart on an open board can out-grow the heap — and
-      // a board too big to enumerate proves nothing either way, so it is not a sample at all.
       let shortest;
       try { shortest = analyze(s, { maxStates: 50_000 }).minMoves; }
       catch (e) { if (e instanceof TooManyStates) continue; throw e; }
@@ -87,12 +82,10 @@ test('the pre-filter never discards a board that can be won', () => {
 });
 
 test('a bag boxed against a corner has no fan and is caught statically', () => {
-  // Every direction's fan runs off the grid or into the exit, so it can never be burst.
   assert.equal(staticallyDead(S(['$#', '@#', 'E#'])), true);
 });
 
 test('a board whose bags are all still inside containers is not pre-judged', () => {
-  // No loose bag to measure a fan against; whether the can can be opened is the solver's call.
   assert.equal(staticallyDead(S(['-----', '--C--', '--@--', 'E----'])), false);
 });
 
@@ -106,7 +99,6 @@ test('a placed board carries exactly the pieces its group named', () => {
     const flat = room.grid.join('');
     assert.equal((flat.match(/@/g) ?? []).length, 1, `${g}: one raccoon`);
     assert.equal((flat.match(/E/g) ?? []).length, 1, `${g}: one exit`);
-    // A domino covers two cells; a point covers one.
     for (const ch of new Set(g)) {
       const want = [...g].filter(c => c === ch).length * (ch === 'F' || ch === 'P' ? 2 : 1);
       const mask = ch === 'P' ? room.cart.join('') : flat;

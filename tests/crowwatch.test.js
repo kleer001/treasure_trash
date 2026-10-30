@@ -26,7 +26,6 @@ function watcher({ levels = LEVELS, acts = ACTS, progress = createProgress(store
   return { watch, fired, keys: () => fired.map(f => f.key), last: key => fired.findLast(f => f.key === key) };
 }
 
-/** A room whose raccoon can walk two steps one way, and back, all plain walks that do not win. */
 function pacingRoom() {
   const walk = (s, d) => { const a = explain(s, d); return a.ok && a.kind === MOVE && !isWon(a.next) ? a.next : null; };
   for (let i = 0; i < LEVELS.length; i++) {
@@ -84,7 +83,6 @@ test('on a lost board, the ladder counts the moves back to the last board that c
   watch.room(0, i, s0);
   const k0 = stateKey(s0);
   watch.scanned(0, k => k !== k0);
-  // Off the start, then to and fro beyond it: every board after the first is lost.
   let s = s0, dir = d, t = 0;
   const top = TUNING.lostLadder.at(-1);
   for (let k = 0; k <= top; k++) {
@@ -126,8 +124,7 @@ test('a counted line is handed its count', () => {
   assert.equal(last('undo.many').ctx.n, TUNING.manyUndos);
 });
 
-/** Wins room `i` by its solution from `t`, and returns the time of the win. The win is recorded
- * before or after the watcher hears it. */
+/** Wins room `i` by its solution from `t`, and returns the time of the win. */
 function winRoom(watch, progress, i, { recordFirst = false, t = 0 } = {}) {
   const L = LEVELS[i];
   let s = toState(L);

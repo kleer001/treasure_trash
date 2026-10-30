@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Treasure Trash — talking to the sanctioned Rust engine.
 //
-// The engine is `engine/`, it is OFFLINE ONLY, and what it is for is level discovery: the
-// survey is thirty-one CPU-hours and that is where the pipeline's time goes. See **One engine**
-// in CLAUDE.md for what it owes before it may be used at all — the short version is that
-// `tools/conform.mjs` proves it agrees with `src/rules.js` on every build, which is the only
-// reason a caller here may trust an answer it did not compute itself.
+// The engine is `engine/`, it is OFFLINE ONLY, and what it is for is level discovery, which is
+// where the pipeline's time goes. See **One engine** in CLAUDE.md for what it owes before it may
+// be used at all — the short version is that `tools/conform.mjs` proves it agrees with
+// `src/rules.js` on every build, which is the only reason a caller here may trust an answer it
+// did not compute itself.
 //
 // This is the client half. `conform.mjs` and the pipeline tools both speak to a child process
 // over the same protocol, so the plumbing lives here once rather than in each of them.
@@ -62,10 +62,8 @@ export const TOO_BIG = Symbol('tooBig');
  * `measure` for a whole batch of boards, answers in the order the boards were given.
  *
  * A batch rather than a board at a time because the requests are independent and the replies
- * are matched by id: one round trip costs about 0.08ms and a board costs a couple of
- * milliseconds to enumerate, so asking one at a time would spend the saving on handshakes.
- * Callers that draw their boards from a seeded stream can draw the whole batch first — nothing
- * about a draw depends on how the last one scored.
+ * are matched by id. Callers that draw their boards from a seeded stream can draw the whole
+ * batch first — nothing about a draw depends on how the last one scored.
  */
 export async function measureMany(engine, states, maxStates) {
   const replies = await Promise.all(states.map(s =>
@@ -101,7 +99,7 @@ export function measureHere(s, maxStates) {
  *
  * Auto-detected rather than opt-in, because the whole point is that the hours come down and a
  * flag nobody remembers saves nobody anything. ANNOUNCED on every run, because "why did that
- * take sixteen hours" should be answerable by reading the log — a fallback nobody is told about
+ * take so long" should be answerable by reading the log — a fallback nobody is told about
  * is the kind this codebase does not allow. `--no-engine` forces the JS path. A build that is
  * present but stale is the same hazard as any build artifact, and `conform.mjs` is how you
  * check it.

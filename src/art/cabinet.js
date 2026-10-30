@@ -1,14 +1,11 @@
-// The filing cabinet, side elevation, cleaned by hand from the Blender model's views. Closed, and
-// open with the top drawer out on its slide rails; l is r mirrored. `ax` is the column of the
-// body's centre: the body stands on its cell and the drawer reaches past it.
+// The filing cabinet, side elevation, cleaned by hand from the Blender model's views. l is r mirrored.
+// `ax` is the column of the body's centre.
 //   k ink, B top, b top's near edge, S carcase, F drawer front, f its lit top, g gap,
 //   i inside of the drawer, E drawer rim, Q rail lit, q rail, P pull lit, p pull
 const PALETTE = { k: '#19152b', B: '#473f53', b: '#5a5068', S: '#352e3e', F: '#50657c', f: '#6984a1', g: '#262440', i: '#211d33', E: '#80b3b7', Q: '#9da6ad', q: '#797f85', P: '#dbd8b4', p: '#a9a78b' };
 export const CABINET_LOOK = { front: 24, side: 24, outD: 32, depthD: 10, outS: 21, depthS: 17 };
 
-// The closed views at their drawn size, and the right-facing open view; the rest are built from
-// these, and the drawer out away from you, painted by hand at a body 24 px wide. `front` and `side`
-// are the body's width in px facing down/up and facing left/right; `outD` is how far in px the top
+// `front` and `side` are the body's width in px facing down/up and facing left/right; `outD` is how far in px the top
 // drawer comes out toward you, and `depthD` how long its box looks from the rim to the front;
 // `outS` and `depthS` are the same two facing left or right.
 const D = [
@@ -172,21 +169,15 @@ const UO = [
   '..kkkkkkkkkkkkkkkkkkkk..',
 ];
 
-// A negative n takes columns out from `at`.
 const widen = (rows, at, n) => rows.map(r => (n < 0 ? r.slice(0, at) + r.slice(at - n) : r.slice(0, at) + r[at].repeat(n) + r.slice(at)));
 // A front or back view grows on both sides of the pulls, so they stay in the middle.
 const wider = (rows, n) => widen(widen(rows, 10, Math.floor(n / 2)), 3, Math.ceil(n / 2));
 const mirror = v => ({ ...v, mid: v.rows[0].length - 1 - v.mid, rows: v.rows.map(r => [...r].reverse().join('')) });
 
-// The drawer box, seen from above; the front it pulls by; and the slide arms it rides out on,
-// with the floor or the carcase showing between them.
 const FRONT = ['kffffffffffffk', 'kFFFFFFFFFFFFk', 'kFFFFFppFFFFFk', 'kFFFFPPPPFFFFk', 'kFFFFFFFFFFFFk', 'kFFFFFFFFFFFFk', 'kFFFFFFFFFFFFk'];
 const ARMS = 'kQk........kqk';
-// Lays a row over what is there; a '.' keeps it.
 const lay = (rows, y, r) => { rows[y] = [...r].map((c, x) => (c === '.' ? (rows[y] ?? '.'.repeat(r.length))[x] : c)).join(''); };
 
-/** The top drawer out toward you: the slot it left, the arms, its box seen from above, then its
- *  front, drawn over the carcase and below it once it reaches past the base. */
 function frontOpen(out, depth) {
   const rows = D.map((r, y) => (y >= 9 && y <= 15 ? 'kSggggggggggSk' : r));
   const box = ['kQEEEEEEEEEEQk', ...Array(depth - 2).fill('kQEiiiiiiiiEQk'), 'kqEiiiiiiiiEqk'];
@@ -195,8 +186,6 @@ function frontOpen(out, depth) {
   [...box, ...FRONT, '.kkkkkkkkkkkk.'].forEach((r, k) => lay(rows, back + k, r));
   return rows;
 }
-/** The top drawer out sideways: RO's box is 16 px from its back to its front and its front 22 px
- *  out; the rails between take up the rest. */
 function sideOpen(out, depth, ns) {
   const box = widen(RO, 32, depth - 16);
   return widen(widen(box, 20, Math.max(-4, out - 22 - (depth - 16))), 8, ns);
@@ -216,7 +205,6 @@ export function cabinetViews(look) {
   return { closed, open };
 }
 
-// A half-pixel centre rounds right, so a body of even width sits on the cell's own centre.
 const sprite = ({ mid, foot, rows }) => ({ ax: Math.ceil(mid), foot, w: rows[0].length, h: rows.length,
   px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]]))) });
 /** The sprites for a look, closed and open, by the facing of the drawers: { ax, foot, w, h, px: [x, y, colour] }.
@@ -227,5 +215,4 @@ export function cabinetSprites(look) {
 }
 const SPRITES = cabinetSprites(CABINET_LOOK);
 export const CABINET = SPRITES.closed;
-/** Open, the top drawer out the way it faces. */
 export const CABINET_OPEN = SPRITES.open;

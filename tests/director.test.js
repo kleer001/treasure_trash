@@ -124,7 +124,6 @@ test('one press speeds the monologue up, a second press skips the rest of it', (
   c.view(pre + 50);
   c.press(pre + 50);
   assert.ok(log.some(r => r.type === 'fast'));
-  // Three times as fast: the first beat ends in a third of the time it had left.
   const left = (beatMs(ACT1, 0, false) - 50) / TUNING.fastX;
   assert.equal(c.view(pre + 50 + left + 1).beat, 1);
   c.press(pre + 50 + left + 2);

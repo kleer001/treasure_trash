@@ -54,7 +54,7 @@ const crop = ({ px }) => {
 const sitting = d => crop(d === 'l' ? mirror(drawRaccoon(ACTIONS[VIEW[d]].crawl[0])) : drawRaccoon(ACTIONS[VIEW[d]].crawl[0]));
 const RACCOON = { d: sitting('d'), r: sitting('r') };
 
-// [kind, facing, col, row]; an open drawer reaches into the next cell the way it faces.
+// [kind, facing, col, row].
 const PIECES = [['closed', 'd', 1, 2], ['open', 'd', 3, 2], ['closed', 'u', 6, 3], ['open', 'u', 8, 3],
   ['closed', 'r', 1, 6], ['open', 'r', 3, 6], ['open', 'l', 9, 6], ['closed', 'l', 11, 6]];
 
@@ -70,7 +70,6 @@ function draw() {
   for (let x = 0; x < COLS; x++) wallTile(g, x, 0, C);
   const put = (spr, x0, y0) => { for (const [x, y, c] of spr.px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
   const sprites = cabinetSprites(s);
-  // Back to front by the row each thing stands on, as the game draws them.
   const things = [
     ...PIECES.map(([k, f, x, y]) => [y, () => { const c = sprites[k][f]; put(c, x * C + Math.floor(C / 2) - c.ax, y * C + C - c.foot - 2); }]),
     ...[['d', 5, 2], ['r', 1, 4]].map(([f, x, y]) => [y, () => put(RACCOON[f], x * C + Math.floor((C - RACCOON[f].w) / 2), (y + 1) * C - RACCOON[f].h - 1)]),
@@ -88,7 +87,6 @@ for (const k of KNOBS) {
 $('reset').onclick = () => { Object.assign(s, CABINET_LOOK); save(); draw(); };
 $('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
 $('zin').onclick = () => { s.zoom = Math.min(12, s.zoom + 1); save(); draw(); };
-// Every change saves itself to the notes file, the note with it, a moment after the last edit.
 let timer = 0;
 const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ page: 'cabinet-size', settings: s, note: $('note').value, at: new Date().toISOString() }) })

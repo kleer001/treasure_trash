@@ -9,7 +9,7 @@
  *   steady     solves at par after a pause to think; in some rooms, one refused press. Talk: verbose.
  *   struggler  takes one planned detour in each room, the list in rotation: the same refusal three
  *              times, a lost board walked on and undone, an early or a deep restart, a run of undos
- *              redone, a 25 s or a 65 s pause, a room left unsolved and come back to. Talk: chatty.
+ *              redone, a short or a long pause, a room left unsolved and come back to. Talk: chatty.
  *   impatient  fast moves, and skips every line. Talk: chatty, and quieter as the skips add up.
  *
  * Writes, under --out:
@@ -180,7 +180,6 @@ function sit(player, seed, pack) {
     for (const b of along(L)) for (const dir of DIR_ORDER) if (!explain(b.s, dir).ok) return { at: b.prefix.length, dir };
     return null;
   }
-  /** A move off the solution path that loses a board the path still wins. */
   function losingOffPath(L) {
     const dead = deadOf(L);
     if (!dead) return null;
@@ -355,7 +354,6 @@ function scriptChecks(S, L) {
     if (!lines.some(v => v.includes('{left}') ? B.left !== null && v.replace('{left}', B.left) === l.text : v === l.text))
       add(l, 'false claim', `counts what is full; the board has ${B.left ?? 'nothing full'}`);
   }
-  // Repeats: the same words again soon, one event again and again in a visit, the bag giving the same variant twice.
   const byText = new Map();
   for (const l of L) if (l.atSay) (byText.get(l.text) ?? byText.set(l.text, []).get(l.text)).push(l);
   for (const [, ls] of byText) for (let k = 1; k < ls.length; k++) {
@@ -432,7 +430,6 @@ Give every item a verdict. Write nothing else in the file.
 `;
 
 function packet(sittings, all) {
-  // Clash pairs: two lines back to back, each pair of events once, with how often it happened.
   const pairs = new Map();
   for (const S of sittings) {
     const L = all.get(S.name);
@@ -452,7 +449,6 @@ function packet(sittings, all) {
     text.push(`${id} · seen ${p.count} time${p.count > 1 ? 's' : ''} · first in ${where(p.S, p.a)} at ${clock(p.a.t).trim()}\n`
       + `  A  ${p.a.key}  "${p.a.text}"\n  B  ${p.b.key}  "${p.b.text}"   (B began ${((p.b.t - p.a.end) / 1000).toFixed(1)} s after A ended)\n`);
   }
-  // Fit cards: up to SAMPLES for each event, taken from the sittings in turn, a different room each time.
   const byKey = new Map();
   for (const S of sittings) for (const l of all.get(S.name)) (byKey.get(l.key) ?? byKey.set(l.key, []).get(l.key)).push([S, l]);
   n = 0;

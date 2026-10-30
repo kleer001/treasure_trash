@@ -79,21 +79,18 @@ const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
 const F = createFlight({ T, A, STYLE: { outline: LOOK.outline, shadow: LOOK.shadow }, OBJ: {} });
 let CAST = load(SHADE, shadowDefaults(LOOK)).cast;      // the Shadow Bench's shadow
 
-// The bag's last row is the shadow it stands on, so it stays behind while the bag is off the floor.
+// The bag's last row is the shadow it stands on.
 const BAG = A.bag, BAG_AIR = { ...BAG, px: BAG.px.filter(p => p[1] < BAG.h - 1) };
 const [BX, BY] = bagIn(BAG), MID = [BX + BAG.w / 2, BY + BAG.h / 2], DEPTH = CAN.R;
 
 const easeOut = u => 1 - (1 - u) ** 2, easeInOut = u => u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) ** 2;
-const FLAT = () => ui.slide + ui.tip;                                // ms from the push: the can lies on its side
-const POUR = () => ui.slide + ui.tip * Math.sqrt(ui.pour / 90);      // the bag starts to leave
+const FLAT = () => ui.slide + ui.tip;                                // ms from the push
+const POUR = () => ui.slide + ui.tip * Math.sqrt(ui.pour / 90);
 const END = () => Math.max(FLAT(), POUR() + ui.out);
-/** How far over the can is `t` ms after the push, in degrees. It falls faster as it goes. */
+/** How far over the can is `t` ms after the push, in degrees. */
 const degAt = t => t <= ui.slide ? 0 : t >= FLAT() ? 90 : 90 * ((t - ui.slide) / ui.tip) ** 2;
-/** Which way a turn in the picture goes for a fall toward `dir`: clockwise right, anticlockwise left, none toward or away. */
 const sense = dir => dir === 'r' ? 1 : dir === 'l' ? -1 : 0;
 
-/** The board: the raccoon behind a full can, ready to push `dir`, and the shove `explain()` makes of
- *  it. A walled room puts the bag's cell against the wall. */
 function setup(dir, room) {
   const [dx, dy] = DIRS[dir], N = room === 'walled' ? 6 : 7, c = Math.floor(N / 2);
   const along = a => dx > 0 ? [a, c] : dx < 0 ? [N - 1 - a, c] : dy > 0 ? [c, a] : [c, N - 1 - a];
@@ -103,7 +100,6 @@ function setup(dir, room) {
   const st = r.ok && r.steps[0], mv = st && st.moved.find(m => m.o === CAN_FULL && m.becomes?.o === CAN_EMPTY);
   const sp = st && st.spawned.find(e => e.o === BAG_CODE);
   if (!mv || !sp) throw new Error(`no tip-out: ${r.reason ?? JSON.stringify(r.steps)}`);
-  // The can slides until its fall lays it where it rests in the next cell.
   const O = restAt(cx, cy, C), end = restAt(cx + dx, cy + dy, C, dir), f90 = frame(dir, 90), at90 = [O[0] + f90.ox, O[1] + f90.oy];
   if (dx ? at90[1] !== end[1] : at90[0] !== end[0]) throw new Error('the can lands off its cell across the push');
   const slide = (end[0] - at90[0]) * dx + (end[1] - at90[1]) * dy;
@@ -121,8 +117,7 @@ function inCan(B, t) {
   const O = canAt(B, t), deg = degAt(t), [x, y] = frame(B.dir, deg).place(MID[0], MID[1], DEPTH);
   return { x: O[0] + x, y: O[1] + y, turn: sense(B.dir) * deg };
 }
-/** Where the bag's centre is and how far it has turned `t` ms after the push, once it has left:
- *  a tumble the rest of the way round in a picture fall, a hop toward the viewer or away. */
+/** Where the bag's centre is and how far it has turned `t` ms after the push, once it has left. */
 function leaving(B, t) {
   const u = Math.min(1, (t - POUR()) / ui.out), a = inCan(B, POUR()), [x1, y1] = B.landing, e = easeOut(u);
   return { x: a.x + (x1 - a.x) * e, y: a.y + (y1 - a.y) * e - ui.hop * 4 * u * (1 - u),
@@ -139,9 +134,8 @@ function drawBag(ctx, b, keep) {
   drawWhere(ctx, spr.px, Math.round(b.x - BAG.w / 2), Math.round(b.y - BAG.h / 2), keep);
 }
 
-/** The shadow a drawing `s` at (gx, gy) casts: from the two rows it stands on. */
 const foot = (s, gx, gy) => ({ s: { ...s, px: s.px.filter(p => p[1] >= s.h - 2) }, gx, gy, hc: 0, h: 0 });
-/** Things standing on the floor, `[feet, draw]`, drawn from the back row forward. */
+/** Things standing on the floor, `[feet, draw]`. */
 const byFeet = list => list.sort((a, b) => a[0] - b[0]).forEach(([, draw]) => draw());
 
 function frameAt(ctx, B, t) {
@@ -162,8 +156,7 @@ function frameAt(ctx, B, t) {
   raccoonOver(ctx);
 }
 
-/** A still of board `s`, drawn from the board, with the way an empty can fell taken from the bench:
- *  the board does not record it. */
+/** A still of board `s`, drawn from the board, with what the board does not say taken from the bench. */
 function still(ctx, B, s) {
   F.ground(ctx, B);
   F.walls(ctx, B);
@@ -227,7 +220,6 @@ function show() {
     `frame ${j} of ${FRAMES - 1} · ${Math.round(t)} ms after the push · can ${Math.round(degAt(t))}° over · bag ${t < POUR() ? 'in the can' : t < POUR() + ui.out ? 'in the air' : 'landed'}`;
 }
 
-/** The can full and upright, falling over toward the push direction, and on its side every way it can lie. */
 function strip() {
   const root = document.getElementById('strip'); root.innerHTML = '';
   const z = ui.zoom, size = 48, arrow = d => '↑↓←→'['udlr'.indexOf(d)];

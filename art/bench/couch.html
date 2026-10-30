@@ -50,7 +50,6 @@ function draw() {
   for (let k = 1; k <= ROWS; k++) g.fillRect(0, k * C - 1, src.width, 1);
   for (let x = 0; x < COLS; x++) wallTile(g, x, 0, C);
   const put = (spr, x0, y0) => { for (const [x, y, c] of spr.px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
-  // Centred on its footprint, its foot a pixel above the footprint's bottom edge, as the game stands things.
   const stand = (spr, col, row, w, h) => put(spr, col * C + Math.floor((w * C - spr.w) / 2), (row + h) * C - spr.h - 1);
   const things = [...COUCHES.map(([v, x, y, w, h]) => [y + h, () => stand(COUCH[v], x, y, w, h)]),
     [3, () => stand(sitting('d'), 4, 2, 1, 1)], [6, () => stand(sitting('r'), 4, 5, 1, 1)]].sort((a, b) => a[0] - b[0]);
@@ -61,7 +60,6 @@ function draw() {
 }
 $('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); draw(); autosave(); };
 $('zin').onclick = () => { s.zoom = Math.min(12, s.zoom + 1); draw(); autosave(); };
-// Every change saves itself to the notes file, the note with it, a moment after the last edit.
 let timer = 0;
 function autosave() {
   clearTimeout(timer);

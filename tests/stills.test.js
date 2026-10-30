@@ -4,7 +4,6 @@ import { createStills, LYING } from '../src/art/stills.js';
 import { LIES } from '../src/stage.js';
 import { C } from '../src/art/flight.js';
 
-// None of these reads the trash, bag or wheelie art, so the stills are made without it.
 const still = createStills({});
 const THINGS = Object.entries(LYING).map(([o, M]) => [Number(o), M]);
 

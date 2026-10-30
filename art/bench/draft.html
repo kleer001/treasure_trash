@@ -66,7 +66,6 @@ let tab = null;
 try { tab = localStorage.getItem(TAB); } catch {}
 
 const PIECES = [...new Set(DRAFTS.map(d => d.piece))];
-// Notes once kept on each draft are gathered into the piece's one note.
 for (const piece of PIECES) {
   if (notes[piece] !== undefined) continue;
   const old = DRAFTS.filter(d => d.piece === piece && saved[d.id]?.note).map(d => `${d.id}: ${saved[d.id].note}`);
@@ -92,7 +91,7 @@ const figure = (label, c) => {
   return f;
 };
 
-/** Alley floor cells, each with the seam on its right and bottom edge, as the room draws them. */
+/** Alley floor cells. */
 function floor(ctx, cols, rows, top) {
   ctx.fillStyle = FLOOR; ctx.fillRect(0, top, cols * C, rows * C);
   ctx.fillStyle = SEAM;
@@ -116,7 +115,7 @@ function scaled(src, s) {
   return out;
 }
 
-/** The draft alone on its own cells, at 1×. The piece's rise shows above the top row. */
+/** The draft alone on its own cells, at 1×. */
 function alone(d) {
   const [cw, ch] = d.cells, src = layer(cw * C, ch * C + d.rise), ctx = src.getContext('2d');
   floor(ctx, cw, ch, d.rise);
@@ -132,9 +131,6 @@ const crop = ({ px }) => {
 const sitting = d => crop(d === 'l' ? mirror(draw(ACTIONS[VIEW[d]].crawl[0])) : draw(ACTIONS[VIEW[d]].crawl[0]));
 const RACCOON_DOWN = sitting('d'), RACCOON_RIGHT = sitting('r');
 
-/** A room on the alley floor: a wall along the top row, the draft in the bottom row, and the box,
- *  the can and the raccoon facing down and facing right beside it for scale. Multi-cell drafts
- *  take the cells to their right. */
 function room(d) {
   const src = layer(COLS * C, ROWS * C), ctx = src.getContext('2d');
   floor(ctx, COLS, ROWS, 0);

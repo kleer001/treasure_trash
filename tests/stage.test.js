@@ -1,6 +1,4 @@
-// The stage turns the rules' motion account into things with positions. The properties worth
-// pinning are the ones the old cell-diffing renderer got wrong: an object keeps its identity
-// across a move, riding is a parent rather than a position, and nothing teleports.
+// The stage turns the rules' motion account into things with positions.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,7 +14,6 @@ import {
 } from '../src/stage.js';
 
 const S = (grid, cart, water) => toState({ id: 't', grid, cart, water });
-/** A beat in which the board's own cart travelled. */
 const rolled = step => step.moved.some(m => laneOf(m.handle) === CART_LANE);
 const of = (stage, kind) => stage.sprites.filter(sp => sp.kind === kind);
 const one = (stage, kind) => {
@@ -24,7 +21,6 @@ const one = (stage, kind) => {
   assert.equal(m.length, 1, `expected exactly one ${String(kind)}, found ${m.length}`);
   return m[0];
 };
-/** Run a whole traced action through the stage, sampling positions mid-beat. */
 function play(grid, dir, { cart, water } = {}, sample = null) {
   const s = S(grid, cart, water);
   const r = explain(s, dir, { trace: true });
@@ -59,9 +55,6 @@ test('cargo starts out parented to the skateboard it is standing in', () => {
 });
 
 test('a pile being taken aboard does not move a hair', () => {
-  // Nothing pushes it. The skateboard rolls onto it and scoops it up, so it has no more business
-  // lurching forward than the ground does — the nudge belongs to what was already riding and
-  // got hit by the newcomer.
   let midBeat = null;
   const { stage } = play(['@--x-#', 'E-----'], 'r', { cart: ['-PP---', '------'] },
     (st, i) => { if (i === 0) midBeat = { ...of(st, TRASH)[0] }; });
@@ -72,9 +65,6 @@ test('a pile being taken aboard does not move a hair', () => {
 });
 
 test('cargo that shifts a slot is nudged, so the swap is visible at all', () => {
-  // It ends on the cell it started on, because the skateboard moved forward exactly as far as it
-  // moved back. True and invisible — without a nudge the skateboard appears to slide out from under
-  // it. So it sets off with the skateboard, is hit, and drops back where the board says it is.
   const s = S(['@-ccc-F-', '------F-', 'E-------'], ['-PP-----', '--------', '--------']);
   const r = explain(s, 'r', { trace: true });
   const stage = stageFrom(s, 1);
@@ -87,7 +77,6 @@ test('cargo that shifts a slot is nudged, so the swap is visible at all', () => 
   assert.ok(can.x <= 2 + NUDGE + 1e-9, 'but never further than a quarter cell');
   settle(stage);
   assert.equal(can.x, 2, 'and it lands exactly where the board says');
-  // the can arriving on the same beat was scooped, not hit, so it is left alone
   const arriving = of(stage, CAN_EMPTY).find(sp => sp.id !== can.id && sp.x === 3);
   assert.ok(arriving && arriving.nudge === null, 'the one being loaded is not nudged');
 });
@@ -102,10 +91,6 @@ test('the nudge goes out and comes back, harder on the way back', () => {
 });
 
 test('riding cargo travels with the skateboard, cell for cell', () => {
-  // While the skateboard TRAVELS, cargo holds its place on the deck exactly. The tip is the one
-  // beat where it deliberately moves within the skateboard, so it is not part of the claim.
-  // Empty at the start, so it is light and takes the whole run — it swallows the pile on the
-  // way and then carries it, which is what gives this more than one beat of travel to check.
   const s = S(['@--x--#', 'E------'], ['-PP----', '-------']);
   const r = explain(s, 'r', { trace: true });
   const stage = stageFrom(s, 1);
@@ -118,8 +103,6 @@ test('riding cargo travels with the skateboard, cell for cell', () => {
       seen.push([+(pile.x - cart.x).toFixed(3), pile.y - cart.y]);
     settle(stage);
   });
-  // The beat it is SWALLOWED on is not a ride — it is arriving, and mid-beat it is still
-  // crossing onto the deck. Excluded for the same reason the tip is.
   const riding = seen.slice(1);
   assert.ok(riding.length > 1, 'the pile rode for more than one beat');
   const [first] = riding;
@@ -127,9 +110,6 @@ test('riding cargo travels with the skateboard, cell for cell', () => {
 });
 
 test('a shed pile stops dead once the skateboard has rolled on', () => {
-  // On the beat it is hit it gets its nudge like anything else. On every beat AFTER that it is
-  // furniture, and must not drift by so much as a fraction of a cell for the rest of the roll.
-  // "Shed" means it was riding and stopped — a pile never picked up has the same null parent.
   const s = S(['@--xxx---#', 'E---------'], ['-PP-------', '----------']);
   const r = explain(s, 'r', { trace: true });
   const stage = stageFrom(s, 1);
@@ -137,10 +117,10 @@ test('a shed pile stops dead once the skateboard has rolled on', () => {
   r.steps.forEach((step, i) => {
     applyStep(stage, step, r.frames[i + 1].rac);
     advance(stage, 0.5);
-    if (rolled(step)) for (const sp of of(stage, TRASH)) {      // travel only — a tip does move
+    if (rolled(step)) for (const sp of of(stage, TRASH)) {
       if (sp.parent !== null) { rode.add(sp.id); continue; }
       if (!rode.has(sp.id)) continue;
-      if (!hitOn.has(sp.id)) { hitOn.set(sp.id, i); continue; }   // the beat it was knocked off
+      if (!hitOn.has(sp.id)) { hitOn.set(sp.id, i); continue; }
       const at = `${sp.x},${sp.y}`;
       if (!rest.has(sp.id)) rest.set(sp.id, at);
       else assert.equal(at, rest.get(sp.id), `pile ${sp.id} drifted after being shed`);
@@ -152,10 +132,6 @@ test('a shed pile stops dead once the skateboard has rolled on', () => {
 });
 
 test('cargo already aboard does not advance on a step that takes something in', () => {
-  // Each item shifts one slot toward the back while the skateboard moves one cell forward, and
-  // those cancel. Report only the entering item and the load already aboard gets dragged a
-  // cell it never travelled — two piles end up stacked on one square and the shed one is
-  // never drawn at all.
   const s = S(['@--xxx-#', 'E-------'], ['-PP-----', '--------']);
   const r = explain(s, 'r', { trace: true });
   const stage = stageFrom(s, 1);
@@ -220,8 +196,6 @@ test('a wheelie bin carries its bag the whole way, then drops it out of the BIN'
 });
 
 test('trash spent filling the canal leaves the stage', () => {
-  // The pile rides the file he is NOT behind, so that is the one that comes off — into the
-  // canal cell behind it.
   const { stage } = play(['-x#', '@-#', 'E--'], 'r',
     { cart: ['-P-', '-P-', '---'], water: ['~--', '---', '---'] });
   assert.equal(of(stage, TRASH).length, 0, 'the pile became a crossing');
@@ -240,14 +214,11 @@ test('advance interpolates and settle lands exactly on the target', () => {
 });
 
 test('a beat is paced by the CELL, so he walks his one while the bin crosses three', () => {
-  // Duration is a property of the beat and distance is a property of the sprite, so one `u`
-  // for everybody stretched whatever crossed a single cell over however long the FURTHEST
-  // traveller took: the raccoon shoving a bin three cells walked at a third of his pace.
   const s = S(['-----', '-----', '-----', '--W--', 'E-@--']);
   const stage = stageFrom(s);
   const r = explain(s, 'u', { trace: true });
   applyStep(stage, r.steps[0], r.frames[1].rac);
-  const cells = 3;                                   // what the bin crosses, from the trace
+  const cells = 3;
 
   advance(stage, 1 / 6, cells);
   assert.equal(one(stage, RACCOON).y, 3.5, 'half a cell of roll is half his step');
@@ -262,8 +233,6 @@ test('a beat is paced by the CELL, so he walks his one while the bin crosses thr
 });
 
 test('the pusher never gets closer than a cell to what he shoved', () => {
-  // He rides the roll's own distance curve, one cell back. An envelope of his own would put
-  // him ~87% home while the bin is still in its ramp, standing on the bin's tail.
   const s = S(['-----', '-----', '-----', '--W--', 'E-@--']);
   const stage = stageFrom(s);
   const r = explain(s, 'u', { trace: true });
@@ -276,8 +245,6 @@ test('the pusher never gets closer than a cell to what he shoved', () => {
 });
 
 test('a beat with no cell count is one clock, however far its pieces fly', () => {
-  // A tip is a tip whether the load lands next door or four cells back, and a tear is a tear.
-  // Those spend their beat together, which is a different claim from a roll.
   const s = S(['-----', '-----', '-----', '--W--', 'E-@--']);
   const stage = stageFrom(s);
   const r = explain(s, 'u', { trace: true });
@@ -291,14 +258,12 @@ test('rollEase covers the distance exactly, never decelerating', () => {
   for (const cells of [1, 2, 4, 9]) {
     assert.equal(rollEase(0, cells), 0);
     assert.ok(Math.abs(rollEase(1, cells) - 1) < 1e-12, `cells=${cells} must arrive at 1`);
-    // speed is non-decreasing: sample the derivative and check it never drops
     let prev = -1;
     for (let t = 0.01; t <= 1; t += 0.01) {
       const v = (rollEase(t, cells) - rollEase(t - 0.01, cells)) / 0.01;
       assert.ok(v >= prev - 1e-9, `cells=${cells} slowed down at t=${t.toFixed(2)}`);
       prev = Math.max(prev, v);
     }
-    // and it is still at full speed on the frame it stops
     const last = (rollEase(1, cells) - rollEase(0.99, cells)) / 0.01;
     assert.ok(last >= 0.9, `cells=${cells} should hit at cruise speed, got ${last.toFixed(3)}`);
   }
@@ -321,8 +286,6 @@ test('a pile stays inside its own cell', () => {
 });
 
 test('piles are actually tellable apart — the looks do not collapse', () => {
-  // Stable identity is worth nothing if every pile draws the same. Over a spread of seeds the
-  // (dominant tone, hero shape) pairs must fill most of the space and none may dominate it.
   const seen = new Map();
   for (let s = 1; s <= 500; s++) {
     const [hero] = pileLook(s);
@@ -343,9 +306,6 @@ test('easeOut is the other envelope: it arrives slowing down', () => {
 });
 
 test('what goes down a grate arrives first, then drops', () => {
-  // Two things in one beat, and the order is the whole of what makes it read as falling: it
-  // travels over the grate at full size, and only then goes down. Shrinking on the way would
-  // say it was disappearing rather than dropping, and would not say which cell took it.
   const stage = { sprites: [], nextId: 0 };
   applyStep(stage, {
     moved: [], impact: false,
@@ -371,8 +331,6 @@ test('what goes down a grate arrives first, then drops', () => {
 });
 
 test('a thing that travels into a grate is taken once, not deflated on the way as well', () => {
-  // Two accounts of one leaving. Deflate it for the removal and drop it for the grate and it
-  // shrinks by both at once, which is the sprite being taken twice over.
   const stage = stageFrom(S(['@-C-E', '-----']), 1);
   const can = one(stage, CAN_FULL);
   applyStep(stage, {
@@ -391,9 +349,6 @@ test('a thing that travels into a grate is taken once, not deflated on the way a
   assert.equal(of(stage, CAN_FULL).length, 0, 'off the stage');
 });
 
-// A piece that opens into two cells has to be able to APPEAR: nothing in the game mints a body
-// mid-action, so the account had no way to say one exists that did not a moment ago. The mirror
-// is a piece consumed by a step that put something else in its place.
 test('a body can be born mid-action, and lands where a rebuilt stage would put it', () => {
   const stage = stageFrom(S(['@---E', '-----']), 1);
   applyStep(stage, {

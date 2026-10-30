@@ -1,5 +1,4 @@
-// The tyre, standing on its tread, drawn from a Blender model at camera tilt 0. Face on it rolls
-// left and right; turned to show its tread, it rolls up and down.
+// The tyre, standing on its tread, drawn from a Blender model at camera tilt 0.
 //   k ink, a rubber shade, b rubber, c rubber lit, t tread block, T tread block lit,
 //   r rim shade, R rim, S rim shine, g hole
 const PALETTE = { k: '#141218', a: '#25232b', b: '#36333d', c: '#4b4753', t: '#5d5966', T: '#77727f',

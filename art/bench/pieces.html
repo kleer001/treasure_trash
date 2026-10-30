@@ -60,9 +60,8 @@
 </div>
 <iframe id="game" title="the game"></iframe>
 <script type="module">
-// The game itself plays each room of levels/gallery.tt in the frame below the page, in the pixel
-// art, with its animation clock stopped: this page presses the key and steps the clock a 60 Hz
-// frame at a time, and copies the game's canvas up at a whole zoom.
+// The game itself plays each room of levels/gallery.tt in the frame below the page.
+// This page copies the game's canvas up at a whole zoom.
 import { parseLevelPack } from '../../src/format.js';
 
 const FRAME_MS = 1000 / 60, HOLD = 30, LIMIT = 900;
@@ -101,7 +100,7 @@ key('Escape'); key('Escape');
 tt.hold();
 
 let g = 0, length = 1, shown = null, carry = 0, last = null;
-/** The room at frame `f` after the press: the room started clean, the key pressed, the clock stepped. */
+/** The room at frame `f` after the press. */
 function seek(f) {
   const r = room();
   if (!tt.goto(r.id)) throw new Error(`no room ${r.id} in the gallery pack`);

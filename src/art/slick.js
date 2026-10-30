@@ -1,7 +1,5 @@
-// A slick on the floor — grease or tar — as a field of lobes thresholded into a blob. Every slick
-// cell seeds its own lobes, and a bridge lobe sits on each edge it shares with another slick cell,
-// so a run of cells comes out as one blob that is different every time. Each cell draws only its
-// own pixels, but the field is in floor pixels, so the pieces meet without a seam.
+// A slick on the floor, grease or tar.
+// Each cell draws only its own pixels, but the field is in floor pixels, so the pieces meet without a seam.
 import { mulberry32 } from '../rng.js';
 import { C } from './flight.js';
 
@@ -17,7 +15,7 @@ const hash = (a, b, c) => {
   h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12;
   return (h >>> 0) / 4294967296;
 };
-// Value noise on a 4-pixel lattice, so the outline wobbles in lumps rather than in single pixels.
+// Value noise, so the outline wobbles in lumps rather than in single pixels.
 const noise = (x, y, seed) => {
   const ix = Math.floor(x / 4), iy = Math.floor(y / 4), fx = x / 4 - ix, fy = y / 4 - iy;
   const n = (a, b) => hash(ix + a, iy + b, seed);
@@ -44,7 +42,6 @@ export function slickCell(cx, cy, has, look) {
     if (has(cx + dx, cy + dy)) near.push(...lobes(cx + dx, cy + dy, has, look));
   const x0 = cx * C, y0 = cy * C;
   const inCell = (x, y) => x >= x0 && x < x0 + C && y >= y0 && y < y0 + C;
-  // A pixel outside every slick cell is never slick, so a blob is cut flat where the run ends.
   const field = (x, y) => {
     if (!has(Math.floor(x / C), Math.floor(y / C))) return 0;
     let f = 0;
@@ -62,10 +59,8 @@ export function slickCell(cx, cy, has, look) {
     if (!inCell(x, y) || !on(x, y)) continue;
     let c = look.body;
     if (!on(x - 1, y) || !on(x + 1, y) || !on(x, y - 1) || !on(x, y + 1)) c = look.edge;
-    // A glint is the pixel just inside an edge that faces up or left, kept in runs.
     else if ((!on(x - 2, y) || !on(x, y - 2)) && noise(x * 2, y * 2, look.seed + 7) < look.shine) c = look.glint;
     else {
-      // Thin bands across the slick, bent by the same lumps as its outline.
       const s = Math.sin((x * 0.8 + y * 0.45) / look.band + noise(x, y, look.seed + 3) * 4);
       if (Math.abs(s) < look.sheen) c = look.hues[Math.floor((x + y) / 3) % look.hues.length];
     }

@@ -55,7 +55,7 @@ export function fullOn(s) {
   return HOLDS.filter(([name]) => n.has(name)).map(([name]) => [name, n.get(name)]);
 }
 
-/** The same in his words: "a can", "two bags and a box". Past two kinds a list stops being a line. */
+/** The same in his words: "a can", "two bags and a box". */
 export function leftOn(s) {
   const kinds = fullOn(s), say = k => NUMBER[k] ?? String(k);
   if (!kinds.length) return null;
@@ -64,8 +64,7 @@ export function leftOn(s) {
 }
 
 /**
- * The refusal as the player meets it. One rule reason covers three different noes on water,
- * and which one it is depends on where the blame landed and what is sitting there.
+ * The refusal as the player meets it.
  */
 export function refusal(s, b) {
   if (b.reason !== 'water') return b.reason;
@@ -91,7 +90,6 @@ function gripping(s) {
   return n;
 }
 
-// Things moved by one shove, from two up; the last counts that many or more.
 const CHAINS = ['piece.chain2', 'piece.chain3', 'piece.chain4', 'piece.chain5'];
 
 /** `piece.*` names for one accepted action traced with `{ trace: true }`, and its longest roll. */
@@ -123,7 +121,6 @@ export function pieceEvents(r, dir) {
       } else if (d > 1 && lane !== CART_LANE) out.add('piece.grease');
       if (lane === CART_LANE && cartRoll && inGrid(before, x, y) && isCart(cell(before, x, y)) && !isBarrow(cartKindOf(cell(before, x, y))))
         out.add('piece.skateRolls');
-      // Cargo left behind as the board goes out from under it.
       if (m.parent === null && m.dx === -sx && m.dy === -sy && !cartRoll && inGrid(before, x, y)) {
         const c = cell(before, x, y);
         if (isCart(c) && !isBarrow(cartKindOf(c))) out.add('piece.skateSlop');
@@ -204,7 +201,6 @@ export function createWatch({ crow, levels, acts, progress, memory, rng, tuning 
     v.inputAt = t; v.idleStage = 0; v.idleAt = null; v.faced = false; v.lostIdle = false;
   }
 
-  /** A fresh attempt at the room v is in: what a restart wipes. */
   function attempt(s) {
     Object.assign(v, {
       stack: [], key0: stateKey(s), lost: false, lostMoves: 0, justLost: false, lostThisTry: false, lostKeys: new Set(),
@@ -296,7 +292,6 @@ export function createWatch({ crow, levels, acts, progress, memory, rng, tuning 
     if (v.lostKeys.has(key)) return;
     v.lostKeys.add(key); v.lostCount++; v.lostThisTry = true;
     const n = sitting.lost[v.id] = (sitting.lost[v.id] ?? 0) + 1;
-    // Once he has said the first one, only the second is left to fire.
     fire('lost.firstEver', t);
     fire('lost', t, { count: n, n });
     if (byWalk) fire('lost.byWalk', t);
@@ -332,7 +327,6 @@ export function createWatch({ crow, levels, acts, progress, memory, rng, tuning 
     const verdict = dead(key);
     const last = after < before && lit && verdict !== null;
     if (kind === TEAR) {
-      // One rip, one line: a first tear that is also the last is said as the last.
       if (!v.tore) { v.tore = true; if (!last) fire('tear.first', t); }
       if (verdict === false && !lit) fire('tear.stillWinnable', t);
       const trash = (r.steps ?? []).flatMap(st => st.spawned.filter(a => a.o === TRASH).flatMap(a => a.cells));
@@ -380,7 +374,6 @@ export function createWatch({ crow, levels, acts, progress, memory, rng, tuning 
     const at = [s.rac.x, s.rac.y], was = [prev.rac.x, prev.rac.y];
     const lit = exitLit(s);
     if (!lit && v.exits.some(e => near(e, at) === 0)) {
-      // Nothing full and still dark: what keeps it dark is trash riding a cart.
       const left = leftOn(s);
       if (!left) fire('walk.exitDarkCart', t);
       else fire(++v.exitDark === 1 ? 'walk.exitDark' : 'walk.exitDarkAgain', t, { left });
@@ -396,7 +389,7 @@ export function createWatch({ crow, levels, acts, progress, memory, rng, tuning 
     if (n < par) fire('win.underPar', t);
     else if (n === par) {
       fire('win.par', t);
-      // A first try is the rarer praise, and he gives one praise for one win.
+      // A first try is the rarer praise.
       if (v.undosThisTry === 0 && v.restarts === 0 && !firstTry) fire('win.perfect', t);
     } else fire(n <= Math.ceil(par * SLACK) ? 'win.overPar' : 'win.wayOverPar', t);
     if (v.undosThisTry >= T.winUndos) fire('win.manyUndos', t, { n: v.undosThisTry });
@@ -407,7 +400,6 @@ export function createWatch({ crow, levels, acts, progress, memory, rng, tuning 
     if (firstTry) fire('win.firstTry', t);
     if ((sitting.lost[v.id] ?? 0) >= T.nemesis) fire('win.nemesis', t);
     if (mem.left[v.id]) { fire('win.cameBack', t); delete mem.left[v.id]; save(); }
-    // A room counts once towards a streak, however often an undo lets it be won again.
     if (!v.wins++) {
       sitting.parRun = n <= par ? sitting.parRun + 1 : 0;
       if (T.streak.includes(sitting.parRun)) fire('win.streak', t, { n: sitting.parRun });
@@ -473,7 +465,7 @@ export function createWatch({ crow, levels, acts, progress, memory, rng, tuning 
     v.won = false;
   }
 
-  /** The clock: idles, and what waits on a pause. `s` is the board on screen. */
+  /** `s` is the board on screen. */
   function tick(t, s) {
     if (!v) return;
     const idle = t - v.inputAt;

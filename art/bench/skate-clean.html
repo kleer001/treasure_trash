@@ -47,7 +47,6 @@ function draw() {
 const setZoom = z => { zoom = z; try { localStorage.setItem(KEY, String(zoom)); } catch {} draw(); autosave(); };
 $('zout').onclick = () => setZoom(Math.max(1, zoom - 1));
 $('zin').onclick = () => setZoom(Math.min(12, zoom + 1));
-// The note saves itself to the notes file a moment after the last edit.
 let timer = 0;
 const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ page: 'skate-clean', settings: { zoom }, note: $('note').value, at: new Date().toISOString() }) })

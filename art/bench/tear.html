@@ -63,8 +63,8 @@ const C = 24;                                          // logical px per cell
 const FLOOR = '#896e6e', SEAM = '#584c62';
 const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
 // One entry per frame: how long it holds, and where the motion is on that frame.
-//   lunge  raccoon offset toward the bag, px     body  bag sprite, or none once it has burst
-//   k      the spill's clock, 0..1; each piece lands at its own point on it
+//   lunge  raccoon offset toward the bag, px     body  bag sprite
+//   k      the spill's clock, 0..1
 const FRAMES = [
   { ms: 160, lunge: 0,  body: 'bag' },
   { ms: 80,  lunge: 3,  body: 'bag', nudge: 1 },
@@ -78,7 +78,6 @@ const FRAMES = [
   { ms: 680, lunge: C,  k: 1 },
 ];
 // Where on the spill's clock a piece lands, and how high its arc peaks in px, by size class.
-// Heavy pieces land first and low; bits fly high and land last.
 const ARC = { hero: [0.62, 0.72, 3, 5], mid: [0.74, 0.88, 5, 8], bit: [0.86, 1, 7, 11] };
 
 const KEY = 'bag-rip-bench';
@@ -93,7 +92,6 @@ const LAY = { min: LOOK.min, max: LOOK.max, spill: LOOK.spill, C }, STYLE = { ou
 function drawSpr(ctx, spr, x, y) {
   for (const [px, py, col] of spr.px) { ctx.fillStyle = col; ctx.fillRect(x + px, y + py, 1, 1); }
 }
-// A sprite stands centred on its cell, its feet one pixel above the cell's bottom edge.
 const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
 
 function floor(ctx, N) {
@@ -118,13 +116,12 @@ function flight(x, y, i, piece) {
 function inAir(B, x, y, p, fl, t) {
   const rest = T.sprite(p.name, p.alt, p.turn), { m, k } = T.poseOf(p.name, p.turn);
   const s = T.sprite(p.name, p.alt, T.pose(p.name, m, k - Math.round(fl.spin * (1 - t))));
-  const sx = B.bx * C + C / 2, sy = B.by * C + C - 1 - A.bag.h / 2;   // out of the bag's middle
+  const sx = B.bx * C + C / 2, sy = B.by * C + C - 1 - A.bag.h / 2;
   const rx = x * C + p.x + rest.w / 2, ry = y * C + p.y + rest.h / 2;
   return { s, gx: Math.round(sx + (rx - sx) * t - s.w / 2), gy: Math.round(sy + (ry - sy) * t - s.h / 2),
            h: Math.round(fl.height * 4 * t * (1 - t)) };
 }
 
-/** A still of a board, drawn from the board alone. */
 function still(ctx, B, s) {
   floor(ctx, B.N);
   for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++)
@@ -157,7 +154,6 @@ function frame(ctx, B, f) {
   raccoonOver(ctx);
 }
 
-/** The same frame as the game draws it today, at display size. */
 function refFrame(ctx, B, f, z) {
   const SP = createSprites({ ctx, cell: C * z, palette: { floor: FLOOR, floorLine: SEAM } });
   ctx.fillStyle = SEAM; ctx.fillRect(0, 0, B.N * C * z, B.N * C * z);
@@ -167,8 +163,6 @@ function refFrame(ctx, B, f, z) {
   SP.raccoon(B.bx - B.dx + B.dx * f.lunge / C, B.by - B.dy + B.dy * f.lunge / C);
 }
 
-/** The board: a bag with the raccoon behind it, ready to push `dir`. A walled room puts the
- *  tear's cells against the walls, so the spill has something to stop on. */
 function setup(dir, room) {
   const [dx, dy] = DIRS[dir], N = room === 'walled' ? 5 : 7, b = (N - 1) / 2;
   const rows = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) =>
@@ -275,7 +269,6 @@ on('fast', () => { ui.speed = Math.min(300, ui.speed + 10); });
 on('zoom-out', () => { ui.zoom = Math.max(1, ui.zoom - 1); }, true);
 on('zoom-in', () => { ui.zoom = Math.min(8, ui.zoom + 1); }, true);
 on('cells', () => { ui.cells = !ui.cells; });
-// In a gallery the press starts where the first frame's hold ends: that hold is the bench's wait.
 const frameOf = ms => { let t = -FRAMES[0].ms; return FRAMES.find(f => ms < (t += f.ms)) ?? FRAMES.at(-1); };
 embed(view, {
   set: o => { Object.assign(ui, o, { playing: false }); setPress(ui.dir); build(); },

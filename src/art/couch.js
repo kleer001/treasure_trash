@@ -1,7 +1,4 @@
-// The couch, two cells long, drawn from a 3D model at about 25 px a metre: from the front and from
-// the back at a 45° look down, and end on at 65° from either side. The rows give its shape and its
-// shading; the leather's colour and its wear (stains, mould, cracks, rips with the stuffing showing)
-// are laid on from a look, seeded, each view with its own seed.
+// The couch, drawn from a 3D model.
 //   k ink, and the leather from deepest to highlight: d e f g h i
 import { mulberry32 } from '../rng.js';
 
@@ -201,12 +198,10 @@ function wear(rows, L, salt) {
   let rnd;
   const shade = (x, y) => (y >= 0 && y < h && x >= 0 && x < w ? RAMP.indexOf(base[y][x]) : -1);
   const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  // Wear goes on the leather's faces, not on its outline or the shade under it.
   const faces = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++)
     if (shade(x, y) >= L.minShade && N4.every(([dx, dy]) => shade(x + dx, y + dy) >= 0)) faces.push([x, y]);
   const pick = (from = faces) => from[Math.floor(rnd() * from.length)];
-  // A cushion is a patch of one shade in the drawing: the seams between cushions are drawn darker.
   const cushion = rows.map(r => Array(r.length).fill(-1)), size = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     if (cushion[y][x] >= 0 || shade(x, y) < 0) continue;
@@ -221,12 +216,11 @@ function wear(rows, L, salt) {
     }
   }
   const on = id => (x, y) => y >= 0 && y < h && x >= 0 && x < w && cushion[y][x] === id;
-  // Where a kind of wear may spread from (x, y): its own cushion, or with `respect` off, the whole leather.
   const within = (respect, x, y) => (respect ? on(cushion[y][x]) : (X, Y) => shade(X, Y) >= 0);
   const roomy = faces.filter(([x, y]) => size[cushion[y][x]] >= 16);
   const count = n => Math.floor(n) + (rnd() < n % 1 ? 1 : 0);
   const between = (a, b) => a + rnd() * Math.max(0, b - a);
-  // An ellipse with a ragged edge, kept to the leather: [x, y, d], d its distance out from the middle (1 at the edge).
+  /** A blob with a ragged edge: [x, y, d], d its distance out from the middle (1 at the edge). */
   const blob = (cx, cy, rx, ry, jag) => {
     const out = [];
     for (let y = Math.floor(cy - ry - 1); y <= Math.ceil(cy + ry + 1); y++)
@@ -269,12 +263,10 @@ function wear(rows, L, salt) {
     const inside = new Set(px.map(([x, y]) => x * 1000 + y)), deep = rnd() < L.hole;
     for (const [x, y, d] of px)
       g[y][x] = deep && d < 0.55 ? 'x' : inside.has(x * 1000 + y - 1) ? 'w' : 'W';
-    // The torn leather round the hole curls up and catches the light.
     for (const [x, y] of px) for (const [dx, dy] of N4) {
       const X = x + dx, Y = y + dy;
       if (!inside.has(X * 1000 + Y) && own(X, Y) && rnd() < L.rim) g[Y][X] = 'r';
     }
-    // A flap of it hangs down from the bottom of the tear, as far as the cushion goes.
     if (px.length && rnd() < L.flap) {
       const bottom = Math.max(...px.map(p => p[1])), xs = px.filter(p => p[1] === bottom).map(p => p[0]);
       const x0 = Math.min(...xs), x1 = Math.max(...xs);
@@ -289,8 +281,6 @@ function wear(rows, L, salt) {
 
 const mix = (a, b, t) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t)
   .toString(16).padStart(2, '0')).join('');
-// Stains, then mould, are mixed into the leather they lie on, each its opacity of the way to its own
-// colour. A rip opened through them shows the stuffing.
 const sprite = ({ rows, stain, mould }, pal, L) => ({ w: rows[0].length, h: rows.length,
   px: rows.flatMap((r, y) => [...r].flatMap((c, x) => {
     if (c === '.') return [];
@@ -301,7 +291,7 @@ const sprite = ({ rows, stain, mould }, pal, L) => ({ w: rows[0].length, h: rows
     }
     return [[x, y, col]];
   })) });
-/** Each view worn to `look`: { w, h, px }. `front` and `back` lie across two columns, `left` and `right` down two rows. */
+/** Each view worn to `look`: { w, h, px }. */
 export function couchViews(look) {
   const pal = palette(look);
   return Object.fromEntries(Object.entries(ROWS).map(([k, r], i) => [k, sprite(wear(r, look, i + 1), pal, look)]));

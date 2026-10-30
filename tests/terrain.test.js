@@ -1,6 +1,4 @@
-// The terrain lanes. Each is a value a cell carries alongside its occupant, which is what lets
-// one lane multiply against every mechanic at once — and what makes each of these specs a
-// statement about the whole roster rather than about one piece.
+// The terrain lanes.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,10 +22,6 @@ test('grease changes nothing for a roller, which already travelled', () => {
   assert.deepEqual(toGrid(step(dry, 'r')), toGrid(step(slick, 'r')));
 });
 
-// A body is the heaviest thing on the board and grease is what beats weight, so the lane carries
-// a couch exactly as it carries a can. What decides is the LEADING cell: the end taking the shove
-// is the end that skates, and a rug asked for its whole footprint would need a lane longer than
-// itself before the slick did anything at all.
 test('a body runs the slick like anything else', () => {
   assert.deepEqual(toGrid(push(S(['@FF---E'], ['--%%%--']), 'r')), ['-@--FFE'], 'the couch');
   assert.deepEqual(toGrid(push(S(['@JJ---E'], ['--%%%--']), 'r')), ['-@--JJE'], 'the open cabinet');
@@ -56,7 +50,6 @@ test('grease does not lengthen a roll that already ran its course', () => {
 });
 
 test('a container settles its bill where it stops, not where it was shoved', () => {
-  // The can sheds one cell past its resting place — off the end of the slick, not at its head.
   const s = S(['@C-----', 'E------'], ['--%%%--', '-------']);
   assert.deepEqual(toGrid(push(s, 'r')), ['-@---c$', 'E------']);
 });
@@ -65,9 +58,9 @@ test('a container settles its bill where it stops, not where it was shoved', () 
 
 test('tar keeps what enters it, and the raccoon walks over it freely', () => {
   const s = S(['@c---E'], ['--T---']);
-  const stuck = push(s, 'r');                    // can slides onto the tar
+  const stuck = push(s, 'r');
   assert.deepEqual(toGrid(stuck), ['-@c--E']);
-  assert.equal(refuse(stuck, 'r'), 'tar');       // and never comes off again
+  assert.equal(refuse(stuck, 'r'), 'tar');
   assert.ok(explain(S(['@--E'], ['-T--']), 'r').ok, 'he crosses tar himself');
 });
 
@@ -106,9 +99,6 @@ test('a bin rolled into a grate goes down holding its bag, and sheds nothing', (
 });
 
 test('a grate takes a body only when the whole of it fits in one', () => {
-  // Rolled onto grates its whole footprint reaches, a rug goes down. Reaching one grate and one
-  // floor cell it spans the hole — taking only the half over the grate would leave a one-cell
-  // rug, which is not a smaller rug but a board nothing can read.
   const room = ['#####', '#@---', '#UU--', '#----', '#----', '#---E', '#####'];
   const both = S(room, ['-----', '-----', '-----', '-----', '-OO--', '-----', '-----']);
   assert.deepEqual(toGrid(push(both, 'd')),
@@ -159,9 +149,6 @@ test('water poured into a grate drains away', () => {
 });
 
 test('a tyre shoved out of water does not take the raccoon in with it', () => {
-  // A roller standing in water is shovable — that is what the water gate lets through. Across
-  // its axis a tire is a slider, and the cell it leaves is the canal it was sitting in, so the
-  // slide asks the same question every other travelling branch asks before he follows.
   const s = S(['-------', '-@O---E', '-------'], ['-------', '--~----', '-------']);
   const r = explain(s, 'r');
   assert.ok(r.ok, `expected the shove to be legal, got ${r.reason}`);

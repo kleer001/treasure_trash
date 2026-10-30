@@ -24,7 +24,7 @@
   <span class="score" id="score"></span>
 </div>
 
-<!-- The grid is markup-free until it is opened: main.js fills it from the pack it loaded. -->
+<!-- main.js fills the grid from the pack it loaded. -->
 <div class="sheet" id="sheet" hidden>
   <div class="sheetbox" role="dialog" aria-modal="true" aria-label="Pick a level">
     <div class="sheethead">
@@ -67,7 +67,7 @@
 <!-- The crow's inner workings, on `?debug`. Out of the column, so it can take the page's width. -->
 <div class="cdbg" id="cdbg" hidden></div>
 
-<!-- The play-by-play, on `?debug`. A dev affordance: no query string, no panel. -->
+<!-- The play-by-play, on `?debug`. A dev affordance. -->
 <aside class="dbg" id="dbg" hidden>
   <header>play by play</header>
   <div class="log" id="dbglog"></div>

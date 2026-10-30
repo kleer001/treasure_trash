@@ -47,10 +47,10 @@ const READ = {
   ...Object.fromEntries([...'DT'].map(ch => [ch, { o: CABO_D }])),
   ...Object.fromEntries([...'IP'].map(ch => [ch, { o: CABO_L }])),
   ...Object.fromEntries([...'JQ'].map(ch => [ch, { o: CABO_R }])),
-  // The magnet, by the way its field points. It never turns, so the glyph is the whole of it.
+  // The magnet, by the way its field points.
   'f': { o: MAG_U }, 'l': { o: MAG_D }, 'p': { o: MAG_L }, 'q': { o: MAG_R },
   // A barrow riding in something, still facing the way it faces. Only ever found in a cart
-  // cell — set down anywhere it is a barrow again, and written in the `:cart` mask instead.
+  // cell.
   '^': { o: BAR_U }, 'v': { o: BAR_D }, '<': { o: BAR_L }, '>': { o: BAR_R },
   'E': { exit: true },
   // Furniture glyphs name a PIECE, not a kind of thing: a 4-connected blob of one letter is
@@ -63,14 +63,14 @@ const READ = {
 };
 
 // The `:water` mask alphabet. One character per terrain, and the floor aliases read as dry so a
-// mask can be written with `-` or `.` like any other block. The directive keeps its old name
-// because sixty-one shipped rooms spell it that way; what it carries is every terrain lane.
+// mask can be written with `-` or `.` like any other block. The directive keeps its old name;
+// what it carries is every terrain lane.
 export const WET = '~';   // open canal
 const FILLED = '=';     // a canal cell somebody filled in: floor, and drawn as the plank it is
 
 // Terrain reaches a cell one of two ways, and which one decides whether `stateKey` carries it.
 // MUTABLE lanes ride in `ter`, one exclusive value, because a move can change them. STATIC lanes
-// are their own flags and stay out of the key, for the reason `wall` always did: they cannot
+// are their own flags and stay out of the key: they cannot
 // differ between two states of one room.
 const TER_GLYPHS = {
   '%': { ter: GREASE }, 'T': { ter: TAR }, '*': { ter: GLASS }, '_': { ter: COVERED },
@@ -111,7 +111,7 @@ export const MULTI_POOLS = [
 // same reason water is: a cart cell holds cargo, and one character cannot say "empty cart
 // cell", "cart holding a can" and "cart Q holding trash" at once. Same blob rule, own pool.
 export const SKATE_POOL = [...'PQR'];
-// A barrow is a cart of ONE cell, and its axis is in the glyph because nothing else carries it.
+// A barrow's axis is in the glyph because nothing else carries it.
 
 const CART_KINDS_IN_MASK = [
   { glyphs: [...'PQR'], ck: SKATE, size: 2, word: 'two', what: 'skateboard' },
@@ -208,8 +208,6 @@ const WRITE = { [NONE]: '-', [BAG]: '$', [CAN_FULL]: 'C', [CAN_EMPTY]: 'c', [TRA
                 [MAG_U]: 'f', [MAG_D]: 'l', [MAG_L]: 'p', [MAG_R]: 'q',
                 [BAR_U]: '^', [BAR_D]: 'v', [BAR_L]: '<', [BAR_R]: '>' };
 
-// A code with no glyph writes NOTHING and shortens the row, which reads downstream as a board
-// of a different shape rather than as a piece nobody taught the writer about.
 const glyphOf = o => WRITE[o] ?? (() => {
   throw new Error(`no glyph for occupant ${o}`);
 })();
@@ -417,8 +415,7 @@ export function toState(level) {
       }
       marks.push(row);
     }
-    // One counter across the kinds, and a size rule per kind: a skateboard is two cells and a barrow
-    // is one, so the two cannot share a single check.
+    // One counter across the kinds, and a size rule per kind: the kinds cannot share a single check.
     let nextCid = 0;
     for (const k of CART_KINDS_IN_MASK)
       nextCid = labelBlobs(cells,
@@ -472,7 +469,7 @@ export function toState(level) {
       cells[y][x].hold = codes;
     }
   }
-  // A room opens with its fields already holding. Here rather than at each caller: the game, the
+  // Here rather than at each caller: the game, the
   // solver and every tool build their start board through this function, and a board that reached
   // one of them unsettled would be a different room from the one the others were reading.
   return settleAtRest({ cols, rows, cells, rac });

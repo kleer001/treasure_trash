@@ -1,5 +1,4 @@
-// The sponge, drawn by hand: a block standing on its cell, seen from the side, its holes dark on
-// the edge the face shades and lit on the far wall.
+// The sponge, drawn by hand, seen from the side.
 import { stretch } from './stretch.js';
 
 const PALETTE = { k: '#19152b', a: '#6f5a2e', b: '#b8913a', c: '#e3c35a', d: '#f1eccb' };

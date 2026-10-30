@@ -53,7 +53,6 @@ const look = { ...LOOK, light: [...LOOK.light], ...(saved.look ?? {}) };
 let zoom = saved.zoom ?? 8;
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ look, zoom })); } catch {} };
 
-// The clock is a frame count; the shutter goes on twos and the light on ones, as in the game.
 let frame = 0, playing = true, last = performance.now(), lit = false, t0 = -Infinity;
 const twos = n => Math.floor(n / 2) * 2;
 const open = () => { const k = Math.min(1, twos(frame - t0) / look.roll); return lit ? k : 1 - k; };

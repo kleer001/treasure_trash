@@ -5,9 +5,8 @@
 // place a landing is decided, records every (site, lane, occupant) actually put to it over a
 // corpus, and prints the ones that never came up.
 //
-// What comes back is a TO-DO LIST, not a failure list. Most of what goes unasked is unaskable —
-// a couch cannot be tipped out of a jug — and telling those apart is the reading, which is why
-// this reports rather than gates.
+// What comes back is a TO-DO LIST, not a failure list. Most of what goes unasked is unaskable,
+// and telling those apart is the reading, which is why this reports rather than gates.
 //
 // Two cuts, because they have different blind spots. The narrow one asks which lanes a site was
 // never put to about a thing it does meet; it cannot see a pairing never staged at all. The
@@ -59,13 +58,9 @@ function askedOver(rooms, { cap = 200 } = {}) {
 }
 
 /**
- * Every question worth asking, which is NOT the whole cartesian product: a site only ever
- * decides the landing of the things that can reach it, and a cabinet shutting is never asked
- * about a bag. So the plausible set per site is the occupants that site is ever asked about at
- * all — and the gap is one of those on a lane it was never put to.
- *
- * That is the shape the sweep bug had: the broom was asked about trash on dry floor a hundred
- * times and about water never once.
+ * Every question worth asking, which is NOT the whole cartesian product. The plausible set per
+ * site is the occupants that site is ever asked about at all — and the gap is one of those on a
+ * lane it was never put to.
  */
 const metAt = asked => {
   const seen = new Map();                       // site -> occupant names ever asked there
@@ -116,8 +111,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     + `${every.length} plausible combinations asked; ${missing.length} never came up.\n`);
   if (never.length) console.log(`REACHED BY NOTHING — ${never.length} site(s) the corpus never `
     + `even arrived at: ${never.join(', ')}\n`);
-  // A lane that takes nothing answers the same for every occupant, so a gap there is a gap in
-  // one answer. Water and the grate are the ones where the occupant changes the reply.
   console.log('NEVER ASKED — read as a to-do list, not a failure list:\n');
   for (const site of sites) {
     const at = bySite.get(site);
@@ -132,8 +125,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   // The list above is only as wide as what the corpus staged: it asks which LANES a site was
   // never put to about a thing, and cannot ask about a thing the site never met. So the coarser
-  // cut as well — which occupants reach a site at all. This is the cut the sweep bug sat in:
-  // nothing in the corpus had ever swept trash anywhere, on any lane.
+  // cut as well — which occupants reach a site at all.
   const met = metAt(asked);
   const everyName = [...codeName.values()];
   console.log('\nNEVER REACHED AT ALL — the site has never decided the landing of these:\n');

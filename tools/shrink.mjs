@@ -3,20 +3,11 @@
 //
 //   node tools/shrink.mjs [--in F] [--out F] [--workers N]
 //
-// A generated room is drawn on whatever outline it was sampled on, and the solution usually
-// needs a fraction of it. What is left over is not neutral: it is floor the player walks across
-// for nothing, and it is where "travel a long way to reach the end, past wide open space where
-// nothing happens" comes from. Walls can never lower par — they only remove options — so the
-// floor a solution never touches can go, and the room gets its own shape instead of the
-// rectangle it was born in.
-//
 // PER SET, NOT PER ROOM. The three rooms of a set share an outline; that sharing is the set.
 // A wall therefore has to be affordable to all three or to none, or the set comes out as three
 // rooms that merely resemble each other.
 //
-// The guards are stricter than `tighten`'s default because a set is nearly finished work:
-// par must not move, solutions must not multiply, and the room must not go toothless ON THE
-// LINE — a wall that removes the last way for good play to go wrong has removed the room.
+// The guards are stricter than `tighten`'s default because a set is nearly finished work.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -35,9 +26,6 @@ const wallAt = (grid, x, y) =>
 function read(grid, cart) {
   let s;
   try { s = toState({ id: 's', grid, ...(cart && { cart }) }); } catch { return null; }
-  // Only bare floor is ever walled, so a piece is never walled away — it is walled AROUND.
-  // Seal the last route to a cart nobody visits and the cart is still drawn, still looks like
-  // part of the room, and cannot be reached from anywhere in it.
   if (!isOneRoom(s)) return null;
   let a;
   try { a = analyze(s, { maxStates: MAX_STATES }); }
@@ -45,8 +33,7 @@ function read(grid, cart) {
   if (a.minMoves === null) return null;
   if (a.silentTraps.length) return null;
   if (bagsLeft(s) > 0 && a.exitRefusals === 0) return null;
-  // One DAG for the three measures that read it, and `inert` computed on demand: it costs about
-  // as much as the `analyze` above, and `holds` rejects most candidates before it looks.
+  // `inert` computed on demand: it costs about as much as the `analyze` above, and `holds` rejects most candidates before it looks.
   const onDag = shortestDag(a);
   return { room: { grid, ...(cart && { cart }) }, a, onDag,
            par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,
@@ -90,19 +77,12 @@ export function shrinkSet(set) {
   const holds = cand => cand.every((g, i) => {
     const now = read(g, carts[i]);
     if (!now) return false;
-    if (now.par !== base[i].par) return false;              // the room must ask the same thing
-    if (now.solves > base[i].solves) return false;          // and not get looser
+    if (now.par !== base[i].par) return false;
+    if (now.solves > base[i].solves) return false;
     if (now.traps < 1) return false;
-    // A wall keeps par and may drop optimal lines, so it can take away the line that walked
-    // least and leave a longer walk at the same length. `resite` chose that pair; this may
-    // not undo it.
+    // `resite` chose the pair; this may not undo it.
     if (now.lead > base[i].lead || now.tail > base[i].tail) return false;
-    // A piece is binding because of the lane it shuts. Wall the lane and the piece is still
-    // standing there, shutting nothing — this pass is the largest single source of pieces that
-    // do nothing, and it makes them out of pieces that were working a moment earlier.
     if (inertCount(now) > baseInert[i]) return false;
-    // Bite on the optimal line is the thing worth protecting. Off-line traps are expendable;
-    // this is not.
     return now.onPath >= base[i].onPath - 1e-9;
   });
 
@@ -110,8 +90,8 @@ export function shrinkSet(set) {
   while (moved) {
     moved = false;
     for (let y = 0; y < grids[0].length; y++) for (let x = 0; x < grids[0][y].length; x++) {
-      if (grids.some(g => g[y][x] !== '-')) continue;            // bare floor only
-      if (carts.some(c => c && c[y]?.[x] !== '-')) continue;     // a cart cell is not floor
+      if (grids.some(g => g[y][x] !== '-')) continue;
+      if (carts.some(c => c && c[y]?.[x] !== '-')) continue;
       const cand = grids.map(g => wallAt(g, x, y));
       if (!holds(cand)) continue;
       grids = cand; moved = true;

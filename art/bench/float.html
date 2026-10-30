@@ -99,8 +99,6 @@ const SLIDERS = {
   hold: ['Hold the last frame for', 100, 3000, 50, v => `${v} ms`],
   poke: ['A shove at a thing afloat lunges', 0, 12, 1, v => `${v} px`],
 };
-// The scenes, each a push of the thing two cells along it into a canal two cells wide that crosses
-// the push `canal` cells along, or a push at a thing already afloat in it.
 const SCENES = {
   box: { glyph: 'b', canal: 3, floats: [BIN_EMPTY] },
   can: { glyph: 'c', canal: 3, floats: [CAN_EMPTY] },
@@ -126,7 +124,7 @@ let EDGES = load(CROSSING, crossingDefaults());             // the Crossing Edge
 const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
 const F = createFlight({ T, A, STYLE: { outline: LOOK.outline, shadow: LOOK.shadow }, OBJ: {} });
 
-// The bag's last row is the shadow it stands on: it has none afloat, nor in the air.
+// The bag's last row is the shadow it stands on.
 const BAG = A.bag, BAG_AIR = { ...BAG, px: BAG.px.filter(p => p[1] < BAG.h - 1) };
 const [BX, BY] = Can.bagIn(BAG), BAG_MID = [BX + BAG.w / 2, BY + BAG.h / 2], BAG_DEPTH = Can.CAN.R;
 const EMPTY = {
@@ -155,14 +153,12 @@ function dryPose(o, cx, cy, lie) {
   const e = EMPTY[o], [x, y] = e.restAt(cx, cy, C, lie);
   return { s: lie ? e.rest(lie) : e.up, x, y };
 }
-/** Thing `o` at rest afloat in cell (cx, cy): lower than on the floor, and `yw`, its first row under water. */
+/** Thing `o` at rest afloat in cell (cx, cy): `yw`, its first row under water. */
 function floatPose(o, cx, cy, lie) {
   const p = dryPose(o, cx, cy, lie), s = o === BAG_CODE ? BAG_AIR : p.s, y = p.y + ui.drop;
   return { s, x: p.x, y, yw: line(s, y) };
 }
 
-/** The board: the raccoon behind the thing, ready to push it `dir`, with a canal two cells wide
- *  across the push; and the shove `explain()` makes of it. */
 function setup() {
   const sc = SCENES[ui.scene], dir = ui.dir, [dx, dy] = DIRS[dir], N = 7, c = 3, walled = ui.room === 'walled';
   const along = a => dx > 0 ? [a, c] : dx < 0 ? [N - 1 - a, c] : dy > 0 ? [c, a] : [c, N - 1 - a];
@@ -180,8 +176,7 @@ function setup() {
   }
   const s = toState({ id: 'bench', grid, water }), r = explain(s, dir, { trace: true }), next = r.ok ? r.next : s;
   if (sc.afloat ? r.ok || r.reason !== 'water' : !r.ok) throw new Error(`unexpected verdict: ${r.ok ? r.kind : r.reason}`);
-  // What came before, as the history of the room would leave it: the empty thing tipped by an
-  // earlier shove lies the way that shove went. And what this shove leaves.
+  // What came before, as the history of the room would leave it.
   const decorIn = sc.glyph === 'C' || ui.before === 'stand' ? null
     : new Map([[handleAt(from, depthLane(0)), { heading: ui.before, lie: ui.before }]]);
   const decorOut = decorAfter(s, decorIn, dir, r);
@@ -192,13 +187,11 @@ function setup() {
   };
   const after = afloat(next);
   if (after.map(f => f.o).sort().join() !== [...sc.floats].sort().join()) throw new Error(`afloat after: ${after.map(f => f.o)}`);
-  // Where the step says each thing that moved or turned up comes to rest.
   const st = r.ok ? r.steps[0] : null;
   const aimed = st ? [...st.moved.map(m => ({ o: m.becomes.o, cell: restsOn(m) })), ...st.spawned.map(e => ({ o: e.o, cell: e.cells[0] }))] : afloat(s);
   const W = N * C, canalPx = canal(T, N, C, (x, y) => band.has(`${x},${y}`) ? 'water' : null, EDGES);
   const wet = new Set(canalPx.keys()), open = new Set([...canalPx].filter(([, p]) => p.water !== EDGE).map(([k]) => k));
   const B = { s, r, next, N, W, dx, dy, dir, sc, rac, from, to: [from[0] + dx, from[1] + dy], aimed, after, canalPx, wet, open, decorIn, decorOut };
-  // The full can's tip lays it where it rests in the next cell, as the Trash Can Bench has it.
   if (sc.glyph === 'C') {
     const [cx, cy] = from, O = Can.restAt(cx, cy, C), end = Can.restAt(cx + dx, cy + dy, C, dir), f90 = Can.frame(dir, 90);
     const at90 = [O[0] + f90.ox, O[1] + f90.oy];
@@ -207,7 +200,6 @@ function setup() {
     Object.assign(B, { O, slide: (end[0] - at90[0]) * dx + (end[1] - at90[1]) * dy, bagCell: spawned,
       landing: [bagEnd.x + BAG.w / 2, bagEnd.y + BAG.h / 2], canDrop: ui.scene === 'near' ? ui.drop : 0 });
   }
-  // Each thing that ends afloat: where it rests, when it reaches the water, how hard it goes in.
   B.floats = after.map(({ o, cell: [x, y] }) => {
     const tin = ui.scene === 'poke' ? ui.slide / 2 : o === BAG_CODE ? POUR() + CS.out : ui.scene === 'near' ? FLAT() : ui.slide;
     return { o, cell: [x, y], pose: floatPose(o, x, y, lieAt(decorOut, x, y)), tin, size: ui.scene === 'poke' ? Math.ceil(ui.plunge / 2) : ui.plunge };
@@ -228,10 +220,8 @@ function report(id, ok, text) { const el = document.getElementById(id); el.textC
 /** How far through its settling afloat thing `f` is `t` ms after the push: 0 to 1 is its plunge,
  *  and each unit after that is one bob. */
 const bobAt = (f, t) => (t - f.tin) / (ui.settle / (1 + ui.bobs));
-/** How big bob `k` is next to the first: each one `decay` smaller than the one before. */
 const shrink = k => (1 - ui.decay / 100) ** k;
-/** How far below its rest afloat thing `f` is `t` ms after the push, px: it plunges in and comes
- *  back up, bobs `bobs` times, each bob smaller, and then lies still. */
+/** How far below its rest afloat thing `f` is `t` ms after the push, px. */
 function sway(f, t) {
   const v = bobAt(f, t);
   if (v < 0 || v >= 1 + ui.bobs) return 0;
@@ -245,11 +235,8 @@ function sway(f, t) {
 const thing = (s, x, y, { yw = Infinity, keep = () => true, shadow = true } = {}) => ({ s, x, y, yw, keep, shadow });
 /** The first row under water of sprite `s` at top-left row `y`, were it afloat there. */
 const line = (s, y) => y + lowest(s) + 1 - ui.depth;
-/** Whether thing `q` is in the water: the middle of its waterline is. */
 const inWater = q => B.wet.has(`${Math.floor(q.x + q.s.w / 2)},${q.yw}`);
 
-/** Thing `q`, its pixels under the waterline seen through the water where there is water to see
- *  them through, and hidden where the canal's edge or the floor is in front of them. */
 function drawThing(ctx, q) {
   const murk = ui.murk / 100 * 16;
   for (const [px, py, col] of q.s.px) {
@@ -263,10 +250,8 @@ function drawThing(ctx, q) {
     ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1);
   }
 }
-/** Things standing on the floor or the water, drawn from the back row forward. */
 const byFeet = (ctx, list) => [...list].sort((a, b) => a.y + lowest(a.s) - (b.y + lowest(b.s))).forEach(q => drawThing(ctx, q));
 
-/** The shadows the things `list` on the floor cast, kept off the water. */
 function shadows(ctx, list) {
   const casts = list.filter(q => q.shadow && !inWater(q)).map(q => ({ s: { ...q.s, px: q.s.px.filter(p => p[1] >= q.s.h - 2) }, gx: q.x, gy: q.y, hc: 0, h: 0 }));
   if (!casts.length) return;
@@ -278,15 +263,12 @@ function shadows(ctx, list) {
 }
 
 const dot = (ctx, x, y, col) => { if (B.open.has(`${x},${y}`)) { ctx.fillStyle = col; ctx.fillRect(x, y, 1, 1); } };
-/** The bright line of water each side of thing `q` where it breaks the surface. */
 function glint(ctx, q) {
   const xs = q.s.px.filter(p => q.y + p[1] === q.yw).map(p => q.x + p[0]);
   if (!xs.length) return;
   const x0 = Math.min(...xs), x1 = Math.max(...xs);
   for (let k = 1; k <= ui.glint; k++) { dot(ctx, x0 - k, q.yw, LIGHT); dot(ctx, x1 + k, q.yw, LIGHT); }
 }
-/** A ripple round thing `q` at the waterline, `e` of the way out, broken up as it fades and `sparse`
- *  more for each bob after the splash. */
 function ring(ctx, q, e, reach, sparse = 0) {
   const rx = q.s.w / 2 + 1 + reach * e, ry = rx * ui.squash / 100, cx = q.x + q.s.w / 2, seen = new Set();
   for (let a = 0; a < 96; a++) {
@@ -296,7 +278,6 @@ function ring(ctx, q, e, reach, sparse = 0) {
     seen.add(`${x},${y}`); dot(ctx, x, y, LIGHT);
   }
 }
-/** Drops thrown up off the waterline as thing `q` goes in, `e` of the way through their flight. */
 function drops(ctx, q, e, seed) {
   const cx = q.x + q.s.w / 2, half = q.s.w / 2;
   for (let k = 0; k < 6; k++) {
@@ -305,8 +286,6 @@ function drops(ctx, q, e, seed) {
     ctx.fillRect(Math.round(cx + far), Math.round(q.yw - up), 1, 1);
   }
 }
-/** The water's marks round each floating thing `t` ms after the push: its glint, the splash going
- *  in and a ripple off each bob. Returns the drops, drawn last. */
 function marks(ctx, t, posed) {
   const after = [];
   for (const [f, q] of posed) {
@@ -517,7 +496,6 @@ window.addEventListener('storage', e => {
   if (e.key === SHADE) { CAST = load(SHADE, shadowDefaults(LOOK)).cast; build(); }
   if (e.key === CROSSING) { EDGES = load(CROSSING, crossingDefaults()); build(); }
 });
-// A shove at a thing afloat is refused, so he strains against it and does not step.
 embed(view, {
   set: o => { Object.assign(ui, o, { playing: false }); setPress(ui.dir, ui.scene === 'poke' ? 'stuck' : 'push'); build(); },
   length: () => pressLength(B.END + ui.hold),

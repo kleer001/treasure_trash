@@ -60,8 +60,7 @@ for (const b of document.querySelectorAll('.sw')) b.onclick = () => { s.ink = b.
 
 const put = (px, x0, y0) => { for (const [x, y, c] of px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
 const painted = () => s.rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]])));
-/** The painted can in cell (cx, cy), its foot a pixel above the cell's bottom edge; a full one shows
- *  its bag over the rim. */
+/** The can in cell (cx, cy). */
 function can(cx, cy, full) {
   const x = cx * C + Math.floor((C - W) / 2), y = cy * C + C - H - 1;
   const bx = x + Math.floor((W - BAG.w) / 2), by = y - 7;
@@ -111,7 +110,6 @@ $('zout').onclick = () => { s.zoom = Math.max(4, s.zoom - 2); draw(); };
 $('zin').onclick = () => { s.zoom = Math.min(40, s.zoom + 2); draw(); };
 $('note').oninput = () => { s.note = $('note').value; autosave(); };
 
-// Every change saves itself, to this browser and to the notes file, a moment after the last edit.
 let timer = 0;
 function autosave() {
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}

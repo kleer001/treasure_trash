@@ -59,14 +59,14 @@ export function unnamedCells(before, after, step) {
 
 /**
  * A lane the account does not carry at all. A hold is written on the board and has no sprite and
- * no entry, so a hook taking hold changes a cell that nothing announces — a known omission rather
- * than a step that forgot, and counted so it cannot quietly become one.
+ * no entry — a known omission rather than a step that forgot, and counted so it cannot quietly
+ * become one.
  */
 export const UNACCOUNTED = ['grip'];
 
 /**
  * The same question of a whole traced action. The raccoon needs no exemption: where he stands is
- * not a lane of the cell he stands on, so walking changes no board.
+ * not a lane of the cell he stands on.
  */
 export function unnamedOver(r, { silent = UNACCOUNTED } = {}) {
   const bad = [], quiet = [];
@@ -84,7 +84,7 @@ export function unnamedOver(r, { silent = UNACCOUNTED } = {}) {
 //
 // The offline discovery run already traces every board it walks and throws the account away.
 // Turning this on makes those boards answer the question above for free. It tallies rather than
-// throws: a run measured in CPU-hours should come back with a count, not stop at the first fault.
+// throws: a run should come back with a count, not stop at the first fault.
 
 let tally = null;
 

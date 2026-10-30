@@ -25,7 +25,6 @@ export function createCrowDebug(el, { events, tuning, snap, send }) {
     <div class="k">room</div><div class="v" data-r="room"></div>
     <div class="k">board</div><div class="v" data-r="board"></div>
     <div class="k">log</div><div class="v"><div class="log" data-r="log"></div></div>`;
-  // Under the panel: a note is the moment of the click, saved at once; words follow if typed.
   const noteBar = document.createElement('div');
   noteBar.className = 'cdbgnote';
   noteBar.innerHTML = `<button type="button">Make note now</button>
@@ -35,7 +34,6 @@ export function createCrowDebug(el, { events, tuning, snap, send }) {
   const row = k => el.querySelector(`[data-r="${k}"]`);
   const cv = el.querySelector('canvas'), g = cv.getContext('2d');
 
-  // The log as it came, and what it drew: lines said, faces, waits, queues and timers, each a span.
   const recs = [], spans = [];
   const open = (kind, key) => spans.findLast(s => s.kind === kind && s.key === key && s.to === null);
 
@@ -53,8 +51,7 @@ export function createCrowDebug(el, { events, tuning, snap, send }) {
     else if (r.type === 'drop') { const q = open('queue', r.key); if (q) q.to = r.t; }
   }
 
-  // What the log does not say is read off `peek` each frame: the wait before he decides, the
-  // queue a once-only line leaves without a word, and the timers.
+  // What the log does not say is read off `peek` each frame.
   let pre = null;
   function sample(c) {
     const t = c.now;
@@ -75,7 +72,7 @@ export function createCrowDebug(el, { events, tuning, snap, send }) {
   const esc = s => String(s).replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[ch]);
   const bar = (frac, w, ticks = []) => `<span class="bar" style="width:${w}px"><span style="width:${Math.max(0, Math.min(1, frac)) * 100}%"></span>${ticks.map(x => `<i style="left:${x * 100}%"></i>`).join('')}</span>`;
 
-  /** A drop's reason, said with the number behind it, worked out the first frame it is drawn. */
+  /** A drop's reason, worked out the first frame it is drawn. */
   function detail(r, c) {
     if (r.type === 'drop' && r.why === 'gap') {
       const g = c.gaps.find(([k]) => k === r.key);
@@ -144,7 +141,6 @@ export function createCrowDebug(el, { events, tuning, snap, send }) {
       + `<span>dice ${Math.round(c.chance * 100)}%</span>`;
   }
 
-  // A counter flashes as it reaches one of its marks, which is the moment the watcher fires.
   const hit = {};
   function meter(name, label, v, marks, t, unit = '') {
     const max = marks.at(-1), next = marks.find(m => v < m) ?? max;
@@ -180,7 +176,6 @@ export function createCrowDebug(el, { events, tuning, snap, send }) {
     }).join('');
   }
 
-  // The scope: the last 20 s, now at the right edge.
   const LANES = { say: [4, 20], wait: [25, 33], timer: [38, 58], event: [63, 77] };
   function drawScope(t) {
     const dpr = devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;

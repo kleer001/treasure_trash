@@ -6,7 +6,6 @@ import { builtNames } from '../src/crowWatch.js';
 
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
 const CROW = read('../dialogue/crow.json');
-// A slot counts as long as the longest thing it is filled with: "eleven bags and twelve cans".
 const SLOT_WORDS = { n: 1, left: 5 };
 const words = line => line.trim().split(/\s+/).reduce((a, w) => {
   const slot = w.match(/\{(\w+)\}/)?.[1];
@@ -16,8 +15,6 @@ const words = line => line.trim().split(/\s+/).reduce((a, w) => {
 // A variant is one line, or a list of lines: a monologue.
 const linesOf = e => (e.lines ?? e.byCount.flatMap(s => s.lines)).flat();
 
-// A face is a still frame of the portrait (the talking frames are the beak's, not a face) or a
-// banked expression clip.
 const FRAMES = read('../art/bench/crow/68B_frames.json').frames.map(f => f.name);
 const STILLS = ['closed', 'blink', 'squint', 'away'];
 const FACES = new Set([...STILLS, ...read('../art/bench/crow/h3/clips.json')
@@ -103,7 +100,6 @@ test('every place in the rank names an event, and every event has a place', () =
   rankTable(CROW);
 });
 
-// Every event name the code spells out: quoted in the watcher, or said by the director itself.
 const SPELT = ['../src/crowWatch.js', '../src/crow.js'].flatMap(f =>
   [...readFileSync(new URL(f, import.meta.url), 'utf8')
     .matchAll(/'(lost|(?:room|meet|walk|tear|piece|refuse|undo|restart|lost|idle|win|progress|story)\.[A-Za-z0-9.]+)'/g)]
@@ -117,7 +113,6 @@ test('every crow event is fired by something', () => {
   const fired = new Set([...SPELT, ...builtNames()]);
   for (const [key, e] of Object.entries(CROW)) {
     if (e.stretch || fired.has(key) || fired.has(key.replace(/\.act\d+$/, ''))) continue;
-    // A refusal is named after the rules' reason for it, which the code does not spell out.
     assert.ok(/^refuse\.[a-z]+[A-Za-z]*$/.test(key), `${key} is never fired`);
   }
 });

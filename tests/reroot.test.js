@@ -30,8 +30,6 @@ test('re-rooting says exactly what analyzing again says', () => {
       const fast = reroot(graph, moved);
       if (fast === null) { refused++; continue; }
       rerooted++;
-      // `dead`, `traps` and `exitRefusals` are properties of the graph and must come through
-      // untouched; the distances are the part that is allowed to differ, and must be right.
       assert.equal(answer(fast), answer(analyze(moved)), `${pack} ${level.id} @ ${x},${y}`);
     }
   }
@@ -40,7 +38,6 @@ test('re-rooting says exactly what analyzing again says', () => {
 });
 
 test('re-rooting refuses a start its graph does not hold', () => {
-  // Two pens, no way between them. A graph built in one cannot answer for the other.
   const level = { id: 'split', grid: ['-$-#-$-', '-@-#---', '---#--E'] };
   const graph = analyze(toState(level));
   assert.equal(reroot(graph, toState(moveRaccoon(level, [5, 1]))), null);

@@ -1,12 +1,6 @@
-// A traced action reports what MOVED, not just what the board became. Those are different
-// claims, and the difference is exactly what a renderer gets wrong when it is left to guess:
-// diffing two boards tells you a bag appeared behind a wheelie bin, but not that the bin put
-// it there, so the bag ends up flying out of whatever cell was shoved.
-//
+// A traced action reports what MOVED, not just what the board became.
 // These are coverage checks rather than a replay: an event vocabulary rich enough to
-// reconstruct a board would be a second copy of the rules. What matters is that no branch
-// changes a cell it never mentions, and that no event names an origin that was never holding
-// what it claims — the two ways a piece silently stops animating, or animates from nowhere.
+// reconstruct a board would be a second copy of the rules.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,7 +15,6 @@ import { anchorOf, laneOf, isBodyLane, CART_LANE, BODY_LANE } from '../src/handl
 
 const S = (grid, cart, water) => toState({ id: 't', grid, cart, water });
 const key = ([x, y]) => `${x},${y}`;
-/** The movements of things the board gives an id to — one sprite over a whole footprint. */
 const bodies = st => st.moved.filter(m => isBodyLane(laneOf(m.handle)));
 
 function audit(label, grid, dir, { cart, water } = {}) {
@@ -36,22 +29,15 @@ function audit(label, grid, dir, { cart, water } = {}) {
       assert.ok(c.lanes.every(k => UNACCOUNTED.includes(k)),
         `${at}: cell ${c.at} changed in ${c.lanes.join(',')} and no event names it`);
 
-    // The origin claim: whatever a step says moved must have been sitting where it says. A cart
-    // is not an occupant of its cell and declares no code, so it makes no such claim.
     for (const m of step.moved)
       if (m.o !== null) for (const c of m.cells)
         assert.equal(cell(prev, ...c).o, m.o,
           `${at}: moved says ${m.o} was at ${c}, the board had ${cell(prev, ...c).o}`);
-    // An arrival the board did not receive is both facts: it arrives, and it is then gone. Such
-    // a removal is about a thing that was never on the board this step ran on, so the origin
-    // claim is not one it makes.
     const arrived = new Set(step.spawned.map(sp => sp.handle));
     for (const g of step.gone)
       if (g.o !== null && !arrived.has(g.handle))
         assert.equal(cell(prev, ...g.cells[0]).o, g.o, `${at}: gone says ${g.o} was at ${g.cells[0]}`);
 
-    // Something new lands on empty ground, or on ground vacated in this same step — the
-    // wheelie's bag drops onto the bin's own starting cell when the roll is one long.
     const vacated = new Set(step.moved.flatMap(m => m.cells.map(key)));
     for (const sp of step.spawned) {
       if (sp.effect === 'pours') continue;
@@ -117,10 +103,6 @@ test('a couch reports one rigid translation, not four cell edits', () => {
 });
 
 test('a wheelie bin rolls first and dumps after, out of the BIN', () => {
-  // Two things pinned here. The bag is ejected by a bin that ended up at (2,0), three cells
-  // from the cell that was shoved — a board diff could only guess the shove cell. And the
-  // dump is its own beat: report it with the roll and the bag is drawn leaving a bin that is
-  // still halfway down the alley, which is not what a collision looks like.
   const r = audit('wheelie', ['-----', '-----', '-----', '--W--', 'E-@--'], 'u');
   assert.equal(r.steps.length, 2, 'the roll and the dump are separate beats');
   const [roll, dump] = r.steps;
@@ -148,8 +130,6 @@ test('a cart reports one translation per cell of travel', () => {
   assert.equal(travel.at(-1).impact, true, 'the last cell of travel is the collision');
   assert.equal(r.steps.length, 5, 'four advances and the tip that follows them');
 
-  // A LOADED cart rolls as an empty one does, so it reports the same translation per cell and
-  // the same tip at the end. What it carries travels with it and is never named a second time.
   const loaded = audit('cart-loaded', ['@cc--#', 'E-----'], 'r', { cart: ['-PP---', '------'] });
   const carried = loaded.steps.filter(st => bodies(st).length);
   assert.equal(carried.length, 2, 'two advances, the same as empty over the same floor');
@@ -159,11 +139,8 @@ test('a cart reports one translation per cell of travel', () => {
 });
 
 test('swallowing and shedding are changes of parent, not of position', () => {
-  // Neither end of this moves on the board: the skateboard rolls ONTO what it takes and OUT FROM
-  // UNDER what it sheds. If either were reported as a position change the renderer would
-  // snap it, which is the whole thing riding is meant to avoid.
   const r = audit('cart-parent', ['@--xxx-#', 'E-------'], 'r', { cart: ['-PP-----', '--------'] });
-  // travel steps only — the tip is the one step where cart cargo genuinely goes somewhere
+
   const rides = r.steps.filter(st => bodies(st).length)
     .flatMap(st => st.moved).filter(m => m.parent !== undefined);
   assert.ok(rides.length >= 4, 'three swallows and at least one shed');
@@ -175,9 +152,6 @@ test('swallowing and shedding are changes of parent, not of position', () => {
 });
 
 test('a shed names the cell the load rode in and the cell it lands on', () => {
-  // The cart is blocked, so nothing about it moves — only what comes off it. It leaves the file
-  // the raccoon is NOT behind, into the cell behind that file, and the report has to name both
-  // or a renderer has nowhere to fly it from.
   const r = audit('cart-shed', ['-c#', '@c#', 'E--'], 'r', { cart: ['-P-', '-P-', '---'] });
   const tip = r.steps.at(-1);
   assert.deepEqual(bodies(tip), [], 'the skateboard itself is going nowhere');
@@ -188,13 +162,10 @@ test('a shed names the cell the load rode in and the cell it lands on', () => {
 });
 
 test('nothing a cart reports ever crosses more than one cell', () => {
-  // The invariant that keeps a renderer honest. Rolling, a slot back and a cell forward cancel
-  // and cargo reports from === to; stopped, the same nudge is one real cell. Nothing composes
-  // the two into a longer vector, so no load is ever drawn flying across the board.
   for (const grid of [
-    ['@$-----#', 'E-------'],       // bag in the trail slot
-    ['@-$----#', 'E-------'],       // bag in the lead slot
-    ['@--xxx-#', 'E-------'],       // swallowing, shedding and stopping
+    ['@$-----#', 'E-------'],
+    ['@-$----#', 'E-------'],
+    ['@--xxx-#', 'E-------'],
     ['@cc-x-#', 'E------'],
   ]) {
     const r = audit('one-cell', grid, 'r', { cart: ['-PP-----', '--------'].map(c => c.slice(0, grid[0].length)) });
@@ -206,8 +177,6 @@ test('nothing a cart reports ever crosses more than one cell', () => {
 });
 
 test('a tip lands contiguously behind the skateboard, never skipping a taken cell', () => {
-  // The property, not one board: whatever comes out fills the run backward from the skateboard with
-  // no gap, so a pile can never be found on the far side of something already down.
   for (const [grid, cart] of [
     [['@--xxx-#', 'E-------'], ['-PP-----', '--------']],
     [['@cc-#', 'E----'], ['-PP--', '-----']],
@@ -218,10 +187,9 @@ test('a tip lands contiguously behind the skateboard, never skipping a taken cel
   ]) {
     const r = audit('contiguity', grid, 'r', { cart });
     const tip = r.steps.at(-1);
-    if (bodies(tip).length) continue;              // this board did not tip
+    if (bodies(tip).length) continue;
     const before = r.frames[r.frames.length - 2];
     for (const m of tip.moved.filter(m => m.parent === null)) {
-      // walk from the landing cell back toward the skateboard: every cell between must be free
       const from = anchorOf(m.cells), to = restsOn(m);
       const [dx, dy] = [Math.sign(from[0] - to[0]), Math.sign(from[1] - to[1])];
       for (let p = [to[0] + dx, to[1] + dy];
@@ -240,15 +208,11 @@ test('cargo tipped into the canal travels there and does not survive it', () => 
   const tip = r.steps.at(-1);
   assert.equal(tip.moved[0].o, TRASH);
   assert.deepEqual(restsOn(tip.moved[0]), [0, 0]);
-  // Named where the stage is HOLDING it, which is the cell it set off from.
   assert.deepEqual(tip.gone, [{ o: TRASH, ref: null, cells: tip.moved[0].cells,
                                 handle: tip.moved[0].handle, effect: 'fills' }]);
 });
 
 test('a tip only ever moves cargo backward, and never past the run the skateboard came through', () => {
-  // The load settles against the tail of the deck and the wall pushes it out behind. Both
-  // halves travel the same way — away from the wall — and nothing goes further back than the
-  // cell the skateboard's trail slot started in, which is where the raccoon is standing.
   for (const [grid, cart, water] of [
     [['@--xxx-#', 'E-------'], ['-PP-----', '--------'], null],
     [['@cc---#', 'E------'], ['-PP----', '-------'], null],
@@ -260,7 +224,7 @@ test('a tip only ever moves cargo backward, and never past the run the skateboar
     const tip = r.steps.at(-1);
     if (bodies(tip).length) continue;
     for (const m of tip.moved) {
-      const back = -(m.dx + m.dy);                                 // shoves here are all 'r'
+      const back = -(m.dx + m.dy);
       assert.ok(back > 0, `a tip moved ${m.o} by ${m.dx},${m.dy} — not backward`);
       assert.ok(restsOn(m)[0] > r.frames[0].rac.x,
         `${m.o} landed on or behind the raccoon's start`);
@@ -269,8 +233,6 @@ test('a tip only ever moves cargo backward, and never past the run the skateboar
 });
 
 test('a broadside cart reports both files in one step', () => {
-  // Across the deck the shove is worth one cell, so there is one step — and both files swallow
-  // in it.
   const r = audit('cart-wide', ['@-c-FE', '--c-F-'], 'r', { cart: ['-P----', '-P----'] });
   const swallows = r.steps.flatMap(st => st.moved).filter(m => m.parent !== undefined && m.parent !== null);
   assert.equal(swallows.length, 2, 'two lead cells, two things aboard');
@@ -287,28 +249,17 @@ test('nothing is traced unless it is asked for', () => {
 });
 
 test('a rug that sets a bicycle going reports the bicycle as a BODY', () => {
-  // Both are multi-cell, so both have one sprite for a whole footprint. An entry per CELL of the
-  // bicycle names sprites the stage does not hold, and `applyStep` throws — which is invisible to
-  // a board comparison and shows only on screen.
-  //
-  // The two lie ACROSS each other, because each rolls on the axis the other does not: the rug
-  // is shoved against its side, and what it sets going is a bicycle pointing down the lane.
   const r = audit('rug', ['-@--------', '-UUU------', '----------', '-Y--------', '-Y--------',
                           '----------', '----------', 'E---------'], 'd');
   const [step] = r.steps;
   assert.deepEqual(step.moved, [
-    // the rug, stopped against the bicycle
     moves({ cells: pieceCells(r.frames[0], 1), lane: BODY_LANE, o: RUG, ref: 1, dx: 0, dy: 1 }),
-    // the bicycle it handed off to
     moves({ cells: pieceCells(r.frames[0], 0), lane: BODY_LANE,
             o: cell(r.frames[0], 1, 3).o, ref: 0, dx: 0, dy: 3 }),
   ], 'each body is one entry over its whole footprint, never a cell at a time');
 });
 
 test('a swept container reports what it becomes as it sheds', () => {
-  // The head of the line is the only cell with room beyond it, so it is the only one that can
-  // shed — and the board empties it. A `moved` entry with no `becomes` leaves the sprite drawn
-  // full beside the bag it just threw, which reads as two bags.
   const r = audit('sweep', ['-----------', '-@rC-------', 'E----------'], 'r');
   const head = r.steps[0].moved.find(m => m.o === CAN_FULL);
   assert.equal(head.becomes.o, CAN_EMPTY, 'the can that sheds says so');
@@ -316,10 +267,6 @@ test('a swept container reports what it becomes as it sheds', () => {
 });
 
 test('a grate that takes a BODY takes it in the same lane as everything else', () => {
-  // Without a removal nothing is emitted at all: the board is right, the step is silent, and the
-  // stage slides the sprite onto the grate and leaves it drawn there. The movement carries it to
-  // the hole and the removal takes it down, which is the two-part account every traveller that
-  // does not survive the trip gets.
   const rolled = audit('grate body', ['#####', '#@---', '#UU--', '#----', '#----', '#---E', '#####'],
                        'd', { water: ['-----', '-----', '-----', '-----', '-OO--', '-----', '-----'] });
   const cells = pieceCells(rolled.frames[0], 0);
@@ -328,7 +275,6 @@ test('a grate that takes a BODY takes it in the same lane as everything else', (
   assert.deepEqual(rolled.steps[0].gone,
                    [leaves({ cells, lane: BODY_LANE, o: RUG, ref: 0, effect: 'falls' })]);
 
-  // And what a hand-off passes to a grate, body or not: one lane, whichever sort of thing it is.
   const passed = audit('grate handoff',
                        ['######', '#@----', '#UU---', '#-----', '#O----', '#-----', '#----E', '######'],
                        'd', { water: ['------', '------', '------', '------', '------', '-O----',
@@ -340,10 +286,6 @@ test('a grate that takes a BODY takes it in the same lane as everything else', (
 });
 
 test('a grate takes what travelled into it, and the step keeps both halves of that', () => {
-  // It ARRIVES over the grate and only then goes down. A removal on its own is right about the
-  // board and silent about the travel: matched against a sprite's ANCHOR it deflates the piece
-  // on the cell it started from, and a piece that shrinks where it stood reads as forgotten
-  // rather than dropped. So the movement entry carries it and the removal takes it down.
   const slid = audit('grate slide', ['-----', '-@C--', 'E----'], 'r', { water: ['-----', '---O-', '-----'] });
   assert.deepEqual(slid.steps[0].moved, [moves({ o: CAN_FULL, from: [2, 1], to: [3, 1] })]);
   assert.deepEqual(slid.steps[0].gone,
@@ -355,7 +297,6 @@ test('a grate takes what travelled into it, and the step keeps both halves of th
   assert.deepEqual(rolled.steps.flatMap(st => st.gone),
                    [leaves({ o: WHEELIE, cells: [[2, 1]], effect: 'falls' })]);
 
-  // And what a broom sweeps in, which travels as a line and loses only its head to the hole.
   const swept = audit('grate sweep', ['------', '@rC---', 'E-----'], 'r', { water: ['------', '---O--', '------'] });
   assert.deepEqual(swept.steps[0].moved.find(m => m.o === CAN_FULL),
                    moves({ o: CAN_FULL, from: [2, 1], to: [3, 1] }));
@@ -365,8 +306,6 @@ test('a grate takes what travelled into it, and the step keeps both halves of th
 
 
 test('every terrain lane answers for itself about what landing on it costs', () => {
-  // The point of the table is that there is no fallthrough: a lane that takes nothing says so,
-  // and a lane added without an answer is a throw rather than a silent inheritance of one.
   for (let ter = 0; ter < TERRAINS; ter++)
     assert.equal(typeof LANDS_ON[ter], 'function', `terrain ${ter} states no landing rule`);
   assert.equal(Object.keys(LANDS_ON).length, TERRAINS,
@@ -375,9 +314,6 @@ test('every terrain lane answers for itself about what landing on it costs', () 
 
 
 test('trash swept into a canal fills it, and the step says which lane took it', () => {
-  // The broom sweeps what a shove cannot move, so it is the one path that can put trash on a
-  // lane no other action reaches. The lane has to answer for it on the board as well as in the
-  // account: what the canal takes is what it then becomes.
   const r = audit('sweep-canal', ['######', '#@rx-#', '#E---#', '######'], 'r',
     { water: ['------', '----~-', '------', '------'] });
   const step = r.steps.at(-1);
@@ -389,10 +325,6 @@ test('trash swept into a canal fills it, and the step says which lane took it', 
 
 
 test('a container the lane takes goes down whole, however it got there', () => {
-  // Shoved straight onto a grate, a full can has always gone down without shedding — the tip is
-  // refused when the landing takes the container. Ejected from a cart onto the same grate it
-  // used to stop and put its bag on the floor first, which is the same can taking two different
-  // routes to two different answers.
   const shoved = audit('can-onto-grate', ['########', '#@C----#', '#-----E#', '########'], 'r',
     { water: ['--------', '---O----', '--------', '--------'] });
   const ejected = audit('can-out-of-barrow', ['##########', '#@CC----E#', '##########'], 'r',

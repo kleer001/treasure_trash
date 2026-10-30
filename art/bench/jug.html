@@ -80,16 +80,14 @@ const F = createFlight({ T, A, STYLE: { outline: LOOK.outline, shadow: LOOK.shad
 let CAST = load(SHADE, shadowDefaults(LOOK)).cast;      // the Shadow Bench's shadow
 
 const easeOut = u => 1 - (1 - u) ** 2, easeInOut = u => u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) ** 2;
-const FLAT = () => ui.slide + ui.tip;                                // ms from the push: the jug lies on its side
-const POUR = () => ui.slide + ui.tip * Math.sqrt(ui.pour / 90);      // the water starts to pour
+const FLAT = () => ui.slide + ui.tip;                                // ms from the push
+const POUR = () => ui.slide + ui.tip * Math.sqrt(ui.pour / 90);
 const END = () => Math.max(FLAT(), POUR() + ui.fill);
-/** How far over the jug is `t` ms after the push, in degrees. It falls faster as it goes. */
+/** How far over the jug is `t` ms after the push, in degrees. */
 const degAt = t => t <= ui.slide ? 0 : t >= FLAT() ? 90 : 90 * ((t - ui.slide) / ui.tip) ** 2;
 /** How much of the pour is done `t` ms after the push, 0 to 1. */
 const poured = t => Math.max(0, Math.min(1, (t - POUR()) / ui.fill));
 
-/** The board: the raccoon behind a full jug, ready to push `dir`, and the shove `explain()` makes of
- *  it. A walled room puts the water's cell against the wall. */
 function setup(dir, room) {
   const [dx, dy] = DIRS[dir], N = room === 'walled' ? 6 : 7, c = Math.floor(N / 2);
   const along = a => dx > 0 ? [a, c] : dx < 0 ? [N - 1 - a, c] : dy > 0 ? [c, a] : [c, N - 1 - a];
@@ -99,12 +97,10 @@ function setup(dir, room) {
   const st = r.ok && r.steps[0], mv = st && st.moved.find(m => m.o === JUG_FULL && m.becomes?.o === JUG_EMPTY);
   const sp = st && st.spawned.find(e => e.effect === 'pours');
   if (!mv || !sp) throw new Error(`no pour: ${r.reason ?? JSON.stringify(r.steps)}`);
-  // The jug slides until its fall lays it where it rests in the next cell.
   const O = restAt(jx, jy, C), end = restAt(jx + dx, jy + dy, C, dir), fl = frame(dir, 90, 0), atEnd = [O[0] + fl.ox, O[1] + fl.oy];
   if (dx ? atEnd[1] !== end[1] : atEnd[0] !== end[0]) throw new Error('the jug lands off its cell across the push');
   const slide = (end[0] - atEnd[0]) * dx + (end[1] - atEnd[1]) * dy;
   const [wx, wy] = sp.cells[0];
-  // The stream lands just inside the wet cell, on the side the jug lies.
   const lands = [wx * C + C / 2 - dx * (C / 2 - 5), wy * C + C / 2 - dy * (C / 2 - 5)];
   const pool = puddle(wx, wy, C, (x, y) => cell(r.next, x, y)?.water);
   const reach = Math.max(...pool.map(([x, y]) => Math.hypot(x + 0.5 - lands[0], y + 0.5 - lands[1])));
@@ -122,16 +118,14 @@ function wetFloor(ctx, B, s, keep = () => true) {
   for (let y = 0; y < B.N; y++) for (let x = 0; x < B.N; x++) if (cell(s, x, y).water)
     for (const [px, py, col] of puddle(x, y, C, (a, b) => cell(s, a, b)?.water)) if (keep(px, py)) { ctx.fillStyle = col; ctx.fillRect(px, py, 1, 1); }
 }
-/** The puddle `B` makes, grown `u` of the way out from where the stream lands. */
 function growing(ctx, B, u) {
   const r = B.reach * easeOut(u) + 0.01;
   for (const [x, y, col] of B.pool) if (Math.hypot(x + 0.5 - B.lands[0], y + 0.5 - B.lands[1]) <= r) { ctx.fillStyle = col; ctx.fillRect(x, y, 1, 1); }
 }
-/** The stream from the jug's mouth at (mx, my) to where it lands, two px wide, wavering. */
 function stream(ctx, B, mx, my, t) {
   const [lx, ly] = B.lands, n = Math.ceil(Math.hypot(lx - mx, ly - my));
   for (let i = 0; i <= n; i++) {
-    const u = i / Math.max(1, n), sag = 4 * u * (1 - u) * 3;         // it arcs out of the mouth before it falls
+    const u = i / Math.max(1, n), sag = 4 * u * (1 - u) * 3;
     const x = Math.round(mx + (lx - mx) * u + B.dx * sag), y = Math.round(my + (ly - my) * u - (B.dx ? sag * 0.5 : 0));
     const w = (i + Math.floor(t / 40)) % 5 === 0 ? 1 : 2;
     ctx.fillStyle = STREAM; ctx.fillRect(x, y, w, w);
@@ -139,9 +133,8 @@ function stream(ctx, B, mx, my, t) {
   }
 }
 
-/** The shadow a drawing `s` at (gx, gy) casts: from the two rows it stands on. */
 const foot = (s, gx, gy) => ({ s: { ...s, px: s.px.filter(p => p[1] >= s.h - 2) }, gx, gy, hc: 0, h: 0 });
-/** Things standing on the floor, `[feet, draw]`, drawn from the back row forward. */
+/** Things standing on the floor, `[feet, draw]`. */
 const byFeet = list => list.sort((a, b) => a[0] - b[0]).forEach(([, draw]) => draw());
 
 function frameAt(ctx, B, t) {
@@ -162,8 +155,7 @@ function frameAt(ctx, B, t) {
   raccoonOver(ctx);
 }
 
-/** A still of board `s`, drawn from the board, with the way an empty jug fell taken from the bench:
- *  the board does not record it. */
+/** A still of board `s`, drawn from the board, with what the board does not say taken from the bench. */
 function still(ctx, B, s) {
   F.ground(ctx, B);
   wetFloor(ctx, B, s);
@@ -224,7 +216,6 @@ function show() {
     `frame ${j} of ${FRAMES - 1} · ${Math.round(t)} ms after the push · jug ${Math.round(degAt(t))}° over · ${Math.round(100 * poured(t))}% poured`;
 }
 
-/** The jug full and upright, falling over toward the push direction as it drains, and empty on its side every way it can lie. */
 function strip() {
   const root = document.getElementById('strip'); root.innerHTML = '';
   const z = ui.zoom, size = 56, arrow = d => '↑↓←→'['udlr'.indexOf(d)];

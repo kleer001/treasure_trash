@@ -63,8 +63,7 @@ function render(yaw, tilt) {
   return renders.get(key);
 }
 
-/** The render cropped to the tyre and box-averaged down until it is `size` pixels tall. A pixel is
- *  kept where most of its box is covered, so the edge stays hard. */
+/** The render cropped to the tyre and box-averaged down until it is `size` pixels tall, so the edge stays hard. */
 function shrink(img, size) {
   const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
   const g = c.getContext('2d'); g.drawImage(img, 0, 0);
@@ -85,8 +84,6 @@ function shrink(img, size) {
   return { w, h: size, px };
 }
 
-// A strip of floor: the raccoon facing right at the left end, the tyre in the middle, the raccoon
-// facing down at the right end, all standing on the bottom row.
 function draw() {
   const v = view(), img = render(v.yaw, v.tilt);
   for (const id of ['yaw', 'tilt', 'size']) { $(id).value = v[id]; $(id).nextElementSibling.textContent = id === 'size' ? v[id] : `${v[id]}°`; }

@@ -69,8 +69,7 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ ...s, zoom
 const N = CARDBOARD_ROWS.length;
 const on = (x, y) => x >= 0 && y >= 0 && x < N && y < N && !'.k'.includes(CARDBOARD_ROWS[y][x]);
 
-/** The sheet's pixels, wet: each part in its wet colour, soaked darker in from the torn edges, and
- *  the dark circles over it. Every pixel is one colour or another; nothing is blended. */
+/** The sheet's pixels, wet. Every pixel is one colour or another; nothing is blended. */
 function wetSheet() {
   const rand = mulberry32(s.seed);
   const cells = [];
@@ -119,7 +118,6 @@ function draw() {
   const dry = document.createElement('canvas'); dry.width = C; dry.height = C;
   const d = dry.getContext('2d'); floorCell(d, 0);
   put(d, CARDBOARD_ROWS.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, CARDBOARD_PALETTE[c]]]))), 0, 0);
-  // The wet sheet over the middle cell of a canal three cells long, floor above and below.
   const canal = document.createElement('canvas'); canal.width = 3 * C; canal.height = 3 * C;
   const w = canal.getContext('2d');
   for (let cy = 0; cy < 3; cy++) for (let cx = 0; cx < 3; cx++) { w.save(); w.translate(cx * C, cy * C); floorCell(w, 0); w.restore(); }

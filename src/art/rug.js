@@ -1,8 +1,5 @@
-// The rolled rug, rendered from a 3D model and turned about its own axis: TURNS drawings a whole
-// turn, which at its girth is about 4 drawings a cell of travel. `across` lies over two columns and
-// rolls up and down; `up` lies over two rows and rolls left and right. Each drawing's (ax, ay) is the
-// pixel the roll's middle lands on, so the drawings line up as it turns. A pixel is two base-36
-// digits into PALETTE; '..' is empty.
+// The rolled rug, rendered from a 3D model. Each drawing's (ax, ay) is the pixel the roll's middle lands on,
+// so the drawings line up as it turns. A pixel is two base-36 digits into PALETTE; '..' is empty.
 const PALETTE = ["#53341e","#593821","#5f1a17","#601b18","#611b18","#613d24","#654026","#654027","#661d1a","#671d1a","#684228","#6b1e1b","#6b1f1b","#6b1f1c","#6b4429","#6d452a","#6f201d","#70201d","#70211d","#70472b","#72482c","#72492c","#74221e","#74221f","#744a2d","#754b2e","#774c2f","#782320","#7b2521","#7c2521","#7c5031","#7d5031","#7e2622","#7f2622","#802622","#805233","#815333","#822723","#832723","#852824","#862824","#862925","#872925","#882925","#8a2a26","#8b2d29","#8d2b27","#8d2e2a","#8e2b27","#8e2e2a","#8e2f2a","#8f2c28","#8f2f2a","#912c28","#91302b","#922d29","#932d29","#95312d","#96312d","#96322d","#97775c","#9c342f","#9d342f","#9d3430","#a13631","#a23631","#a33631","#a33632","#a33732","#a43732","#a93934","#aa3934","#ac886a","#ad3b35","#af3b36","#af3c36","#b03c36","#b43d38","#b53d38","#b53e38","#b63e38","#b63e39","#b93f3a","#ba3f3a","#ba403a","#bd413b","#be413b","#be413c","#bf413c","#c0423c","#c2433d","#c3433d","#c8453f","#cc4640","#cf4841","#d14842","#d14942","#d34943","#d44a43","#d4a884","#d5a984","#d8ab86","#dbae88","#ddaf8a","#e5b68f","#e6b68f"];
 export const TURNS = 9;
 const VIEWS = {

@@ -88,8 +88,6 @@ function sprite() {
   return px.length ? crop({ px }) : { w: 0, h: 0, px };
 }
 
-// A wall row over three rows of floor: the bike on the middle column's bottom two cells, its
-// footprint, with the raccoon facing right on its left and facing down on its right.
 function draw() {
   for (const k of ['rx', 'ry', 'rz', 'pxm']) { $(k).value = s[k]; $(k + 'n').value = s[k]; }
   $('zoom').textContent = `${s.zoom}×`;

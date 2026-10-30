@@ -12,15 +12,14 @@ export const NONE = 0, BAG = 1, CAN_FULL = 2, CAN_EMPTY = 3, TRASH = 4,
              TIRE_H = 16, TIRE_V = 17, BICYCLE = 18, RUG = 19, CHAIR = 20, BROOM = 21,
              // The cabinet is four facings times two states, and OPEN and CLOSED are separate
              // codes rather than one code with a flag. That is what keeps `isMultiCell` the flat
-             // predicate on a code it has always been: an open cabinet is a multi-cell kind, and
-             // a closed one is not.
+             // predicate on a code it has always been.
              CABC_U = 22, CABC_D = 23, CABC_L = 24, CABC_R = 25,
              CABO_U = 26, CABO_D = 27, CABO_L = 28, CABO_R = 29,
-             // 30 is free. Codes are handed out, never renumbered: the board protocol reads them
+             // Codes are handed out, never renumbered: the board protocol reads them
              // as numbers, so a code that moves is a board that means something else.
              MAG_U = 31, MAG_D = 32, MAG_L = 33, MAG_R = 34,
              // A barrow being CARRIED. One cell holds one cart, so a barrow riding in
-             // something cannot also be one — it rides as cargo and is put down as a cart.
+             // something cannot also be one.
              BAR_U = 35, BAR_D = 36, BAR_L = 37, BAR_R = 38;
 
 // The one code a cell does not fully describe: two adjacent FURNITURE cells may be one couch
@@ -34,20 +33,17 @@ export const cabinetFace = o =>
      [CABO_U]: 'u', [CABO_D]: 'd', [CABO_L]: 'l', [CABO_R]: 'r' })[o];
 export const isCabinetClosed = o => o >= CABC_U && o <= CABC_R;
 export const isCabinetOpen = o => o >= CABO_U && o <= CABO_R;
-// The occupant codes, as one object. The renderer takes this rather than a hand-listed subset:
+// The renderer takes this rather than a hand-listed subset:
 // a code left out of such a list does not throw, it draws NOTHING, and a piece that is simply
 // invisible is a bug you find by playing rather than by testing.
 /** A barrow riding as cargo, and which way it is still facing. */
 export const isCarriedBarrow = o => o >= BAR_U && o <= BAR_R;
-/** The two directions of the same fact: a cart kind, and the cargo code it rides as. */
 export const carriedAs = k => BAR_U + (k - BARROW_U);
 export const carriedKind = o => BARROW_U + (o - BAR_U);
-/** Which way a carried barrow is still pointing — the renderer draws it as the barrow it is. */
 export const carriedFace = o => (isCarriedBarrow(o) ? barrowFace(carriedKind(o)) : undefined);
 
 // --- what a cell is carrying ---------------------------------------------------------------
-// A barrow that is carrying something can itself be carried, and what IT carries may be another
-// barrow. So a cell holds a CHAIN rather than an occupant: `o` is the outermost thing — the one
+// A cell holds a CHAIN rather than an occupant: `o` is the outermost thing — the one
 // standing in the cart slot or on the floor, and the one the stage draws — and `hold` is what
 // rides inside it, outermost first. Only a carried barrow has anywhere to put a `hold`, so
 // every link of the chain but the last is one.
@@ -65,8 +61,7 @@ export const setChain = (c, ch) => {
   else if (c.hold !== undefined) c.hold = undefined;
 };
 
-/** Everything a cell is carrying, at every depth — what `bagsLeft` and the format have to walk
- *  so a bag stowed three barrows deep still counts and still round-trips. */
+/** Everything a cell is carrying, at every depth. */
 export const deepCells = s => {
   const out = [];
   for (const row of s.cells) for (const c of row) out.push(...chainOf(c));
@@ -91,8 +86,7 @@ export const OCCUPANTS = {
 const CAB_OPENS = { [CABC_U]: CABO_U, [CABC_D]: CABO_D, [CABC_L]: CABO_L, [CABC_R]: CABO_R };
 const CAB_SHUTS = { [CABO_U]: CABC_U, [CABO_D]: CABC_D, [CABO_L]: CABC_L, [CABO_R]: CABC_R };
 
-// An open cabinet is a BODY of two cells: the drawer end is the one its facing points at, so the
-// pair needs no field of its own and no lookup — a piece id already says which cells are one
+// The pair needs no field of its own and no lookup — a piece id already says which cells are one
 // thing, the way it does for the couch.
 export const cabinetEnds = (s, pid) => {
   const own = pieceCells(s, pid);
@@ -103,19 +97,18 @@ export const cabinetEnds = (s, pid) => {
 };
 
 /** An id no piece on this board is using. Never a count: a piece minted with an id another one
- *  holds is welded to it, and `pieceCells` would move the two as one. */
+ *  holds is welded to it. */
 export const freePid = s => {
   let top = -1;
   for (const row of s.cells) for (const c of row) if (c.pid !== undefined && c.pid > top) top = c.pid;
   return top + 1;
 };
 
-// The multi-cell pieces that roll, and which shove sets each one going. The axis is taken from
+// The axis is taken from
 // the cells a piece already occupies, so anisotropy costs no field of its own and nothing in
 // `stateKey` — which is the whole reason these are cheaper than a turnstile.
 const ROLL_AXIS = new Map([[BICYCLE, 'long'], [RUG, 'short']]);
 
-/** Whether a shove this way is the one that sets this body rolling, read off the footprint. */
 const rollsBody = (o, cells, dx, dy) => {
   const axis = ROLL_AXIS.get(o);
   if (axis === undefined) return false;
@@ -123,9 +116,6 @@ const rollsBody = (o, cells, dx, dy) => {
   return axis === 'long' ? pushedLong : !pushedLong;
 };
 
-/** Whether the thing standing here rolls THIS way — one cell or many, the same question. A
- *  multi-cell piece asks it of its own footprint; that is what lets a rug hand its motion to a
- *  bicycle, and what stops it when the two lie across each other. */
 export const rollsHere = (s, x, y, dx, dy) => {
   const c = cell(s, x, y);
   if (isCart(c)) return isBarrow(cartKindOf(c))
@@ -135,7 +125,6 @@ export const rollsHere = (s, x, y, dx, dy) => {
   return rollsAlong(c, dx, dy);
 };
 
-/** A multi-cell piece's long axis, read off its own footprint. */
 export function longAxis(cells) {
   let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
   for (const [x, y] of cells) {
@@ -218,8 +207,7 @@ export const cell = (s, x, y) => s.cells[y][x];
 // holds one occupant, and terrain has to be able to coexist with one.
 //
 // Only the terrain a move can CHANGE reaches `stateKey`. A static lane cannot differ between two
-// states of the same room, so encoding it would buy nothing — which is why `wall` was never in
-// there, and the rule generalises to every static lane added since.
+// states of the same room, so encoding it would buy nothing.
 export const DRY = 0, WATER = 1, BRIDGE = 2, GREASE = 3, TAR = 4, GLASS = 5, COVERED = 6;
 
 // The width `stateKey` packs against. Raising it is the whole cost of a new mutable lane, and
@@ -232,21 +220,15 @@ export const TERRAINS = 7;
 const terrainFrom = (water, bridge, ter) => (water ? WATER : bridge ? BRIDGE : ter ?? DRY);
 export const terrainOf = c => terrainFrom(c.water, c.bridge, c.ter);
 
-// A cell nothing can be dragged off again. The permanence is the piece.
 export const isTar = c => c.ter === TAR;
 
-// Slick floor.
 export const isGrease = c => c.ter === GREASE;
 
-// Broken glass. It is what split "where he can walk" from "where anything can sit"; one
-// predicate did both.
 export const isGlass = c => c.ter === GLASS;
 
 // Static lanes. Out of `stateKey` for the reason `wall` always was.
 export const isGrate = c => c.grate === true;
 
-/** One-way cells bind the raccoon and objects alike, so the test needs the direction of travel
- *  and cannot sit in `isOccupiable` with the rest. */
 export const mayEnter = (s, x, y, dx, dy) => {
   if (!inGrid(s, x, y)) return false;
   const w = cell(s, x, y).oneway;
@@ -255,16 +237,14 @@ export const mayEnter = (s, x, y, dx, dy) => {
 
 // Carts are not interchangeable once they have kinds, and `stateKey` labels them by first
 // appearance — so the kind travels in the key beside the label, or two different boards key
-// alike. `SKATE` is the two-cell skateboard every level has today.
+// alike.
 export const SKATE = 0, BARROW_U = 1, BARROW_D = 2, BARROW_L = 3, BARROW_R = 4;
 export const CART_KINDS = 5;
 export const cartKindOf = c => c.ck ?? SKATE;
 
-// A barrow is a cart of one cell, and it FACES the way its tub points.
 export const isBarrow = k => k >= BARROW_U && k <= BARROW_R;
 export const barrowFace = k =>
   ({ [BARROW_U]: 'u', [BARROW_D]: 'd', [BARROW_L]: 'l', [BARROW_R]: 'r' })[k];
-/** Whether it faces this way — the only direction it picks anything up. */
 export const barrowScoops = (k, dx, dy) => {
   const f = DIRS[barrowFace(k)];
   return f !== undefined && dx === f[0] && dy === f[1];
@@ -272,8 +252,6 @@ export const barrowScoops = (k, dx, dy) => {
 
 // --- the magnet ------------------------------------------------------------------------------
 
-// What a magnet takes hold of. The sponge's absence is deliberate: an unlimited cleaner that
-// could be fetched back from anywhere would have no bound at all.
 const METAL = new Set([CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMPTY,
                        TIRE_H, TIRE_V, BICYCLE, CHAIR,
                        CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R,
@@ -306,7 +284,6 @@ export const gripTarget = (s, x, y) => {
   return inGrid(s, ...p) ? p : null;
 };
 
-/** Every holder with hold of the body standing here — the reverse of `gripTarget`. */
 export const holdersOf = (s, x, y) => {
   const body = new Set(bodyCells(s, [x, y]).map(([bx, by]) => `${bx},${by}`));
   const out = [];
@@ -318,9 +295,8 @@ export const holdersOf = (s, x, y) => {
 };
 
 /**
- * The whole rigid complex a cell belongs to: what it has hold of, whoever has hold of it, and
- * onward through both. Derived rather than stored, the way `bodyCells`, `pieceCells` and
- * `cartCells` are — so a hold shared by two holders needs no field to say so.
+ * Derived rather than stored, the way `bodyCells`, `pieceCells` and `cartCells` are — so a hold
+ * shared by two holders needs no field to say so.
  */
 export const complexCells = (s, at) => {
   const seen = new Set(), out = [];
@@ -348,12 +324,8 @@ export const barrowRollsAlong = (k, dx, dy) => {
 };
 
 /**
- * A skateboard's wheels point along its deck. Shoved that way it rolls until something stops it.
- * Shoved across the deck it goes one cell: the wheels do not turn, and it is not a rug.
- *
- * The axis comes off the footprint, the way a rug's and a bicycle's do, so a deck laid the other
- * way answers the other way with no second field to keep in step. What rides on the deck is not
- * asked. A load changes what the skateboard carries and nothing about how it travels.
+ * The axis comes off the footprint, the way a rug's and a bicycle's do, so there is no second
+ * field to keep in step.
  */
 export const skateRollsAlong = (s, cid, dx, dy) =>
   longAxis(cartCells(s, cid)) === (dx !== 0 ? 'x' : 'y');
@@ -364,23 +336,20 @@ export const isClearFloor = (s, x, y) =>
 
 export const canStand = isClearFloor;
 
-/** The one place water is laid down. A grate takes it and it is gone; grease and tar are washed
- *  off the cell it lands on, which is the only thing in the game that undoes either. */
+/** The one place water is laid down. */
 export function pour(c) {
   if (isGrate(c)) return;
   if (c.ter === GREASE || c.ter === TAR) c.ter = undefined;
   c.water = true;
 }
 
-/** The one place water and grease are taken OFF a cell. Tar and glass are not soaked: the
- *  sponge sticks to them, and being stuck is the only bound an unlimited sponge has. */
+/** The one place water and grease are taken OFF a cell. */
 export function soak(c) {
   if (c.water) c.water = false;
   else if (c.ter === GREASE) c.ter = undefined;
 }
 
-/** The one place a hazard is covered over. Water, tar and glass are the three a cell can be made
- *  walkable from; anywhere else the sheet is simply lying on the floor. */
+/** The one place a hazard is covered over. */
 export const coversOver = c => c.water || c.ter === TAR || c.ter === GLASS;
 export function cover(c) {
   if (!coversOver(c)) return false;
@@ -390,7 +359,7 @@ export function cover(c) {
 
 /** The one place trash is laid down. */
 export function layTrash(c) {
-  if (isGrate(c)) return;                                   // straight through, and gone
+  if (isGrate(c)) return;
   if (c.water) { c.water = false; c.bridge = true; }
   else c.o = TRASH;
 }
@@ -399,16 +368,13 @@ export const isOccupiable = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).exit
   && cell(s, x, y).o === NONE && !isCart(cell(s, x, y));
 
-/** Where a travelling thing may go on to: a cell it can rest in, entered from a legal side.
- *  Tar ends travel rather than forbidding it, which is why it is not a bar to entry here. */
 export const travelsInto = (s, x, y, dx, dy) =>
   isOccupiable(s, x, y) && mayEnter(s, x, y, dx, dy);
 
-/** Asked by `explain` before anything else, so no branch can forget it. */
 const stuckInTar = (s, tx, ty) => {
   const c = cell(s, tx, ty);
   if (isTar(c)) return true;
-  if (c.o === SPONGE && isGlass(c)) return true;      // shards in the sponge; it does not come off
+  if (c.o === SPONGE && isGlass(c)) return true;
   return bodyCells(s, [tx, ty]).some(([x, y]) => isTar(cell(s, x, y)));
 };
 
@@ -442,9 +408,6 @@ function applyIntoCart(s, next, cid, { file, beyond, out, dx, dy }, o, step) {
     if (step) step.moved.push(m);
     const taken = tookIt(step, cell(next, ...beyond), m);
     land(next, beyond, out, step, m);
-    // A container the lane took goes down whole. It does not stop on the way to shed its load,
-    // which is what a shove straight onto the same lane has always done — `tips` is refused
-    // there for the same reason.
     if (!taken) tipOut(next, out[0], beyond, dx, dy, step);
   }
 }
@@ -460,16 +423,12 @@ export function fan(bx, by, dx, dy) {
   ];
 }
 
-// Every `spawned` entry the tear makes carries the bag's own cell, which is what keeps a spray
-// to one ray per chair. A grid has nowhere to put a diagonal, so one takes the burst's own way.
+// A grid has nowhere to put a diagonal, so one takes the burst's own way.
 export const fleeFrom = (bx, by, dx, dy, fx, fy) => {
   const rx = Math.sign(fx - bx), ry = Math.sign(fy - by);
   return rx !== 0 && ry !== 0 ? [dx, dy] : [rx, ry];
 };
 
-/** A chair in the fan is not a wall — it is something the burst MOVES, provided it has anywhere
- *  to go. So the fan's legality turns on a cell beyond the fan, and when that cell is the one at
- *  fault the refusal names it as well as the chair. */
 const chairFlees = (s, bx, by, dx, dy, fx, fy) => {
   const [ax, ay] = fleeFrom(bx, by, dx, dy, fx, fy);
   return isOccupiable(s, fx + ax, fy + ay) && mayEnter(s, fx + ax, fy + ay, ax, ay)
@@ -492,8 +451,7 @@ export const fanBlockers = (s, bx, by, dx, dy) => {
 };
 
 // A lane that can refuse gets its own reason rather than the generic one, so the UI can name
-// what is in the way instead of just saying "blocked". Order is most-specific first: a one-way
-// exit cell is refused for being the exit, which is the thing the player can do nothing about.
+// what is in the way instead of just saying "blocked". Order is most-specific first.
 const reasonFor = (s, blockers, fallback) => {
   const is = pred => blockers.some(([x, y]) => inGrid(s, x, y) && pred(cell(s, x, y)));
   if (is(c => c.exit)) return 'exit';
@@ -504,7 +462,6 @@ const reasonFor = (s, blockers, fallback) => {
   return fallback;
 };
 
-/** A cart id no cart on this board is using. */
 export const freeCart = s => {
   let top = -1;
   for (const row of s.cells) for (const c of row) if (c.cart !== undefined && c.cart > top) top = c.cart;
@@ -512,12 +469,10 @@ export const freeCart = s => {
 };
 
 /**
- * The one place cargo is put down. A grate takes what lands in it, and takes it for good —
- * a loaded barrow included, load and all.
+ * The one place cargo is put down.
  *
  * And the one place a carried barrow stops being cargo. It rode as an occupant because a cell
- * holds one cart and it was in somebody else's; set down, it is a barrow again, facing the way
- * it always was, holding what it was holding. Here rather than at each of the places cargo
+ * holds one cart and it was in somebody else's. Here rather than at each of the places cargo
  * leaves a cart, so no one of them can forget and leave a barrow lying about as a code nothing
  * can shove.
  *
@@ -527,15 +482,10 @@ export const freeCart = s => {
 const drop = (s, at, ch, site = 'set down') => {
   const c = cell(s, ...at);
   // The lane is asked here and its answer comes back with the write, so a landing cannot be
-  // half done. One answer per item in the chain: a grate takes whatever arrives and water takes
-  // only some of it, so a load can be treated differently at each depth. What the answer does
-  // NOT do is decide the write — the branches below read the cell again for that.
+  // half done.
   const taken = ch.map(o => takenBy(c, o, site));
   const head = ch[0];
-  // Trash writes itself: on a canal it becomes the crossing, on floor it is a spill.
   if (head === TRASH) { layTrash(c); return { taken }; }
-  // And the lane's answer DECIDES the write rather than merely being reported alongside it. A
-  // lane that keeps nothing of what lands is a lane nothing is written onto.
   if (taken[0]) return { taken };
   if (isCarriedBarrow(head)) {
     c.cart = freeCart(s); c.ck = carriedKind(head);
@@ -550,16 +500,13 @@ const drop = (s, at, ch, site = 'set down') => {
  * `drop`, and the step entries that go with it. `m` is the `moved` entry for the head, if the
  * caller made one; everything the head was carrying travels with it and needs one of its own.
  *
- * Set down, the head is a cart again and what was inside it is one level shallower than it was
- * — which is the whole of what the stage has to be told, since nothing appears and nothing is
- * consumed. Every place a chain comes to rest goes through here, so no one of them can put one
+ * Every place a chain comes to rest goes through here, so no one of them can put one
  * down and leave the load drawn where the cart used to be.
  */
 const land = (s, at, ch, step, m = null) => {
-  // Asked of the lane BEFORE the drop, because the drop is what can change it: trash that
-  // fills a canal leaves floor behind, and floor takes nothing.
+  // Asked of the lane BEFORE the drop, because the drop is what can change it.
   const { cart, taken } = drop(s, at, ch);
-  // Set down, it is a cart again: a new kind, a new id, and cells of its own. The one identity
+  // The one identity
   // change a code alone cannot carry, which is why `becomes` names all three.
   if (cart !== undefined && m) m.becomes = { lane: CART_LANE, o: null, ref: cart };
   if (!step) return;
@@ -585,15 +532,12 @@ const land = (s, at, ch, step, m = null) => {
 // reading `gone` and then remembering that couches say it somewhere else.
 //
 // Every entry names `handle` — WHICH thing on the board it is about, in the vocabulary of
-// `handles.js` — and `cells`, the SPAN that thing covers on the board that holds it. A can has
-// a one-cell span and a couch a four-cell one; nothing about the entry says which of the two it
-// is, because the handle already addresses one thing either way.
+// `handles.js` — and `cells`, the SPAN that thing covers on the board that holds it.
 //
 // `o` and `ref` say what the board holding it has there, in that board's own words: an occupant
 // code, a piece or cart id, `null` for whichever a thing has not got. A movement's `becomes` says
 // the same three things about where it comes to rest — `lane` being how deep in that cell, or the
-// cart or body lane of a thing that rests as one. So a barrow scooped up and a barrow set down
-// are one shape: what it was, and what it is once it lands.
+// cart or body lane of a thing that rests as one.
 //
 // `dx, dy` is the translation, and the far end of a move is the span shifted by it. Nothing
 // stamps where a thing arrives, so the two ends of a move are two statements rather than one
@@ -608,14 +552,12 @@ const land = (s, at, ch, step, m = null) => {
 // An `effect` never says that a thing left. It says HOW it leaves, and it appears only where the
 // animation differs.
 
-/** The lane a thing standing on the floor of a cell rests in. */
 const FLOOR = depthLane(0);
 
 /**
  * A movement. An occupant gives the cell it sets off from and how deep it stands there; a body
  * gives its whole span and its own lane. What it comes to rest as defaults to what it set off as
- * — `restsIn`, `rests`, `becomes` and `becomesRef` are for the ones that land as something else:
- * a container that sheds, a barrow scooped up, a barrow set down.
+ * — `restsIn`, `rests`, `becomes` and `becomesRef` are for the ones that land as something else.
  */
 export const moves = ({ from, cells, lane, at = 0, to, dx, dy, o = null, ref = null,
                         restsIn, rests = at, becomes = o, becomesRef = ref, ...rest }) => ({
@@ -626,17 +568,13 @@ export const moves = ({ from, cells, lane, at = 0, to, dx, dy, o = null, ref = n
   ...rest,
 });
 
-/** An arrival: what turns up, where it comes to rest, and the cell it flies in from. */
 export const arrives = ({ cells, lane = FLOOR, o = null, ref = null, from = null, ...rest }) => ({
   handle: handleAt(anchorOf(cells), lane), cells, o, ref, lane, from, ...rest,
 });
 
-/** Where a movement's span comes to rest: the cell it is addressed by, shifted. */
 export const restsOn = m => { const a = anchorOf(m.cells); return [a[0] + m.dx, a[1] + m.dy]; };
-/** The whole span, shifted — every cell a movement comes to rest on. */
 export const spanRestsOn = m => m.cells.map(([x, y]) => [x + m.dx, y + m.dy]);
 
-/** A removal, named where the board that still has it holds the thing. */
 export const leaves = ({ cells, lane, at = 0, o = null, ref = null, ...rest }) => ({
   handle: handleAt(anchorOf(cells), lane ?? depthLane(at)), cells, o, ref, ...rest,
 });
@@ -653,25 +591,19 @@ const mkStep = (over = {}) => ({ moved: [], spawned: [], gone: [], impact: false
  * fallthrough. Adding a lane without answering is a throw rather than a silent inheritance.
  */
 export const LANDS_ON = {
-  [DRY]:     () => null,                                        // bare floor keeps what lands
-  [BRIDGE]:  () => null,                                        // a filled canal is floor again
-  [GREASE]:  () => null,                                        // carries a slider on; keeps it
-  [TAR]:     () => null,                                        // holds a thing fast, intact
-  [GLASS]:   () => null,                                        // bursts a bag on arrival, and
-                                                                //   what bursts is not what lands
-  [COVERED]: () => null,                                        // a covered lane is its cover
-  // Trash packs a canal full and becomes the crossing. Everything else the water KEEPS, in
-  // plain sight and out of reach — the raccoon will not wade in after it, and a bag lost in
-  // there still counts, so the room is over. A thing that sank would take the mistake off the
-  // board with it; a thing floating there is the mistake, still being looked at.
+  [DRY]:     () => null,
+  [BRIDGE]:  () => null,
+  [GREASE]:  () => null,
+  [TAR]:     () => null,
+  [GLASS]:   () => null,
+  [COVERED]: () => null,
   [WATER]:   o => (o === TRASH ? { effect: 'fills' } : null),
 };
 
 /**
- * Every landing question the engine asks, when something is listening. Null in the game and
- * in the solver — offline tooling sets it to find out which questions never get ASKED, which
- * is a thing no board comparison can report: a combination nothing stages looks exactly like
- * a combination that works.
+ * Every landing question the engine asks, when something is listening. Offline tooling sets it to
+ * find out which questions never get ASKED, which is a thing no board comparison can report: a
+ * combination nothing stages looks exactly like a combination that works.
  */
 let landingWatcher = null;
 export const watchLandings = fn => { landingWatcher = fn; };
@@ -694,7 +626,7 @@ const takenBy = (c, o, site) => {
   const grate = isGrate(c);
   const lane = LANDS_ON[terrainOf(c)];
   if (!grate && !lane) throw new Error(`no landing rule for terrain ${terrainOf(c)}`);
-  const taken = grate ? { effect: 'falls' } : lane(o);   // a grate takes anything at all
+  const taken = grate ? { effect: 'falls' } : lane(o);
   landingWatcher?.(site, grate ? 'grate' : terrainOf(c), o, taken);
   return taken;
 };
@@ -710,9 +642,7 @@ const tookIt = (step, c, m) => {
 };
 
 // --- tipping -------------------------------------------------------------------------------
-// A container comes to rest in three places — the cell a shove slides it to, the cell a cart
-// ejects it onto, and the cell it is displaced to when something else is shoved into the cart
-// behind it. All three go through `tipFits` and `tipOut`, so no caller can disagree with
+// Every landing goes through `tipFits` and `tipOut`, so no caller can disagree with
 // another about what a container owes on landing.
 
 const sheds = o => {
@@ -727,8 +657,7 @@ export const tipFits = (s, o, at, dx, dy) => {
   const t = sheds(o);
   if (!t) return true;
   const [x, y] = tipCell(at, dx, dy);
-  // He is the one occupant `isOccupiable` cannot see, and he is in the way: standing on the
-  // cell, he stops the container emptying onto it. It keeps its slot until he moves.
+  // He is the one occupant `isOccupiable` cannot see.
   if (s.rac.x === x && s.rac.y === y) return false;
   return (t.pours ? canPour : isOccupiable)(s, x, y);
 };
@@ -753,8 +682,7 @@ function tipOut(s, o, at, dx, dy, step) {
     }
   }
   // What a container turns into on landing lands too, and the lane it landed on gets the same
-  // say over that as it had over the container: writing the emptied code straight onto the cell
-  // puts a can back on a grate that had just taken it.
+  // say over that as it had over the container.
   if (t.slides !== o && !takenBy(cell(s, ...at), t.slides, 'emptied where it landed'))
     cell(s, ...at).o = t.slides;
 }
@@ -763,11 +691,6 @@ function tipOut(s, o, at, dx, dy, step) {
 const landsAs = o => (sheds(o) ? SLIDES[o].slides : o);
 
 /**
- * A barrow that something else can take aboard: one cell, and not held. Carrying one is the
- * only way a cart ever enters another cart's cell.
- *
- * What it is holding comes with it — a barrow does not have to be emptied to be lifted, and
- * what it is holding may be another loaded barrow, as deep as anyone cares to stack them.
  * Unheld, because a hooked one is already spoken for, and a hold that outlived the thing
  * holding it is a link pointing at nothing.
  */
@@ -778,12 +701,10 @@ export const isScoopable = (s, x, y) => {
 };
 
 /**
- * Move a whole cart `k` cells along, carrying its kind and whatever is in each of its slots.
  * Cleared in full before anything is written, so a cart never overwrites its own tail.
  *
  * `shoveCart` does this same move fused with the slot bookkeeping a swallow needs; this is the
- * bare translation, which is all a cart moved by a KNOCK ever does — a knocked cart is light, and
- * light means it is carrying nothing to shift, shed or set down.
+ * bare translation.
  */
 const translateCart = (s, cid, k, dx, dy) => {
   const own = cartCells(s, cid);
@@ -799,25 +720,14 @@ const translateCart = (s, cid, k, dx, dy) => {
   });
 };
 
-/**
- * WEIGHT. A wheeled thing is heavy while it is CARRYING objects — a cart or a barrow with
- * something riding in it. A wheelie bin is light full or empty: its trash is a state of the bin
- * rather than cargo, and nothing rides in it. The tyre, the bicycle and the chair can hold nothing
- * and so are never heavy. Weight decides distance and nothing else: heavy moves one cell, light
- * rolls.
- */
 export const isHeavyCart = (s, cid) =>
   cartCells(s, cid).some(([x, y]) => chainOf(cell(s, x, y)).length > 0);
 
-/** What a cart takes in when it swallows this cell — a barrow rides as cargo with everything
- *  it was holding stacked behind it, and anything else is already the chain it will be. */
 export const cargoAt = (s, x, y) => {
   const c = cell(s, x, y);
   return isScoopable(s, x, y) ? [carriedAs(cartKindOf(c)), ...chainOf(c)] : chainOf(c);
 };
 
-/** `swallows` is false for a barrow shoved against its facing: it rolls, but it has no mouth
- *  that way, so anything at all in the cell ahead is what stops it rather than what it takes. */
 const cartCanEnter = (s, x, y, dx, dy, swallows = true) => {
   if (!inGrid(s, x, y)) return false;
   const c = cell(s, x, y);
@@ -827,15 +737,14 @@ const cartCanEnter = (s, x, y, dx, dy, swallows = true) => {
 };
 
 /**
- * Shove a cart. Its cells are grouped into FILES running along the shove; a file is a lead
+ * The cells are grouped into FILES running along the shove; a file is a lead
  * cell plus the cells behind it, and `loads[i][j]` is that file's cargo, lead-first.
  *
  * `entry` is the cart cell the raccoon shoved. `trace` collects a frame per transition; off
  * by default, since the clones cost and `analyze()` wants only the last board.
  */
 /**
- * IMPACT, for whatever is standing there. A train stops; if what stopped it rolls this way, the
- * motion carries on into it, and into whatever THAT stops against. Every hand-off goes strictly
+ * Every hand-off goes strictly
  * forward, so a cascade is a straight run on a finite board and cannot fail to end.
  */
 function handOff(next, from, dx, dy, step) {
@@ -843,9 +752,6 @@ function handOff(next, from, dx, dy, step) {
   let p = from, caught = false;
   for (; inGrid(next, ...p) && rollsHere(next, ...p, dx, dy);) {
     const c = cell(next, ...p);
-    // A cart takes a knock with its mouth SHUT. Taking things in is what the raccoon's own shove
-    // buys; a cart that hoovered whatever a stray impact sent it over would be the cascade all
-    // over again, in a piece nobody was pushing. Anything it meets is what stops it.
     if (isCart(c)) {
       const cid = c.cart, own = cartCells(next, cid);
       const ownKey = new Set(own.map(([x, y]) => `${x},${y}`));
@@ -856,11 +762,6 @@ function handOff(next, from, dx, dy, step) {
         if (own.some(([x, y]) => isTar(cell(next, x + j * dx, y + j * dy)))) break;
       }
       if (j === 0) {
-        // Pinned, and the momentum has to go SOMEWHERE. It moved the thing on wheels while there
-        // was anywhere to move it; with nowhere left, what rolled in goes in instead of stopping
-        // dead against the deck. A barrow takes it only through its mouth — its back is closed,
-        // and a blow there is just a blow. Nothing displaces: a cart with anything aboard is
-        // heavy, and a heavy one never reaches this branch at all.
         const kind = cartKindOf(c);
         const back = [p[0] - dx, p[1] - dy];
         const it = inGrid(next, ...back) ? cell(next, ...back) : null;
@@ -872,9 +773,6 @@ function handOff(next, from, dx, dy, step) {
           moved.push(moves({ o: took[0], from: back, to: [...p], parent: cid }));
           caught = true;
         } else {
-          // Pinned, and nothing could go in either — a barrow struck on its closed back, or a
-          // thing too big to ride. The momentum still arrived, so it shows as a wobble rather
-          // than as the game doing nothing at all.
           bodies.push(moves({ cells: own, lane: CART_LANE, ref: cid, dx: 0, dy: 0,
                               effect: 'rattles', blow: [dx, dy] }));
         }
@@ -897,11 +795,9 @@ function handOff(next, from, dx, dy, step) {
       if (own.some(([x, y]) => isTar(cell(next, x + j * dx, y + j * dy))
                             || isGrate(cell(next, x + j * dx, y + j * dy)))) break;
     }
-    if (j === 0) break;                       // it stopped here, against whatever is beyond it
+    if (j === 0) break;
     const was = own.map(([x, y]) => ({ o: cell(next, x, y).o, pid: cell(next, x, y).pid }));
     for (const [x, y] of own) { const t = cell(next, x, y); t.o = NONE; t.pid = undefined; }
-    // A grate takes what rolls in only when the WHOLE of it fits inside one; a longer thing
-    // spans the hole and comes to rest across it. One cell of a body is not a smaller body.
     const landed = own.map(([x, y]) => [x + j * dx, y + j * dy]);
     const takes = landed.map(([x, y], i) => takenBy(cell(next, x, y), was[i].o, 'rolled'));
     const swallowed = takes.every(Boolean);
@@ -909,8 +805,6 @@ function handOff(next, from, dx, dy, step) {
       const to = cell(next, x, y);
       to.o = was[i].o; to.pid = was[i].pid;
     });
-    // Swallowed or not it ARRIVES and is then gone, which is what stops the stage holding a
-    // sprite for what the board no longer has.
     if (multi) {
       bodies.push(moves({ cells: own, lane: BODY_LANE, o: code, ref: pid,
                           dx: j * dx, dy: j * dy }));
@@ -923,15 +817,11 @@ function handOff(next, from, dx, dy, step) {
     const lead = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
     p = [lead[0] + (j + 1) * dx, lead[1] + (j + 1) * dy];
   }
-  // Whatever the run finally came up against wears the blow — unless the momentum went INSIDE
-  // it, which settles the whole thing. Taking something aboard makes a cart heavy, and a heavy
-  // cart is exactly what `strikeBack` rattles, so without this a catch reports both at once.
   if (!caught) strikeBack(next, p, dx, dy, step);
   return { moved, bodies, gone };
 }
 
-/** Every cell of the thing standing here. A body is all of it — anything that moves one cell of
- *  a two-cell thing leaves halves that the board cannot even write down. */
+/** Every cell of the thing standing here. */
 export const bodyCells = (s, [x, y]) => {
   const c = cell(s, x, y);
   if (isMultiCell(c.o)) return pieceCells(s, c.pid);
@@ -939,18 +829,15 @@ export const bodyCells = (s, [x, y]) => {
   return [[x, y]];
 };
 
-/** Whether this cell is one half of something bigger, and so may not be taken on its own. The
- *  question every branch that shifts a single cell has to ask. */
+/** Every branch that shifts a single cell has to ask this. */
 export const isHalfOfABody = (s, x, y) => {
   const c = cell(s, x, y);
   return isMultiCell(c.o) || isCart(c);
 };
 
 /**
- * Whether a whole body can travel that far, testing against the cells it is vacating — the same
- * question `clearAt` asks of a couch, and with the one occupant `isOccupiable` cannot see put
- * back in. This is the PULL side of the board, where he can be anywhere: a shove has him behind
- * what moves, so no other branch has to ask.
+ * Whether a whole body can travel that far, testing against the cells it is vacating, and with
+ * the one occupant `isOccupiable` cannot see put back in.
  */
 const bodyTravels = (s, own, dx, dy) => {
   const set = new Set(own.map(([x, y]) => `${x},${y}`));
@@ -963,9 +850,8 @@ const bodyTravels = (s, own, dx, dy) => {
 };
 
 /**
- * Name what moved. A cart and a multi-cell piece are each one thing in a lane of their own, so
- * each is one entry over its whole span. Everything else is named cell by cell — which is what an
- * open cabinet needs, since its two halves are two ordinary occupants that travel together.
+ * A cart and a multi-cell piece are each one thing in a lane of their own, so each is one entry
+ * over its whole span. Everything else is named cell by cell.
  */
 const nameMove = (step, was, cells, dx, dy) => {
   if (!step) return;
@@ -977,8 +863,8 @@ const nameMove = (step, was, cells, dx, dy) => {
   else cells.forEach(([x, y], i) => step.moved.push(moves({ o: was[i].o, from: [x, y], dx, dy })));
 };
 
-/** Move the whole body standing at `at` by (dx,dy). Its caller has already established that it
- *  fits; this is the write, and the one place a body's cells are carried across whole. */
+/** The caller has already established that the body fits; this is the write, and the one place a
+ *  body's cells are carried across whole. */
 function slideBody(next, at, dx, dy, step) {
   const own = bodyCells(next, at);
   const was = own.map(([x, y]) => ({ ...cell(next, x, y) }));
@@ -1013,9 +899,6 @@ const anchored = (s, at, holder) =>
  * Close the gap from the magnet at `m` to the metal at `at` by up to `max`. Returns where the
  * magnet stands after, and by how much the gap closed.
  *
- * Whichever end moves is one nothing else holds, so closing a gap never breaks another hold.
- * That is what lets `settleMagnets` run to closure: each pass only adds to what is held.
- *
  * `mayWalk` is false for a magnet that has already moved this step. A step names each thing
  * once, so its walk waits for the settle.
  */
@@ -1033,12 +916,9 @@ function closeGap(next, m, at, max, step, mayWalk) {
 }
 
 /**
- * Everything a magnet does. First the chain it already has follows or lets go, then it takes hold
- * of whatever is now in reach.
- *
- * `dx,dy` is the shove that carried the MAGNET here, and only the load it already had cares:
- * across the field that load keeps pace. Called with no direction it is the same question asked
- * of a magnet that did not move, which is what `settleMagnets` asks of every one of them.
+ * `dx,dy` is the shove that carried the MAGNET here. Called with no direction it is the same
+ * question asked of a magnet that did not move, which is what `settleMagnets` asks of every one of
+ * them.
  *
  * Returns whether it changed anything — a link taken or dropped is board state the account never
  * mentions, so nothing downstream can see it by looking at the step.
@@ -1047,7 +927,7 @@ function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
   let wrote = false;
   const f = DIRS[magnetFace(cell(next, mx, my).o)];
 
-  // The hold it already has: still hold of something, or let go. `grip` says which cell, so this
+  // `grip` says which cell, so this
   // asks after ONE edge and never has to work out which end of a group it is standing on.
   if (cell(next, mx, my).grip !== undefined) {
     const k = cell(next, mx, my).grip;
@@ -1056,10 +936,8 @@ function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
     const along = dx * f[0] + dy * f[1];
     const lag = [mx - dx + f[0] * k, my - dy + f[1] * k];   // where the load still stands
     if (along) {
-      // ALONG: the load stayed put and the magnet closed on it, so the gap is short by the shove.
       cell(next, mx, my).grip = k - along;
     } else if (dx || dy) {
-      // ACROSS: what is held keeps pace, or the two simply come apart.
       if (inGrid(next, ...lag) && drawIn(next, lag, dx, dy, 1)) {
         slideBody(next, lag, dx, dy, step);
         wrote = true;
@@ -1074,7 +952,6 @@ function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
       if (cell(next, mx, my).grip !== undefined) wrote = true;
       cell(next, mx, my).grip = undefined;
     } else {
-      // It closes the gap by up to two, and stops when it is alongside.
       const [to, drew] = closeGap(next, [mx, my], at, Math.min(2, g - 1), step, !(dx || dy));
       if (drew) {
         [mx, my] = to;
@@ -1084,8 +961,7 @@ function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
     }
   }
 
-  // Capture. Walls stop the field; objects do not, so the first METAL along the line is taken
-  // even with something standing in front of it — it simply closes as far as it can.
+  // Capture.
   if (cell(next, mx, my).grip !== undefined) return wrote;
   for (let k = 1; k <= MAGNET_REACH; k++) {
     const p = [mx + f[0] * k, my + f[1] * k];
@@ -1101,10 +977,6 @@ function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
 }
 
 /**
- * A board as it is once its fields have taken hold — what a room LOOKS like before anyone has
- * touched it. A magnet holds whatever is in its field, and a field that waited for the first
- * action would appear to fire in answer to a step that had nothing to do with it.
- *
  * Every board enters the game through `toState`, so this is asked once, there, and no caller has
  * to remember it. The step it bills is thrown away: nothing has happened yet, and the stage is
  * built from the board this leaves rather than played into.
@@ -1115,11 +987,6 @@ export function settleAtRest(s) {
 }
 
 /**
- * Every magnet, asked again until a whole pass changes nothing. A thing moved into one field can
- * come to rest in another's, and a pass that has already gone by that magnet has to be run again.
- * Raster order still decides one thing: which of two loose magnets reaches the same loose metal
- * first.
- *
  * Returns one `{ step, frame }` per pass that changed anything, `frame` only when `trace` asks.
  * A pass is a step because a step names each thing once, and across passes a thing can move
  * twice.
@@ -1142,7 +1009,6 @@ function settleMagnets(next, trace) {
   throw new Error('the magnets did not settle');
 }
 
-/** The barrow has come to rest; if what stopped it is a piece too big to scoop, hook it. */
 function hookTow(next, cid, dx, dy) {
   const at = cartCells(next, cid)[0];
   if (!at) return;
@@ -1195,14 +1061,10 @@ function towMove(s, at, dx, dy, done) {
     c.cart = was[i].cart; c.ck = was[i].ck; c.grip = was[i].grip;
   });
   next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
-  // A link holds whatever the field caught, and the account names it the way the rest of the game
-  // does: a cart or a multi-cell piece by its id, and everything else — the magnet itself, a can,
-  // a wheelie, a shut cabinet — as the occupant it is. Named by neither, a tow is a beat in which
-  // the board moves and nothing on screen does.
   const bodies = [], moved = [], named = new Set();
   const body = (lane, ref, o, cells) => {
     const e = moves({ cells, lane, o, ref, dx, dy });
-    if (named.has(e.handle)) return;                  // one entry per body, however many cells
+    if (named.has(e.handle)) return;
     named.add(e.handle);
     bodies.push(e);
   };
@@ -1217,14 +1079,10 @@ function towMove(s, at, dx, dy, done) {
 
 /**
  * The blow that opens a cabinet, written once and reached two ways: the raccoon's own shove, and
- * anything that comes to rest against its back. Struck there, the shut cabinet is swapped for the
- * two-cell piece it becomes — it does not slide, and whatever struck it stops, because a cabinet
- * is not a thing that rolls.
- *
- * `next` is a board the caller has already cloned and `step` a step it owns, because the impact
- * path is a loop over several cells of one beat. `clears` is the raccoon's: the drawer comes out
- * along the line the blow travelled and shoves what is in the way one cell on, which an impact
- * does not buy. Returns the cell to blame when it cannot open, and null when it did.
+ * anything that comes to rest against its back. `next` is a board the caller has already cloned
+ * and `step` a step it owns, because the impact path is a loop over several cells of one beat.
+ * `clears` is set by the raccoon's own shove and not by an impact. Returns the cell to blame when
+ * it cannot open, and null when it did.
  */
 function openInPlace(next, at, step, clears) {
   const o = cell(next, ...at).o;
@@ -1242,8 +1100,7 @@ function openInPlace(next, at, step, clears) {
     step.moved.push(moves({ o: shoved, from: draw, to: past }));
     if (taken[0]) step.gone.push(leaves({ o: shoved, cells: [draw], ...taken[0] }));
   }
-  // The shut cabinet is gone and a body stands where it and its drawer are: two pieces, not one
-  // that grew. `freePid` rather than a count, or the new piece is welded to an old one.
+  // `freePid` rather than a count, or the new piece is welded to an old one.
   const open = CAB_OPENS[o], pid = freePid(next);
   for (const p of [at, draw]) { const c = cell(next, ...p); c.o = open; c.pid = pid; }
   step.gone.push(leaves({ o, cells: [at] }));
@@ -1253,18 +1110,12 @@ function openInPlace(next, at, step, clears) {
 }
 
 
-/**
- * Both ways an open cabinet shuts. The piece is destroyed and a shut cabinet is put down on `at`:
- * its own body cell when it closes where it stands, the drawer's cell when it folds in and the
- * body advances into it. `travel` is what the piece does on the way out, which is nothing at all
- * in the first case; the raccoon takes the cell he shoved into either way.
- */
 function shutCabinet(s, own, at, shut, [px, py], dx, dy, done) {
   const next = cloneState(s);
   const pid = cell(s, ...own[0]).pid, was = cell(s, ...own[0]).o;
   for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; c.pid = undefined; }
-  // Through `drop`, not straight into the cell: a body spans a hole and one cell does not, so
-  // folding back to one cell over a grate is a cabinet standing on nothing.
+  // Through `drop`, not straight into the cell: folding back to one cell over a grate is a cabinet
+  // standing on nothing.
   const { taken } = drop(next, at, [shut], 'cabinet shut');
   next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
   return done(next, PUSH, mkStep({
@@ -1283,21 +1134,8 @@ function openCabinet(s, at, done) {
   return done(next, PUSH, step);
 }
 
-/**
- * A travelling thing has come to rest against `at`. If what is standing there is a shut cabinet
- * taking the blow on its BACK, the drawer shoots out — the raccoon's own shove is not special,
- * a rolling tyre and a swept line knock it open the same way.
- *
- * Nothing else happens: the cabinet does not move and the thing that struck it stops, because a
- * cabinet is not a thing that rolls. And the drawer needs somewhere to go — with no room it
- * stays shut, so an impact can never do what a shove would have been refused for.
- */
 function strikeBack(next, at, dx, dy, step) {
   if (!inGrid(next, ...at)) return;
-  // A heavy BARROW takes the blow without going anywhere: the board is unchanged, so the solver
-  // never sees this and it costs nothing in the state graph — but the stage has to be told, or a
-  // knock that visibly does nothing reads as the game ignoring the press. A skateboard has no
-  // such state: it is never heavy, so a struck one is a struck empty one whatever it carries.
   const c = cell(next, ...at);
   if (isCart(c) && isBarrow(cartKindOf(c)) && isHeavyCart(next, c.cart)) {
     if (step) step.moved.push(moves({ cells: cartCells(next, c.cart), lane: CART_LANE,
@@ -1314,31 +1152,17 @@ function strikeBack(next, at, dx, dy, step) {
 
 /**
  * `tail` is a run of touching things flush BEHIND the cart, closest first, which the same shove
- * is driving. They travel with it cell for cell: a run of touching things is one thing to push,
- * and a press that moved something across the room while the raccoon stood still would read as a
- * dropped input rather than as a shove.
+ * is driving.
  */
 function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
   const kind = cartKindOf(cell(s, ...entry));
   const barrow = isBarrow(kind);
-  // WEIGHT, and it is a BARROW's question alone. A barrow carrying something is heavy and moves
-  // one cell; empty, it is light and rolls. Read once here and not again: read per beat, a barrow
-  // would start light, take in the first thing it passed, go heavy mid-roll and stop.
   const heavy = isHeavyCart(s, cid);
-  // A skateboard asks its wheels instead, so what it carries never decides how far it goes. One
-  // cell across the deck, a roll along it.
   const oneCell = barrow ? heavy : !skateRollsAlong(s, cid, dx, dy);
-  // A barrow is AIMED where a cart is open-mouthed, and that is the whole difference between
-  // them. A cart keeps its mouth open for the length of its roll. A barrow takes in only what it
-  // was ALREADY touching when the shove began, only along its facing, and only while empty — so
-  // a barrow does one thing per shove, and never a corridor's worth of both.
-  //
-  // Shoved the other way along its line it still rolls, but with nothing to take things in
-  // with, so whatever it meets stops it.
   const swallows = !barrow || (barrowScoops(kind, dx, dy) && !heavy);
   const at = (p, k) => [p[0] + k * dx, p[1] + k * dy];
   const isOwn = (x, y) => inGrid(s, x, y) && cell(s, x, y).cart === cid;
-  const files = cartCells(s, cid).filter(([x, y]) => !isOwn(x + dx, y + dy))   // lead cells
+  const files = cartCells(s, cid).filter(([x, y]) => !isOwn(x + dx, y + dy))
     .map(lead => {
       const f = [];
       for (let p = lead; isOwn(...p); p = at(p, -1)) f.push(p);
@@ -1346,13 +1170,8 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
     });
   const aheadAt = k => files.map(f => at(f[0], k + 1));
 
-  // Two ways the first beat can be refused: nowhere to roll, or a load that would be pushed
-  // out by the swallow with nowhere to shed. Past the first beat the same condition just
-  // stops the cart, which is an ordinary way for a roll to end rather than a refusal.
   const first = aheadAt(0);
   const blame = first.filter(([x, y]) => !cartCanEnter(s, x, y, dx, dy, swallows));
-  // A cart rolled up against the back of a shut cabinet knocks it open, and stops there. The
-  // blow is the whole of the beat, so nothing else on the cart moves.
   if (blame.length) {
     const knocked = cloneState(s);
     const step = mkStep();
@@ -1366,15 +1185,6 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
     if (out === NONE || cell(s, ...first[i]).o === NONE) return;
     if (!tipFits(s, out, back, -dx, -dy)) blame.push(tipsInto(out, back, -dx, -dy));
   });
-  // Going nowhere, a SKATEBOARD slops one item out the back rather than refusing: shove it at a
-  // wall and the load comes off, which is the only way a cart is emptied deliberately. Never out
-  // of the file the raccoon is pushing — he is standing exactly where it would land — so a cart
-  // pinned with nothing free behind either file is genuinely stuck. An empty deck sheds nothing
-  // and falls through to the refusal below.
-  //
-  // A barrow has no such shed. Shoved along its line there is no unambiguous side to dump toward,
-  // and shoved across it the raccoon is where the load would go; what a barrow scooped stays in
-  // it until it is tipped, which is the whole of what scooping buys over a cart.
   if (blame.length && !barrow) {
     const next = cloneState(s);
     const step = mkStep();
@@ -1391,7 +1201,7 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
       tookIt(step, cell(next, ...behind), m);
       land(next, behind, out, step, m);
       tipOut(next, out[0], behind, -dx, -dy, step);
-    }                       // one per FILE, the way every other shed in the game is counted
+    }
     if (step.moved.length)
       return { ok: true, kind: PUSH, next,
                ...(trace && (f => ({ frames: f, steps: [step] }))([cloneState(s), next])) };
@@ -1401,30 +1211,22 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
   const next = cloneState(s);
   const frames = trace ? [cloneState(s)] : null;
   const steps = trace ? [] : null;
-  // A slot holds a CHAIN, not an occupant: what is in it may be a barrow, and that barrow may
-  // be holding something. The whole chain rides in the slot and is shifted, shed and set down
-  // as one, which is what makes a loaded barrow no different from a can to everything below.
+  // A slot holds a CHAIN, not an occupant.
   const loads = files.map(f => f.map(([x, y]) => ({ ch: chainOf(cell(s, x, y)) })));
   const repaint = (k, from) => files.forEach((f, i) => f.forEach((p, j) => {
     const c = cell(next, ...at(p, from));
     setChain(c, []); c.cart = undefined; c.ck = undefined;
-    // The kind travels with the cart. Without it a barrow becomes an ordinary cart the moment it
-    // moves — and `stateKey` would then key two different boards alike.
     const d = cell(next, ...at(p, k)); d.cart = cid; d.ck = kind; setChain(d, loads[i][j].ch);
   }));
 
   let n = 0, lastRoll = -1, stoppedAt = null;
   for (;;) {
     const ahead = aheadAt(n);
-    // The cell a swallow pushes the old load back onto is one the cart is vacating this beat,
-    // so only the cell that load would shed into has to be free.
     const canShed = i => {
       const load = loads[i], out = load[load.length - 1];
       if (!out.ch.length) return true;
       return tipFits(next, out.ch[0], at(files[i][load.length - 1], n), -dx, -dy);
     };
-    // Only the first beat has a mouth. Past it a barrow meets things rather than taking them,
-    // which is what stops a roll turning into a cascade of scoops.
     const mouth = swallows && (!barrow || n === 0);
     const clear = ahead.every(([x, y]) => cartCanEnter(next, x, y, dx, dy, mouth))
       && !files.some(f => isTar(cell(next, ...at(f[0], n))));
@@ -1444,8 +1246,6 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
 
     files.forEach((f, i) => {
       if (rolling && !taken[i].length) return;
-      // A cart that stops rolling pushes its load out the back. A barrow does not: what it
-      // scooped stays in it until it is tipped, which is the whole of what scooping buys.
       if (!rolling && isBarrow(kind)) return;
       const load = loads[i], depth = load.length, out = load[depth - 1];
       const behind = at(f[depth - 1], end - 1);
@@ -1454,22 +1254,16 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
 
       for (let j = depth - 1; j > 0; j--) {
         const it = load[j] = load[j - 1];
-        // A slot shift moves the whole stack in it, and moves it as it stands: each thing comes
-        // to rest exactly as deep in the next slot as it was in this one.
         if (step) it.ch.forEach((o, k) => step.moved.push(
           moves({ o, from: at(f[j - 1], n), to: at(f[j], end), parent: cid, at: k })));
       }
       load[0] = { ch: taken[i] };
       if (step && taken[i].length) {
-        // A barrow taken aboard was a CART where it stood, and the stage is holding a cart there
-        // — so the head names the cart lane rather than an occupant nothing answers to yet.
         step.moved.push(wasCart[i] !== undefined
           ? moves({ cells: [ahead[i]], lane: CART_LANE, ref: wasCart[i],
                     from: ahead[i], to: at(f[0], end), parent: cid,
                     restsIn: FLOOR, becomes: taken[i][0], becomesRef: null })
           : moves({ o: taken[i][0], from: ahead[i], to: at(f[0], end), parent: cid }));
-        // A barrow taken aboard brings its load, and the load comes aboard one level deeper than
-        // it was: it was standing in that barrow, and now the barrow is standing in this one.
         for (let k = 1; k < taken[i].length; k++)
           step.moved.push(moves({ o: taken[i][k], from: ahead[i], to: at(f[0], end), parent: cid,
                                   at: wasCart[i] !== undefined ? k - 1 : k, rests: k }));
@@ -1506,23 +1300,17 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
       if (rolling) lastRoll = steps.length - 1;
     }
     if (!rolling) { stoppedAt = ahead; break; }
-    // A thing limited to one cell has moved it, and a barrow has done its one thing. Nothing
-    // stopped either of them, so nothing wears a blow. Grease is the exception it always is: on a
-    // slick a thing keeps going, whatever decides its distance on dry floor.
     const slick = files.some(f => isGrease(cell(next, ...at(f[0], n))));
     if (!slick && (oneCell || (barrow && taken.some(ch => ch.length)))) break;
   }
   if (trace && lastRoll >= 0) steps[lastRoll].impact = true;
 
-  // What the roll finally came up against wears the blow, wherever along the run it stopped.
   const blow = mkStep();
   for (const at of stoppedAt ?? []) strikeBack(next, at, dx, dy, blow);
   if (trace && (blow.moved.length || blow.spawned.length)) {
     frames.push(cloneState(next)); steps.push(blow);
   }
 
-  // Behind a run, he steps into the cell its rearmost member left; behind the cart itself, into
-  // the cart's own. Either way he follows only if the thing in front of him actually went.
   const racTo = tail.length ? [s.rac.x + dx, s.rac.y + dy] : entry;
   next.rac = isClearFloor(next, ...racTo) ? { x: racTo[0], y: racTo[1] } : { ...s.rac };
   if (trace) for (let k = 1; k < frames.length; k++) frames[k].rac = { ...next.rac };
@@ -1538,11 +1326,6 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
  *
  * `opts.trace` adds `frames` and `steps`. Opt-in: it costs a clone per step, and `analyze()`
  * walks the whole state graph wanting nothing but the last board.
- */
-/**
- * The action, and then the board settling. `decide` answers what the shove does; every magnet on
- * the board is asked again afterwards, because a field holds what is in it whether or not the
- * magnet was the thing that moved.
  */
 export function explain(s, dir, opts = {}) {
   const r = decide(s, dir, opts);
@@ -1577,21 +1360,17 @@ function decide(s, dir, opts) {
     ? (f => ({ ok: true, kind, next, frames: f, steps: [step] }))([cloneState(s), next])
     : { ok: true, kind, next };
 
-  // Only the raccoon moves, and he rides on `rac` — so the board the step lands on is the board
-  // it started from, and the new state SHARES it rather than copying it. Sound because every
-  // path in here that writes to a board calls `cloneState` first and writes to that; a shared
-  // board is never the one being written. Worth doing because walking is most of what a state
-  // graph is made of: the solver generates one of these per free direction per state, and
-  // copying a cell object per cell for a step that changes no cell was the tool chain's
-  // largest single cost, in allocation and then again in collection.
+  // Sound because every path in here that writes to a board calls `cloneState` first and writes to
+  // that; a shared board is never the one being written. Worth doing because walking is most of
+  // what a state graph is made of: the solver generates one of these per free direction per state,
+  // and copying a cell object per cell for a step that changes no cell would cost allocation and
+  // then again in collection.
   const stepOnto = () =>
     done({ cols: s.cols, rows: s.rows, cells: s.cells, rac: { x: tx, y: ty } }, MOVE, mkStep());
 
   if (target.water && !isRoller(target)) return { ok: false, reason: 'water', blame: [[tx, ty]] };
 
-  // Three gates ahead of every branch, so none of them can forget one. He may not stand on
-  // broken glass, which also means he cannot shove what is standing on it; a one-way admits
-  // only its own direction; and tar keeps what it has.
+  // Three gates ahead of every branch, so none of them can forget one.
   if (isGlass(target)) return { ok: false, reason: 'glass', blame: [[tx, ty]] };
   if (!mayEnter(s, tx, ty, dx, dy)) return { ok: false, reason: 'oneway', blame: [[tx, ty]] };
   if (target.o !== NONE || isCart(target)) {
@@ -1601,12 +1380,8 @@ function decide(s, dir, opts) {
   // A cart cell carries its cargo in `o`, so cart-ness is read before the occupant is.
   if (isCart(target)) {
     const kind = cartKindOf(target);
-    // Across its axis a barrow tips: it goes one cell and its load carries on one further,
-    // which is the recycle bin's shape exactly — the dump is a shed, not a new mechanic.
     if (isBarrow(kind) && !barrowRollsAlong(kind, dx, dy)) {
       const to = [tx + dx, ty + dy], out = [to[0] + dx, to[1] + dy];
-      // Whatever was in it goes over the front as one — a barrow it was carrying lands as a
-      // barrow, still holding what IT was holding.
       const load = chainOf(target);
       if (!travelsInto(s, ...to, dx, dy))
         return { ok: false, reason: reasonFor(s, [to], 'canRoom'), blame: [to] };
@@ -1617,7 +1392,6 @@ function decide(s, dir, opts) {
                  blame: [tipsInto(load[0], out, dx, dy)] };
       const next = cloneState(s);
       const step = mkStep();
-      // Tipping lets go of whatever it was towing: the barrow turns out from under the load.
       cell(next, tx, ty).grip = undefined;
       cell(next, tx, ty).cart = undefined; cell(next, tx, ty).ck = undefined;
       setChain(cell(next, tx, ty), []);
@@ -1638,11 +1412,8 @@ function decide(s, dir, opts) {
       next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
       return done(next, PUSH, step);
     }
-    // Already towing: the pair is rigid while it can travel, and the hold breaks when it cannot.
     if (inAHold(s, tx, ty)) return towOrBreak(s, [tx, ty], dir, dx, dy, done, opts);
 
-    // Shoved straight at something too big to scoop, the barrow hooks on rather than refusing.
-    // The shove is spent taking hold, which is the same beat a scoop costs.
     if (isBarrow(kind)) {
       const ahead = [tx + dx, ty + dy];
       if (inGrid(s, ...ahead) && isMultiCell(cell(s, ...ahead).o)
@@ -1657,8 +1428,6 @@ function decide(s, dir, opts) {
     }
 
     const res = shoveCart(s, target.cart, [tx, ty], dx, dy, opts.trace === true);
-    // A barrow that rolls up against something too big to scoop HOOKS it instead. One cell
-    // cannot swallow a couch, and the barrow is the handle rather than the container.
     if (res.ok && isBarrow(kind)) hookTow(res.next, target.cart, dx, dy);
     return res;
   }
@@ -1674,9 +1443,6 @@ function decide(s, dir, opts) {
     if (blockers.length) return { ok: false, reason: reasonFor(s, blockers, 'fan'), blame: blockers };
     const next = cloneState(s);
     const step = mkStep({ gone: [leaves({ o: BAG, cells: [[tx, ty]] })] });
-    // Chairs clear out before anything is laid down, so the trash lands on the cells they left.
-    // This is the whole of what the chair changes: the fan stops being only a cost and becomes
-    // something you can aim.
     for (const [fx, fy] of fan(tx, ty, dx, dy)) {
       if (!inGrid(s, fx, fy) || cell(s, fx, fy).o !== CHAIR) continue;
       const to = chairFlees(s, tx, ty, dx, dy, fx, fy);
@@ -1687,7 +1453,6 @@ function decide(s, dir, opts) {
     }
     for (const [fx, fy] of fan(tx, ty, dx, dy)) {
       const c = cell(next, fx, fy);
-      // one origin for the whole fan
       const taken = takenBy(c, TRASH, 'torn open');
       step.spawned.push(arrives({ o: TRASH, cells: [[fx, fy]], from: [tx, ty] }));
       if (taken) step.gone.push(leaves({ o: TRASH, cells: [[fx, fy]], ...taken }));
@@ -1698,9 +1463,6 @@ function decide(s, dir, opts) {
     return done(next, TEAR, step);
   }
 
-  // A pane goes where a shove sends it only in the sense that it BREAKS there. It needs the
-  // cell beyond free to break into — so it is protected by being boxed in, and broken by being
-  // given room, which is the opposite of every other piece on the board.
   if (o === PANE) {
     const c1 = [tx + dx, ty + dy];
     if (!isOccupiable(s, ...c1) || !mayEnter(s, ...c1, dx, dy) || cell(s, ...c1).water)
@@ -1716,16 +1478,8 @@ function decide(s, dir, opts) {
     }));
   }
 
-  // Shoved from the far side, anything held drags its holder along behind it — a towed couch
-  // takes its barrow, a chained can takes its magnet. That is the board pulling, not the
-  // raccoon, which is the one place pulling was ever allowed. The magnet itself is exempt: a
-  // shove on IT is an ordinary shove, and what it holds follows after.
   if (inAHold(s, tx, ty) && !isMagnet(o)) return towOrBreak(s, [tx, ty], dir, dx, dy, done, opts);
 
-  // An open cabinet shuts two ways, and both are the same swap: the piece is destroyed and a shut
-  // cabinet is put down. Shoved on the DRAWER toward the body it closes where it stands. Driven
-  // drawer-first into something that will not take the drawer it FOLDS IN, and the body carries
-  // on into the cell the drawer was filling. Anything else is an ordinary body shove, below.
   if (isCabinetOpen(o)) {
     const { own, body, draw, f } = cabinetEnds(s, target.pid);
     const onDrawer = tx === draw[0] && ty === draw[1];
@@ -1743,18 +1497,11 @@ function decide(s, dir, opts) {
     const blame = clearAt(1);
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
 
-    // The end that goes first, and the only cell either kind of travel asks about: what the roll
-    // hands off to, and what the slick is under. Read off the footprint against the shove, so a
+    // Read off the footprint against the shove, so a
     // body has a leading end without storing which end that is.
     const lead = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
 
-    // Shoved the way it rolls a body travels; shoved the other way it shifts one cell, like the
-    // couch it otherwise is. Nothing stores the axis — it is whatever the footprint already says.
-    //
-    // Grease is the other way it travels, and it is not about rolling: the lane beats weight, and
-    // a body is the heaviest thing there is. What decides is the LEADING cell — the end taking
-    // the shove is the end that skates, and asking the whole footprint would mean a long body
-    // needs a lane longer than itself before the slick did anything for it.
+    // Nothing stores the axis — it is whatever the footprint already says.
     let k = 1;
     const rolls = rollsBody(o, own, dx, dy);
     const travels = () => rolls || isGrease(cell(s, lead[0] + k * dx, lead[1] + k * dy));
@@ -1769,7 +1516,6 @@ function decide(s, dir, opts) {
     // `= undefined`, not `delete`: deleting a property drops the cell into dictionary mode and
     // every clone and key of every state descended from this one pays for it.
     for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; c.pid = undefined; }
-    // A grate takes the piece only when the whole of it fits inside one; a longer thing spans it.
     const landed = own.map(([x, y]) => [x + k * dx, y + k * dy]);
     const bodyTakes = landed.map(([x, y]) => takenBy(cell(next, x, y), o, 'rolled body'));
     const swallowed = bodyTakes.every(Boolean);
@@ -1777,15 +1523,10 @@ function decide(s, dir, opts) {
       const c = cell(next, x, y);
       c.o = o; c.pid = target.pid;
     }
-    // The same hand-off every roller gets, and each end asks it of its own footprint: what takes
-    // the roll is whatever rolls THIS way, and what does not is simply what the roller stops
-    // against. A rug and a bicycle roll on opposite axes, so the pair that hands off is the pair
-    // lying across each other.
     const passed = ROLL_AXIS.has(o)
       ? handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy, step)
       : { moved: [], bodies: [], gone: [] };
     next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
-    // The whole roll in one beat, so the body's own entry carries the whole distance.
     // The body first, then whatever it handed its motion on to, then the cells they disturbed:
     // a reader taking the first entry gets the piece the shove was aimed at.
     step.moved = [moves({ cells: own, lane: BODY_LANE, o, ref: target.pid,
@@ -1798,9 +1539,6 @@ function decide(s, dir, opts) {
   }
 
   if (rollsAlong(target, dx, dy)) {
-    // Rollers already touching are one thing to shove, so the unit that moves is the whole
-    // contiguous run — which also makes the run maximal, and that is what gives IMPACT a
-    // meaning: the cell ahead of a maximal train never holds a roller until travel closes a gap.
     const train = [];
     for (let p = [tx, ty]; inGrid(s, ...p) && rollsAlong(cell(s, ...p), dx, dy); p = [p[0] + dx, p[1] + dy])
       train.push(p);
@@ -1810,14 +1548,9 @@ function decide(s, dir, opts) {
     while (travelsInto(s, lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy, dx, dy)) {
       k++;
       const c = cell(s, lead[0] + k * dx, lead[1] + k * dy);
-      if (isTar(c) || isGrate(c)) break;                 // entered, and then held or fallen through
+      if (isTar(c) || isGrate(c)) break;
     }
     if (k === 0) {
-      // Flush against a cart, the shove reaches THROUGH the run and the cart is what moves — a
-      // run of touching things is one thing to push. It goes to the same mover the raccoon's own
-      // shove uses, so weight, swallowing and shedding cannot come out differently for having
-      // arrived down a train. The shove is spent reaching it: nothing in the train travels, and
-      // he does not follow.
       const ahead = [lead[0] + dx, lead[1] + dy];
       if (inGrid(s, ...ahead) && isCart(cell(s, ...ahead))) {
         // `train` runs rear-first; the cart wants it closest-first.
@@ -1829,8 +1562,6 @@ function decide(s, dir, opts) {
       return { ok: false, reason: reasonFor(s, stop, 'canRoom'), blame: stop };
     }
 
-    // The rearmost is the only one with a free cell behind it — every other has its neighbour
-    // there — so it is the only one that can shed. Same shape as a line of containers.
     const rear = train[0];
     const backOf = ([x, y]) => [x + (k - 1) * dx, y + (k - 1) * dy];
     const rearIsWheelie = cell(s, ...rear).o === WHEELIE;
@@ -1845,7 +1576,6 @@ function decide(s, dir, opts) {
       if (cost) { swallowed.push([[x, y], cell(s, x, y).o, cost]); continue; }
       cell(rolled, ...to).o = cell(s, x, y).o;
     }
-    // Tested against `rolled`: on a one-cell roll this cell is the bin's own start.
     if (back && !swallowed.length && !isOccupiable(rolled, back[0], back[1]))
       return { ok: false, reason: reasonFor(s, [back], 'canRoom'), blame: [back] };
 
@@ -1857,9 +1587,6 @@ function decide(s, dir, opts) {
       shedTaken = drop(next, shedAt, [BAG], 'shed behind a bin').taken[0];
     }
 
-    // IMPACT. The train stopped; if what stopped it rolls, the motion carries on into it and
-    // the train stays put. One rule, applied until nothing is left rolling — every hand-off
-    // goes strictly forward, so a cascade is a straight run and cannot fail to end.
     const strike = mkStep();
     const passedTo = handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy, strike);
 
@@ -1868,16 +1595,11 @@ function decide(s, dir, opts) {
 
     const frames = [cloneState(s), rolled];
     const steps = [mkStep({
-      // A movement entry each, swallowed or not: what the grate takes still TRAVELS to it, and
-      // arriving and then dropping through is not the same as never having gone.
       moved: train.map(([x, y]) =>
         moves({ o: cell(s, x, y).o, from: [x, y], to: [x + k * dx, y + k * dy] })),
       gone: swallowed.map(([[x, y], o, cost]) => leaves({ o, cells: [[x, y]], ...cost })),
       impact: true,
     })];
-    // A body arriving and a thing leaving are asked for the same reason the rest of `strike` is: an impact that
-    // only opened a cabinet moves nothing and names nothing, and the body it minted is then a
-    // piece the stage was never told to build. The next step to reference it cannot find it.
     if (shedAt || passedTo.moved.length || passedTo.bodies.length || strike.moved.length
         || strike.spawned.length || strike.gone.length || passedTo.gone.length) {
       const rearTo = [rear[0] + k * dx, rear[1] + k * dy];
@@ -1894,9 +1616,6 @@ function decide(s, dir, opts) {
         ],
       }));
       if (shedAt) {
-        // The bag lands on whatever the bin was standing on, and that lane gets its say: `drop`
-        // already keeps nothing over a hole, so without this the stage goes on holding a bag
-        // the board let straight through.
         steps.at(-1).spawned.push(arrives({ o: BAG, cells: [shedAt], from: rearTo }));
         if (shedTaken) steps.at(-1).gone.push(leaves({ o: BAG, cells: [shedAt], ...shedTaken }));
       }
@@ -1905,18 +1624,11 @@ function decide(s, dir, opts) {
     return { ok: true, kind: PUSH, next, frames, steps };
   }
 
-  // A shut cabinet opens when it is struck on the BACK — the face opposite the drawer — and the
-  // blow is spent opening it. The cabinet does not slide: it is not a rolling thing, and whatever
-  // hit it stops there. Struck on any other face it is an ordinary shove, which is what its rows
-  // in SLIDES give it, so nothing is written here for that case.
   if (isCabinetClosed(o)) {
     const f = DIRS[cabinetFace(o)];
     if (dx === f[0] && dy === f[1]) return openCabinet(s, [tx, ty], done);
   }
 
-  // The broom takes the whole contiguous line ahead of it, of any kinds, one cell — and on
-  // grease it takes the line the length of the slick. It is the ONLY thing that moves a bag
-  // without bursting it, which is what gives broken glass anything to do.
   if (o === BROOM) {
     const line = [];
     for (let p = [tx, ty]; inGrid(s, ...p) && cell(s, ...p).o !== NONE
@@ -1925,8 +1637,6 @@ function decide(s, dir, opts) {
     const head = line[line.length - 1];
     const beyond = [head[0] + dx, head[1] + dy];
     if (!travelsInto(s, ...beyond, dx, dy)) {
-      // Unless what is in the way is a shut cabinet taking the blow on its back. The line has
-      // nowhere to go, so the sweep is spent knocking the drawer out.
       const knocked = cloneState(s);
       const step = mkStep();
       strikeBack(knocked, beyond, dx, dy, step);
@@ -1937,8 +1647,6 @@ function decide(s, dir, opts) {
     if (line.some(([x, y]) => stuckInTar(s, x, y)))
       return { ok: false, reason: 'tar', blame: line.filter(([x, y]) => isTar(cell(s, x, y))) };
 
-    // How far the line goes. Off grease that is one cell; on it, the broom carries the whole
-    // train to the end of the slick.
     let k = 1;
     while (isGrease(cell(s, tx + k * dx, ty + k * dy))
            && travelsInto(s, head[0] + (k + 1) * dx, head[1] + (k + 1) * dy, dx, dy)) {
@@ -1947,8 +1655,6 @@ function decide(s, dir, opts) {
       if (isTar(c) || isGrate(c)) break;
     }
 
-    // A bag anywhere but the head refuses to be swept onto glass: it would tear with the rest of
-    // the line packed round it, and there is nowhere for a fan to go.
     for (let i = 0; i < line.length; i++) {
       const [x, y] = line[i];
       if (cell(s, x, y).o !== BAG || i === line.length - 1) continue;
@@ -1965,11 +1671,6 @@ function decide(s, dir, opts) {
     for (const [x, y] of [...line].reverse()) {
       const from = [x, y], to = [x + k * dx, y + k * dy];
       const what = cell(s, x, y).o;
-      // Asked before the drop, and the drop asks again — which doubles this site in the landing
-      // ledger's tally and is the price of the answer being needed before it is known whether
-      // this is a landing at all. A lane that keeps what lands falls through to the branches
-      // below, which place it themselves, so dropping first would place it twice and stepping
-      // back from that means unwriting keys the drop may have added.
       const cost = takenBy(cell(next, ...to), what, 'swept');
       if (cost) {
         drop(next, to, [what], 'swept');
@@ -1977,20 +1678,12 @@ function decide(s, dir, opts) {
         step.gone.push(leaves({ o: what, cells: [from], ...cost }));
         continue;
       }
-      // A pane breaks into the space IN FRONT of it, which a line gives only to its head: every
-      // other has its neighbour there, and a neighbour in front is what saves a pane from a
-      // shove as well. Water is the landing that breaks nothing — there is no floor there to
-      // leave glass on, and glass in the canal is what the shove refuses outright.
       if (what === PANE && isOccupiable(s, x + dx, y + dy) && !cell(s, ...to).water) {
-        // It travels and is then gone, which a shoved pane cannot do — the raccoon is standing
-        // where it would have to set off from. Swept, the space it breaks into is the space it
-        // was going anyway.
         step.moved.push(moves({ o: PANE, from, to }));
         step.gone.push(leaves({ o: PANE, cells: [from] }));
         cell(next, ...to).ter = GLASS;
         continue;
       }
-      // A bag swept onto glass bursts where it lands, which only the head of a line can do.
       if (what === BAG && isGlass(cell(next, ...to))) {
         step.gone.push(leaves({ o: BAG, cells: [from] }));
         for (const [fx, fy] of fan(to[0], to[1], dx, dy)) {
@@ -2010,16 +1703,12 @@ function decide(s, dir, opts) {
       step.moved.push(m);
       if (x === head[0] && y === head[1]) headMoved = m;
     }
-    // Only the head has a free cell beyond it; every other has its neighbour there, so the shed
-    // rule needs no statement of its own.
     const headTo = [head[0] + k * dx, head[1] + k * dy];
     const headWas = cell(s, ...head).o;
     if (sheds(headWas) && cell(next, ...headTo).o === headWas
         && tipFits(next, headWas, headTo, dx, dy)) {
       tipOut(next, headWas, headTo, dx, dy, step);
-      // The container empties as it lands, and the sprite is already drawn: without this it
-      // keeps its old kind, and a can still drawn full beside the bag it just shed reads as
-      // two bags.
+      // The sprite is already drawn: without this it keeps its old kind.
       if (headMoved) headMoved.becomes.o = landsAs(headWas);
     }
     next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
@@ -2034,9 +1723,6 @@ function decide(s, dir, opts) {
     const blame = [];
     if (!canRest(s, c1[0], c1[1]) || !mayEnter(s, c1[0], c1[1], dx, dy)) blame.push(c1);
 
-    // Where it actually stops. Off grease that is the cell it was shoved to; on grease it keeps
-    // going, and every bill — the tip, the cart it lands in, the grate that takes it — is
-    // settled where it comes to rest rather than where it was pushed.
     let at = c1;
     const setOff = at;
     if (into === null && !blame.length && !SLIDES[o].soaks) {
@@ -2045,9 +1731,6 @@ function decide(s, dir, opts) {
         if (isTar(cell(s, ...at)) || isGrate(cell(s, ...at))) break;
       }
     }
-    // Whether it is still TRAVELLING when it arrives, which is the whole of what decides the
-    // hand-off below. Not what it is: a can shoved a single cell on dry floor has no motion to
-    // give away, and the same can carried three cells by a slick does.
     const carried = at !== setOff;
     const cost = into === null && !blame.length ? takenBy(cell(s, ...at), o, 'slid') : null;
     const swallowed = cost !== null;
@@ -2079,16 +1762,9 @@ function decide(s, dir, opts) {
     }
     if (shove) applyIntoCart(s, next, into, shove, lands, step);
     else if (SLIDES[o].soaks) { soak(cell(next, ...at)); drop(next, at, [lands]); }
-    // Spent making the cell walkable. It still MOVES — the sheet slides onto the hazard and goes
-    // down with it — so the step keeps the move and names the sprite where the stage holds it,
-    // which is the cell it started from.
     else if (SLIDES[o].covers && cover(cell(next, ...at)))
       step.gone.push(leaves({ o, cells: [[tx, ty]] }));
     else drop(next, at, [lands]);
-    // Something moving that meets something movable passes the motion on, and a slick surface
-    // carries motion rather than eating it — so a thing still travelling when it arrives hands
-    // off exactly as a rolling tyre does. It stops where it stopped either way; this is what
-    // happens to whatever stopped it.
     const passed = carried && !swallowed && !shove
       ? handOff(next, [at[0] + dx, at[1] + dy], dx, dy, step)
       : null;
@@ -2096,10 +1772,6 @@ function decide(s, dir, opts) {
     const grip = cell(next, tx, ty).grip;
     cell(next, tx, ty).o = NONE;
     cell(next, tx, ty).grip = undefined;
-    // The magnet is an ordinary slider; what it does happens after it lands, and it lands
-    // wherever the dispatch above put it — a cart slot is a place to land like any other.
-    // Asking the board where it ended up is also how a grate that took it on the way says so:
-    // there is then no field to resolve, and nothing holds what it was holding.
     if (isMagnet(o)) {
       const rest = shove ? shove.file[0] : at;
       if (cell(next, ...rest).o === o) {
@@ -2107,10 +1779,6 @@ function decide(s, dir, opts) {
         magnetResolve(next, ...rest, step, dx, dy);
       }
     }
-    // He follows only onto floor he could have walked onto, the same question every travelling
-    // branch asks. A ROLLER standing in water is shovable — that is what the water gate lets
-    // through — and across its axis a tire takes this branch, so the cell it leaves is the
-    // canal it was sitting in.
     next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
     return done(next, PUSH, step);
   }
@@ -2133,9 +1801,6 @@ export function applyAction(s, { dir, kind }) {
 }
 
 export const BAGS_IN = { [BAG]: 1, [CAN_FULL]: 1, [WHEELIE]: 1, [BIN]: 1 };
-// Both walk the whole chain. A bag stowed inside a barrow that is itself riding in a cart is
-// still a bag the exit is waiting on, and a room that let it out of sight would open its door
-// on a yard that is not clear.
 export function bagsLeft(s) {
   let k = 0;
   for (const o of deepCells(s)) k += BAGS_IN[o] ?? 0;
@@ -2155,16 +1820,10 @@ export const isWon = s => exitLit(s) && atExit(s);
 
 /** Canonical state key. Each lane is here because dropping it is a SILENT bug:
  *
- *  - terrain, because the jug pours. Without it a jug shoved in a loop keys identical to the
- *    opening position and the solver skips a board it has never seen; and trash on floor
- *    blocks where trash on water walks, so the occupant code alone does not say what a cell is.
  *  - cart membership, because a cart cell holds its cargo in `o` — a can riding in a cart
  *    would read exactly like a can on the floor.
- *  - one lane per multi-cell kind, because the codes do not determine the partition: four
- *    FURNITURE cells are one couch or two. Labelled by first appearance in raster order, so
- *    the key does not depend on which ids happen to be in play.
- *  - link membership, because what is hooked to what changes what a shove does. The same
- *    pieces in the same cells, one pair linked and one not, are two boards.
+ *  - one lane per multi-cell kind, because the codes do not determine the partition. Labelled by
+ *    first appearance in raster order, so the key does not depend on which ids happen to be in play.
  *  - each cart's KIND beside its label, because that same relabelling is what makes two carts
  *    interchangeable — sound only while they are. Two carts of different kinds that swap
  *    positions would otherwise hand back one key for two boards.
@@ -2182,16 +1841,15 @@ export const isWon = s => exitLit(s) && atExit(s);
  * cache would be correct only while nothing writes to a board after it has been keyed, that is
  * true today by accident of where the writes happen, and a future write in the wrong place
  * would not throw or fail a test — it would hand the solver a stale key and a wrong answer for
- * a board it thinks it has already seen. Measured, it was worth about four percent.
+ * a board it thinks it has already seen.
  */
-const SEP = '#';                        // below 65, which is the floor every lane is packed off
+const SEP = '#';
 
-// One pass with lazy label maps: this runs once per state generated, and most boards have
-// neither furniture nor a cart.
+// One pass with lazy label maps: this runs once per state generated.
 //
 // Each cell's fields are walked once with for-in rather than read one by one. A cell carries
 // only the fields it uses, so a board holds cells of many shapes, and reading a field a cell
-// does not have is the slow path; measured, the walk halved the cost of a key.
+// does not have is the slow path.
 export const stateKey = s => {
   let kinds = '', pids = '', carts = '', links = '', holds = '';
   let pidLabels = null, cartLabels = null;
@@ -2224,7 +1882,7 @@ export const stateKey = s => {
         carts += String.fromCharCode(65 + cartLabels.get(cart) * CART_KINDS + cartKindOf(c));
       }
       // What is hooked to what is board state: the same pieces in the same cells, one pair
-      // linked and one pair not, are two different boards and play differently.
+      // linked and one pair not, are two different boards.
       if (grip !== undefined) links += String.fromCharCode(78 + grip);
       // What a carried barrow is holding, and what THAT is holding. Variable length, so each
       // one is written with its own count — the cells it belongs to are the ones the kinds lane

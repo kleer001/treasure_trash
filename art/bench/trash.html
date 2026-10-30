@@ -62,7 +62,7 @@ const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - 
 const [D, A, O] = await Promise.all(['../../src/art/items.json', '../../src/art/assets.json', '../../src/art/objects.json'].map(f => fetch(f).then(r => r.json())));
 
 // The test room. W wall, p pile, @ raccoon; standing objects b bin, c can, j jug, g bag;
-// lying objects C couch (two cells), t tyre, x box. The raccoon walks, so it blocks nothing.
+// lying objects C couch (two cells), t tyre, x box.
 const ROOM = [
   'WWWWWWWWW',
   'Wpp.pCCpW',
@@ -75,8 +75,7 @@ const ROOM = [
 const STAND = { b: O.bin, c: O.can, j: O.jug, g: A.bag }, LIE = { C: O.couch, t: O.tyre, x: O.box };
 const RW = ROOM[0].length, RH = ROOM.length;
 const cellsOf = ch => ROOM.flatMap((r, y) => [...r].map((c, x) => c === ch ? [x, y] : null)).filter(Boolean);
-/** Every object in the room as [sprite, x, y]: standing ones on their cell's bottom edge, lying
- *  ones centred on the run of cells their glyph covers in its row. */
+/** Every object in the room as [sprite, x, y]. */
 const OBJECTS = [
   ...Object.entries(LIE).flatMap(([ch, spr]) => {
     const runs = [];
@@ -86,8 +85,7 @@ const OBJECTS = [
   ...Object.entries(STAND).flatMap(([ch, spr]) => cellsOf(ch).map(([x, y]) => [spr, ...at(spr, x, y)])),
 ];
 
-/** The object pixels trash may not reach: every object pixel more than `under` pixels in from
- *  its object's edge. */
+/** The object pixels more than `under` pixels in from its object's edge. */
 function deepMask(under) {
   const W = RW * C, H = RH * C;
   let m = new Uint8Array(W * H);
@@ -112,7 +110,6 @@ function floor(g, cols, rows) {
 }
 function drawSpr(g, spr, x, y) { for (const [px, py, col] of spr.px) { g.fillStyle = col; g.fillRect(x + px, y + py, 1, 1); } }
 
-/** Draw at logical size into an offscreen canvas, then show it at the zoom. */
 function show(cv, w, h, paint) {
   const off = document.createElement('canvas'); off.width = w; off.height = h;
   paint(off.getContext('2d'));
@@ -154,7 +151,6 @@ function render(items = true) {
   if (items) root.innerHTML = '';
   for (const name of items ? T.names : []) {
     const it = D.items[name], card = document.createElement('div'); card.className = 'card';
-    // One row of the palettes in the first turn, one row of the turns in the first palette.
     const row = sprites => {
       const el = document.createElement('div'); el.className = 'alts';
       const side = Math.max(...sprites.map(s => Math.max(s.w, s.h))) + 4;

@@ -29,7 +29,6 @@ const SLACK = {
   cart: ['---P-', '---P-', '-----'],
 };
 
-// Enough ways to lose that walling some off is still allowed.
 const ROOMY = {
   grid: ['Eb---', '@$---', '-----'],
   cart: ['--P--', '--P--', '-----'],

@@ -103,7 +103,6 @@ const inlined = (() => {
   ].join('\n'));
 })();
 
-// Dependencies in order, then the entry with its fetches already replaced.
 const bundled = modules
   .map(f => `// ---- src/${f} ----\n${f === ENTRY ? inlined : demodule(read(`src/${f}`))}`)
   .join('\n');

@@ -4,7 +4,7 @@
 //   node tools/score.mjs [--in F] [--top N] [--par LO-HI] [--show N] [--tt N]
 //
 // The harvest stores every metric it measured, so this is a query over that file: change the
-// weights, re-run, get a new ranking in a second. Nothing here re-solves anything.
+// weights, re-run, get a new ranking.
 //
 // WHAT IS SCORED, AND WHY IT IS NOT A PILE OF TRAPS
 //
@@ -14,10 +14,10 @@
 // measure", and they warn that push and move counts measure tedium rather than difficulty —
 // a solution that shoves one thing down a long corridor scores high on both and plays flat.
 //
-// This game adds one axis Sokoban does not have. Its mess is permanent, so a room can be lost
-// without ending, and the interesting question is not how many ways there are to lose but
-// WHERE they sit. A room whose first losing move is twenty steps in punishes a player who has
-// already stopped paying attention; a room that can be lost on move one is asking a question.
+// This game adds one axis Sokoban does not have. The interesting question is not how many ways
+// there are to lose but WHERE they sit. A room whose first losing move is twenty steps in punishes
+// a player who has already stopped paying attention; a room that can be lost on move one is asking
+// a question.
 
 import { readFileSync } from 'node:fs';
 import { toState } from '../src/format.js';
@@ -30,8 +30,7 @@ import { pathBite } from './metrics.mjs';
  * graph runs far past par, so it says nothing about the walk the player actually takes.
  *
  * `onPath` is the fraction of the solve's depths at which optimal play can still throw the
- * room away. That is the number L29 got wrong: it shipped with seventeen ways to lose and
- * every one of them off the line a player would walk.
+ * room away.
  */
 export function refine(room) {
   const s = toState({ id: 'refine', grid: room.grid, ...(room.cart && { cart: room.cart }) });
@@ -44,56 +43,46 @@ export function refine(room) {
 const clamp01 = v => Math.max(0, Math.min(1, v));
 
 export const TERMS = {
-  // Sokoban's best-attested difficulty signal: distinct runs of work on one piece in one
-  // direction. Saturates — past about a dozen the room is long rather than hard.
+  // Sokoban's best-attested difficulty signal.
   lines: r => clamp01(r.lines / 12),
 
-  // How often the solution puts one piece down and picks another up. Interleaving is what
-  // makes a room a puzzle instead of several puzzles sharing a grid.
+  // Interleaving is what makes a room a puzzle instead of several puzzles sharing a grid.
   changes: r => clamp01(r.changes / 8),
 
-  // How EARLY the first way to lose appears, as a fraction of the way through the solve.
-  // 1 when the room can be lost on move one. This is the term that separates a room which
-  // asks a question from one that springs a surprise.
+  // This is the term that separates a room which asks a question from one that springs a surprise.
   //
-  // Refined, this reads the first depth at which OPTIMAL play can lose. Unrefined it falls
-  // back to the earliest trap anywhere in the graph, which flatters a room whose traps all
-  // hang off lines a solver would never walk.
+  // Unrefined it falls back to the earliest trap anywhere in the graph, which flatters a room whose
+  // traps all hang off lines a solver would never walk.
   firstBite: r => {
     if (r.firstOnPath !== undefined)
       return r.firstOnPath === null ? 0 : clamp01(1 - r.firstOnPath / Math.max(1, r.par));
     return r.firstTrap === null ? 0 : clamp01(1 - r.firstTrap / Math.max(1, r.par));
   },
 
-  // How much of the ROAD has a way off it. `onPath` is exact and arrives with --refine;
-  // `biteSteps` counts distinct depths across the whole graph, which runs well past par, so
-  // it is only a stand-in until the room has been re-solved.
+  // `onPath` is exact and arrives with --refine; `biteSteps` counts distinct depths across the
+  // whole graph, which runs well past par, so it is only a stand-in until the room has been re-solved.
   biteSpread: r => (r.onPath !== undefined ? r.onPath : clamp01(r.biteSteps / 12)),
 
-  // How long the room lets you keep playing after it is already lost. This one is SUBTRACTED:
-  // a room that stays playable for thirty moves after the mistake cannot teach you what the
-  // mistake was.
+  // A room that stays playable after the mistake cannot teach you what the mistake was.
   blindness: r => clamp01(r.blind / 20),
 
-  // Fewer distinct shortest solutions means a tighter room. Measured against par, since a
-  // long solution having two orderings is far less slack than a short one having two.
+  // Measured against par, since a long solution having two orderings is far less slack than a short one having two.
   tightness: r => clamp01(1 - (r.solves - 1) / Math.max(2, r.par / 4)),
 
-  // Work per move. A room that is mostly walking is padded, however long it is.
+  // A room that is mostly walking is padded, however long it is.
   density: r => clamp01(r.pushes / Math.max(1, r.par * 0.45)),
 };
 
 export const WEIGHTS = {
   lines: 1.0,
   changes: 1.4,        // the paper's "may be an even better measure"
-  firstBite: 1.6,      // this game's own axis, and the one L29 got wrong
+  firstBite: 1.6,      // this game's own axis
   biteSpread: 0.8,
-  blindness: -1.2,     // subtracted: see above
+  blindness: -1.2,
   tightness: 0.9,
   density: 0.7,
 };
 
-/** A room with no way to lose at all is not a hard room, whatever else it scores. */
 export const REQUIRE = r => r.traps >= 1 && r.par >= 12;
 
 export function score(room, weights = WEIGHTS) {
@@ -107,9 +96,8 @@ export function score(room, weights = WEIGHTS) {
 }
 
 /**
- * Rooms that are too alike are one room. Two rooms collide when they draw the same group and
- * land on the same (par, lines, changes) signature — the generator finds near-duplicates in
- * bulk, and twenty of one idea is not an act.
+ * Rooms that are too alike are one room. The generator finds near-duplicates in bulk, and
+ * twenty of one idea is not an act.
  */
 export function dedupe(scored) {
   const seen = new Set(), out = [];
@@ -121,7 +109,7 @@ export function dedupe(scored) {
   return out;
 }
 
-/** A pack wants a curve, not twenty of the best room. Takes the best room in each par band. */
+/** A pack wants a curve, not twenty of the best room. */
 export function ladder(scored, lo, hi, want) {
   const bands = [];
   for (let i = 0; i < want; i++) {

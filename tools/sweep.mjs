@@ -2,9 +2,8 @@
  * The interaction sweep: what a room can be made to DO, and the shortest way to do all of it.
  *
  * A declared `:solve` is the shortest path to the exit, and the shortest path is under no
- * obligation to touch anything. Room TM teaches that a blow on a cabinet's back opens it and
- * wins in seven moves that walk around the cabinet — so replaying solves proves the exit still
- * opens and says nothing at all about the pieces.
+ * obligation to touch anything, so replaying solves proves the exit still opens and says
+ * nothing at all about the pieces.
  *
  * So this does not search for a win. It enumerates the MEETINGS a room affords — a piece shoved
  * into another piece, a piece run onto a terrain lane — keeps the ones the room can actually be
@@ -41,7 +40,7 @@ function nameAt(look, s, x, y) {
 }
 
 // A room with no hazards writes no `:water` block at all, so the mask is absent rather than
-// blank — a lane nothing is standing on is still a lane nothing can be met on.
+// blank.
 const look = s => ({ g: toGrid(s), w: toWater(s), c: toCart(s) });
 const laneAt = (lk, x, y) => (lk.w ? lk.w[y][x] : '-');
 
@@ -88,7 +87,7 @@ function affords(a) {
   for (const [from, node] of a.states) {
     for (const dir of DIR_ORDER) {
       const r = explain(node.state, dir);
-      if (!r.ok || r.kind !== PUSH) continue;      // walking into empty floor meets nothing
+      if (!r.ok || r.kind !== PUSH) continue;
       const m = meetingOf(node.state, dir);
       for (const k of keysOf(m)) {
         if (!byKey.has(k)) byKey.set(k, []);
@@ -140,7 +139,6 @@ function route(a, rootKey, byKey) {
   while (want.size) {
     let at = rootKey, keys = [], covers = [], progressed = false;
     for (;;) {
-      // Every board from which some uncovered meeting is one shove away.
       const doors = new Map();
       for (const k of want) for (const e of byKey.get(k)) {
         if (!doors.has(e.from)) doors.set(e.from, []);
@@ -151,8 +149,7 @@ function route(a, rootKey, byKey) {
       if (walk === null) break;
       let here = at;
       for (const d of walk) here = a.states.get(here).edges.find(e => e.dir === d).to;
-      // One shove can cause several meetings at once — a piece that crosses tar to reach a can
-      // has met both, and the driver should be told to watch for both.
+      // One shove can cause several meetings at once, and the driver is told to watch for each.
       const opts = doors.get(here);
       const dir = opts[0].dir;
       const had = opts.filter(o => o.dir === dir).map(o => o.key);

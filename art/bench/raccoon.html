@@ -107,12 +107,8 @@ const canvasOf = (w, h = w) => { const c = document.createElement('canvas'); c.w
 const pixels = (c, w, h = w) => c.getContext('2d').getImageData(0, 0, w, h).data;
 function differ(a, b) { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++; return n; }
 const drawPx = (ctx, list, x, y) => { for (const [px, py, col] of list) { ctx.fillStyle = col; ctx.fillRect(x + px, y + py, 1, 1); } };
-// A sprite stands centred on its cell, its feet one pixel above the cell's bottom edge.
 const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
 
-/** The raccoon in the middle of an open room, facing the way it was last pressed, and, for a push,
- *  an empty can ahead of it: held fast by a wall when the push is to fail. The move the rules make
- *  of it, how far each thing goes, and the way the stage faces the raccoon after it. */
 function setup() {
   const [dx, dy] = DIRS[ui.dir], put = { [`${MID},${MID}`]: '@', '0,0': 'E' };
   if (ui.act === 'push' || ui.act === 'stuck') put[`${MID + dx},${MID + dy}`] = 'c';
@@ -127,14 +123,12 @@ function setup() {
   const face = r ? stageFrom(next, 1, decorAfter(s, worn, ui.dir, r)).sprites.find(sp => sp.kind === RACCOON).heading : ui.before;
   const moved = r?.ok ? r.steps[0].moved : [];
   const span = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-  // What the raccoon shoves: what the rules moved, or the can that would not move.
   const thing = moved.length ? { cell: moved[0].cells[0], dist: C * (Math.abs(moved[0].dx) + Math.abs(moved[0].dy)) }
     : ui.act === 'stuck' ? { cell: [MID + dx, MID + dy], dist: 0 } : null;
   return { s, r, next, face, dx, dy, W: N * C, dist: C * span(s.rac, next.rac), thing, gap: thing ? gap(thing.cell, dx, dy) : 0 };
 }
 
-/** How far the raccoon, at rest facing the push, leans to touch the can at `[cx, cy]`: the empty
- *  px between them along the push, in the nearest of the lines the push crosses. */
+/** The empty px between the raccoon and the can at `[cx, cy]` along the push. */
 function gap([cx, cy], dx, dy) {
   const spr = R.rest(ui.dir), [rx, ry] = at(spr, MID, MID), [kx, ky] = at(CAN, cx, cy);
   const ahead = (x, y) => dx ? x * dx : y * dy, lane = (x, y) => dx ? y : x;
@@ -150,7 +144,7 @@ function ground(ctx, s) {
   for (let k = 0; k < N; k++) { ctx.fillRect(k * C + C - 1, 0, 1, B.W); ctx.fillRect(0, k * C + C - 1, B.W, 1); }
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (cell(s, x, y).wall) wallTile(ctx, x, y, C);
 }
-/** Sprites `[{px, x, y, h, rac}]` drawn nearest last: the lower foot in front, the raccoon on a tie. */
+/** Sprites `[{px, x, y, h, rac}]`, drawn nearest last. */
 function sprites(ctx, list) {
   for (const p of list.sort((a, b) => (a.y + a.h) - (b.y + b.h) || a.rac - b.rac)) drawPx(ctx, p.px, p.x, p.y);
 }
@@ -188,7 +182,6 @@ function frame(j) {
   if (!cache.has(j)) { const c = canvasOf(B.W); frameAt(c.getContext('2d'), Math.min(msOf(j), END)); cache.set(j, c); }
   return cache.get(j);
 }
-/** The cells the action happens in, as px: the raccoon's, and two ahead of it. */
 function crop() {
   const xs = [MID, MID + 2 * B.dx], ys = [MID, MID + 2 * B.dy];
   const x = Math.min(...xs) * C, y = Math.min(...ys) * C;
@@ -257,7 +250,6 @@ function tick(now) {
   requestAnimationFrame(tick);
 }
 
-/** The three views large, at rest and blinking, and the side view mirrored. */
 function drawViews() {
   const host = document.getElementById('views'), z = 6;
   const REST = R.REST, list = [['front', false, 'd', 'from the front'], ['side', false, 'r', 'from the side, facing →'],

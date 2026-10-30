@@ -88,9 +88,6 @@ function differ(a, b) { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i
 const clamp = v => Math.max(0, Math.min(1, v));
 const hex = (d, i) => '#' + [d[i], d[i + 1], d[i + 2]].map(v => v.toString(16).padStart(2, '0')).join('');
 
-/** The bag with the raccoon behind it, ready to push, and a canal that crosses the push just past
- *  the bag or runs beside it along the push; the tear `explain()` makes of it; and the piles its
- *  trash makes, on dry floor and in the water cells the tear filled. */
 function setup() {
   const [dx, dy] = DIRS[ui.dir], N = ui.room === 'walled' ? 5 : 7, b = (N - 1) / 2, [px, py] = [-dy, dx];
   const wall = (x, y) => ui.room === 'walled' && (x === 0 || y === 0 || x === N - 1 || y === N - 1);
@@ -111,7 +108,6 @@ function setup() {
     if (kind(x, y) === 'trash') { cells.push([x, y]); dry.push([x, y]); }
     if (kind(x, y) === 'filled') { cells.push([x, y]); filled.push([x, y]); }
   }
-  // Trash on the floor stays off the water, and trash in the water stays in the cell it filled.
   const piles = spreadPiles(T, 'edges', S.edges, { C, W: N, H: N, cells, isTrash: (x, y) => ['trash', 'filled'].includes(kind(x, y)), seed: S.seed, hues: S.hues });
   for (const [k, pile] of piles) {
     const [cx, cy] = k.split(',').map(Number), own = kind(cx, cy), floor = own === 'trash';
@@ -124,8 +120,6 @@ function setup() {
   const pieces = cells.flatMap(([x, y]) => (piles.get(`${x},${y}`)?.pieces ?? []).map((p, i) => ({ cx: x, cy: y, i, p, wet: isFilled(x, y) })));
   const spawned = r.steps[0].spawned.filter(e => e.o === TRASH);
   const middle = { x: b * C + C / 2, y: b * C + C - 1 - A.bag.h / 2 };
-  // Each water pixel open and packed, and the order it packs in: out from the middle of the cell
-  // that packs it, ragged.
   const canalPx = [...canal(T, N, C, (x, y) => ({ filled: 'crossing', water: 'water' })[kind(x, y)], EDGE)].map(([k, p]) => {
     const [x, y] = k.split(',').map(Number), o = p.owner;
     const order = o && Math.min(0.99, 0.8 * Math.hypot(x + 0.5 - (o[0] + 0.5) * C, y + 0.5 - (o[1] + 0.5) * C) / (C / Math.SQRT2) + 0.2 * hash(x, y, 31) / 4294967296);
@@ -139,8 +133,7 @@ let B, P, W, END, FRAMES, PACK, cache = new Map(), clock = 0, shown = -1;
 const view = document.getElementById('view'), scrub = document.getElementById('scrub');
 const msOf = j => j * 1000 / ui.fps;
 const soakOf = (q, since) => ui.soak ? clamp((since - q.land) / ui.soak) : since >= q.land ? 1 : 0;
-/** How far filled cell `[x, y]` has packed `since` ms after the tear: from its first piece landing
- *  to `pack` ms after its last. */
+/** How far filled cell `[x, y]` has packed `since` ms after the tear. */
 const packOf = ([x, y], since) => { const w = PACK.get(`${x},${y}`); return w ? clamp((since - w.first) / Math.max(1, w.last + ui.pack - w.first)) : 0; };
 
 function report(id, ok, text) { const el = document.getElementById(id); el.textContent = text; el.className = 'check ' + (ok ? 'ok' : 'bad'); }
@@ -156,8 +149,7 @@ function drawCanal(ctx, since) {
   return (x, y) => open.has(`${x},${y}`);
 }
 
-/** The pieces `list` that lie in filled cells, each `soak(q)` of the way soaked: ordered dither, so
- *  a piece goes over pixel by pixel. The ring a pile casts lies on water, so it is the water's. */
+/** The pieces `list` that lie in filled cells, each `soak(q)` of the way soaked. */
 function drawWet(ctx, list, soak) {
   if (!list.length) return;
   const off = canvasOf(B.W), g = off.getContext('2d');
@@ -178,7 +170,6 @@ function drawWet(ctx, list, soak) {
   }
 }
 
-/** Splash rings round the pieces `list` landed in water, `since` ms after the tear, on open water only. */
 function rings(ctx, list, since, open) {
   for (const q of list) {
     const e = (since - q.land) / ui.splash, s = T.sprite(q.p.name, q.p.alt, q.p.turn);
@@ -191,7 +182,6 @@ function rings(ctx, list, since, open) {
     }
   }
 }
-/** Drops thrown up by the pieces `list` landing in water: out and back down over the first half of a splash. */
 function drops(ctx, list, since) {
   for (const q of list) {
     const e = (since - q.land) / (ui.splash / 2);
@@ -226,7 +216,6 @@ function frameAt(ctx, t) {
   raccoonOver(ctx);
 }
 
-/** A still of board `s`, drawn from the board alone, with the pieces `trash` at rest. */
 function still(ctx, s, trash) {
   F.ground(ctx, B);
   const on = (x, y) => x >= 0 && y >= 0 && x < B.N && y < B.N;

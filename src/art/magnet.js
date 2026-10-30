@@ -1,5 +1,4 @@
-// The magnet: a red toy U with silver poles, its opening toward its field. The light is from the
-// upper left in every facing.
+// The magnet: a red toy U with silver poles. The light is from the upper left in every facing.
 //   k ink, r body, R body lit, d body shade, m pole, M pole lit, n pole shade
 const PALETTE = { k: '#19152b', r: '#c8453f', R: '#e77a5f', d: '#8a2a26', m: '#9aa2a9', M: '#d6d9dd', n: '#67819e' };
 const VIEWS = {

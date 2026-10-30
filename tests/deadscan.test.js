@@ -5,7 +5,6 @@ import { parseLevelPack, parseLurd, toState } from '../src/format.js';
 import { analyze, deadScan } from '../src/solver.js';
 import { explain, stateKey, isWon } from '../src/rules.js';
 
-/** Drive the generator to completion the way the page does, a slice at a time. */
 const run = (s, opts) => {
   const g = deadScan(s, opts);
   for (;;) { const r = g.next(); if (r.done) return r.value; }
@@ -13,8 +12,6 @@ const run = (s, opts) => {
 
 const PACK = parseLevelPack(readFileSync('levels/act1.tt', 'utf8'));
 
-// The indicator is a SECOND path to a fact the verifier already proves with `analyze`. If the
-// two ever disagree, one of them is lying to the player about whether the room is still alive.
 test('deadScan agrees with analyze on every shipped room', () => {
   for (const l of PACK.levels) {
     const s = toState(l);
@@ -47,7 +44,7 @@ test('walking the declared solve never enters a dead board', () => {
 
 // The player's first move is owed a responsive frame, so the scan has to be interruptible.
 test('the scan yields while working and returns the set only when finished', () => {
-  const l = PACK.levels.find(x => x.id === 'L11');       // the pack's largest state graph
+  const l = PACK.levels.find(x => x.id === 'L11');
   const g = deadScan(toState(l), { budget: 50 });
   let yields = 0, value = null;
   for (;;) {
@@ -69,14 +66,12 @@ test('a smaller budget changes only how often it pauses, never the answer', () =
 });
 
 test('a room lost by a real mistake reports itself lost', () => {
-  // L9's own note says the way to lose it is filling the gap you must come back through.
   const l = PACK.levels.find(x => x.id === 'L9');
   const s = toState(l);
   const a = analyze(s);
   const dead = run(s);
   assert.ok(a.traps.length > 0, 'the fixture needs a way to lose');
 
-  // Replay the shortest losing line and check the indicator lights exactly at the end of it.
   const trap = a.traps[0];
   let cur = s;
   const acts = parseLurd(trap.lurd);
