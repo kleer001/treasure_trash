@@ -53,7 +53,7 @@ function moduleOrder(entry) {
 // the same character under every encoding.
 //
 // The rule covers what a reader sees, so comments are dropped from the bundle rather than
-// held to it — source keeps its punctuation and the artifact ships without the commentary.
+// held to it — source keeps its punctuation and the artifact is built without the commentary.
 const asciiMarkup = s => s.replace(/[^\x00-\x7F]/gu, c => `&#x${c.codePointAt(0).toString(16)};`);
 // No `u` flag here on purpose: iterating UTF-16 code units turns an astral character into
 // the surrogate pair JS source actually wants.
@@ -70,7 +70,7 @@ const modules = moduleOrder(ENTRY);
 const script = read(`src/${ENTRY}`);
 
 // WHICH packs there are is read from the game's own list rather than globbed or hardcoded: a
-// bundle that ships one act while the game asks for two throws on the first load, and a throw
+// bundle that holds one act while the game asks for two throws on the first load, and a throw
 // at load is a blank page. A list that has moved fails here instead.
 const ACTS = (() => {
   const m = /^const ACTS = \[([^\]]*)\];$/m.exec(script);
@@ -86,9 +86,7 @@ const assets = Object.fromEntries([
   ['sfx/win-chime.mp3', readFileSync(resolve(root, 'sfx/win-chime.mp3')).toString('base64')],
 ]);
 
-// One seam, replaced whole, rather than a pattern per call site. The call sites used to be
-// matched by their statement text, so a second act — an edit to the loop around the fetch,
-// not to the fetch — silently stopped matching and the guard below was what caught it.
+// One seam, replaced whole, rather than a pattern per call site.
 const LOADER = /^async function loadAsset\(path, as\)\{\n[\s\S]*?\n\}$/m;
 const inlined = (() => {
   const src = demodule(script);

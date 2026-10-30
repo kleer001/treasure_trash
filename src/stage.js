@@ -57,7 +57,7 @@ const kindIn = (lane, o, effect) => (lane === CART_LANE ? CART : lane === BODY_L
  *
  * `seed` fixes the cosmetic stream, so a replay of the same room looks identical. Each sprite
  * keeps its own draw seed for life — which is what stops a pile of trash changing colour when
- * a cart carries it somewhere, since today's `drawTrash` derives its specks from the cell.
+ * a cart carries it somewhere, since `drawTrash` derives its specks from the cell.
  *
  * `decor` is which way things face, from `decorOf`; null is a room as its file lays it out. The
  * board cannot say: facing is no rule's business, so it lives in what came before rather than in

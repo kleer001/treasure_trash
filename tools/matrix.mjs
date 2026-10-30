@@ -389,7 +389,7 @@ const W = 11, H = 5, ROW = 2, AT = 2;
  * staged nothing, and the harness reports an empty corridor as a meeting. `right` may be null —
  * that is the piece meeting bare lane.
  *
- * Returns the room and `at`: the cells the thing under test occupies, which is what `meets`
+ * Returns the room and `at`: the cells the thing under test occupies, which is what `meeting`
  * takes away to find out whether any of this mattered.
  */
 export function corridor({ left, right = null, lane = '-', beyond = '-', under = '-',
@@ -537,7 +537,7 @@ export function* run(only = null, { fourth = false, fifth = false } = {}) {
  * read as a pack that passed.
  */
 export function pack(rows) {
-  const out = [':pack   Treasure Trash — the interaction matrix (bench, never shipped)', ''];
+  const out = [':pack   Treasure Trash — the interaction matrix (bench)', ''];
   let dropped = 0;
   for (const r of rows) {
     if (r.verdict === 'unbuildable' || !r.state) { dropped++; continue; }

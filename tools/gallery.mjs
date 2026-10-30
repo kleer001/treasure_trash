@@ -73,7 +73,7 @@ function room(piece, act, spec, dir) {
   return level;
 }
 
-const out = [':pack   Treasure Trash — the Piece Gallery (bench pack, never shipped)', ''];
+const out = [':pack   Treasure Trash — the Piece Gallery (bench pack)', ''];
 let n = 0;
 for (const [piece, act, spec] of ROOMS) for (const dir of DIRS) {
   const level = room(piece, act, spec, dir);

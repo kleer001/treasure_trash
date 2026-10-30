@@ -94,7 +94,7 @@ let decor=null;
 const ACT_OF = [], CELLS = [];
 const progress = createProgress(window.localStorage);
 // The play-by-play, on `?debug` and nowhere else: the artifact has no query string, so the
-// panel it ships is a hidden element nothing ever fills. Null when it is off, and every call
+// panel it holds is a hidden element nothing ever fills. Null when it is off, and every call
 // site is optional — the log is downstream of the game and may not be there at all.
 const dbg = new URLSearchParams(location.search).has('debug')
   ? createDebugLog(document.getElementById('dbglog')) : null;
@@ -913,7 +913,7 @@ document.getElementById('controls').addEventListener('click',e=>{
 // A room's id is
 // unique across the whole game, so nothing downstream has to know which act it came from.
 // A scratch pack can be named on the query string. That is how a new piece gets played in the
-// real game before it belongs in a shipped act: the bench pages import `src/` and prove the
+// real game before it belongs in an act: the bench pages import `src/` and prove the
 // rules, but only this path exercises input, refusal painting, the HUD and the sprites. Inert
 // in the built artifact, which has no query string and serves its packs from inside itself.
 const ACTS = new URLSearchParams(location.search).get('acts')?.split(',') ?? ['act1.tt', 'act2.tt'];

@@ -7,7 +7,7 @@ import { toState } from '../src/format.js';
 import { bagsLeft } from '../src/rules.js';
 
 // The invariants are asserted against the sets the search actually produced. Re-running the
-// builders here would cost minutes per test and would check a different sample than ships.
+// builders here would cost minutes per test and would check a different sample than the acts hold.
 const SETS = readFileSync('levels/sets.jsonl', 'utf8').trim().split('\n').map(JSON.parse);
 const bagsOf = r => bagsLeft(toState({ id: 't', grid: r.grid, ...(r.cart && { cart: r.cart }) }));
 const bodies = g => g.join('').replace(/[-#]/g, '').length;

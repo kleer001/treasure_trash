@@ -141,7 +141,7 @@ export function staticallyDead(s) {
 }
 
 // ---------------------------------------------------------------- one group
-// It is a design bound as much as a memory one: `analyze` holds every state as a cloned board, so a fleet of workers each chasing a millon-state graph exhausts the machine before it finds anything worth keeping.
+// It is a design bound as much as a memory one: `analyze` holds every state as a cloned board, so a fleet of workers each chasing a million-state graph exhausts the machine before it finds anything worth keeping.
 const MAX_STATES = 50_000;
 
 // Deliberately loose: this pass ranks GROUPS against each other, and a group that only ever yields par-6 rooms is a finding, not a failure.

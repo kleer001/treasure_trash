@@ -12,7 +12,7 @@ const run = (s, opts) => {
 
 const PACK = parseLevelPack(readFileSync('levels/act1.tt', 'utf8'));
 
-test('deadScan agrees with analyze on every shipped room', () => {
+test('deadScan agrees with analyze on every act room', () => {
   for (const l of PACK.levels) {
     const s = toState(l);
     const a = analyze(s);

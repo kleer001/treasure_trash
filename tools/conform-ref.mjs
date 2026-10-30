@@ -75,7 +75,7 @@ export function measureOf(a) {
  * One request, answered from `src/`. Exported because it is the only place the protocol meets
  * the engine: the harness compares against this, a bent engine bends what this returns, and the
  * loop below serves it down a pipe. Three callers, one answer — a harness whose own idea of the
- * rules had drifted from the reference it ships would be worse than no harness.
+ * rules had drifted from the reference it carries would be worse than no harness.
  */
 export function respond(req) {
   if (req.op === 'step') {

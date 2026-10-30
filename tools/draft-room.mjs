@@ -53,7 +53,7 @@ export function draft(room) {
   if (inert.length) no(`does nothing: ${inert.map(p => p.what).join(' ')}`);
 
   // The teaching gate, asked here in the words verify.mjs will ask it in, so a room is not
-  // drafted against one question and shipped against another.
+  // drafted against one question and checked against another.
   if (room.gate !== undefined) {
     const g = parseGate(room.gate, room.id);
     if (g.mode === 'kind' && winnableWithoutKind(a, g.kind)) no(`the exit opens without a ${g.kind}`);

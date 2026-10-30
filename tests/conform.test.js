@@ -55,7 +55,7 @@ test('an unsupported op is a skip, never a pass', () => {
   assert.match(disagreement({ par: 3 }, { error: 'boom' }), /^error: boom/);
 });
 
-test('the generated corpus is seeded, and reaches past the shipped acts', () => {
+test('the generated corpus is seeded, and reaches past the acts', () => {
   const a = generatedRooms(8, 3), b = generatedRooms(8, 3), c = generatedRooms(8, 4);
   assert.deepEqual(a.map(r => r.level.grid), b.map(r => r.level.grid), 'same seed, same rooms');
   assert.notDeepEqual(a.map(r => r.level.grid), c.map(r => r.level.grid));

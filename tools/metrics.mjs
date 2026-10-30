@@ -583,8 +583,7 @@ export function metrics(level) {
     coupling: (v => v === null ? null : +v.toFixed(2))(coupling(start)),
     bridges,
     order: (o => `${o.safe}/${o.first}`)(orderChoices(a, start)),
-    // 'water' belongs here and 'wall'/'edge' do not: open water is the only refusal that
-    // looks like crossable ground, so it is a decoy rather than a boundary.
+    // 'water' belongs here and 'wall'/'edge' do not: it is a decoy rather than a boundary.
     firstRefusal: firstRefusal(a, new Set(['exit', 'fan', 'canRoom', 'water'])),
     firstExitRefusal: firstRefusal(a, new Set(['exit'])),
     firstTrap: a.traps.length ? Math.min(...a.traps.map(t => parseLurd(t.lurd).length - 1)) : null,

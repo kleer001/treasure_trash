@@ -19,9 +19,9 @@
 //           rules. A disagreement here IS the bug report: the board, the direction, and the two
 //           answers.
 //
-// The corpus is not written by hand. Every state of every shipped room is a legal board that
+// The corpus is not written by hand. Every state of every act room is a legal board that
 // somebody's rules produced, which is a better fuzzing corpus than anything invented, and the
-// generator supplies the piece combinations the shipped acts happen not to contain.
+// generator supplies the piece combinations the acts happen not to contain.
 
 import { toState } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
@@ -58,7 +58,7 @@ export function disagreement(mine, theirs) {
 // ---------------------------------------------------------------- the corpus
 
 /**
- * Rooms the shipped acts do not contain. Seeded, so a failure is reproducible from the seed
+ * Rooms the acts do not contain. Seeded, so a failure is reproducible from the seed
  * printed in the report rather than from a corpus file nobody kept.
  */
 /**
@@ -83,7 +83,7 @@ function sprinkleTerrain(room, rnd, n) {
 
 export function generatedRooms(count, seed) {
   const rnd = mulberry32(seed);
-  // Every piece the rules know, in combinations the shipped acts do not contain. A group left
+  // Every piece the rules know, in combinations the acts do not contain. A group left
   // out here is a piece the gate cannot see, and a gate that cannot see a piece reports
   // agreement about it either way.
   const GROUPS = ['$', '$b', '$C', '$W', 'xB', '$P', 'CP', '$j', 'Fb', '$$b', 'BW', 'jb',

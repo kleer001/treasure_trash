@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Treasure Trash — where the shipped rooms are.
+// Treasure Trash — where the act rooms are.
 //
 // Discovered rather than listed, because an act nobody enumerates is an act nobody checks: the
 // pack that adds `act3.tt` should not also have to remember to add it to the verifier and to the
-// conformance corpus. One reading, so those two cannot come to disagree about what ships.
+// conformance corpus. One reading, so those two cannot come to disagree about what the acts hold.
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -21,7 +21,7 @@ export const actPacks = () =>
       solPath: resolve(root, 'levels', f.replace(/\.tt$/, '.sol')),
     }));
 
-/** Every shipped room, tagged with the pack it came from. */
+/** Every act room, tagged with the pack it came from. */
 export const actLevels = () => actPacks().flatMap(p =>
   parseLevelPack(readFileSync(p.levelPath, 'utf8')).levels
     .map(level => ({ name: `${p.name}:${level.id}`, level })));

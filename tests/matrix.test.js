@@ -109,12 +109,12 @@ test('a barrow riding in a barrow is three handles on one cell, not one', () => 
     'the cart and its cargo are the same barrow, so the code cannot be what tells them apart');
 });
 
-test('the handle invariant holds over every board the shipped rooms reach', () => {
+test('the handle invariant holds over every board the act rooms reach', () => {
   assert.deepEqual(sweepRooms(actLevels().map(l => l.level)), []);
 });
 
 test('and over the generated batch, where the odd pairings are', () => {
-  // The shipped rooms are a thin slice of the interaction space: a level author does not build
+  // The act rooms are a thin slice of the interaction space: a level author does not build
   // the pairings that break identity, because there is no reason to put them in a puzzle.
   assert.deepEqual(sweepRooms(generatedRooms(40, 7).map(g => g.level)), []);
 });

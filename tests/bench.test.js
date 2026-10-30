@@ -1,4 +1,4 @@
-// The bench packs — the rooms that exist to be played by hand rather than shipped.
+// The bench packs — the rooms that exist to be played by hand rather than put in an act.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

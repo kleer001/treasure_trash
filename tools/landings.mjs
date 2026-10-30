@@ -12,7 +12,7 @@
 // never put to about a thing it does meet; it cannot see a pairing never staged at all. The
 // coarse one asks which things never reach a site, and that is where such a pairing shows.
 //
-//   node tools/landings.mjs            every shipped room, plus a generated batch
+//   node tools/landings.mjs            every act room, plus a generated batch
 //   node tools/landings.mjs --asked    the combinations that DID come up
 //   node tools/landings.mjs --rooms N  how many generated rooms to add (default 40)
 
