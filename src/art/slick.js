@@ -35,8 +35,8 @@ function lobes(cx, cy, has, look) {
 }
 
 /** The pixels of the slick in cell (cx, cy), as [x, y, colour] within the cell. `has(x, y)` says
- *  whether a cell holds the same slick. */
-export function slickCell(cx, cy, has, look) {
+ *  whether a cell holds the same slick. `drift` moves the sheen by [x, y] floor pixels. */
+export function slickCell(cx, cy, has, look, [ox, oy] = [0, 0]) {
   const near = [];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++)
     if (has(cx + dx, cy + dy)) near.push(...lobes(cx + dx, cy + dy, has, look));
@@ -61,7 +61,7 @@ export function slickCell(cx, cy, has, look) {
     if (!on(x - 1, y) || !on(x + 1, y) || !on(x, y - 1) || !on(x, y + 1)) c = look.edge;
     else if ((!on(x - 2, y) || !on(x, y - 2)) && noise(x * 2, y * 2, look.seed + 7) < look.shine) c = look.glint;
     else {
-      const s = Math.sin((x * 0.8 + y * 0.45) / look.band + noise(x, y, look.seed + 3) * 4);
+      const s = Math.sin(((x - ox) * 0.8 + (y - oy) * 0.45) / look.band + noise(x - ox, y - oy, look.seed + 3) * 4);
       if (Math.abs(s) < look.sheen) c = look.hues[Math.floor((x + y) / 3) % look.hues.length];
     }
     px.push([x - x0, y - y0, c]);

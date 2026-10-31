@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Square jug</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 440px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 170px 1fr 64px; gap: 10px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+  h3 { margin: 8px 0 0; font-size: 16px; }
+  label.tick { display: flex; gap: 6px; }
+  #fillSwatch { display: inline-block; width: 14px; height: 14px; border: 1px solid #1a1a1a; vertical-align: middle; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <label>X, tip toward you <input id="rx" type="range" min="-90" max="90" step="1"><input id="rxn" type="number" step="1"></label>
+  <label>Y, turn <input id="ry" type="range" min="-180" max="180" step="1"><input id="ryn" type="number" step="1"></label>
+  <label>Z, lean <input id="rz" type="range" min="-90" max="90" step="1"><input id="rzn" type="number" step="1"></label>
+  <label>height cm <input id="h" type="range" min="35" max="75" step="1"><input id="hn" type="number" step="1"></label>
+  <label>neck width cm <input id="neck" type="range" min="3" max="16" step="0.2"><input id="neckn" type="number" step="0.2"></label>
+  <label>rib depth × <input id="rib" type="range" min="0" max="5" step="0.1"><input id="ribn" type="number" step="0.1"></label>
+  <label>water level % <input id="water" type="range" min="0" max="100" step="1"><input id="watern" type="number" step="1"></label>
+  <label>water darkness <input id="dark" type="range" min="0" max="30" step="0.5"><input id="darkn" type="number" step="0.5"></label>
+  <div class="row"><span>no water</span><input id="empty" type="color"><span>deep water</span><input id="deep" type="color"></div>
+  <label>up / down px <input id="dy" type="range" min="-12" max="12" step="1"><input id="dyn" type="number" step="1"></label>
+  <label>px a metre <input id="pxm" type="range" min="20" max="80" step="1"><input id="pxmn" type="number" step="1"></label>
+  <div class="row"><button id="reset">Reset rotation</button></div>
+  <h3>Pixel jug, over the raccoon facing down</h3>
+  <label>light turn ° <input id="laz" type="range" min="-180" max="180" step="1"><input id="lazn" type="number" step="1"></label>
+  <label>light height ° <input id="lel" type="range" min="0" max="90" step="1"><input id="leln" type="number" step="1"></label>
+  <label>shade below % <input id="shade" type="range" min="0" max="100" step="1"><input id="shaden" type="number" step="1"></label>
+  <label>light above % <input id="light" type="range" min="0" max="100" step="1"><input id="lightn" type="number" step="1"></label>
+  <label>shine above % <input id="shine" type="range" min="0" max="101" step="1"><input id="shinen" type="number" step="1"></label>
+  <label>water from cm seen <input id="wet" type="range" min="0" max="20" step="0.5"><input id="wetn" type="number" step="0.5"></label>
+  <label>deep water from cm <input id="thick" type="range" min="0" max="80" step="1"><input id="thickn" type="number" step="1"></label>
+  <label>tidy passes <input id="tidy" type="range" min="0" max="3" step="1"><input id="tidyn" type="number" step="1"></label>
+  <label><span>empty fill <i id="fillSwatch"></i> <span id="fillName"></span></span><input id="fill" type="range" min="0" max="7" step="1"><input id="filln" type="number" step="1"></label>
+  <div class="row"><label class="tick"><input id="outline" type="checkbox">outline</label></div>
+  <div class="row"><span>ink</span><input id="cInk" type="color"><span>mouth</span><input id="cMouth" type="color"><span>plastic</span><input id="cPlastic" type="color"><span>glass</span><input id="cGlass" type="color"></div>
+  <div class="row"><span>deep</span><input id="cDeep" type="color"><span>mid</span><input id="cMid" type="color"><span>light</span><input id="cLight" type="color"><span>shine</span><input id="cShine" type="color"></div>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <div class="muted">Bottom row, left to right: the raccoon facing right, the Blender square jug, the raccoon facing down, the game's round jug, the wheelie bin, a puddle, the bag. Above the raccoon facing down: the same jug as pixel art. The jug is rendered live at game pixels, camera straight on: a reference to draw over, not the sprite. Rotation applies Z, then Y, then X.</div>
+  <div class="muted">Height stretches the plain wall between the foot band and the taper band; the middle band keeps its size. Rib depth scales how far each band and groove stands out from the wall. Each pixel of plastic takes the no-water colour, darkened toward the deep-water colour by how much water you look through there; water darkness sets how fast. The plastic's light and shade stay on top.</div>
+  <div class="muted">The pixel jug takes the light in the jug's own frame, so it stays lit from the same side as the jug turns. Each pixel falls in a band of that light: shade, middle, light or shine. Where you see through at least the water depth, the band takes a water colour, one band darker past the deep depth; elsewhere it takes the plastic colours, and the middle band takes the empty fill, one of the eight colours below. Tidy gives a lone pixel the colour of its neighbours.</div>
+  <textarea id="note" placeholder="Note on the square jug"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { ACTIONS, draw as drawRaccoon, mirror } from '../../src/art/cartoon.js';
+import { VIEW } from '../../src/art/press.js';
+import { C, FLOOR, SEAM } from '../../src/art/flight.js';
+import { wallTile } from '../../src/art/room.js';
+import { full as ROUND_JUG } from '../../src/art/jug.js';
+import { puddle } from '../../src/art/water.js';
+import { INK } from '../../src/art/tip.js';
+
+const KEY = 'trash-jug-3d', COLS = 9, ROWS = 3, BOX = 128;
+const $ = id => document.getElementById(id), KNOBS = ['rx', 'ry', 'rz', 'h', 'neck', 'rib', 'water', 'dark', 'dy', 'pxm',
+  'laz', 'lel', 'shade', 'light', 'shine', 'wet', 'thick', 'tidy', 'fill'];
+const PALETTE = ['cInk', 'cMouth', 'cPlastic', 'cGlass', 'cDeep', 'cMid', 'cLight', 'cShine'];
+const COLOURS = ['empty', 'deep', ...PALETTE], TICKS = ['outline'];
+let s = { rx: 30, ry: 0, rz: 0, h: 49, neck: 5.6, rib: 1, water: 80, dark: 8, empty: '#7dafb3', deep: '#244287', dy: 0, pxm: 46, zoom: 6,
+  laz: -40, lel: 44, shade: 30, light: 80, shine: 95, wet: 1, thick: 20, tidy: 1, fill: 3, outline: true,
+  cInk: INK, cMouth: '#2b2d55', cPlastic: '#67819e', cGlass: '#b9d3d6', cDeep: '#244287', cMid: '#3169b0', cLight: '#7dafb3', cShine: '#f1eccb' };
+try { Object.assign(s, JSON.parse(localStorage.getItem(KEY) ?? '{}')); } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+
+const crop = ({ px }) => {
+  const x0 = Math.min(...px.map(p => p[0])), y0 = Math.min(...px.map(p => p[1]));
+  return { w: Math.max(...px.map(p => p[0])) - x0 + 1, h: Math.max(...px.map(p => p[1])) - y0 + 1, px: px.map(([x, y, c]) => [x - x0, y - y0, c]) };
+};
+const sitting = d => crop(d === 'l' ? mirror(drawRaccoon(ACTIONS[VIEW[d]].crawl[0])) : drawRaccoon(ACTIONS[VIEW[d]].crawl[0]));
+const RACCOON = { d: sitting('d'), r: sitting('r') };
+const ROUND = crop(ROUND_JUG);
+const get = f => fetch(new URL(`../../src/art/${f}`, location.href)).then(r => r.json());
+const [WHEELIE, { bag: BAG }] = await Promise.all([get('wheelie.json'), get('assets.json')]);
+// The wheelie bin as the game draws it: hex palette pairs, '..' for none, placed from the cell's top-left.
+const BIN = WHEELIE.full.rows.flatMap((r, y) => Array.from({ length: WHEELIE.full.w }, (_, x) => r.slice(2 * x, 2 * x + 2))
+  .flatMap((h, x) => (h === '..' ? [] : [[WHEELIE.full.x + x, WHEELIE.full.y + y, WHEELIE.palette[parseInt(h, 16)]]])));
+
+// Two passes. The water, alone on layer 1, adds up into THICK how far each pixel's line of sight
+// runs through it: every back face adds its depth, every front face takes its depth away. Then
+// the plastic, lit, takes its colour from that thickness: `empty` where there is none, toward
+// `deep` as it grows, scaled by how lit the plastic is there.
+const WATER = 1;
+const THICK = new THREE.WebGLRenderTarget(BOX, BOX, { type: THREE.HalfFloatType, depthBuffer: false });
+const thickness = new THREE.ShaderMaterial({
+  side: THREE.DoubleSide, depthTest: false, depthWrite: false,
+  blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+  vertexShader: 'varying float vD; void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vD = -mv.z - 5.0; gl_Position = projectionMatrix * mv; }',
+  fragmentShader: 'varying float vD; void main() { gl_FragColor = vec4(gl_FrontFacing ? -vD : vD, 0.0, 0.0, 1.0); }',
+});
+const tint = { uThick: { value: THICK.texture }, uSize: { value: new THREE.Vector2(BOX, BOX) }, uDark: { value: s.dark },
+  uEmpty: { value: new THREE.Color(s.empty) }, uDeep: { value: new THREE.Color(s.deep) } };
+const plastic = new THREE.MeshLambertMaterial({ color: '#ffffff', side: THREE.DoubleSide });
+plastic.onBeforeCompile = sh => {
+  Object.assign(sh.uniforms, tint);
+  sh.fragmentShader = 'uniform sampler2D uThick; uniform vec2 uSize; uniform float uDark; uniform vec3 uEmpty, uDeep;\n'
+    + sh.fragmentShader.replace('#include <opaque_fragment>', `#include <opaque_fragment>
+  float through = max(texture2D(uThick, gl_FragCoord.xy / uSize).r, 0.0);
+  gl_FragColor.rgb *= mix(uEmpty, uDeep, 1.0 - exp(-uDark * through));`);
+};
+const MATERIALS = { plastic, water: thickness, mouth: new THREE.MeshLambertMaterial({ color: '#2b2d55' }) };
+// The pixel jug's pass: red is the light in the jug's own frame, green the water seen through (1 = a metre),
+// blue the mouth.
+const LIT = new THREE.Vector3();
+const facts = mouth => new THREE.ShaderMaterial({
+  side: THREE.DoubleSide,
+  uniforms: { uThick: tint.uThick, uSize: tint.uSize, uLight: { value: LIT }, uMouth: { value: mouth } },
+  vertexShader: 'varying vec3 vN; void main() { vN = normal; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform sampler2D uThick; uniform vec2 uSize; uniform vec3 uLight; uniform float uMouth; varying vec3 vN;
+  void main() {
+    vec3 n = normalize(vN) * (gl_FrontFacing ? 1.0 : -1.0);
+    float through = clamp(texture2D(uThick, gl_FragCoord.xy / uSize).r, 0.0, 1.0);
+    gl_FragColor = vec4(max(dot(n, uLight), 0.0), through, uMouth, 1.0);
+  }`,
+});
+const FACTS = { plastic: facts(0), mouth: facts(1) };
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(BOX, BOX, false);
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-1, 1.5, 1.2); scene.add(sun);
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10); camera.position.set(0, 0, 5);
+const pivot = new THREE.Group(); scene.add(pivot);
+let ready = false, jug, meta, parts = [], water = [], solid = [], built = '';
+// Parts the neck width scales whole; the body and the water are drawn in toward the neck instead.
+const WHOLE = new Set(['collar', 'lip', 'mouth']);
+new GLTFLoader().load('../../tmp/jug/jug.glb', gltf => {
+  jug = gltf.scene; meta = jug.getObjectByName('jug').userData;
+  jug.traverse(o => {
+    if (!o.isMesh) return;
+    o.userData.mat = o.material.name; o.material = MATERIALS[o.userData.mat];
+    const rest = o.geometry.attributes.position.array.slice(), widest = new Map();
+    for (let i = 0; i < rest.length; i += 3) {
+      const y = rest[i + 1].toFixed(4);
+      widest.set(y, Math.max(widest.get(y) ?? 0, Math.abs(rest[i]), Math.abs(rest[i + 2])));
+    }
+    const half = Array.from({ length: rest.length / 3 }, (_, v) => widest.get(rest[3 * v + 1].toFixed(4)));
+    const midY = rest.filter((_, i) => i % 3 === 1).reduce((a, b) => a + b, 0) / (rest.length / 3);
+    parts.push({ o, rest, half, midY });
+    if (o.name.startsWith('water_')) { water.push(o); o.layers.set(WATER); } else solid.push(o);
+  });
+  water.sort((a, b) => a.name.localeCompare(b.name));
+  pivot.add(jug); ready = true; draw();
+}, undefined, e => { $('status').className = 'bad'; $('status').textContent = `model not loaded: ${e.message ?? e}`; });
+
+/** Re-shape the jug for the height, the rib depth and the neck width: the plain wall stretches, each ring
+ *  between the foot and the shoulder stands out from the wall by `rib` times its depth, and each ring of
+ *  the shoulder is drawn in so the outer edge stays put and the neck lands on its new radius. */
+function reshape() {
+  if (built === `${s.h} ${s.neck} ${s.rib}`) return;
+  const { H, za, zb, zs, foot, A, RN, W } = meta, grow = s.h / 100 - H, rn = s.neck / 200;
+  const lift = y => (y <= za ? y : y >= zb ? y + grow : za + (y - za) * (zb - za + grow) / (zb - za));
+  for (const { o, rest, half, midY } of parts) {
+    const arr = o.geometry.attributes.position.array, wet = o.name.startsWith('water_');
+    const out = wet ? A - W : A, r0 = wet ? RN - W : RN, r1 = wet ? rn - W : rn;
+    const shift = o.name === 'midrib' ? lift(midY) - midY : null;
+    for (let i = 0; i < rest.length; i += 3) {
+      const y = rest[i + 1], a = half[i / 3];
+      const k = y <= foot ? 1 : y <= zs ? (out + (a - out) * s.rib) / a : WHOLE.has(o.name) ? rn / RN : (out - (out - a) * (out - r1) / (out - r0)) / a;
+      arr[i] = rest[i] * k; arr[i + 1] = shift === null ? lift(y) : y + shift; arr[i + 2] = rest[i + 2] * k;
+    }
+    o.geometry.attributes.position.needsUpdate = true; o.geometry.computeVertexNormals(); o.geometry.computeBoundingBox(); o.geometry.computeBoundingSphere();
+  }
+  jug.position.set(0, 0, 0);
+  jug.position.sub(new THREE.Box3().setFromObject(jug).getCenter(new THREE.Vector3()));
+  built = `${s.h} ${s.neck} ${s.rib}`;
+}
+
+/** The jug at the current rotation, BOX pixels square at `pxm` pixels a metre. `look` is the render, cropped
+ *  to what was drawn; `cells` are [x, y, light 0..1, cm of water seen through, is the mouth], uncropped. */
+function sprite() {
+  const half = BOX / 2 / s.pxm;
+  Object.assign(camera, { left: -half, right: half, top: half, bottom: -half }); camera.updateProjectionMatrix();
+  pivot.rotation.set(0, 0, 0); reshape();
+  water.forEach((o, i) => { o.visible = (i + 1) / water.length <= s.water / 100 + 1e-9; });
+  tint.uDark.value = s.dark; tint.uEmpty.value.set(s.empty); tint.uDeep.value.set(s.deep);
+  pivot.rotation.set(THREE.MathUtils.degToRad(s.rx), THREE.MathUtils.degToRad(s.ry), THREE.MathUtils.degToRad(s.rz), 'XYZ');
+  camera.layers.set(WATER); renderer.setRenderTarget(THICK); renderer.clear(); renderer.render(scene, camera);
+  camera.layers.set(0); renderer.setRenderTarget(null); renderer.render(scene, camera);
+  const c = document.createElement('canvas'); c.width = c.height = BOX;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  const grab = () => { g.clearRect(0, 0, BOX, BOX); g.drawImage(renderer.domElement, 0, 0); return g.getImageData(0, 0, BOX, BOX).data; };
+  const data = grab();
+  const az = THREE.MathUtils.degToRad(s.laz), el = THREE.MathUtils.degToRad(s.lel);
+  LIT.set(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
+  for (const o of solid) o.material = FACTS[o.userData.mat];
+  renderer.render(scene, camera);
+  for (const o of solid) o.material = MATERIALS[o.userData.mat];
+  const fact = grab(), px = [], cells = [];
+  for (let y = 0; y < BOX; y++) for (let x = 0; x < BOX; x++) {
+    const o = (y * BOX + x) * 4;
+    if (data[o + 3] > 127) px.push([x, y, `rgb(${data[o]},${data[o + 1]},${data[o + 2]})`]);
+    if (fact[o + 3] > 127) cells.push([x, y, fact[o] / 255, fact[o + 1] / 255 * 100, fact[o + 2] > 127]);
+  }
+  return { look: px.length ? crop({ px }) : { w: 0, h: 0, px }, cells };
+}
+
+const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+/** The jug as pixel art in the palette, from the cells `sprite` gives. */
+function pixelJug(cells) {
+  const key = (x, y) => `${x},${y}`, inside = new Set(cells.map(([x, y]) => key(x, y)));
+  const band = lit => [s.shade, s.light, s.shine].filter(t => lit * 100 >= t).length;
+  let col = new Map();
+  const fixed = new Set();
+  for (const [x, y, lit, cm, mouth] of cells) {
+    const k = key(x, y);
+    if (s.outline && N4.some(([a, b]) => !inside.has(key(x + a, y + b)))) { col.set(k, s.cInk); fixed.add(k); continue; }
+    if (mouth) { col.set(k, s.cMouth); fixed.add(k); continue; }
+    const b = band(lit);
+    col.set(k, cm < s.wet ? [s.cPlastic, s[PALETTE[s.fill]], s.cLight, s.cShine][b]
+      : [s.cDeep, s.cMid, s.cLight, s.cShine][Math.max(0, b - (cm >= s.thick ? 1 : 0))]);
+  }
+  for (let pass = 0; pass < s.tidy; pass++) {
+    const next = new Map(col);
+    for (const [k, c] of col) {
+      if (fixed.has(k)) continue;
+      const [x, y] = k.split(',').map(Number);
+      const near = N4.map(([a, b]) => key(x + a, y + b)).filter(n => col.has(n) && !fixed.has(n)).map(n => col.get(n));
+      if (near.length < 2 || near.includes(c)) continue;
+      const [best, votes] = [...new Set(near)].map(n => [n, near.filter(m => m === n).length]).sort((p, q) => q[1] - p[1])[0];
+      if (votes >= 2) next.set(k, best);
+    }
+    col = next;
+  }
+  return crop({ px: cells.map(([x, y]) => [x, y, col.get(key(x, y))]) });
+}
+
+function draw() {
+  for (const k of KNOBS) { $(k).value = s[k]; $(k + 'n').value = s[k]; }
+  $('zoom').textContent = `${s.zoom}×`;
+  $('fillName').textContent = $(PALETTE[s.fill]).previousElementSibling.textContent;
+  $('fillSwatch').style.background = s[PALETTE[s.fill]];
+  const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+  const g = src.getContext('2d');
+  g.fillStyle = FLOOR; g.fillRect(0, 0, src.width, src.height);
+  g.fillStyle = SEAM;
+  for (let k = 1; k <= COLS; k++) g.fillRect(k * C - 1, C, 1, src.height);
+  for (let k = 1; k <= ROWS; k++) g.fillRect(0, k * C - 1, src.width, 1);
+  for (let x = 0; x < COLS; x++) wallTile(g, x, 0, C);
+  const stand = (spr, col, dy = 0, row = ROWS - 1) => {
+    const x0 = col * C + Math.floor((C - spr.w) / 2), y0 = (row + 1) * C - spr.h - 1 + dy;
+    for (const [x, y, c] of spr.px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); }
+  };
+  if (ready) {
+    const { look, cells } = sprite();
+    if (cells.length) stand(pixelJug(cells), 3, s.dy, 1);
+    stand(look, 2, s.dy);
+  }
+  stand(RACCOON.r, 1);
+  stand(RACCOON.d, 3);
+  stand(ROUND, 4);
+  const put = (px, x0 = 0, y0 = 0) => { for (const [x, y, c] of px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
+  put(BIN, 5 * C, (ROWS - 1) * C);
+  put(puddle(6, ROWS - 1, C, (x, y) => x === 6 && y === ROWS - 1));
+  stand(BAG, 7);
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+for (const k of KNOBS) {
+  $(k).oninput = () => { s[k] = Number($(k).value); save(); draw(); autosave(); };
+  $(k + 'n').onchange = () => { const st = Number($(k).step); s[k] = Math.round(Number($(k + 'n').value) / st) * st; save(); draw(); autosave(); };
+}
+for (const k of COLOURS) {
+  $(k).value = s[k];
+  $(k).oninput = () => { s[k] = $(k).value; save(); draw(); autosave(); };
+}
+for (const k of TICKS) {
+  $(k).checked = s[k];
+  $(k).onchange = () => { s[k] = $(k).checked; save(); draw(); autosave(); };
+}
+$('reset').onclick =() => { Object.assign(s, { rx: 0, ry: 0, rz: 0 }); save(); draw(); autosave(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(16, s.zoom + 1); save(); draw(); };
+let timer = 0;
+const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'jug-3d', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600); };
+$('note').oninput = autosave;
+draw(); autosave();
+</script>
+</body>
+</html>

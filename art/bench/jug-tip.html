@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Square jug tip</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 440px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 170px 1fr 64px; gap: 10px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .group { display: flex; align-items: center; gap: 10px; color: #6b6b66; font-size: 14px; }
+  .group::before, .group::after { content: ''; flex: 1; border-top: 1px solid #d6d3cc; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+  .stage { display: grid; gap: 0; width: min-content; }
+  :root { --key: #0aa2bd; --head: #e6591f; --line: #d6d3cc; }
+  #timeline { position: relative; padding: 24px 12px 10px 56px; background: #fff; border: 1px solid var(--line); border-top: 0; }
+  #track { position: relative; height: 84px; border: 1px solid var(--line); border-radius: 5px; background: #eef1f5; user-select: none; touch-action: none; cursor: pointer; }
+  .rowName { position: absolute; left: -52px; width: 46px; text-align: right; font-size: 12px; color: #6b6b66; line-height: 28px; }
+  .seg { position: absolute; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600;
+    color: #2a3242; overflow: hidden; white-space: nowrap; border-right: 1px solid rgba(0,0,0,.12); }
+  .key { position: absolute; height: 28px; width: 14px; margin-left: -7px; z-index: 5; cursor: ew-resize; }
+  .key .stem { position: absolute; left: 6px; top: 0; bottom: 0; width: 2px; background: var(--key); opacity: .8; }
+  .key .grab { position: absolute; left: 2px; top: 8px; width: 10px; height: 12px; border-radius: 3px; border: 1px solid var(--key); background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+  .key .num { position: absolute; left: 7px; top: -12px; transform: translateX(-50%); font-size: 9px; color: #6b6b66; background: #fff; padding: 0 2px; pointer-events: none; }
+  .key.fixed { cursor: default; } .key.fixed .grab { background: #eef1f5; border-style: dashed; }
+  #head { position: absolute; top: -6px; bottom: -6px; width: 2px; margin-left: -1px; background: var(--head); z-index: 6; pointer-events: none; }
+  #transport { display: flex; gap: 6px; align-items: center; padding: 8px 12px; background: #fff; border: 1px solid var(--line); border-top: 0; }
+  #transport button { padding: 2px 8px; }
+  #scrub { flex: 1; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div class="stage">
+  <canvas id="view"></canvas>
+  <div id="timeline"><div id="track"></div></div>
+  <div id="transport">
+    <button id="toStart" title="First frame">⏮</button><button id="playBack" title="Play backwards">◀</button><button id="stop" title="Stop">■</button>
+    <button id="playFwd" title="Play">▶</button><button id="toEnd" title="Last frame">⏭</button>
+    <input type="range" id="scrub" min="0" step="1" title="Scrub">
+    <input id="frame" type="number" min="0" step="1" style="width:64px;font:inherit" title="Current frame: type to jump"><span id="of" class="muted"></span>
+  </div>
+</div>
+<div class="side">
+  <div class="group">jug</div>
+  <label>fall ease power <input id="ease" type="range" min="1" max="4" step="0.1"><input id="easen" type="number" step="0.1"></label>
+  <label>rock back ° <input id="bounce" type="range" min="0" max="30" step="1"><input id="bouncen" type="number" step="1"></label>
+  <label>slide in the fall % <input id="glide" type="range" min="0" max="100" step="1"><input id="gliden" type="number" step="1"></label>
+  <label>lying up / down px <input id="ldy" type="range" min="-8" max="8" step="1"><input id="ldyn" type="number" step="1"></label>
+  <div class="group">puddle</div>
+  <label>puddle seed <input id="seed" type="range" min="1" max="999" step="1"><input id="seedn" type="number" step="1"></label>
+  <label>puddle lobes <input id="lobes" type="range" min="1" max="10" step="1"><input id="lobesn" type="number" step="1"></label>
+  <label>lobe size px <input id="size" type="range" min="2" max="10" step="0.5"><input id="sizen" type="number" step="0.5"></label>
+  <label>edge bumps <input id="lump" type="range" min="0" max="1.5" step="0.05"><input id="lumpn" type="number" step="0.05"></label>
+  <label>edge tightness <input id="fill" type="range" min="0.5" max="4" step="0.1"><input id="filln" type="number" step="0.1"></label>
+  <label>dark inner edge <input id="shine" type="range" min="0" max="1" step="0.05"><input id="shinen" type="number" step="0.05"></label>
+  <label>flowing ripple width <input id="sheen0" type="range" min="0" max="1" step="0.02"><input id="sheen0n" type="number" step="0.02"></label>
+  <label>still ripple width <input id="sheen" type="range" min="0" max="1" step="0.02"><input id="sheenn" type="number" step="0.02"></label>
+  <label>ripple spacing <input id="band" type="range" min="1" max="10" step="0.5"><input id="bandn" type="number" step="0.5"></label>
+  <label>ripple speed px/frame <input id="flow" type="range" min="0" max="1.5" step="0.05"><input id="flown" type="number" step="0.05"></label>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <textarea id="note" placeholder="Note on the jug tip"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+
+<script type="module">
+import { squareJug, JUG_LOOK as LOOK } from './squareJug.js';
+import { loadPixelArt, createPixelSprites, PIXEL_CELL as C } from '../../src/pixel.js';
+import { press, moveStart, moveStop, segAt, travelAt } from '../../src/art/press.js';
+import { WATER as POOL } from '../../src/art/water.js';
+import { slickCell } from '../../src/art/slick.js';
+
+const KEY = 'trash-jug-tip', N = 10, $ = id => document.getElementById(id);
+const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+// The puddle's knobs are the fields of a slick's look in src/art/slick.js.
+const SLICK = ['seed', 'lobes', 'size', 'lump', 'fill', 'shine', 'sheen', 'band'];
+const KNOBS = ['ease', 'bounce', 'glide', 'ldy', ...SLICK, 'sheen0', 'flow'];
+const STREAM = '#7dafb3', STREAM_CORE = '#f1eccb', easeOut = u => 1 - (1 - u) ** 2;
+let s = { tip: -3, fall: 7, settle: 6, pour: 7, drain: 17, reach: 4, ease: 2, bounce: 0, glide: 0, ldy: -1, zoom: 3,
+  seed: 31, lobes: 5, size: 7, lump: 0.25, fill: 1.1, shine: 0.9, sheen: 0.08, band: 4, sheen0: 0.4, flow: 1, still: 4 };
+try { const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); for (const k in s) if (saved[k] !== undefined) s[k] = saved[k]; } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+
+const jug = await squareJug(); jug.set(LOOK);
+const drawing = jug.drawing;
+
+// ---- the room ----
+const art = await loadPixelArt(new URL('../../src/art/', import.meta.url));
+const src = document.createElement('canvas'); src.width = src.height = N * C;
+const g = src.getContext('2d');
+const S = createPixelSprites({ ctx: g, art });
+const STEP = { r: [1, 0], l: [-1, 0], u: [0, -1], d: [0, 1] };
+const JUG_AT = { r: [2, 2], d: [7, 2], l: [7, 7], u: [2, 7] };
+const F0 = LOOK.water / 100;
+const SCENES = Object.entries(JUG_AT).map(([dir, at]) => {
+  const [dx, dy] = STEP[dir], segs = press('push', dir, { lead: false }), [wx, wy] = [at[0] + 2 * dx, at[1] + 2 * dy];
+  // The stream lands 5 px into the wet cell from its near edge; the puddle grows out from there.
+  const lands = [wx * C + C / 2 - dx * (C / 2 - 5), wy * C + C / 2 - dy * (C / 2 - 5)];
+  return { dir, dx, dy, at, to: [at[0] + dx, at[1] + dy], rac: [at[0] - dx, at[1] - dy], wet: [wx, wy], lands,
+    segs, move: moveStart(segs), stop: moveStop(segs), end: segs.at(-1).t1, upright: drawing(dir, 0, F0) };
+});
+// The four presses run with their moves lined up; frames on the timeline count from the first press's start.
+const MOVE = Math.max(...SCENES.map(b => b.move)), MOVES = SCENES[0].stop - SCENES[0].move;
+
+/** The clip's keys, in frames from the start of the move. */
+const keys = () => {
+  const tip = Math.max(0, MOVES + s.tip), flat = tip + Math.max(2, s.fall), pour = tip + Math.max(0, s.pour);
+  const dry = pour + Math.max(1, s.drain), wet = pour + Math.max(0, s.reach), grown = dry + wet - pour;
+  return { tip, flat, settle: flat + Math.max(2, s.settle), pour, dry, wet, grown, still: grown + Math.max(1, s.still) };
+};
+const T = () => Object.fromEntries(Object.entries(keys()).map(([k, v]) => [k, MOVE + v]));
+const length = () => Math.max(...SCENES.map(b => MOVE + b.end - b.move), ...Object.values(T())) + 24;
+
+/** The jug of scene `b`, `t` frames from the start of its move: its px and top-left in the room. */
+function jugAt(b, t) {
+  const k = keys(), u = Math.min(1, Math.max(0, (t - k.tip) / (k.flat - k.tip)));
+  const deg = t <= k.tip ? 0 : t < k.flat ? Math.round(90 * u ** s.ease)
+    : t < k.settle ? Math.round(90 - s.bounce * Math.sin(Math.PI * (t - k.flat) / (k.settle - k.flat))) : 90;
+  const F = t <= k.pour ? F0 : t >= k.dry ? 0 : F0 * (1 - (t - k.pour) / (k.dry - k.pour));
+  const up = b.upright, flat = drawing(b.dir, 90, 0), fr = drawing(b.dir, deg, F);
+  const O = [b.at[0] * C + Math.floor((C - up.w) / 2), (b.at[1] + 1) * C - up.h - 1 + LOOK.dy];
+  const end = [b.to[0] * C + Math.floor((C - flat.w) / 2), (b.to[1] + 1) * C - flat.h - 1 + s.ldy];
+  const offset = [end[0] - O[0] - (flat.x - up.x), end[1] - O[1] - (flat.y - up.y)];
+  const pushed = t >= MOVES ? 1 : travelAt(b.segs, t + b.move), q = s.glide / 100, along = (1 - q) * pushed + q * u;
+  const x = O[0] + Math.round(offset[0] * along) + fr.x - up.x, y = O[1] + Math.round(offset[1] * along) + fr.y - up.y;
+  return { px: fr.px, x, y, h: fr.h, mouth: [x + fr.mouth[0], y + fr.mouth[1]] };
+}
+
+/** How far the slowing is at `t`, 0 until the puddle has grown and 1 from the still key. */
+const slowed = (t, k) => Math.min(1, Math.max(0, (t - k.grown) / (k.still - k.grown)));
+/** How far the puddle's ripples have moved along the pour, in px, `t` frames from the start of the move:
+ *  at the ripple speed until the puddle has grown, then slowing to a stop at the still key. */
+function drift(t, k) {
+  const u = slowed(t, k);
+  return s.flow * (Math.max(0, Math.min(t, k.grown) - k.wet) + (k.still - k.grown) * (u - u * u / 2));
+}
+
+/** The puddle of scene `b` in px from the board's top-left, drawn as a slick in the water's colours, its
+ *  ripples `sheen` wide and moved `d` px along the pour. */
+function pool(b, d, sheen) {
+  const [wx, wy] = b.wet;
+  const look = { ...Object.fromEntries(SLICK.map(k => [k, s[k]])), sheen, body: POOL.MID, edge: POOL.EDGE, glint: POOL.DEEP, hues: [POOL.LIGHT] };
+  return slickCell(wx, wy, (x, y) => x === wx && y === wy, look, [b.dx * d, b.dy * d]).map(([x, y, c]) => [wx * C + x, wy * C + y, c]);
+}
+
+/** The water from the mouth at `mx, my` to where it lands, `f` frames in. */
+function stream(b, mx, my, f) {
+  const [lx, ly] = b.lands, n = Math.ceil(Math.hypot(lx - mx, ly - my));
+  for (let i = 0; i <= n; i++) {
+    const u = i / Math.max(1, n), sag = 4 * u * (1 - u) * 3;
+    const x = Math.round(mx + (lx - mx) * u + b.dx * sag), y = Math.round(my + (ly - my) * u - (b.dx ? sag * 0.5 : 0));
+    const w = (i + Math.floor(f / 2)) % 5 === 0 ? 1 : 2;
+    g.fillStyle = STREAM; g.fillRect(x, y, w, w);
+    if (w === 2) { g.fillStyle = STREAM_CORE; g.fillRect(x, y, 1, 1); }
+  }
+}
+
+let frame_ = 0;
+const put = (px, x0, y0) => { for (const [x, y, c] of px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
+function draw() {
+  for (const k of KNOBS) { $(k).value = s[k]; $(k + 'n').value = s[k]; }
+  $('zoom').textContent = `${s.zoom}×`;
+  $('frame').value = frame_; $('of').textContent = `of ${length() - 1}`; $('scrub').max = length() - 1; $('scrub').value = frame_;
+  timeline();
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) (x === 0 || y === 0 || x === N - 1 || y === N - 1 ? S.wall(x, y) : S.floor(x, y));
+  const f = frame_ - frame_ % 2, t = f - MOVE, k = keys();
+  const stand = [];
+  for (const b of SCENES) {
+    const g2 = t + b.move, pressing = g2 < b.end, j = jugAt(b, t);
+    if (t >= k.wet) {
+      const all = pool(b, drift(t, k), s.sheen0 + (s.sheen - s.sheen0) * slowed(t, k)), reach = Math.max(...all.map(([x, y]) => Math.hypot(x + 0.5 - b.lands[0], y + 0.5 - b.lands[1])));
+      const r = reach * easeOut(Math.min(1, (t - k.wet) / Math.max(1, k.grown - k.wet))) + 0.01;
+      const grown = all.filter(([x, y]) => Math.hypot(x + 0.5 - b.lands[0], y + 0.5 - b.lands[1]) <= r);
+      const wet = new Set(grown.map(([x, y]) => `${x},${y}`));
+      put(grown.map(([x, y, c]) => [x, y, N4.some(([a, q]) => !wet.has(`${x + a},${y + q}`)) ? POOL.EDGE : c]), 0, 0);
+    }
+    if (t >= k.pour && t < k.dry)
+      stand.push([b.dir === 'u' ? b.lands[1] : Math.max(b.lands[1], j.y + j.h + 1), () => stream(b, ...j.mouth, f)]);
+    stand.push([j.y + j.h, () => put(j.px, j.x, j.y)],
+      [(b.rac[1] + 1) * C + (pressing ? 0.5 : 0), () => (pressing ? S.pressing(segAt(b.segs, g2), b.dir, ...b.rac) : S.raccoon(...b.at, b.dir))]);
+    if (pressing) stand.push([Infinity, () => S.pressing(segAt(b.segs, g2), b.dir, ...b.rac, { over: true })]);
+  }
+  for (const [, paint] of stand.sort((a, b) => a[0] - b[0])) paint();
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+// ---- the timeline ----
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const KEYS = {
+  move:   { rows: ['jug'], fixed: true, at: () => MOVE },
+  stop:   { rows: ['jug'], fixed: true, at: () => MOVE + MOVES },
+  tip:    { rows: ['jug'], at: () => T().tip, set: f => { s.tip = Math.max(MOVE, f) - MOVE - MOVES; } },
+  flat:   { rows: ['jug'], at: () => T().flat, set: f => { s.fall = Math.max(2, f - T().tip); } },
+  rock:   { rows: ['jug'], at: () => T().settle, set: f => { s.settle = Math.max(2, f - T().flat); } },
+  pour:   { rows: ['water'], at: () => T().pour, set: f => { s.pour = Math.max(0, f - T().tip); } },
+  dry:    { rows: ['water'], at: () => T().dry, set: f => { s.drain = Math.max(1, f - T().pour); } },
+  puddle: { rows: ['puddle'], at: () => T().wet, set: f => { s.reach = Math.max(0, f - T().pour); } },
+  grown:  { rows: ['puddle'], fixed: true, at: () => T().grown },
+  still:  { rows: ['puddle'], at: () => T().still, set: f => { s.still = Math.max(1, f - T().grown); } },
+};
+const SEGS = {
+  jug: [['wind-up', () => 0, 'move', '#e4e0d8'], ['slide', 'move', 'stop', '#c9d6ea'], ['fall', 'tip', 'flat', '#f2d29b'], ['rock', 'flat', 'rock', '#e8c9b4']],
+  water: [['in the jug', () => 0, 'pour', '#dcd6e4'], ['pouring', 'pour', 'dry', '#bfe0e6']],
+  puddle: [['growing', 'puddle', 'grown', '#bfd3e6'], ['slowing', 'grown', 'still', '#cbdbea'], ['still', 'still', () => length() - 1, '#d6e2ee']],
+};
+const pc = f => 100 * f / (length() - 1);
+const frameAt = x => { const r = $('track').getBoundingClientRect(); return Math.round((x - r.left) / r.width * (length() - 1)); };
+const ROW_Y = { jug: 0, water: 28, puddle: 56 };
+function timeline() {
+  const tr = $('track'); tr.innerHTML = '';
+  const div = (cls, css, text = '') => { const e = document.createElement('div'); e.className = cls; Object.assign(e.style, css); e.textContent = text; tr.append(e); return e; };
+  const at = k => (typeof k === 'function' ? k() : KEYS[k].at());
+  for (const [row, y] of Object.entries(ROW_Y)) {
+    div('rowName', { top: `${y}px` }, row);
+    for (const [name, a, b, col] of SEGS[row]) div('seg', { top: `${y}px`, left: `${pc(at(a))}%`, width: `${Math.max(0, pc(at(b)) - pc(at(a)))}%`, background: col }, name).title = name;
+  }
+  for (const [id, k] of Object.entries(KEYS)) for (const row of k.rows) {
+    const e = div('key' + (k.fixed ? ' fixed' : ''), { top: `${ROW_Y[row]}px`, left: `${pc(k.at())}%` });
+    e.innerHTML = '<div class="stem"></div><div class="grab"></div><div class="num"></div>';
+    e.querySelector('.num').textContent = k.at(); e.title = `${id}: frame ${k.at()}`;
+    e.onpointerdown = k.fixed ? ev => ev.stopPropagation() : ev => dragKey(ev, id);
+  }
+  const h = div('', { left: `${pc(frame_)}%` }); h.id = 'head';
+}
+function dragKey(e, id) {
+  e.preventDefault(); e.stopPropagation(); setPlay(0);
+  const move = ev => { KEYS[id].set(frameAt(ev.clientX)); frame_ = clamp(KEYS[id].at(), 0, length() - 1); draw(); };
+  const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); save(); autosave(); };
+  addEventListener('pointermove', move); addEventListener('pointerup', up); move(e);
+}
+$('track').onpointerdown = e => { setPlay(0); frame_ = clamp(frameAt(e.clientX), 0, length() - 1); draw();
+  const move = ev => { frame_ = clamp(frameAt(ev.clientX), 0, length() - 1); draw(); };
+  const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); };
+  addEventListener('pointermove', move); addEventListener('pointerup', up); };
+
+// ---- transport ----
+let playDir = 0, last = 0;
+function setPlay(d) { playDir = d; if (d) { last = performance.now(); requestAnimationFrame(tick); } }
+function tick(now) {
+  if (!playDir) return;
+  if (now - last >= 1000 / 60) {
+    last = now; frame_ += playDir;
+    if (frame_ <= 0 || frame_ >= length() - 1) { frame_ = clamp(frame_, 0, length() - 1); playDir = 0; }
+    draw();
+  }
+  requestAnimationFrame(tick);
+}
+$('playFwd').onclick = () => { if (frame_ >= length() - 1) frame_ = 0; setPlay(1); };
+$('playBack').onclick = () => { if (frame_ <= 0) frame_ = length() - 1; setPlay(-1); };
+$('stop').onclick = () => setPlay(0);
+$('toStart').onclick = () => { setPlay(0); frame_ = 0; draw(); };
+$('toEnd').onclick = () => { setPlay(0); frame_ = length() - 1; draw(); };
+$('scrub').oninput = () => { setPlay(0); frame_ = Number($('scrub').value); draw(); };
+$('frame').onchange = () => { setPlay(0); frame_ = clamp(Math.round(Number($('frame').value)), 0, length() - 1); draw(); };
+addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea')) return;
+  if (e.key === 'ArrowRight') { setPlay(0); frame_ = Math.min(length() - 1, frame_ + 1); draw(); }
+  if (e.key === 'ArrowLeft') { setPlay(0); frame_ = Math.max(0, frame_ - 1); draw(); }
+  if (e.key === ' ') { e.preventDefault(); playDir ? setPlay(0) : $('playFwd').click(); }
+});
+const change = () => { save(); draw(); autosave(); };
+for (const k of KNOBS) {
+  $(k).oninput = () => { s[k] = Number($(k).value); change(); };
+  $(k + 'n').onchange = () => { const st = Number($(k).step); s[k] = Math.round(Number($(k + 'n').value) / st) * st; change(); };
+}
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(12, s.zoom + 1); save(); draw(); };
+let timer = 0;
+const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'jug-tip', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600); };
+$('note').oninput = autosave;
+draw(); autosave();
+</script>
+</body>
+</html>

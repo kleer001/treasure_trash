@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Square jug light</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 440px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  label { display: grid; grid-template-columns: 170px 1fr 64px; gap: 10px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .group { display: flex; align-items: center; gap: 10px; color: #6b6b66; font-size: 14px; }
+  .group::before, .group::after { content: ''; flex: 1; border-top: 1px solid #d6d3cc; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side">
+  <div class="group">light</div>
+  <label>light azimuth ° <input id="laz" type="range" min="-180" max="180" step="1"><input id="lazn" type="number" step="1"></label>
+  <label>light elevation ° <input id="lel" type="range" min="0" max="90" step="1"><input id="leln" type="number" step="1"></label>
+  <label>shade band % <input id="shade" type="range" min="0" max="100" step="1"><input id="shaden" type="number" step="1"></label>
+  <label>light band % <input id="light" type="range" min="0" max="100" step="1"><input id="lightn" type="number" step="1"></label>
+  <label>shine band % <input id="shine" type="range" min="0" max="100" step="1"><input id="shinen" type="number" step="1"></label>
+  <label>dark band % <input id="dark" type="range" min="0" max="100" step="1"><input id="darkn" type="number" step="1"></label>
+  <label>dark colour <input id="shadow" type="color"><span></span></label>
+  <label>facing shade % <input id="facing" type="range" min="0" max="100" step="1"><input id="facingn" type="number" step="1"></label>
+  <div class="group">base</div>
+  <label>foot curl × <input id="bevel" type="range" min="0" max="3" step="0.1"><input id="beveln" type="number" step="0.1"></label>
+  <label>recess depth cm <input id="recess" type="range" min="0" max="3" step="0.1"><input id="recessn" type="number" step="0.1"></label>
+  <label>recess inset cm <input id="inset" type="range" min="0.5" max="6" step="0.1"><input id="insetn" type="number" step="0.1"></label>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <textarea id="note" placeholder="Note on the jug's light"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+
+<script type="module">
+import { squareJug, JUG_LOOK } from './squareJug.js';
+import { loadPixelArt, createPixelSprites, PIXEL_CELL as C } from '../../src/pixel.js';
+
+const KEY = 'trash-jug-light', $ = id => document.getElementById(id);
+const KNOBS = ['laz', 'lel', 'shade', 'light', 'shine', 'dark', 'facing', 'bevel', 'recess', 'inset'];
+let s = { laz: JUG_LOOK.laz, lel: JUG_LOOK.lel, shade: JUG_LOOK.bands[0], light: JUG_LOOK.bands[1], shine: JUG_LOOK.bands[2],
+  dark: JUG_LOOK.dark, shadow: JUG_LOOK.shadow, facing: JUG_LOOK.facing, bevel: JUG_LOOK.bevel, recess: JUG_LOOK.recess, inset: JUG_LOOK.inset, zoom: 4 };
+try { const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); for (const k in s) if (saved[k] !== undefined) s[k] = saved[k]; } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+
+const jug = await squareJug();
+const art = await loadPixelArt(new URL('../../src/art/', import.meta.url));
+const COLS = 13, ROWS = 3;
+const src = document.createElement('canvas'); src.width = COLS * C; src.height = ROWS * C;
+const g = src.getContext('2d');
+const S = createPixelSprites({ ctx: g, art });
+/** Upright full and empty, then lying empty after a fall each way. */
+const VIEWS = [['d', 0, JUG_LOOK.water / 100], ['d', 0, 0], ['r', 90, 0], ['l', 90, 0], ['d', 90, 0], ['u', 90, 0]];
+
+function draw() {
+  for (const k of KNOBS) { $(k).value = s[k]; $(k + 'n').value = s[k]; }
+  $('shadow').value = s.shadow; $('zoom').textContent = `${s.zoom}×`;
+  jug.set({ ...JUG_LOOK, laz: s.laz, lel: s.lel, bands: [s.shade, s.light, s.shine], dark: s.dark, shadow: s.shadow, facing: s.facing, bevel: s.bevel, recess: s.recess, inset: s.inset });
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) S.floor(x, y);
+  VIEWS.forEach(([dir, deg, F], i) => {
+    const j = jug.drawing(dir, deg, F), x = (1 + 2 * i) * C + Math.floor((C - j.w) / 2), y = 2 * C - j.h - 1 + JUG_LOOK.dy;
+    for (const [px, py, c] of j.px) { g.fillStyle = c; g.fillRect(x + px, y + py, 1, 1); }
+  });
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+const change = () => { save(); draw(); autosave(); };
+for (const k of KNOBS) {
+  $(k).oninput = () => { s[k] = Number($(k).value); change(); };
+  $(k + 'n').onchange = () => { const st = Number($(k).step); s[k] = Math.round(Number($(k + 'n').value) / st) * st; change(); };
+}
+$('shadow').oninput = () => { s.shadow = $('shadow').value; change(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(12, s.zoom + 1); save(); draw(); };
+let timer = 0;
+const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'jug-light', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600); };
+$('note').oninput = autosave;
+draw(); autosave();
+</script>
+</body>
+</html>
