@@ -26,6 +26,7 @@ import { press, moveStart, moveStop, segAt, travelAt } from './art/press.js';
 import { tracings } from './art/canTip.js';
 import { LOOK as DOOR } from './art/door.js';
 import { createCompositor } from './compositor.js';
+import { reverseStep } from './tape.js';
 import { P, PATTERNS, KINDS, layWall, drawWipe, wallFrom, roomBeats } from './wipe.js';
 import { createWipeTune } from './wipeTune.js';
 // stage owns the objects, their motion and its envelopes
@@ -108,7 +109,7 @@ if(dbg){
     refStage: () => stageFrom(state, cur + 1, decor),
     decor: () => decor,
     grid: () => toGrid(state),
-    idle: () => !anim && !busy && !fx && !wipe && !pose,
+    idle: () => !anim && !busy && !fx && !wipe && !pose && !rewind,
     level: () => LEVELS[cur].id,
     moves: () => moves,
     won: () => won,
@@ -279,6 +280,47 @@ function landMv(){
   anim = null; board = state;
 }
 
+// ---- the undo rewind ----
+// Each move keeps a tape: the stage from before it, and its drawings as reverse steps
+// (`src/tape.js`). The stage is kept because one built again from a board deals the draw seeds
+// again, and every pile spawned since the room loaded would come back with a new look.
+const REWIND_SPEED = 2;
+let tapes = [], rec = null, rewind = null;
+
+function startTape(kept){
+  const tape = { stage: kept, t0: clockMs(), steps: [] };
+  tapes.push(tape);
+  if(PIXEL) rec = { tape, on: true, prev: ctx.getImageData(0, 0, cv.width, cv.height) };
+}
+function record(){
+  if(wipe?.t0 != null){ rec.on = false; return; }
+  const next = ctx.getImageData(0, 0, cv.width, cv.height), step = reverseStep(rec.prev, next);
+  if(step) rec.tape.steps.push({ t: clockMs() - rec.tape.t0, ...step });
+  rec.prev = next;
+}
+// The lit door's shimmer never ends, so it is not asked about.
+const moving = () => !!(anim || pose || fx || dumps.length || (door && since(door.t0) < DOOR.roll * FRAME_MS));
+
+function startRewind(tape){
+  // A wipe or the shimmer may have drawn over the screen since the tape stopped.
+  if(rec?.tape === tape) ctx.putImageData(rec.prev, 0, 0);
+  rec = null;
+  door = { lit: exitLit(state), t0: -Infinity };
+  rewind = { steps: tape.steps, i: tape.steps.length - 1, end: tape.steps.at(-1).t, t0: clockMs() };
+  raf ||= requestAnimationFrame(tick);
+}
+const putBack = s => ctx.putImageData(new ImageData(s.old, s.w, s.h), s.x, s.y);
+/** Returns false once the screen is back to the drawing before the move. */
+function stepRewind(){
+  const t = rewind.end - since(rewind.t0) * REWIND_SPEED;
+  while(rewind.i >= 0 && rewind.steps[rewind.i].t > t) putBack(rewind.steps[rewind.i--]);
+  return rewind.i >= 0;
+}
+function endRewind(){
+  while(rewind.i >= 0) putBack(rewind.steps[rewind.i--]);
+  rewind = null;
+}
+
 // ---- the win ----
 // Frames at 60 Hz. `lay` is one brick's drop into its course.
 const WIPE = { exit: 12, empty: 30, cover: 40, roomHold: 60, roomHoldMax: 120, reveal: 30, revealMax: 90, tail: 60,
@@ -354,6 +396,7 @@ if(new URLSearchParams(location.search).has('wipe'))
 // fight over `raf`.
 function tick(){
   raf = 0;
+  if(rewind && !stepRewind()) rewind = null;
   if(fx){
     const ph = fxPhase();
     if(ph && ph.flash && !fx.beeped){ fx.beeped = true; beep(false); }
@@ -372,7 +415,8 @@ function tick(){
   }
   dumps = dumps.filter(dumpLive);
   render();
-  if(fx || anim || wipe || pose || doorLive() || dumps.length) raf ||= requestAnimationFrame(tick);
+  if(rec?.on && !moving()) rec.on = false;
+  if(fx || anim || wipe || pose || doorLive() || dumps.length || rewind) raf ||= requestAnimationFrame(tick);
 }
 
 function handOver(keep = false){
@@ -391,6 +435,7 @@ function handOver(keep = false){
 const cancelAnim = () => {
   if(raf) cancelAnimationFrame(raf); raf = 0; fx = null; wipe = null; pose = null;
   if(anim) landMv();
+  if(rewind) endRewind();
 };
 
 // ---- audio: a procedural two-tone "no" for a refused input.
@@ -441,6 +486,7 @@ function playWinChime(){
 function act(dir){
   audio(); primeWinChime();              // first input is the gesture that unlocks audio
   if(won){ handOver(); return; }
+  if(rewind) endRewind();
   if(wipe){ wipe = null; render(); }
   if(fx){ cancelAnim(); render(); }
   const res = play.press(dir, !!anim); sync();
@@ -456,7 +502,9 @@ function act(dir){
   }
   else if(res.kind === 'armed'){ blocked = null; beep(true); render(); }
   else {
-    if(anim){ landMv(); busy = false; }
+    // A cut move ends its tape on the landed drawing, so its rewind jumps where this play did.
+    if(anim){ landMv(); busy = false; pose = null; render(); }
+    const kept = structuredClone(stage);
     face(stage, dir);
     dbg?.action(moves, dir, res.prev.rac, r);
     dbg?.decor(decor);
@@ -464,6 +512,7 @@ function act(dir){
     const stay = state.rac.x === res.prev.rac.x && state.rac.y === res.prev.rac.y;
     startPose(r.steps[0].moved.length || stay ? 'push' : 'crawl', dir, res.prev.rac, stay);
     startMv(res.prev, r);
+    startTape(kept);
     if(won){ beat = res.beat; startWipe(); dbg?.note(`won in ${moves}`); }
     readLost();
     render();
@@ -474,12 +523,15 @@ function undo(){
   cancelAnim(); busy = false;
   const res = play.undo(); sync();
   if(res.kind === 'none') return;
-  blocked=null; rest(); readLost(); render(); dbg?.note(`undo -> ${moves}`);
+  const tape = tapes.pop();
+  blocked=null; anim = null; board = state; stage = tape.stage;
+  if(tape.steps.length) startRewind(tape);
+  readLost(); render(); dbg?.note(`undo -> ${moves}`);
   tell(watch, now(), res);
 }
 function restart(){ load(cur, true); }
 function load(i, again = false){
-  cancelAnim(); busy = false; door = null; fxSeen = new Set();
+  cancelAnim(); busy = false; door = null; fxSeen = new Set(); tapes = []; rec = null;
   const res = play.load(i, again); sync();
   blocked=null; beat=false;
   startScan();
@@ -542,7 +594,6 @@ function pumpScan(deadline){
   if(scanSpent >= SCAN_BUDGET_MS){ scan = null; return; }
   scanRaf = askIdle(pumpScan);
 }
-/** Every jump that is not an action goes through here. */
 function rest(){ anim = null; board = state; stage = stageFrom(state, cur + 1, decor); }
 
 // ---- render ----
@@ -751,6 +802,7 @@ const comp = createCompositor([
 ]);
 
 function render(){
+  if(rewind){ paintHud(); return; }
   const s=state;
   if(PIXEL) syncDoor();
   cv.width=s.cols*CS; cv.height=s.rows*CS;
@@ -761,6 +813,7 @@ function render(){
     armed, blocked, wipe,
     w:cv.width, h:cv.height, cs:CS,
   });
+  if(rec?.on) record();
   paintHud();
 }
 
