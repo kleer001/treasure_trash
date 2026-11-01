@@ -6,6 +6,7 @@ import { createTrash, pileLayout, drawPile } from './art/pile.js';
 import { wallTile } from './art/room.js';
 import { createStills } from './art/stills.js';
 import { createCanTip } from './art/canTip.js';
+import { createJugTip, bakedJug } from './art/jugTip.js';
 import { puddle, crossing } from './art/water.js';
 import { SKATEBOARD } from './art/skateboard.js';
 import { door } from './art/door.js';
@@ -33,14 +34,15 @@ export const PIXEL_CELL = C;
 /** The art's data files, fetched relative to `base`, the URL of `src/art/`. */
 export async function loadPixelArt(base) {
   const get = f => fetch(new URL(f, base)).then(r => { if (!r.ok) throw new Error(`${f}: HTTP ${r.status}`); return r.json(); });
-  const [A, D, LOOK, O, W] = await Promise.all(['assets.json', 'items.json', 'look.json', 'objects.json', 'wheelie.json'].map(get));
-  return { A, D, LOOK, O, W };
+  const [A, D, LOOK, O, W, J] = await Promise.all(['assets.json', 'items.json', 'look.json', 'objects.json', 'wheelie.json', 'jug.json'].map(get));
+  return { A, D, LOOK, O, W, J };
 }
 
-export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
+export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
   const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
-  const still = createStills({ T, A, O, LOOK });
+  const still = createStills({ T, A, O, LOOK, J });
   const tipClip = createCanTip(A.bag);
+  const pourClip = createJugTip({ drawing: bakedJug(J).drawing, full: J.full, dy: J.dy });
   const STYLE = { outline: LOOK.outline, shadow: LOOK.shadow };
   const BIKE = bicycle();
   // The sitting frame of each facing.
@@ -72,13 +74,20 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W } }) {
       .flatMap((h, x) => (h === '..' ? [] : [[f.x + x, f.y + y, W.palette[parseInt(h, 16)]]]))));
     return decoded.get(f);
   };
-  /** The clip of a container that has just thrown its bag out, keyed by what it is once it has:
-   *  `{ end, draw(f) }`, drawn `f` screen frames from the start of its move; `null` when it cannot
-   *  draw where the bag went. */
+  const drawLayers = (layers, f, along) => { for (const [, px] of layers(f, along).sort((a, b) => a[0] - b[0])) put(px, 0, 0); };
+  /** The clip of a container that has just emptied onto cell `shedTo`, keyed by what it is once it
+   *  has: `{ end, draw(f) }`, drawn `f` screen frames from the start of its move, and `ground(f)`, what
+   *  lies on that cell's floor, for one whose clip draws it; `null` when it cannot draw where its
+   *  contents went. */
   const DUMPS = {
-    [CAN_EMPTY]: ({ container, from, to, bagTo, moveFrames, down }) => {
-      const { layers, end } = tipClip({ dir: container.lie, from, to, bagTo, moveFrames, down });
-      return { end, draw: f => { for (const [, px] of layers(f, container.along).sort((a, b) => a[0] - b[0])) put(px, 0, 0); } };
+    [CAN_EMPTY]: ({ container, from, to, shedTo, moveFrames, down }) => {
+      const { layers, end } = tipClip({ dir: container.lie, from, to, bagTo: shedTo, moveFrames, down });
+      return { end, draw: f => drawLayers(layers, f, container.along) };
+    },
+    [JUG_EMPTY]: ({ container, from, to, shedTo: [wx, wy], moveFrames }) => {
+      const { layers, ground, end } = pourClip({ dir: container.lie, from, to, wetAt: [wx, wy], moveFrames,
+        wet: (x, y) => (x === wx && y === wy) || wet(x, y) });
+      return { end, draw: f => drawLayers(layers, f, container.along), ground: f => put(ground(f) ?? [], 0, 0) };
     },
     [WHEELIE_EMPTY]: ({ container: c, down }) => (down ? null : {
       end: W.dump.r.length * 2,

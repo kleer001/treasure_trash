@@ -194,28 +194,27 @@ function doorRoll(){
 }
 const doorLive = () => PIXEL && !!door && (door.lit || since(door.t0) < DOOR.roll * FRAME_MS);
 
-// The clip draws the bag too,
-// so the bag's own sprite waits under it.
+// The clip draws what the container shed too — the bag, or the water and its puddle —
+// so that sprite waits under it.
 let dumps = [];
 function noteDump(step, moveFrames){
   if(!PIXEL) return;
   for(const m of step.moved){
     if(m.o === m.becomes.o) continue;
-    const shed = shedOf(step, m);
-    if(shed?.o !== BAG) continue;
-    const [x, y] = restsOn(m), [bx, by] = shed.cells[0];
+    const out = shedOf(step, m), kind = out?.o === BAG ? BAG : out?.effect === 'pours' ? SPLASH : null;
+    if(!kind) continue;
+    const [x, y] = restsOn(m), [bx, by] = out.cells[0];
     const container = stage.sprites.find(sp => sp.kind === m.becomes.o && sp.tx === x && sp.ty === y);
-    const bag = stage.sprites.find(sp => sp.kind === BAG && sp.tx === bx && sp.ty === by
-      && !sp.dying && (!sp.spent || sp.falls));
-    const clip = container && bag
-      && SP.dump(m.becomes.o, { container, from: m.cells[0], to: [x, y], bagTo: [bx, by], moveFrames, down: !!bag.falls });
-    if(clip) dumps.push({ container, bag, at: [x, y], t0: clockMs(), ...clip });
+    const shed = stage.sprites.find(sp => sp.kind === kind && sp.tx === bx && sp.ty === by
+      && !sp.dying && (kind === SPLASH || !sp.spent || sp.falls));
+    const clip = container && shed
+      && SP.dump(m.becomes.o, { container, from: m.cells[0], to: [x, y], shedTo: [bx, by], moveFrames, down: !!shed.falls });
+    if(clip) dumps.push({ container, shed, at: [x, y], shedTo: [bx, by], t0: clockMs(), ...clip });
   }
 }
-function dumpDraw(sp){
-  const d = dumps.find(d => d.container === sp);
-  d.draw(Math.round(since(d.t0) / FRAME_MS));
-}
+const dumpAt = d => Math.round(since(d.t0) / FRAME_MS);
+const dumpDraw = sp => { const d = dumps.find(d => d.container === sp); d.draw(dumpAt(d)); };
+const pouringOn = (x, y) => dumps.find(d => d.ground && d.shedTo[0] === x && d.shedTo[1] === y);
 const dumpLive = d => since(d.t0) < d.end * FRAME_MS && stage.sprites.includes(d.container)
   && d.container.tx === d.at[0] && d.container.ty === d.at[1];
 const slow = matchMedia('(prefers-reduced-motion: reduce)');
@@ -608,8 +607,8 @@ function paintSprite(sp, f){
     if(isBarrow(sp.ck)) SP.barrow(sp.x, sp.y, barrowFace(sp.ck));
     else SP.skateboard(sp.cells, sp.x, sp.y);
   }
+  else if(dumps.some(d => d.shed === sp)) return;
   else if(sp.kind === SPLASH) SP.splash(sp.x, sp.y);
-  else if(dumps.some(d => d.bag === sp)) return;
   else if(dumps.some(d => d.container === sp)) dumpDraw(sp);
   else drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
     seed: sp.seed, face: sp.face, lie: sp.lie, wet: sp.soaks ? (sp.soak ?? 1) : 0,
@@ -666,7 +665,9 @@ const comp = createCompositor([
     for(let y=0;y<b.rows;y++) for(let x=0;x<b.cols;x++){
       const c=cell(b,x,y);
       if(c.wall){ if(PIXEL) SP.wall(x,y); continue; }
-      if(c.water)                   SP.water(x,y,false,0,filling.get(`${x},${y}`)??0);
+      const pour = pouringOn(x,y);
+      if(pour){ SP.floor(x,y); pour.ground(dumpAt(pour)); }
+      else if(c.water)              SP.water(x,y,false,0,filling.get(`${x},${y}`)??0);
       else if(c.bridge)             SP.water(x,y,true,cellSeed(x,y));
       else if(c.grate)              SP.grate(x,y);
       else if(c.oneway!==undefined) SP.oneway(x,y,c.oneway);

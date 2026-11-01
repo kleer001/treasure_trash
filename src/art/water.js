@@ -2,45 +2,29 @@
 import { mulberry32 } from '../rng.js';
 import { hash, noise } from './spread.js';
 import { chooser } from './pile.js';
+import { slickShape, slickCell } from './slick.js';
 
 const EDGE = '#2b2d55', DEEP = '#244287', MID = '#3169b0', LIGHT = '#7dafb3', SHINE = '#f1eccb';
 /** The water's colours: its rim, its shaded edge, its body, its ripples and its brightest glint. */
 export const WATER = { EDGE, DEEP, MID, LIGHT, SHINE };
 const SLUDGE = '#67819e';                     // the packed crossing between its scraps
-const ROUND = 4;                              // px
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+
+/** The puddle's look: a slick in the water's colours. */
+export const PUDDLE = { seed: 31, lobes: 5, size: 7, lump: 0.25, fill: 1.1, shine: 0.9, sheen: 0.08, band: 4,
+  body: MID, edge: EDGE, glint: DEEP, hues: [LIGHT] };
 
 /** Whether cell-local pixel (x, y) of cell (cx, cy) is in its water, and whether it is the rim
  *  where the water meets dry ground. `wet(x, y)` says whether a neighbouring cell is water too. */
 export function outline(cx, cy, C, wet) {
-  const dry = { l: !wet(cx - 1, cy), r: !wet(cx + 1, cy), u: !wet(cx, cy - 1), d: !wet(cx, cy + 1) };
-  const lo = [dry.l ? 1 : 0, dry.u ? 1 : 0], hi = [dry.r ? C - 2 : C - 1, dry.d ? C - 2 : C - 1];
-  const inside = (x, y) => {
-    if (x < 0 || x >= C || y < 0 || y >= C) return !dry[x < 0 ? 'l' : x >= C ? 'r' : y < 0 ? 'u' : 'd'];
-    if (x < lo[0] || y < lo[1] || x > hi[0] || y > hi[1]) return false;
-    for (const [sx, sy, ax, ay] of [['l', 'u', lo[0], lo[1]], ['r', 'u', hi[0], lo[1]], ['l', 'd', lo[0], hi[1]], ['r', 'd', hi[0], hi[1]]]) {
-      if (!dry[sx] || !dry[sy]) continue;
-      const kx = ax + (sx === 'l' ? ROUND : -ROUND), ky = ay + (sy === 'u' ? ROUND : -ROUND);
-      if ((sx === 'l' ? x < kx : x > kx) && (sy === 'u' ? y < ky : y > ky) && Math.hypot(x - kx, y - ky) > ROUND) return false;
-    }
-    return true;
-  };
+  const on = slickShape(cx, cy, wet, PUDDLE), inside = (x, y) => on(cx * C + x, cy * C + y);
   const rim = (x, y) => !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
   return { inside, rim };
 }
 
 /** The pixels of the puddle in cell (cx, cy), in px from the board's top-left. */
 export function puddle(cx, cy, C, wet) {
-  const { inside, rim } = outline(cx, cy, C, wet);
-  const glint = [2, 3, 4].map(k => { const h = hash(cx, cy, k); return [3 + h % (C - 9), 3 + (h >>> 8) % (C - 7)]; });
-  const px = [];
-  for (let y = 0; y < C; y++) for (let x = 0; x < C; x++) {
-    if (!inside(x, y)) continue;
-    const ripple = glint.findIndex(([gx, gy]) => y === gy && x >= gx && x < gx + 4);
-    px.push([cx * C + x, cy * C + y, rim(x, y) ? EDGE : ripple >= 0 ? (x === glint[ripple][0] + 1 && ripple === 0 ? SHINE : LIGHT)
-      : !inside(x, y - 1) || !inside(x - 1, y) ? DEEP : MID]);
-  }
-  return px;
+  return slickCell(cx, cy, wet, PUDDLE).map(([x, y, col]) => [cx * C + x, cy * C + y, col]);
 }
 
 const SOAKED = [[0.06, '#262440'], [0.15, '#453d51'], [0.3, '#67819e'], [0.55, LIGHT], [Infinity, '#d6d3b0']];

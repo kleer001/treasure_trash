@@ -3,15 +3,17 @@ import { BAG, CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, JUG, JUG_EMPTY, WHEELIE, WHEE
 import { C } from './flight.js';
 import * as CAN from './can.js';
 import * as BOX from './box.js';
-import * as JUGS from './jug.js';
 import * as GLASS from './pane.js';
+import { bakedJug } from './jugTip.js';
 
 export const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
 export const moved = (px, dx, dy) => px.map(([x, y, col]) => [x + dx, y + dy, col]);
-export const LYING = { [CAN_EMPTY]: CAN, [BIN_EMPTY]: BOX, [JUG_EMPTY]: JUGS };
+/** What draws each thing that can lie, with the square jug's drawings baked into `J`. */
+export const lyingOf = J => ({ [CAN_EMPTY]: CAN, [BIN_EMPTY]: BOX, [JUG_EMPTY]: bakedJug(J) });
 
 /** `still(o, cx, cy, seed, lie)`: thing `o` in cell (cx, cy) as `{ px, x, y, h }`, its pixels from its top-left (x, y) and its foot `h` below that; `null` for a thing with no drawing here. */
-export function createStills({ T, A, O, LOOK }) {
+export function createStills({ T, A, O, LOOK, J }) {
+  const LYING = lyingOf(J), JUGS = LYING[JUG_EMPTY];
   const heap = seed => BOX.contents(T, seed, LOOK.spread.edges, LOOK.spread.hues).sort((a, b) => b.by - a.by).flatMap(p => {
     const s = T.sprite(p.name, p.alt, p.turn), x0 = Math.round(p.bx - s.w / 2), y0 = Math.round(p.by - s.h / 2);
     return moved(s.px.filter(([x, y]) => y0 + y < 2 && x0 + x > 0 && x0 + x < BOX.BOX.W - 1), x0, y0);
@@ -27,10 +29,7 @@ export function createStills({ T, A, O, LOOK }) {
       }
       case BIN_EMPTY: return upright(BOX.front, BOX.restAt(cx, cy, C));
       case BIN: return upright(BOX.front, BOX.restAt(cx, cy, C), heap(seed));
-      case JUG: case JUG_EMPTY: {
-        const P = JUGS.restAt(cx, cy, C), f = JUGS.frame('r', 0, o === JUG ? 1 : 0);
-        return { px: moved(f.s.px, f.ox, f.oy), x: P[0], y: P[1], h: JUGS.full.h };
-      }
+      case JUG: case JUG_EMPTY: return upright(JUGS.drawing('r', 0, o === JUG ? J.full : 0), JUGS.restAt(cx, cy, C));
       case PANE: return upright(GLASS.front, GLASS.restAt(cx, cy, C));
       case BAG: return upright(A.bag, at(A.bag, cx, cy));
       case WHEELIE: case WHEELIE_EMPTY: return upright(O.bin, at(O.bin, cx, cy));

@@ -34,14 +34,12 @@ function lobes(cx, cy, has, look) {
   return out;
 }
 
-/** The pixels of the slick in cell (cx, cy), as [x, y, colour] within the cell. `has(x, y)` says
- *  whether a cell holds the same slick. `drift` moves the sheen by [x, y] floor pixels. */
-export function slickCell(cx, cy, has, look, [ox, oy] = [0, 0]) {
+/** Whether floor pixel (x, y) is in the slick of cell (cx, cy), for pixels in that cell and the
+ *  cells around it. `has(x, y)` says whether a cell holds the same slick. */
+export function slickShape(cx, cy, has, look) {
   const near = [];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++)
     if (has(cx + dx, cy + dy)) near.push(...lobes(cx + dx, cy + dy, has, look));
-  const x0 = cx * C, y0 = cy * C;
-  const inCell = (x, y) => x >= x0 && x < x0 + C && y >= y0 && y < y0 + C;
   const field = (x, y) => {
     if (!has(Math.floor(x / C), Math.floor(y / C))) return 0;
     let f = 0;
@@ -49,11 +47,18 @@ export function slickCell(cx, cy, has, look, [ox, oy] = [0, 0]) {
     return f * (1 + look.lump * (noise(x, y, look.seed) - 0.5) * 2);
   };
   const memo = new Map();
-  const on = (x, y) => {
+  return (x, y) => {
     const k = x * 100003 + y;
     if (!memo.has(k)) memo.set(k, field(x, y) >= look.fill);
     return memo.get(k);
   };
+}
+
+/** The pixels of the slick in cell (cx, cy), as [x, y, colour] within the cell. `has(x, y)` says
+ *  whether a cell holds the same slick. `drift` moves the sheen by [x, y] floor pixels. */
+export function slickCell(cx, cy, has, look, [ox, oy] = [0, 0]) {
+  const on = slickShape(cx, cy, has, look), x0 = cx * C, y0 = cy * C;
+  const inCell = (x, y) => x >= x0 && x < x0 + C && y >= y0 && y < y0 + C;
   const px = [];
   for (let y = y0; y < y0 + C; y++) for (let x = x0; x < x0 + C; x++) {
     if (!inCell(x, y) || !on(x, y)) continue;

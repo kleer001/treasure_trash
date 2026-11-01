@@ -1,11 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createStills, LYING } from '../src/art/stills.js';
+import { readFileSync } from 'node:fs';
+import { createStills, lyingOf } from '../src/art/stills.js';
 import { LIES } from '../src/stage.js';
 import { C } from '../src/art/flight.js';
 
-const still = createStills({});
-const THINGS = Object.entries(LYING).map(([o, M]) => [Number(o), M]);
+const J = JSON.parse(readFileSync(new URL('../src/art/jug.json', import.meta.url)));
+const still = createStills({ J });
+const THINGS = Object.entries(lyingOf(J)).map(([o, M]) => [Number(o), M]);
 
 test('every kind the stage lays down has a lying drawing, and no other kind has one', () => {
   assert.deepEqual(new Set(THINGS.map(([o]) => o)), LIES);
