@@ -70,19 +70,15 @@
 
 <script type="module">
 import { loadPixelArt, createPixelSprites, PIXEL_CELL as C } from '../../src/pixel.js';
-import { press, moveStart, moveStop, segAt } from '../../src/art/press.js';
+import { moveStart, moveStop, segAt } from '../../src/art/press.js';
+import { RIP, tearPress, ripKeys } from '../../src/art/bagRip.js';
 import { explain, TRASH, DIRS } from '../../src/rules.js';
 import { toState } from '../../src/format.js';
 import { cellSeed } from '../../src/stage.js';
-import { mulberry32 } from '../../src/rng.js';
-import { createTrash, pileLayout, drawPile, SHADOW } from '../../src/art/pile.js';
-import { stretch } from '../../src/art/stretch.js';
-import { INK } from '../../src/art/tip.js';
 
 const KEY = 'trash-bag-rip', N = 12, $ = id => document.getElementById(id);
 const KNOBS = ['squash', 'bulge', 'fewest', 'most', 'seed', 'sarc', 'tumbles', 'flat', 'scatter', 'arc', 'spin', 'turns'];
-let s = { push: 4, rip: 1, press: 4, first: 6, spread: 10, sfirst: 4, sspread: 8, squash: 2, bulge: 2, fewest: 2, most: 5, seed: 1,
-  sarc: 12, tumbles: 2, flat: 50, scatter: 4, ink: true, arc: 8, spin: 50, turns: 4, zoom: 3 };
+let s = { ...RIP, seed: 1, zoom: 3 };
 try { const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); for (const k in s) if (saved[k] !== undefined) s[k] = saved[k]; } catch {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
 
@@ -90,15 +86,7 @@ const art = await loadPixelArt(new URL('../../src/art/', import.meta.url));
 const src = document.createElement('canvas'); src.width = src.height = N * C;
 const g = src.getContext('2d');
 const S = createPixelSprites({ ctx: g, art });
-const T = createTrash(art.D, { accents: art.LOOK.accents, diagonals: art.LOOK.diagonals });
-const LAY = { min: art.LOOK.min, max: art.LOOK.max, C, spill: art.LOOK.spill }, STYLE = { outline: art.LOOK.outline, shadow: art.LOOK.shadow };
-const BAG = art.A.bag;
-const GRID = Array.from({ length: BAG.h }, () => Array(BAG.w).fill(null));
-for (const [x, y, c] of BAG.px) GRID[y][x] = c;
-const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-const put = (px, x0, y0) => { for (const [x, y, c] of px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const quadOut = u => 1 - (1 - u) ** 2;
 
 // ---- the four tears, each on its own board of the same room ----
 const BAG_AT = { r: [2, 3], d: [8, 2], l: [9, 8], u: [3, 9] };
@@ -109,106 +97,25 @@ const SCENES = Object.entries(BAG_AT).map(([dir, [bx, by]]) => {
   const r = explain(toState({ id: 'bag-rip', grid: rows.map(row => row.join('')) }), dir, { trace: true });
   if (!r.ok || r.kind !== 'tear') throw new Error(`${dir}: no tear: ${r.reason}`);
   const cells = r.steps[0].spawned.filter(e => e.o === TRASH).map(e => e.cells[0]);
-  const piles = cells.map(([x, y]) => ({ x, y, pile: pileLayout(T, cellSeed(x, y), LAY) }));
-  return { dir, dx, dy, bag: [bx, by], rac: [bx - dx, by - dy], cells, piles, move: moveStart(press('push', dir, { lead: false })) };
+  return { dir, bag: [bx, by], rac: [bx - dx, by - dy], cells, move: moveStart(tearPress(dir)) };
 });
 const MOVE = Math.max(...SCENES.map(b => b.move));
 
-/** His push toward `dir` with the drive drawn out, a stride every two frames, so that the thud
- *  lands `s.push` frames into the move. */
-function pushSegs(dir) {
-  const fs = press('push', dir, { lead: false }).map(sg => sg.f);
-  const slam = fs.find(f => f.name === 'slam'), drives = fs.filter(f => f.name === 'drive'), thud = fs.find(f => f.name === 'thud');
-  const n = Math.max(1, Math.round((s.push - slam.fr) / 2));
-  const drawn = fs.flatMap(f => (f === drives[0]
-    ? Array.from({ length: n }, (_, i) => ({ ...drives[i % 2], fr: 2, dx: Math.round(slam.dx + (thud.dx - slam.dx) * (i + 1) / (n + 1)) }))
-    : f.name === 'drive' ? [] : [f]));
-  let t = 0;
-  return drawn.map(f => ({ f, t0: t, t1: (t += f.fr) }));
-}
-const PUSHES = new Map();
-const segsOf = b => {
-  const id = `${b.dir} ${s.push}`;
-  if (!PUSHES.has(id)) PUSHES.set(id, pushSegs(b.dir));
-  return PUSHES.get(id);
-};
+const CACHE = new Map();
+const cached = (id, make) => { if (!CACHE.has(id)) CACHE.set(id, make()); return CACHE.get(id); };
+const segsOf = b => cached(`push ${b.dir} ${s.push}`, () => tearPress(b.dir, s.push));
+const clipOf = b => cached(`clip ${b.dir} ${JSON.stringify({ ...s, zoom: 0 })}`,
+  () => S.rip({ dir: b.dir, bag: b.bag, seed: (Math.imul(s.seed, 2654435761) ^ cellSeed(...b.bag)) >>> 0, cells: b.cells, k: s }));
 const arriveAt = () => MOVE + segsOf(SCENES[0]).find(sg => sg.f.name === 'thud').t0 - SCENES[0].move;
 const stopAt = () => MOVE + moveStop(segsOf(SCENES[0])) - SCENES[0].move;
 
-/** The clip's keys, in frames from the start of the move. */
-const keys = () => {
-  const rip = s.rip, squash = rip - Math.max(0, s.press), first = rip + Math.max(2, s.first), sfirst = rip + Math.max(2, s.sfirst);
-  return { squash, rip, first, last: first + Math.max(0, s.spread), sfirst, slast: sfirst + Math.max(0, s.sspread) };
-};
-const T_ = () => Object.fromEntries(Object.entries(keys()).map(([k, v]) => [k, MOVE + v]));
+const T_ = () => Object.fromEntries(Object.entries(ripKeys(s)).map(([k, v]) => [k, MOVE + v]));
 const length = () => Math.max(...SCENES.map(b => MOVE + segsOf(b).at(-1).t1 - b.move), ...Object.values(T_())) + 24;
 
-/** The bag of scene `b`, `q` of the way into its squash: its px and its top-left in the room. */
-function bagAt(b, q) {
-  const across = b.dx !== 0, sq = Math.round(q * s.squash), bu = Math.round(q * s.bulge);
-  const w = BAG.w + (across ? -sq : bu), h = BAG.h + (across ? bu : -sq);
-  const rows = stretch(GRID, h, 1, 1).map(r => stretch(r, w, 1, 1));
-  const [bx, by] = b.bag, x = bx * C + Math.floor((C - BAG.w) / 2) + (b.dx > 0 ? BAG.w - w : b.dx < 0 ? 0 : Math.floor((BAG.w - w) / 2));
-  const y = by * C + C - BAG.h - 1 + (b.dy < 0 ? 0 : BAG.h - h);
-  return { x, y, w, h, px: rows.flatMap((r, j) => r.flatMap((c, i) => (c ? [[i, j, c]] : []))) };
-}
-
-const SCRAPS = new Map(), POSES = new Map();
-/** The scraps the bag of scene `b` splits into at the rip, each with where it starts and lands, in px on the room. */
-function scrapsOf(b) {
-  const id = `${b.dir} ${['seed', 'fewest', 'most', 'ink', 'squash', 'bulge', 'scatter'].map(k => s[k])}`;
-  if (!SCRAPS.has(id)) SCRAPS.set(id, split(b));
-  return SCRAPS.get(id);
-}
-function split(b) {
-  const rnd = mulberry32((Math.imul(s.seed, 2654435761) ^ cellSeed(...b.bag)) >>> 0);
-  const lo = Math.min(s.fewest, s.most), n = lo + Math.floor(rnd() * (Math.max(s.fewest, s.most) - lo + 1));
-  const bag = bagAt(b, 1), body = bag.px.filter(([, y]) => y < bag.h - 1);
-  const sites = [];
-  while (sites.length < n) { const p = body[Math.floor(rnd() * body.length)]; if (!sites.includes(p)) sites.push(p); }
-  const owner = new Map(body.map(([x, y]) => [`${x},${y}`, sites.reduce((best, [sx, sy], i) =>
-    (Math.hypot(x - sx, y - sy) < Math.hypot(x - sites[best][0], y - sites[best][1]) ? i : best), 0)]));
-  const order = b.cells.map((c, i) => [rnd(), i]).sort((p, q) => p[0] - q[0]).map(p => p[1]);
-  return sites.map((_, i) => {
-    const mine = body.filter(([x, y]) => owner.get(`${x},${y}`) === i);
-    const torn = ([x, y]) => N4.some(([a, q]) => { const o = owner.get(`${x + a},${y + q}`); return o !== undefined && o !== i; });
-    const x0 = Math.min(...mine.map(p => p[0])), y0 = Math.min(...mine.map(p => p[1]));
-    const w = Math.max(...mine.map(p => p[0])) - x0 + 1, h = Math.max(...mine.map(p => p[1])) - y0 + 1;
-    const grid = Array.from({ length: h }, () => Array(w).fill(null));
-    for (const p of mine) grid[p[1] - y0][p[0] - x0] = s.ink && torn(p) ? INK : p[2];
-    const { x, y, pile } = b.piles[order[i % order.length]];
-    return { grid, w, h, from: [bag.x + x0 + w / 2, bag.y + y0 + h / 2],
-      to: [x * C + pile.cx + (rnd() - 0.5) * 2 * s.scatter, y * C + pile.cy + (rnd() - 0.5) * 2 * s.scatter],
-      at: rnd(), lift: 0.7 + 0.6 * rnd(), side: rnd() < 0.5 ? 1 : -1 };
-  });
-}
-
-/** A scrap's drawing `vh` high, upside down when `flip`. */
-function scrapDrawing(sc, vh, flip) {
-  const rows = stretch(sc.grid, Math.max(1, Math.round(vh)), 0, 0);
-  return (flip ? rows.slice().reverse() : rows).flatMap((r, j) => r.flatMap((c, i) => (c ? [[i, j, c]] : [])));
-}
-
-/** How piece `i` of the pile on cell (x, y) flies: when it lands (0..1 of the landing window), how high it arcs, how many eighths it turns. */
-function flight(x, y, i) {
-  const rnd = mulberry32((cellSeed(x, y) ^ Math.imul(i + 1, 2654435761)) >>> 0), r = [rnd(), rnd(), rnd(), rnd(), rnd(), rnd(), rnd()];
-  return { at: r[0], lift: 0.6 + 0.8 * r[1], spin: r[2] * 100 < s.spin ? (1 + Math.floor(r[3] * s.turns)) * (r[4] < 0.5 ? -1 : 1) : 0,
-    jitter: [(r[5] - 0.5) * 8, (r[6] - 0.5) * 6] };
-}
-
-// The room's floor and walls, and each pile with the pieces that have landed on it, drawn once.
+// The room's floor and walls, drawn once.
 const BACK = document.createElement('canvas'); BACK.width = BACK.height = N * C;
 for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) (x === 0 || y === 0 || x === N - 1 || y === N - 1 ? S.wall(x, y) : S.floor(x, y));
 BACK.getContext('2d').drawImage(src, 0, 0);
-const PILES = new Map();
-function pileDrawing(pile, down, id) {
-  if (!PILES.has(id)) {
-    const c = document.createElement('canvas'); c.width = c.height = 3 * C;
-    drawPile(c.getContext('2d'), T, { ...pile, pieces: down }, C, C, STYLE);
-    PILES.set(id, c);
-  }
-  return PILES.get(id);
-}
 
 let frame_ = 0;
 function draw() {
@@ -217,48 +124,15 @@ function draw() {
   $('frame').value = frame_; $('of').textContent = `of ${length() - 1}`; $('scrub').max = length() - 1; $('scrub').value = frame_;
   timeline();
   g.drawImage(BACK, 0, 0);
-  const f = frame_ - frame_ % 2, t = f - MOVE, k = keys();
-  const landedScraps = [], piles = [], stand = [], shadows = [], air = [];
+  const t = frame_ - frame_ % 2 - MOVE, piles = [], shadows = [], stand = [];
   for (const b of SCENES) {
     const g2 = t + b.move, segs = segsOf(b), pressing = g2 < segs.at(-1).t1;
     stand.push([(b.rac[1] + 1) * C - (pressing ? 0.5 : 0), () => (pressing ? S.pressing(segAt(segs, g2), b.dir, ...b.rac) : S.raccoon(...b.bag, b.dir))]);
-    if (t < k.rip) {
-      const bag = bagAt(b, quadOut(clamp((t - k.squash) / Math.max(1, k.rip - k.squash), 0, 1)));
-      stand.push([(b.bag[1] + 1) * C, () => put(bag.px, bag.x, bag.y)]);
-      continue;
-    }
-    const [sx, sy] = [b.bag[0] * C + C / 2, b.bag[1] * C + C - 1 - BAG.h / 2];
-    for (const { x, y, pile } of b.piles) {
-      const down = [], ids = [];
-      pile.pieces.forEach((p, i) => {
-        const fl = flight(x, y, i), land = k.first + fl.at * (k.last - k.first), u = (t - k.rip) / Math.max(1, land - k.rip);
-        if (u >= 1) { down.push(p); ids.push(i); return; }
-        const pk = `${p.name}/${p.turn}`;
-        if (!POSES.has(pk)) POSES.set(pk, T.poseOf(p.name, p.turn));
-        const rest = T.sprite(p.name, p.alt, p.turn), { m, k: kk } = POSES.get(pk);
-        const spr = T.sprite(p.name, p.alt, T.pose(p.name, m, kk - Math.round(fl.spin * (1 - u))));
-        const ox = sx + fl.jitter[0], oy = sy + fl.jitter[1], rx = x * C + p.x + rest.w / 2, ry = y * C + p.y + rest.h / 2;
-        const gx = Math.round(ox + (rx - ox) * u - spr.w / 2), gy = Math.round(oy + (ry - oy) * u - spr.h / 2), h = Math.round(s.arc * fl.lift * 4 * u * (1 - u));
-        if (h) shadows.push([spr.px, gx, gy]);
-        air.push([gy + spr.h, () => put(spr.px, gx, gy - h)]);
-      });
-      if (down.length) piles.push([y, () => g.drawImage(pileDrawing(pile, down, `${x},${y} ${ids}`), (x - 1) * C, (y - 1) * C)]);
-    }
-    scrapsOf(b).forEach((sc, i) => {
-      const land = k.sfirst + sc.at * (k.slast - k.sfirst), u = clamp((t - k.rip) / Math.max(1, land - k.rip), 0, 1);
-      const turn = Math.cos(Math.PI * s.tumbles * u), vh = sc.h * (1 + (s.flat / 100 - 1) * u) * Math.max(0.15, Math.abs(turn));
-      const px = scrapDrawing(sc, vh, turn < 0 && u < 1), hgt = Math.round(s.sarc * sc.lift * 4 * u * (1 - u));
-      const cx = sc.from[0] + (sc.to[0] - sc.from[0]) * u, cy = sc.from[1] + (sc.to[1] - sc.from[1]) * u;
-      const gx = Math.round(cx - sc.w / 2), gy = Math.round(cy - vh / 2);
-      if (u >= 1) { landedScraps.push(() => put(px, gx, gy)); return; }
-      if (hgt) shadows.push([px, gx, gy]);
-      air.push([gy + vh, () => put(px, gx, gy - hgt)]);
-    });
+    for (const l of clipOf(b).layers(t)) (l.kind === 'pile' ? piles : l.kind === 'shadow' ? shadows : stand).push([l.foot, l.paint]);
   }
-  for (const paint of landedScraps) paint();
   for (const [, paint] of piles.sort((a, b) => a[0] - b[0])) paint();
-  for (const [px, x0, y0] of shadows) put(px.map(([x, y]) => [x, y, SHADOW]), x0, y0);
-  for (const [, paint] of [...stand, ...air].sort((a, b) => a[0] - b[0])) paint();
+  for (const [, paint] of shadows) paint();
+  for (const [, paint] of stand.sort((a, b) => a[0] - b[0])) paint();
   const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
   const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
 }

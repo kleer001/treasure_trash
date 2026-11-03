@@ -7,6 +7,7 @@ import { wallTile } from './art/room.js';
 import { createStills } from './art/stills.js';
 import { createCanTip } from './art/canTip.js';
 import { createJugTip, bakedJug } from './art/jugTip.js';
+import { createBagRip } from './art/bagRip.js';
 import { puddle, crossing } from './art/water.js';
 import { SKATEBOARD } from './art/skateboard.js';
 import { door } from './art/door.js';
@@ -43,7 +44,8 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
   const still = createStills({ T, A, O, LOOK, J });
   const tipClip = createCanTip(A.bag);
   const pourClip = createJugTip({ drawing: bakedJug(J).drawing, full: J.full, dy: J.dy });
-  const STYLE = { outline: LOOK.outline, shadow: LOOK.shadow };
+  const STYLE = { outline: LOOK.outline, shadow: LOOK.shadow }, LAY = { min: LOOK.min, max: LOOK.max, C, spill: LOOK.spill };
+  const ripClip = createBagRip({ T, BAG: A.bag, LAY, STYLE });
   const BIKE = bicycle();
   // The sitting frame of each facing.
   const SIT = Object.fromEntries(['u', 'd', 'l', 'r'].map(d => {
@@ -120,9 +122,11 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
     /** `roll` is how far the shutter is up and the shimmer's frame. */
     exit(x, y, lit, dir, roll = { open: lit ? 1 : 0, frame: 0 }) { put(door(roll.open, roll.frame), P(x), P(y)); },
 
-    trash(x, y, { seed = 0, k = 1 } = {}) {
-      const pile = pileLayout(T, seed, { min: LOOK.min, max: LOOK.max, C, spill: LOOK.spill });
+    /** `scraps` lie under the pile, in px on its cell. */
+    trash(x, y, { seed = 0, k = 1, scraps = null } = {}) {
+      const pile = pileLayout(T, seed, LAY);
       const pieces = k >= 1 ? pile.pieces : pile.pieces.slice(0, Math.round(pile.pieces.length * k));
+      if (scraps) put(scraps, P(x), P(y));
       drawPile(ctx, T, { ...pile, pieces }, P(x), P(y), STYLE);
     },
     bag(x, y, k = 1) { if (k > 0) standing(k > 0.66 ? A.bag : k > 0.33 ? A.open : A.burst, x, y); },
@@ -132,6 +136,11 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
     wheelie(x, y, full) { put(wheelieFrame(full ? W.full : W.empty), P(x), P(y)); },
     /** `o`'s entry in `DUMPS` for `spec`, or `null` when `o` has none. */
     dump(o, spec) { return DUMPS[o]?.(spec) ?? null; },
+    /** The clip of a torn bag from `createBagRip`, each layer's `px` given as `paint()`. */
+    rip(spec) {
+      const clip = ripClip(spec);
+      return { ...clip, layers: t => clip.layers(t).map(({ kind, foot, px }) => ({ kind, foot, paint: () => put(px, 0, 0) })) };
+    },
     pane(x, y) { thing(PANE, x, y); },
     skateboard(cells, ox = 0, oy = 0) {
       const s = span(cells), b = SKATEBOARD[s.w > 1 ? 'x' : 'y'];

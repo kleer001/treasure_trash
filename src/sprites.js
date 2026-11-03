@@ -941,8 +941,8 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
  * occupant constants; passing them keeps this file free of any dependency on the rules.
  */
 export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
-  const { k = 1, seed = 0, src = null, face = null, wet = 0, lie = null } = opts;
-  if (o === codes.TRASH) sprites.trash(x, y, { seed, k, src, wet });
+  const { k = 1, seed = 0, src = null, face = null, wet = 0, lie = null, scraps = null } = opts;
+  if (o === codes.TRASH) sprites.trash(x, y, { seed, k, src, wet, scraps });
   else if (o === codes.BAG) sprites.bag(x, y, k);
   else if (o === codes.CAN_FULL) sprites.can(x, y, true);
   else if (o === codes.CAN_EMPTY) sprites.can(x, y, false, lie);
