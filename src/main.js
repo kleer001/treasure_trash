@@ -22,6 +22,7 @@ import { createPlay, tell } from './play.js';
 import { mulberry32 } from './rng.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
 import { createPixelSprites, loadPixelArt, PIXEL_CELL } from './pixel.js';
+import { createScreen, loadScreenArt } from './screen.js';
 import { press, moveStart, moveStop, segAt, travelAt } from './art/press.js';
 import { RECOVERIES } from './art/cartoon.js';
 import { tracings } from './art/canTip.js';
@@ -42,7 +43,7 @@ const CANF = CAN_FULL, CANE = CAN_EMPTY;
 // it the same thing. Three digits because the pack is meant to grow: L0 -> 000, L18 -> 018.
 const pad = id => String(id).replace(/\D+/g,'').padStart(3,'0');
 // `?pixel` draws the board in the pixel art, one canvas pixel to an art pixel, scaled up whole.
-const PIXEL = new URLSearchParams(location.search).has('pixel'), PIXEL_ZOOM = 3;
+const PIXEL = new URLSearchParams(location.search).has('pixel');
 const CS = PIXEL ? PIXEL_CELL : 76, PAD=9;
 // The animation clock, in ms. Under `?debug` it can be stopped and stepped a 60 Hz frame at a time.
 let heldMs = null;
@@ -665,6 +666,12 @@ function rest(){ anim = null; board = state; stage = stageFrom(state, cur + 1, d
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 const SP = PIXEL ? createPixelSprites({ ctx, art: await loadPixelArt(new URL('./art/', import.meta.url)) })
   : createSprites({ ctx, cell: CS, pad: PAD });
+// In the pixel art the room is drawn off screen, and the screen frames it.
+const screenCv = document.getElementById('screen');
+const screen = PIXEL ? createScreen({ canvas: screenCv, art: await loadScreenArt(new URL('./art/', import.meta.url)), C: CS }) : null;
+// Sized in device pixels: a canvas squeezed by a ratio that is not whole drops and doubles pixel columns.
+const fitScreen = () => Object.assign(screenCv.style, { width: `${screenCv.width / devicePixelRatio}px`, height: `${screenCv.height / devicePixelRatio}px` });
+if(PIXEL){ document.body.classList.add('pixel'); fitScreen(); addEventListener('resize', fitScreen); }
 if(PIXEL) for(const job of tracings()) askIdle(job);
 const BANDS = ['couch','cart','loose','carried','raccoon'];
 const bandOf = sp => sp.kind === COUCH ? 0 : sp.kind === CART ? 1
@@ -888,7 +895,7 @@ const comp = createCompositor([
     if(!b.cells.length) drawEdgeBar(f.state.rac.x, f.state.rac.y, b.dir);
   }},
 
-  { name:'wipe', draw:(ctx,f)=>{ if(f.wipe) drawWall(ctx, f); } },
+  { name:'wipe', draw:(ctx,f)=>{ if(f.wipe && !PIXEL) drawWall(ctx, f); } },
 ]);
 
 function render(){
@@ -896,7 +903,6 @@ function render(){
   const s=state;
   if(PIXEL) syncDoor();
   cv.width=s.cols*CS; cv.height=s.rows*CS;
-  if(PIXEL) Object.assign(cv.style, { width: `${cv.width * PIXEL_ZOOM}px`, imageRendering: 'pixelated' });
   comp.render(ctx, {
     state:s, board:board ?? state, sprites:stage.sprites,
     fx, ph: fx ? fxPhase() : null, moving: !!anim,
@@ -905,6 +911,7 @@ function render(){
   });
   if(rec?.on) record();
   paintHud();
+  if(PIXEL) present();
 }
 
 // The HUD is DOM, not canvas, so it is not a layer.
@@ -941,11 +948,25 @@ const crowBox = document.getElementById('crow'), veil = document.getElementById(
 const crowFace = document.getElementById('crowface'), crowLine = document.getElementById('crowline');
 const SETTLE_MS = 40 * 1000 / 60;
 let speaking = false, shownFace = '', shownText = '';
+let crowView = { talking: false, speech: false, face: 'closed', text: '' }, faceUp = { id: '', t0: 0 }, settleT0 = -Infinity;
 function paintCrow(v){
+  if(PIXEL){
+    if(v.speech !== speaking){ speaking = v.speech; if(!speaking) settleT0 = clockMs(); }
+    const id = `${v.key ?? ''} ${v.face}`;
+    if(id !== faceUp.id) faceUp = { id, t0: clockMs() };
+    crowView = v; present();
+    return;
+  }
   if(v.speech !== speaking) v.speech ? toSpeech() : toDock();
   const face = v.talking || v.face !== 'closed' ? v.face : '';
   if(face !== shownFace) crowFace.textContent = shownFace = face;
   if(v.text !== shownText) crowLine.textContent = shownText = v.text;
+}
+function present(){
+  const L = LEVELS[cur];
+  screen.paint({ room: cv, cols: state.cols, rows: state.rows, left: `${pad(L.id)}  ${L.name ?? ''}`, right: `Moves ${moves}  Par ${L.par}`,
+    crow: crowView, faceMs: since(faceUp.t0), settle: speaking ? null : since(settleT0) / FRAME_MS,
+    wall: wipe ? (c, w, h) => drawWall(c, { w, h }) : null });
 }
 function toSpeech(){ speaking = true; document.body.classList.add('speech'); }
 function toDock(){
@@ -1028,8 +1049,9 @@ const KEY={ArrowUp:'u',ArrowDown:'d',ArrowLeft:'l',ArrowRight:'r',
 // focusing the frame is the default action of the very press this game cancels.
 installFocusReclaim(window);
 
+// The listeners go on before the art and the crow have loaded; until then a key has nothing to act on.
 addEventListener('keydown',e=>{
-  if(e.target.closest?.('input,textarea')) return;
+  if(!play || e.target.closest?.('input,textarea')) return;
   if(!document.getElementById('sheet').hidden){
     if(e.key==='Escape'){ e.preventDefault(); closePicker(); }
     return;
@@ -1046,7 +1068,7 @@ addEventListener('keydown',e=>{
 // One delegated listener for every button under the board, so the layout is markup-only.
 const MOVEACT={up:'u',down:'d',left:'l',right:'r'};
 document.getElementById('controls').addEventListener('click',e=>{
-  const btn=e.target.closest('[data-act]'); if(!btn || speaking) return;
+  const btn=e.target.closest('[data-act]'); if(!play || !btn || speaking) return;
   const a=btn.dataset.act;
   if(a in MOVEACT){ act(MOVEACT[a]); }
   else if(a==='undo')undo(); else if(a==='restart')restart();
