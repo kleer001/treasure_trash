@@ -27,3 +27,10 @@ for (const dir of 'udlr') {
     assert.deepEqual(ground(end).map(p => p.join()).sort(), puddle(...wetAt, C, wet).map(p => p.join()).sort());
   });
 }
+
+test('the splash of a pour is down before the clip ends', () => {
+  const { layers, keys, end } = clip({ dir: 'r', from: [4, 4], to: [5, 4], wetAt: [6, 4], moveFrames: 7 });
+  assert.ok(keys.down <= end);
+  assert.ok(layers(keys.pour + 4, 1).length > 2);
+  assert.equal(layers(keys.down, 1).length, 1);
+});

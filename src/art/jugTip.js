@@ -3,6 +3,7 @@ import { DIRS } from '../rules.js';
 import { C } from './flight.js';
 import { PUDDLE, WATER } from './water.js';
 import { slickCell } from './slick.js';
+import { pourSplash, SPLASH } from './splash.js';
 
 /** Keys in frames: `tip` from the end of the slide, `fall` to lying, `settle` to the end of the rock
  *  back, `pour` from the tip, `drain` to empty, `reach` from the pour to the puddle's start, `still`
@@ -56,14 +57,17 @@ export function createJugTip({ drawing, full, dy }) {
    *  cells hold water once it has, and `look` is the puddle's. `layers(f, along)` is the clip `f`
    *  frames from the start of the move as `[foot, px]` pairs in px on the room, where `along` is how
    *  far along its slide the jug is, 0 to 1; `ground(f)` is the puddle on `wetAt`, or null before it
-   *  starts. `end` is the first frame drawn at rest. */
-  return ({ dir, from, to, wetAt, moveFrames, wet = (x, y) => x === wetAt[0] && y === wetAt[1], k = JUG_TIP, look = PUDDLE }) => {
+   *  starts. `keys` are the clip's keys, `down` among them the frame the splash is over. `end` is the
+   *  first frame drawn at rest. */
+  return ({ dir, from, to, wetAt, moveFrames, wet = (x, y) => x === wetAt[0] && y === wetAt[1], k = JUG_TIP, look = PUDDLE,
+    splash = SPLASH }) => {
     const keys = jugKeys(moveFrames, k), [ux, uy] = DIRS[dir];
     // Standing, it is drawn the same whichever way it is about to fall, so that it is its still.
     const stand = drawing('r', 0, full), up = drawing(dir, 0, full), flat = drawing(dir, 90, 0);
     const O = jugAt(stand, ...from, dy), end = jugAt(flat, ...to, k.ldy);
     const offset = [end[0] - O[0] - (flat.x - up.x), end[1] - O[1] - (flat.y - up.y)];
     const [wx, wy] = wetAt, lands = [wx * C + C / 2 - ux * (C / 2 - 5), wy * C + C / 2 - uy * (C / 2 - 5)];
+    const spray = pourSplash({ at: lands, dir: [ux, uy], pour: keys.pour, dry: keys.dry, k: splash });
 
     function jug(f, along) {
       const u = clamp01((f - keys.tip) / (keys.flat - keys.tip));
@@ -108,9 +112,9 @@ export function createJugTip({ drawing, full, dy }) {
       f = onTwos(f);
       const j = jug(f, along), out = [[j.foot, j.px]];
       if (f >= keys.pour && f < keys.dry) out.push([dir === 'u' ? lands[1] : Math.max(lands[1], j.foot + 1), stream(j.mouth, f)]);
-      return out;
+      return [...out, ...spray.drops(f)];
     }
-    const last = Math.max(keys.settle, keys.dry, keys.still);
-    return { layers, ground: f => puddle(onTwos(f)), keys, end: last + (last % 2) };
+    const last = Math.max(keys.settle, keys.dry, keys.still, spray.end);
+    return { layers, ground: f => puddle(onTwos(f)), keys: { ...keys, down: spray.end }, end: last + (last % 2) };
   };
 }
