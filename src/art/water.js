@@ -8,7 +8,7 @@ const EDGE = '#2b2d55', DEEP = '#244287', MID = '#3169b0', LIGHT = '#7dafb3', SH
 /** The water's colours: its rim, its shaded edge, its body, its ripples and its brightest glint. */
 export const WATER = { EDGE, DEEP, MID, LIGHT, SHINE };
 const SLUDGE = '#67819e';                     // the packed crossing between its scraps
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+export const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
 /** The puddle's look: a slick in the water's colours. */
 export const PUDDLE = { seed: 31, lobes: 5, size: 7, lump: 0.25, fill: 1.1, shine: 0.9, sheen: 0.08, band: 4,

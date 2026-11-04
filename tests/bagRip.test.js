@@ -25,7 +25,8 @@ for (const dir of 'udlr') {
   const [dx, dy] = DIRS[dir], bag = [4, 4];
   const rows = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (x === 0 || y === 0 || x === N - 1 || y === N - 1 ? '#' : '-')));
   rows[0][0] = 'E'; rows[bag[1]][bag[0]] = '$'; rows[bag[1] - dy][bag[0] - dx] = '@';
-  const r = explain(toState({ id: 'rip', grid: rows.map(row => row.join('')) }), dir, { trace: true });
+  const room = toState({ id: 'rip', grid: rows.map(row => row.join('')) }), r = explain(room, dir, { trace: true });
+  SP.setBoard(room);
   const cells = r.steps[0].spawned.filter(e => e.o === TRASH).map(e => e.cells[0]);
   const clip = SP.rip({ dir, bag, seed: 12345, cells });
 

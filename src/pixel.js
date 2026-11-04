@@ -10,7 +10,8 @@ import { createJugTip, bakedJug } from './art/jugTip.js';
 import { createBagRip } from './art/bagRip.js';
 import { createBoxTip } from './art/boxTip.js';
 import { paneShatter } from './art/paneShatter.js';
-import { puddle, crossing } from './art/water.js';
+import { puddle, crossing, outline } from './art/water.js';
+import { FLOAT, afloat, bobbing, bobEnd, waterline } from './art/afloat.js';
 import { SKATEBOARD } from './art/skateboard.js';
 import { door } from './art/door.js';
 import { BARROW } from './art/barrow.js';
@@ -30,7 +31,7 @@ import { LOOKS, slickCell } from './art/slick.js';
 import { GLASS_LOOK, glassCell } from './art/glass.js';
 import { ACTIONS, draw, mirror } from './art/cartoon.js';
 import { VIEW, place } from './art/press.js';
-import { cell, inGrid, CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, JUG, JUG_EMPTY, WHEELIE_EMPTY, PANE, GREASE, TAR, GLASS } from './rules.js';
+import { cell, inGrid, BAG, CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, JUG, JUG_EMPTY, WHEELIE_EMPTY, PANE, GREASE, TAR, GLASS } from './rules.js';
 
 export const PIXEL_CELL = C;
 
@@ -62,7 +63,38 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
   const P = v => Math.round(v * C);
   const put = (px, x0, y0) => { for (const [a, b, col] of px) { ctx.fillStyle = col; ctx.fillRect(x0 + a, y0 + b, 1, 1); } };
   const standing = (spr, x, y) => put(spr.px, P(x) + Math.floor((C - spr.w) / 2), P(y) + C - spr.h - 1);
-  const thing = (o, x, y, seed, lie) => { const s = still(o, 0, 0, seed, lie); put(s.px, P(x) + s.x, P(y) + s.y); };
+  // Which pixels of the room are water, by the outline each water cell draws.
+  let shores = new Map(), shoresOf = null;
+  const shore = (cx, cy) => {
+    if (shoresOf !== board) { shores = new Map(); shoresOf = board; }
+    const id = `${cx},${cy}`;
+    if (!shores.has(id)) {
+      const c = inGrid(board, cx, cy) && cell(board, cx, cy);
+      shores.set(id, c && c.water && !c.bridge ? outline(cx, cy, C, wet) : null);
+    }
+    return shores.get(id);
+  };
+  const water = {
+    wet: (x, y) => { const cx = Math.floor(x / C), cy = Math.floor(y / C); return !!shore(cx, cy)?.inside(x - cx * C, y - cy * C); },
+    open: (x, y) => { const cx = Math.floor(x / C), cy = Math.floor(y / C), s = shore(cx, cy); return !!s?.inside(x - cx * C, y - cy * C) && !s.rim(x - cx * C, y - cy * C); },
+  };
+  /** How far into the water a thing drawn at (x, y) has come, 0 to 1. */
+  const afloatAt = (x, y) => {
+    const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, w = (cx, cy) => (shore(cx, cy) ? 1 : 0);
+    return (1 - fx) * (1 - fy) * w(x0, y0) + fx * (1 - fy) * w(x0 + 1, y0) + (1 - fx) * fy * w(x0, y0 + 1) + fx * fy * w(x0 + 1, y0 + 1);
+  };
+  /** Thing `o` drawn at (x, y) as far into the water as it has come: its sprite `s`, `w` px wide,
+   *  its top-left `x0, y0` and its waterline `yw`. The bag's last row is the shadow it stands on. */
+  const floating = (o, x, y, seed, lie) => {
+    const st = still(o, 0, 0, seed, lie), a = afloatAt(x, y);
+    const s = o === BAG && a >= 1 ? { ...st, px: st.px.filter(p => p[1] < st.h - 1) } : st;
+    const x0 = P(x) + st.x, y0 = P(y) + st.y + Math.round(FLOAT.drop * a);
+    return { a, s, w: Math.max(...s.px.map(p => p[0])) + 1, x0, y0, yw: waterline(s, y0) };
+  };
+  const thing = (o, x, y, seed, lie) => {
+    const fl = floating(o, x, y, seed, lie);
+    put(fl.a ? afloat(fl.s, fl.x0, fl.y0, fl.yw, water) : fl.s.px.map(([a, b, c]) => [fl.x0 + a, fl.y0 + b, c]), 0, 0);
+  };
   const placeholder = (x, y, label, w = 1, h = 1) => {
     const x0 = P(x) + 2, y0 = P(y) + 2, W = w * C - 4, H = h * C - 4;
     ctx.fillStyle = '#5b5560'; ctx.fillRect(x0, y0, W, H);
@@ -137,7 +169,18 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
       if (scraps) put(scraps, P(x), P(y));
       drawPile(ctx, T, { ...pile, pieces }, P(x), P(y), STYLE);
     },
-    bag(x, y, k = 1) { if (k > 0) standing(k > 0.66 ? A.bag : k > 0.33 ? A.open : A.burst, x, y); },
+    bag(x, y, k = 1) {
+      if (k >= 1 && afloatAt(x, y)) thing(BAG, x, y);
+      else if (k > 0) standing(k > 0.66 ? A.bag : k > 0.33 ? A.open : A.burst, x, y);
+    },
+    /** Thing `o` afloat at (x, y), `f` frames after it came down in the water. */
+    bob(o, x, y, f, lie = null) {
+      const fl = floating(o, x, y, 1, lie), b = bobbing({ w: fl.w, x0: fl.x0, yw: fl.yw, f, open: water.open, seed: Math.round(x + y) });
+      put(b.under, 0, 0);
+      put(afloat(fl.s, fl.x0, fl.y0 + b.sink, fl.yw, water), 0, 0);
+      put(b.over, 0, 0);
+    },
+    bobEnd: bobEnd(),
     can(x, y, full, lie = null) { thing(full ? CAN_FULL : CAN_EMPTY, x, y, 1, lie); },
     recycleBin(x, y, full, lie = null) { thing(full ? BIN : BIN_EMPTY, x, y, 1, lie); },
     jug(x, y, full = true, lie = null) { thing(full ? JUG : JUG_EMPTY, x, y, 1, lie); },

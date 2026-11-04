@@ -256,6 +256,22 @@ function noteBreak(step, b){
     ...SP.shatter({ dir, from: [fx, fy], to: [tx, ty], has: (x, y) => inGrid(b, x, y) && isGlass(cell(b, x, y)) }) });
 }
 const breakAt = b => Math.round(since(b.t0) / FRAME_MS);
+
+// A thing come down in the water plunges and bobs before it lies still.
+let floats = [];
+function noteFloat(step, b, moveFrames){
+  if(!PIXEL) return;
+  for(const m of step.moved){
+    if(m.o !== m.becomes.o) continue;
+    const [x, y] = restsOn(m), c = cell(b, x, y);
+    if(!c.water || c.bridge) continue;
+    const sp = stage.sprites.find(sp => sp.kind === m.o && sp.tx === x && sp.ty === y);
+    if(sp) floats.push({ sp, at: [x, y], t0: clockMs(), tin: moveFrames });
+  }
+}
+const bobAt = fl => Math.round(since(fl.t0) / FRAME_MS) - fl.tin;
+const floatLive = fl => bobAt(fl) < SP.bobEnd && stage.sprites.includes(fl.sp) && fl.sp.tx === fl.at[0] && fl.sp.ty === fl.at[1];
+const bobbingNow = sp => floats.find(fl => fl.sp === sp && bobAt(fl) >= 0);
 const breakingOn = (x, y) => breaks.find(b => b.at[0] === x && b.at[1] === y);
 const slow = matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -287,6 +303,7 @@ function stepMv(){
     applyStep(stage, it.step, it.racTo);
     noteDump(it.step, moveFrames(seg));
     noteBreak(it.step, it.next);
+    noteFloat(it.step, it.next, moveFrames(seg));
     landRip(it.step);
   }
   advance(stage, slow.matches ? 0 : d - k, seg.pace);
@@ -316,6 +333,7 @@ function landMv(){
       applyStep(stage, items[i].step, items[i].racTo);
       noteDump(items[i].step, 0);
       noteBreak(items[i].step, items[i].next);
+      noteFloat(items[i].step, items[i].next, 0);
       landRip(items[i].step);
       settle(stage);
     }
@@ -342,7 +360,7 @@ function record(){
   rec.prev = next;
 }
 // The lit door's shimmer never ends, so it is not asked about.
-const moving = () => !!(anim || pose || fx || dumps.length || rips.length || breaks.length || (door && since(door.t0) < DOOR.roll * FRAME_MS));
+const moving = () => !!(anim || pose || fx || dumps.length || rips.length || breaks.length || floats.length || (door && since(door.t0) < DOOR.roll * FRAME_MS));
 
 function startRewind(tape){
   // A wipe or the shimmer may have drawn over the screen since the tape stopped.
@@ -459,9 +477,10 @@ function tick(){
   dumps = dumps.filter(dumpLive);
   rips = rips.filter(ripLive);
   breaks = breaks.filter(b => breakAt(b) < b.end);
+  floats = floats.filter(floatLive);
   render();
   if(rec?.on && !moving()) rec.on = false;
-  if(fx || anim || wipe || pose || doorLive() || dumps.length || rips.length || breaks.length || rewind) raf ||= requestAnimationFrame(tick);
+  if(fx || anim || wipe || pose || doorLive() || dumps.length || rips.length || breaks.length || floats.length || rewind) raf ||= requestAnimationFrame(tick);
 }
 
 function handOver(keep = false){
@@ -570,14 +589,14 @@ function undo(){
   const res = play.undo(); sync();
   if(res.kind === 'none') return;
   const tape = tapes.pop();
-  blocked=null; anim = null; board = state; stage = tape.stage; rips = []; breaks = [];
+  blocked=null; anim = null; board = state; stage = tape.stage; rips = []; breaks = []; floats = [];
   if(tape.steps.length) startRewind(tape);
   readLost(); render(); dbg?.note(`undo -> ${moves}`);
   tell(watch, now(), res);
 }
 function restart(){ load(cur, true); }
 function load(i, again = false){
-  cancelAnim(); busy = false; door = null; fxSeen = new Set(); tapes = []; rec = null; rips = []; breaks = [];
+  cancelAnim(); busy = false; door = null; fxSeen = new Set(); tapes = []; rec = null; rips = []; breaks = []; floats = [];
   const res = play.load(i, again); sync();
   blocked=null; beat=false;
   startScan();
@@ -723,6 +742,7 @@ function paintSprite(sp, f){
   else if(dumps.some(d => d.shed === sp)) return;
   else if(sp.kind === SPLASH) SP.splash(sp.x, sp.y);
   else if(dumps.some(d => d.container === sp)) dumpDraw(sp);
+  else if(bobbingNow(sp)) SP.bob(sp.kind, sp.x, sp.y, bobAt(bobbingNow(sp)), sp.lie);
   else drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
     seed: sp.seed, face: sp.face, lie: sp.lie, wet: sp.soaks ? (sp.soak ?? 1) : 0, scraps: sp.scraps,
     // a bag mid-refusal deflates where it stands; a torn one deflates as its fan grows
