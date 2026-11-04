@@ -9,6 +9,7 @@ import { createCanTip } from './art/canTip.js';
 import { createJugTip, bakedJug } from './art/jugTip.js';
 import { createBagRip } from './art/bagRip.js';
 import { createBoxTip } from './art/boxTip.js';
+import { paneShatter } from './art/paneShatter.js';
 import { puddle, crossing } from './art/water.js';
 import { SKATEBOARD } from './art/skateboard.js';
 import { door } from './art/door.js';
@@ -147,6 +148,13 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
     rip(spec) {
       const clip = ripClip(spec);
       return { ...clip, layers: t => clip.layers(t).map(({ kind, foot, px }) => ({ kind, foot, paint: () => put(px, 0, 0) })) };
+    },
+    /** The clip of a pane breaking from `paneShatter`, each layer's `px` given as `paint()`, and
+     *  `ground(f)` drawing the glass down on its cell's floor. */
+    shatter(spec) {
+      const clip = paneShatter({ ...spec, look: GLASS_LOOK });
+      return { end: clip.end, ground: f => put(clip.ground(f), 0, 0),
+        layers: f => clip.layers(f).map(({ kind, foot, px }) => ({ kind, foot, paint: () => put(px, 0, 0) })) };
     },
     pane(x, y) { thing(PANE, x, y); },
     skateboard(cells, ox = 0, oy = 0) {

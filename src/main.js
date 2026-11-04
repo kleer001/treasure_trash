@@ -8,7 +8,7 @@ import {
   FURNITURE,
   DIRS,
   exitLit, fan, inGrid, cell, isMultiCell, stateKey, restsOn,
-  GREASE, TAR, GLASS, COVERED, isBarrow, barrowFace, gripTarget, OCCUPANTS as CODES,
+  GREASE, TAR, GLASS, COVERED, isGlass, isBarrow, barrowFace, gripTarget, OCCUPANTS as CODES,
 } from './rules.js';
 import { parseLevelPack, toGrid } from './format.js';
 import { deadScan } from './solver.js';
@@ -243,6 +243,20 @@ const ripAt = r => { const g = Math.floor(since(r.t0) / FRAME_MS); return g - g 
 const ripLive = r => ripAt(r) < r.clip.end
   && (!r.piles || r.piles.every((sp, i) => stage.sprites.includes(sp) && sp.tx === r.cells[i][0] && sp.ty === r.cells[i][1]));
 const ripOwns = sp => rips.some(r => r.bag === sp || r.piles?.includes(sp));
+
+// A pane's clip draws the pane and its glass until the glass is down, so the room leaves that floor bare.
+let breaks = [];
+function noteBreak(step, b){
+  if(!PIXEL) return;
+  const gone = step.gone.find(g => g.o === PANE), out = gone && step.spawned.find(e => e.from);
+  if(!out || !isGlass(cell(b, ...out.cells[0]))) return;
+  const [fx, fy] = gone.cells[0], [tx, ty] = out.cells[0];
+  const dir = Object.keys(DIRS).find(d => DIRS[d][0] === tx - fx && DIRS[d][1] === ty - fy);
+  breaks.push({ pane: stage.sprites.find(sp => sp.handle === gone.handle), at: [tx, ty], t0: clockMs(),
+    ...SP.shatter({ dir, from: [fx, fy], to: [tx, ty], has: (x, y) => inGrid(b, x, y) && isGlass(cell(b, x, y)) }) });
+}
+const breakAt = b => Math.round(since(b.t0) / FRAME_MS);
+const breakingOn = (x, y) => breaks.find(b => b.at[0] === x && b.at[1] === y);
 const slow = matchMedia('(prefers-reduced-motion: reduce)');
 
 // The stage is NOT rebuilt per action. It is already standing on `prev` — `rest()` built it
@@ -272,6 +286,7 @@ function stepMv(){
     board = it.board;
     applyStep(stage, it.step, it.racTo);
     noteDump(it.step, moveFrames(seg));
+    noteBreak(it.step, it.next);
     landRip(it.step);
   }
   advance(stage, slow.matches ? 0 : d - k, seg.pace);
@@ -300,6 +315,7 @@ function landMv(){
     for(let i = (s === anim.si ? anim.k + 1 : 0); i < items.length; i++){
       applyStep(stage, items[i].step, items[i].racTo);
       noteDump(items[i].step, 0);
+      noteBreak(items[i].step, items[i].next);
       landRip(items[i].step);
       settle(stage);
     }
@@ -326,7 +342,7 @@ function record(){
   rec.prev = next;
 }
 // The lit door's shimmer never ends, so it is not asked about.
-const moving = () => !!(anim || pose || fx || dumps.length || rips.length || (door && since(door.t0) < DOOR.roll * FRAME_MS));
+const moving = () => !!(anim || pose || fx || dumps.length || rips.length || breaks.length || (door && since(door.t0) < DOOR.roll * FRAME_MS));
 
 function startRewind(tape){
   // A wipe or the shimmer may have drawn over the screen since the tape stopped.
@@ -442,9 +458,10 @@ function tick(){
   }
   dumps = dumps.filter(dumpLive);
   rips = rips.filter(ripLive);
+  breaks = breaks.filter(b => breakAt(b) < b.end);
   render();
   if(rec?.on && !moving()) rec.on = false;
-  if(fx || anim || wipe || pose || doorLive() || dumps.length || rips.length || rewind) raf ||= requestAnimationFrame(tick);
+  if(fx || anim || wipe || pose || doorLive() || dumps.length || rips.length || breaks.length || rewind) raf ||= requestAnimationFrame(tick);
 }
 
 function handOver(keep = false){
@@ -553,14 +570,14 @@ function undo(){
   const res = play.undo(); sync();
   if(res.kind === 'none') return;
   const tape = tapes.pop();
-  blocked=null; anim = null; board = state; stage = tape.stage; rips = [];
+  blocked=null; anim = null; board = state; stage = tape.stage; rips = []; breaks = [];
   if(tape.steps.length) startRewind(tape);
   readLost(); render(); dbg?.note(`undo -> ${moves}`);
   tell(watch, now(), res);
 }
 function restart(){ load(cur, true); }
 function load(i, again = false){
-  cancelAnim(); busy = false; door = null; fxSeen = new Set(); tapes = []; rec = null; rips = [];
+  cancelAnim(); busy = false; door = null; fxSeen = new Set(); tapes = []; rec = null; rips = []; breaks = [];
   const res = play.load(i, again); sync();
   blocked=null; beat=false;
   startScan();
@@ -633,8 +650,8 @@ if(PIXEL) for(const job of tracings()) askIdle(job);
 const BANDS = ['couch','cart','loose','carried','raccoon'];
 const bandOf = sp => sp.kind === COUCH ? 0 : sp.kind === CART ? 1
   : sp.kind === RACCOON ? 4 : (sp.parent === null ? 2 : 3);
-const RIP_BAND = { pile: 0.02, shadow: 0.0205, air: 0.021, bag: 0.04 };
-/** A tear layer's place in the sort, as the row of cells its foot is on and a band in that row. */
+const RIP_BAND = { pile: 0.02, shadow: 0.0205, air: 0.021, bag: 0.04, pane: 0.04 };
+/** A tear's or a break's layer's place in the sort, as the row of cells its foot is on and a band in that row. */
 function ripFoot({ kind, foot }){
   const row = Math.ceil(foot / PIXEL_CELL) - 1;
   return row + RIP_BAND[kind] + (kind === 'air' ? 0.004 * (foot / PIXEL_CELL - row) : 0);
@@ -761,8 +778,9 @@ const comp = createCompositor([
     for(let y=0;y<b.rows;y++) for(let x=0;x<b.cols;x++){
       const c=cell(b,x,y);
       if(c.wall){ if(PIXEL) SP.wall(x,y); continue; }
-      const pour = pouringOn(x,y);
+      const pour = pouringOn(x,y), broke = breakingOn(x,y);
       if(pour){ SP.floor(x,y); pour.ground(dumpAt(pour)); }
+      else if(broke){ SP.floor(x,y); broke.ground(breakAt(broke)); }
       else if(c.water)              SP.water(x,y,false,0,filling.get(`${x},${y}`)??0);
       else if(c.bridge)             SP.water(x,y,true,cellSeed(x,y));
       else if(c.grate)              SP.grate(x,y);
@@ -794,8 +812,10 @@ const comp = createCompositor([
   ...(PIXEL ? [{ name:'things', draw:(ctx,f)=>{
     const foot = sp => sp.kind === RACCOON && pose?.act === 'tear' ? pose.y + 0.03
       : sp.y + Math.max(0, ...(sp.cells ?? [[0,0]]).map(c => c[1])) + bandOf(sp) * 0.01;
-    const items = f.sprites.filter(sp => !ripOwns(sp)).map(sp => [foot(sp), () => (sp.falls ? drawFalling : drawSprite)(sp,f)]);
+    const items = f.sprites.filter(sp => !ripOwns(sp) && !breaks.some(b => b.pane === sp))
+      .map(sp => [foot(sp), () => (sp.falls ? drawFalling : drawSprite)(sp,f)]);
     for(const r of rips) for(const l of r.clip.layers(ripAt(r))) items.push([ripFoot(l), l.paint]);
+    for(const b of breaks) for(const l of b.layers(breakAt(b))) items.push([ripFoot(l), l.paint]);
     for(const [, paint] of items.sort((a,b) => a[0] - b[0])) paint();
   }}, { name:'over', draw:()=>{
     if(pose && pose.act !== 'tear' && leaving() === null) SP.pressing(poseSeg(), pose.dir, pose.x, pose.y, { stay: pose.stay, over: true });

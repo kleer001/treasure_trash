@@ -436,7 +436,7 @@ export const CELL_MS = 7 * 1000 / 60;
 export function timeline(r, cellTime) {
   const segs = [];
   let i = 0;
-  const entry = k => ({ step: r.steps[k], racTo: r.frames[k + 1].rac, board: r.frames[k] });
+  const entry = k => ({ step: r.steps[k], racTo: r.frames[k + 1].rac, board: r.frames[k], next: r.frames[k + 1] });
   while (i < r.steps.length) {
     if (rolls(r.steps[i])) {
       const run = [];
