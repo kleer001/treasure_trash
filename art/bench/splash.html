@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Jug splash</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f7f6f3; color: #1a1a1a; font: 16px/1.4 system-ui, sans-serif; display: flex; gap: 28px; align-items: flex-start; }
+  canvas { display: block; image-rendering: pixelated; }
+  .side { display: grid; gap: 12px; width: 440px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: grid; grid-template-columns: 170px 1fr 64px; gap: 10px; align-items: center; }
+  label input[type=number] { width: 60px; font: inherit; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1a1a1a; background: #fff; cursor: pointer; }
+  textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+  .group { display: flex; align-items: center; gap: 10px; color: #6b6b66; font-size: 14px; }
+  .group::before, .group::after { content: ''; flex: 1; border-top: 1px solid #d6d3cc; }
+  .muted { color: #6b6b66; font-size: 14px; }
+  .bad { color: #b3261e; font-weight: 600; }
+  .stage { display: grid; gap: 0; width: min-content; }
+  :root { --key: #0aa2bd; --head: #e6591f; --line: #d6d3cc; }
+  #timeline { position: relative; padding: 24px 12px 10px 56px; background: #fff; border: 1px solid var(--line); border-top: 0; }
+  #track { position: relative; height: 56px; border: 1px solid var(--line); border-radius: 5px; background: #eef1f5; user-select: none; touch-action: none; cursor: pointer; }
+  .rowName { position: absolute; left: -52px; width: 46px; text-align: right; font-size: 12px; color: #6b6b66; line-height: 28px; }
+  .seg { position: absolute; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600;
+    color: #2a3242; overflow: hidden; white-space: nowrap; border-right: 1px solid rgba(0,0,0,.12); }
+  .key { position: absolute; height: 28px; width: 14px; margin-left: -7px; z-index: 5; cursor: ew-resize; }
+  .key .stem { position: absolute; left: 6px; top: 0; bottom: 0; width: 2px; background: var(--key); opacity: .8; }
+  .key .grab { position: absolute; left: 2px; top: 8px; width: 10px; height: 12px; border-radius: 3px; border: 1px solid var(--key); background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+  .key .num { position: absolute; left: 7px; top: -12px; transform: translateX(-50%); font-size: 9px; color: #6b6b66; background: #fff; padding: 0 2px; pointer-events: none; }
+  .key.fixed { cursor: default; } .key.fixed .grab { background: #eef1f5; border-style: dashed; }
+  #head { position: absolute; top: -6px; bottom: -6px; width: 2px; margin-left: -1px; background: var(--head); z-index: 6; pointer-events: none; }
+  #transport { display: flex; gap: 6px; align-items: center; padding: 8px 12px; background: #fff; border: 1px solid var(--line); border-top: 0; }
+  #transport button { padding: 2px 8px; }
+  #scrub { flex: 1; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <canvas id="view"></canvas>
+  <div id="timeline"><div id="track"></div></div>
+  <div id="transport">
+    <button id="toStart" title="First frame">⏮</button><button id="playBack" title="Play backwards">◀</button><button id="stop" title="Stop">■</button>
+    <button id="playFwd" title="Play">▶</button><button id="toEnd" title="Last frame">⏭</button>
+    <input type="range" id="scrub" min="0" step="1" title="Scrub">
+    <input id="frame" type="number" min="0" step="1" style="width:64px;font:inherit" title="Current frame: type to jump"><span id="of" class="muted"></span>
+  </div>
+</div>
+<div class="side">
+  <div class="group">first burst</div>
+  <label>drops <input id="first" type="range" min="0" max="30" step="1"><input id="firstn" type="number" step="1"></label>
+  <label>height px <input id="firstRise" type="range" min="0" max="24" step="1"><input id="firstRisen" type="number" step="1"></label>
+  <label>reach px <input id="firstReach" type="range" min="0" max="30" step="1"><input id="firstReachn" type="number" step="1"></label>
+  <div class="group">bursts</div>
+  <label>drops each <input id="drops" type="range" min="0" max="12" step="1"><input id="dropsn" type="number" step="1"></label>
+  <label>frames apart <input id="every" type="range" min="1" max="12" step="1"><input id="everyn" type="number" step="1"></label>
+  <label>height px <input id="rise" type="range" min="0" max="20" step="1"><input id="risen" type="number" step="1"></label>
+  <label>reach px <input id="reach" type="range" min="0" max="24" step="1"><input id="reachn" type="number" step="1"></label>
+  <label>air frames <input id="life" type="range" min="2" max="30" step="1"><input id="lifen" type="number" step="1"></label>
+  <label>spread ° each side <input id="wide" type="range" min="0" max="180" step="5"><input id="widen" type="number" step="5"></label>
+  <div class="group">look</div>
+  <label>drop size px <input id="size" type="range" min="1" max="3" step="1"><input id="sizen" type="number" step="1"></label>
+  <label>ring radius px <input id="ring" type="range" min="0" max="6" step="1"><input id="ringn" type="number" step="1"></label>
+  <label>seed <input id="seed" type="range" min="1" max="999" step="1"><input id="seedn" type="number" step="1"></label>
+  <div class="row"><span>drop colour</span><select id="colour"></select>
+    <label style="display:flex;gap:6px"><input id="rim" type="checkbox">outline</label>
+    <label style="display:flex;gap:6px"><input id="shadow" type="checkbox">shadow</label></div>
+  <div class="row"><span>zoom</span><button id="zout">−</button><span id="zoom"></span><button id="zin">+</button></div>
+  <textarea id="note" placeholder="Note on the splash"></textarea>
+  <div id="status" class="muted"></div>
+</div>
+
+<script type="module">
+import { loadPixelArt, createPixelSprites, PIXEL_CELL as C } from '../../src/pixel.js';
+import { press, moveStart, moveStop, segAt, travelAt } from '../../src/art/press.js';
+import { WATER } from '../../src/art/water.js';
+import { createJugTip, jugKeys, JUG_TIP, bakedJug } from '../../src/art/jugTip.js';
+import { SPLASH } from '../../src/art/splash.js';
+
+const KEY = 'trash-splash', N = 10, $ = id => document.getElementById(id);
+const KNOBS = ['first', 'firstRise', 'firstReach', 'drops', 'every', 'rise', 'reach', 'life', 'wide', 'size', 'ring', 'seed'];
+let s = { ...SPLASH, zoom: 3 };
+try { const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); for (const k in s) if (saved[k] !== undefined) s[k] = saved[k]; } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+
+// ---- the room ----
+const art = await loadPixelArt(new URL('../../src/art/', import.meta.url));
+const tip = createJugTip({ drawing: bakedJug(art.J).drawing, full: art.J.full, dy: art.J.dy });
+const src = document.createElement('canvas'); src.width = src.height = N * C;
+const g = src.getContext('2d');
+const S = createPixelSprites({ ctx: g, art });
+const STEP = { r: [1, 0], l: [-1, 0], u: [0, -1], d: [0, 1] };
+const JUG_AT = { r: [2, 2], d: [7, 2], l: [7, 7], u: [2, 7] };
+const SCENES = Object.entries(JUG_AT).map(([dir, at]) => {
+  const [dx, dy] = STEP[dir], segs = press('push', dir, { lead: false });
+  return { dir, at, to: [at[0] + dx, at[1] + dy], rac: [at[0] - dx, at[1] - dy], wet: [at[0] + 2 * dx, at[1] + 2 * dy],
+    segs, move: moveStart(segs), stop: moveStop(segs), end: segs.at(-1).t1 };
+});
+// The four presses run with their moves lined up; frames on the timeline count from the first press's start.
+const MOVE = Math.max(...SCENES.map(b => b.move)), MOVES = SCENES[0].stop - SCENES[0].move;
+const clipOf = b => tip({ dir: b.dir, from: b.at, to: b.to, wetAt: b.wet, moveFrames: MOVES, splash: s });
+
+const T = () => Object.fromEntries(Object.entries(clipOf(SCENES[0]).keys).map(([k, v]) => [k, MOVE + v]));
+const length = () => Math.max(...SCENES.map(b => MOVE + b.end - b.move), ...Object.values(T())) + 24;
+
+let frame_ = 0;
+const put = (px, x0, y0) => { for (const [x, y, c] of px) { g.fillStyle = c; g.fillRect(x0 + x, y0 + y, 1, 1); } };
+function draw() {
+  for (const k of KNOBS) { $(k).value = s[k]; $(k + 'n').value = s[k]; }
+  $('colour').value = s.colour; $('rim').checked = s.rim; $('shadow').checked = s.shadow;
+  $('zoom').textContent = `${s.zoom}×`;
+  $('frame').value = frame_; $('of').textContent = `of ${length() - 1}`; $('scrub').max = length() - 1; $('scrub').value = frame_;
+  timeline();
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) (x === 0 || y === 0 || x === N - 1 || y === N - 1 ? S.wall(x, y) : S.floor(x, y));
+  const f = frame_ - frame_ % 2, t = f - MOVE;
+  const stand = [];
+  for (const b of SCENES) {
+    const g2 = t + b.move, pressing = g2 < b.end, clip = clipOf(b);
+    const ground = clip.ground(t);
+    if (ground) put(ground, 0, 0);
+    for (const [foot, px] of clip.layers(t, t >= MOVES ? 1 : travelAt(b.segs, g2))) stand.push([foot, () => put(px, 0, 0)]);
+    stand.push([(b.rac[1] + 1) * C + (pressing ? 0.5 : 0), () => (pressing ? S.pressing(segAt(b.segs, g2), b.dir, ...b.rac) : S.raccoon(...b.at, b.dir))]);
+    if (pressing) stand.push([Infinity, () => S.pressing(segAt(b.segs, g2), b.dir, ...b.rac, { over: true })]);
+  }
+  for (const [, paint] of stand.sort((a, b) => a[0] - b[0])) paint();
+  const out = $('view'); out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+// ---- the timeline ----
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const KEYS = {
+  pour:  { rows: ['water'], fixed: true, at: () => T().pour },
+  dry:   { rows: ['water'], fixed: true, at: () => T().dry },
+  hit:   { rows: ['splash'], at: () => T().pour + s.hit, set: f => { s.hit = Math.max(0, f - T().pour); } },
+  calm:  { rows: ['splash'], at: () => T().dry + s.calm, set: f => { s.calm = Math.max(T().pour + s.hit - T().dry, f - T().dry); } },
+  down:  { rows: ['splash'], fixed: true, at: () => T().down },
+};
+const SEGS = {
+  water: [['in the jug', () => 0, 'pour', '#dcd6e4'], ['pouring', 'pour', 'dry', '#bfe0e6']],
+  splash: [['bursts', 'hit', 'calm', '#bfd3e6'], ['falling', 'calm', 'down', '#cbdbea']],
+};
+const pc = f => 100 * f / (length() - 1);
+const frameAt = x => { const r = $('track').getBoundingClientRect(); return Math.round((x - r.left) / r.width * (length() - 1)); };
+const ROW_Y = { water: 0, splash: 28 };
+function timeline() {
+  const tr = $('track'); tr.innerHTML = '';
+  const div = (cls, css, text = '') => { const e = document.createElement('div'); e.className = cls; Object.assign(e.style, css); e.textContent = text; tr.append(e); return e; };
+  const at = k => (typeof k === 'function' ? k() : KEYS[k].at());
+  for (const [row, y] of Object.entries(ROW_Y)) {
+    div('rowName', { top: `${y}px` }, row);
+    for (const [name, a, b, col] of SEGS[row]) div('seg', { top: `${y}px`, left: `${pc(at(a))}%`, width: `${Math.max(0, pc(at(b)) - pc(at(a)))}%`, background: col }, name).title = name;
+  }
+  for (const [id, k] of Object.entries(KEYS)) for (const row of k.rows) {
+    const e = div('key' + (k.fixed ? ' fixed' : ''), { top: `${ROW_Y[row]}px`, left: `${pc(k.at())}%` });
+    e.innerHTML = '<div class="stem"></div><div class="grab"></div><div class="num"></div>';
+    e.querySelector('.num').textContent = k.at(); e.title = `${id}: frame ${k.at()}`;
+    e.onpointerdown = k.fixed ? ev => ev.stopPropagation() : ev => dragKey(ev, id);
+  }
+  const h = div('', { left: `${pc(frame_)}%` }); h.id = 'head';
+}
+function dragKey(e, id) {
+  e.preventDefault(); e.stopPropagation(); setPlay(0);
+  const move = ev => { KEYS[id].set(frameAt(ev.clientX)); frame_ = clamp(KEYS[id].at(), 0, length() - 1); draw(); };
+  const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); save(); autosave(); };
+  addEventListener('pointermove', move); addEventListener('pointerup', up); move(e);
+}
+$('track').onpointerdown = e => { setPlay(0); frame_ = clamp(frameAt(e.clientX), 0, length() - 1); draw();
+  const move = ev => { frame_ = clamp(frameAt(ev.clientX), 0, length() - 1); draw(); };
+  const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); };
+  addEventListener('pointermove', move); addEventListener('pointerup', up); };
+
+// ---- transport ----
+let playDir = 0, last = 0;
+function setPlay(d) { playDir = d; if (d) { last = performance.now(); requestAnimationFrame(tick); } }
+function tick(now) {
+  if (!playDir) return;
+  if (now - last >= 1000 / 60) {
+    last = now; frame_ += playDir;
+    if (frame_ <= 0 || frame_ >= length() - 1) { frame_ = clamp(frame_, 0, length() - 1); playDir = 0; }
+    draw();
+  }
+  requestAnimationFrame(tick);
+}
+$('playFwd').onclick = () => { if (frame_ >= length() - 1) frame_ = 0; setPlay(1); };
+$('playBack').onclick = () => { if (frame_ <= 0) frame_ = length() - 1; setPlay(-1); };
+$('stop').onclick = () => setPlay(0);
+$('toStart').onclick = () => { setPlay(0); frame_ = 0; draw(); };
+$('toEnd').onclick = () => { setPlay(0); frame_ = length() - 1; draw(); };
+$('scrub').oninput = () => { setPlay(0); frame_ = Number($('scrub').value); draw(); };
+$('frame').onchange = () => { setPlay(0); frame_ = clamp(Math.round(Number($('frame').value)), 0, length() - 1); draw(); };
+addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea')) return;
+  if (e.key === 'ArrowRight') { setPlay(0); frame_ = Math.min(length() - 1, frame_ + 1); draw(); }
+  if (e.key === 'ArrowLeft') { setPlay(0); frame_ = Math.max(0, frame_ - 1); draw(); }
+  if (e.key === ' ') { e.preventDefault(); playDir ? setPlay(0) : $('playFwd').click(); }
+});
+const change = () => { save(); draw(); autosave(); };
+for (const k of KNOBS) {
+  $(k).oninput = () => { s[k] = Number($(k).value); change(); };
+  $(k + 'n').onchange = () => { const st = Number($(k).step); s[k] = Math.round(Number($(k + 'n').value) / st) * st; change(); };
+}
+for (const name of Object.keys(WATER)) $('colour').append(new Option(name.toLowerCase(), name));
+$('colour').onchange = () => { s.colour = $('colour').value; change(); };
+for (const k of ['rim', 'shadow']) $(k).onchange = () => { s[k] = $(k).checked; change(); };
+$('zout').onclick = () => { s.zoom = Math.max(1, s.zoom - 1); save(); draw(); };
+$('zin').onclick = () => { s.zoom = Math.min(12, s.zoom + 1); save(); draw(); };
+let timer = 0;
+const autosave = () => { clearTimeout(timer); timer = setTimeout(() => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ page: 'splash', settings: s, note: $('note').value, at: new Date().toISOString() }) })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); $('status').className = 'muted'; $('status').textContent = `saved ${new Date().toLocaleTimeString()}`; })
+  .catch(e => { $('status').className = 'bad'; $('status').textContent = `not saved: ${e.message}`; }), 600); };
+$('note').oninput = autosave;
+draw(); autosave();
+</script>
+</body>
+</html>
