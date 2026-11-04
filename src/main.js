@@ -23,6 +23,7 @@ import { mulberry32 } from './rng.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
 import { createPixelSprites, loadPixelArt, PIXEL_CELL } from './pixel.js';
 import { press, moveStart, moveStop, segAt, travelAt } from './art/press.js';
+import { RECOVERIES } from './art/cartoon.js';
 import { tracings } from './art/canTip.js';
 import { tearPress } from './art/bagRip.js';
 import { LOOK as DOOR } from './art/door.js';
@@ -176,11 +177,12 @@ let stage = null, board = null, anim = null;
 
 // In the pixel art he is drawn press by press: the drawings of one action, played from the cell he
 // pressed from.
-let pose = null;
+let pose = null, refusals = 0;
 function startPose(act, dir, from, stay){
   if(!PIXEL) return;
-  const tear = act === 'tear';
-  pose = { segs: tear ? tearPress(dir) : press(act, dir, { lead: false }), dir, x: from.x, y: from.y, stay, tear, t0: clockMs() };
+  const segs = act === 'tear' ? tearPress(dir)
+    : press(act, dir, { lead: false, recovery: act === 'stuck' ? RECOVERIES[refusals++ % RECOVERIES.length] : undefined });
+  pose = { act, segs, dir, x: from.x, y: from.y, stay, t0: clockMs() };
 }
 const poseAt = () => since(pose.t0) / FRAME_MS;
 const poseSeg = () => segAt(pose.segs, poseAt());
@@ -641,11 +643,21 @@ function ripFoot({ kind, foot }){
 // Here rather than in each drawing, because
 // every kind can end up inside a barrow and none of them knows how deep it is.
 function drawSprite(sp, f){
-  if(!sp.depth) return paintSprite(sp, f);
+  const [jx, jy] = jolt(sp);
+  if(!sp.depth && !jx && !jy) return paintSprite(sp, f);
   ctx.save();
-  ctx.translate(sp.depth * 2, sp.depth * 2);
+  ctx.translate(sp.depth * 2 + jx, sp.depth * 2 + jy);
   paintSprite(sp, f);
   ctx.restore();
+}
+
+// What he slams into when it will not go takes the slam, in px.
+function jolt(sp){
+  if(pose?.act !== 'stuck' || sp.kind === RACCOON) return [0, 0];
+  const [dx, dy] = DIRS[pose.dir], tx = pose.x + dx, ty = pose.y + dy;
+  if(!(sp.cells ?? [[0, 0]]).some(([cx, cy]) => sp.tx + cx === tx && sp.ty + cy === ty)) return [0, 0];
+  const d = travelAt(pose.segs, poseAt()) * CS;
+  return [dx * d, dy * d];
 }
 
 // Everything but the ground is a sprite with a position of its own.
@@ -780,13 +792,13 @@ const comp = createCompositor([
   // While he tears he is sorted on the row he pushes from, so the bag stays in front of him unless
   // he pushes it up.
   ...(PIXEL ? [{ name:'things', draw:(ctx,f)=>{
-    const foot = sp => sp.kind === RACCOON && pose?.tear ? pose.y + 0.03
+    const foot = sp => sp.kind === RACCOON && pose?.act === 'tear' ? pose.y + 0.03
       : sp.y + Math.max(0, ...(sp.cells ?? [[0,0]]).map(c => c[1])) + bandOf(sp) * 0.01;
     const items = f.sprites.filter(sp => !ripOwns(sp)).map(sp => [foot(sp), () => (sp.falls ? drawFalling : drawSprite)(sp,f)]);
     for(const r of rips) for(const l of r.clip.layers(ripAt(r))) items.push([ripFoot(l), l.paint]);
     for(const [, paint] of items.sort((a,b) => a[0] - b[0])) paint();
   }}, { name:'over', draw:()=>{
-    if(pose && !pose.tear && leaving() === null) SP.pressing(poseSeg(), pose.dir, pose.x, pose.y, { stay: pose.stay, over: true });
+    if(pose && pose.act !== 'tear' && leaving() === null) SP.pressing(poseSeg(), pose.dir, pose.x, pose.y, { stay: pose.stay, over: true });
   }}] : BANDS.map((name,band)=>({ name, draw:(ctx,f)=>{
     for(const sp of f.sprites) if(bandOf(sp)===band) (sp.falls ? drawFalling : drawSprite)(sp,f);
   }}))),
