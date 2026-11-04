@@ -204,14 +204,14 @@ function noteDump(step, moveFrames){
   if(!PIXEL) return;
   for(const m of step.moved){
     if(m.o === m.becomes.o) continue;
-    const out = shedOf(step, m), kind = out?.o === BAG ? BAG : out?.effect === 'pours' ? SPLASH : null;
+    const out = shedOf(step, m), kind = out?.o === BAG || out?.o === TRASH ? out.o : out?.effect === 'pours' ? SPLASH : null;
     if(!kind) continue;
     const [x, y] = restsOn(m), [bx, by] = out.cells[0];
     const container = stage.sprites.find(sp => sp.kind === m.becomes.o && sp.tx === x && sp.ty === y);
     const shed = stage.sprites.find(sp => sp.kind === kind && sp.tx === bx && sp.ty === by
       && !sp.dying && (kind === SPLASH || !sp.spent || sp.falls));
     const clip = container && shed
-      && SP.dump(m.becomes.o, { container, from: m.cells[0], to: [x, y], shedTo: [bx, by], moveFrames, down: !!shed.falls });
+      && SP.dump(m.becomes.o, { container, shed, from: m.cells[0], to: [x, y], shedTo: [bx, by], moveFrames, down: !!shed.falls });
     if(clip) dumps.push({ container, shed, at: [x, y], shedTo: [bx, by], t0: clockMs(), ...clip });
   }
 }

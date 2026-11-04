@@ -8,6 +8,7 @@ import { createStills } from './art/stills.js';
 import { createCanTip } from './art/canTip.js';
 import { createJugTip, bakedJug } from './art/jugTip.js';
 import { createBagRip } from './art/bagRip.js';
+import { createBoxTip } from './art/boxTip.js';
 import { puddle, crossing } from './art/water.js';
 import { SKATEBOARD } from './art/skateboard.js';
 import { door } from './art/door.js';
@@ -46,6 +47,7 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
   const pourClip = createJugTip({ drawing: bakedJug(J).drawing, full: J.full, dy: J.dy });
   const STYLE = { outline: LOOK.outline, shadow: LOOK.shadow }, LAY = { min: LOOK.min, max: LOOK.max, C, spill: LOOK.spill };
   const ripClip = createBagRip({ T, BAG: A.bag, LAY, STYLE });
+  const boxClip = createBoxTip({ T, still, LAY, STYLE, SPREAD: LOOK.spread });
   const BIKE = bicycle();
   // The sitting frame of each facing.
   const SIT = Object.fromEntries(['u', 'd', 'l', 'r'].map(d => {
@@ -90,6 +92,11 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
       const { layers, ground, end } = pourClip({ dir: container.lie, from, to, wetAt: [wx, wy], moveFrames,
         wet: (x, y) => (x === wx && y === wy) || wet(x, y) });
       return { end, draw: f => drawLayers(layers, f, container.along), ground: f => put(ground(f) ?? [], 0, 0) };
+    },
+    [BIN_EMPTY]: ({ container, shed, from, to, shedTo, moveFrames, down }) => {
+      if (down) return null;
+      const { layers, end } = boxClip({ dir: container.lie, from, to, pileAt: shedTo, seed: container.seed, pileSeed: shed.seed, moveFrames });
+      return { end, draw: f => drawLayers(layers, f, container.along) };
     },
     [WHEELIE_EMPTY]: ({ container: c, down }) => (down ? null : {
       end: W.dump.r.length * 2,

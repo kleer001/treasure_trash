@@ -4,10 +4,11 @@ import { DIRS } from '../rules.js';
 import { mulberry32 } from '../rng.js';
 import { C } from './flight.js';
 import { press } from './press.js';
-import { drawPile, pileLayout, SHADOW } from './pile.js';
+import { pileLayout, SHADOW } from './pile.js';
 import { moved } from './stills.js';
 import { stretch } from './stretch.js';
 import { INK } from './tip.js';
+import { createToPile } from './toPile.js';
 
 /** `push` is the frame of his thud. `press` is the frames the bag swells before `rip`; `first` and
  *  `sfirst` are the frames from the rip to the first landing, `spread` and `sspread` from the first
@@ -19,7 +20,6 @@ export const RIP = { push: 7, rip: 3, press: 5, first: 6, spread: 10, sfirst: 4,
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const quadOut = u => 1 - (1 - u) ** 2;
-const seeded = (seed, i) => mulberry32((seed ^ Math.imul(i + 1, 2654435761)) >>> 0);
 
 /** His push toward `dir` with the drive drawn out, a stride every two frames, so that the thud
  *  lands `push` frames into the move. */
@@ -47,12 +47,7 @@ export function ripKeys(k = RIP) {
 export function createBagRip({ T, BAG, LAY, STYLE }) {
   const GRID = Array.from({ length: BAG.h }, () => Array(BAG.w).fill(null));
   for (const [x, y, c] of BAG.px) GRID[y][x] = c;
-  const POSES = new Map();
-  const poseOf = p => {
-    const id = `${p.name}/${p.turn}`;
-    if (!POSES.has(id)) POSES.set(id, T.poseOf(p.name, p.turn));
-    return POSES.get(id);
-  };
+  const toPile = createToPile({ T, LAY, STYLE });
 
   /** `layers(t)` is the clip `t` frames into the move, as `{ kind, foot, px }`: `kind` is `bag`,
    *  `pile`, `shadow` or `air`, `foot` the row of room px it stands on, and `px` in px on the room.
@@ -109,27 +104,7 @@ export function createBagRip({ T, BAG, LAY, STYLE }) {
     };
     const landed = scraps.map(sc => { const s = scrapAt(sc, 1); return moved(s.px, s.x, s.y); });
 
-    /** How piece `i` of a pile flies: when it lands (0..1 of the landing window), how high it arcs,
-     *  how many eighths it turns, and how far from the middle of the bag it starts. */
-    const flights = piles.map(({ seed: s, pile }) => pile.pieces.map((_, i) => {
-      const r = seeded(s, i), v = [r(), r(), r(), r(), r(), r(), r()];
-      return { when: v[0], lift: 0.6 + 0.8 * v[1], spin: v[2] * 100 < k.spin ? (1 + Math.floor(v[3] * k.turns)) * (v[4] < 0.5 ? -1 : 1) : 0,
-        jitter: [(v[5] - 0.5) * 8, (v[6] - 0.5) * 6] };
-    }));
-
-    const DRAWN = new Map();
-    const pileDrawing = (i, down) => {
-      const id = `${i} ${down.length}`;
-      if (!DRAWN.has(id)) {
-        const out = [], p = piles[i];
-        const rec = { fillStyle: '', fillRect(x, y) { out.push([x, y, this.fillStyle]); } };
-        drawPile(rec, T, { ...p.pile, pieces: down }, p.x * C, p.y * C, STYLE);
-        DRAWN.set(id, out);
-      }
-      return DRAWN.get(id);
-    };
-
-    const sx = bx * C + C / 2, sy = by * C + C - 1 - BAG.h / 2;
+    const fling = toPile({ piles, from: [bx * C + C / 2, by * C + C - 1 - BAG.h / 2], go: keys.rip, first: keys.first, last: keys.last, k });
     function layers(t) {
       if (t < keys.rip) {
         const b = bagAt(quadOut(clamp((t - keys.squash) / Math.max(1, keys.rip - keys.squash), 0, 1)));
@@ -140,16 +115,8 @@ export function createBagRip({ T, BAG, LAY, STYLE }) {
         if (up) out.push({ kind: 'shadow', foot, px: px.map(([a, b]) => [x + a, y + b, SHADOW]) });
         out.push({ kind: 'air', foot, px: moved(px, x, y - up) });
       };
-      const downs = piles.map(({ x, y, pile }, i) => pile.pieces.filter((p, j) => {
-        const fl = flights[i][j], land = keys.first + fl.when * (keys.last - keys.first), u = (t - keys.rip) / Math.max(1, land - keys.rip);
-        if (u >= 1) return true;
-        const rest = T.sprite(p.name, p.alt, p.turn), { m, k: at } = poseOf(p);
-        const spr = T.sprite(p.name, p.alt, T.pose(p.name, m, at - Math.round(fl.spin * (1 - u))));
-        const ox = sx + fl.jitter[0], oy = sy + fl.jitter[1], rx = x * C + p.x + rest.w / 2, ry = y * C + p.y + rest.h / 2;
-        const gx = Math.round(ox + (rx - ox) * u - spr.w / 2), gy = Math.round(oy + (ry - oy) * u - spr.h / 2);
-        fly(spr.px, gx, gy, Math.round(k.arc * fl.lift * 4 * u * (1 - u)), gy + spr.h);
-        return false;
-      }));
+      const flung = fling.at(t);
+      for (const a of flung.air) fly(a.px, a.x, a.y, a.up, a.foot);
       scraps.forEach((sc, i) => {
         const land = keys.sfirst + sc.when * (keys.slast - keys.sfirst), u = clamp((t - keys.rip) / Math.max(1, land - keys.rip), 0, 1);
         if (u >= 1) { under[sc.to].push(...landed[i]); return; }
@@ -157,7 +124,7 @@ export function createBagRip({ T, BAG, LAY, STYLE }) {
         fly(s.px, s.x, s.y, s.up, s.y + s.vh);
       });
       piles.forEach(({ y }, i) => {
-        if (downs[i].length || under[i].length) out.push({ kind: 'pile', foot: (y + 1) * C, px: [...under[i], ...pileDrawing(i, downs[i])] });
+        if (flung.piles[i].length || under[i].length) out.push({ kind: 'pile', foot: (y + 1) * C, px: [...under[i], ...flung.piles[i]] });
       });
       return out;
     }
