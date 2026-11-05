@@ -1,30 +1,26 @@
-// The clip of a full recycling box tipping over and pouring its trash out, in 60 Hz frames.
+// `boxTip.js` is the clip of a full recycling box tipping over and pouring its trash out, in 60 Hz frames.
 import { BIN } from '../rules.js';
 import { C } from './flight.js';
 import * as BOX from './box.js';
 import { SHADOW } from './pile.js';
 import { moved } from './stills.js';
 import { createToPile } from './toPile.js';
+import { degAt, evenEnd, fallKeys, onTwos } from './timing.js';
 
-/** Keys in frames: `tip` from the end of the slide, `fall` to lying, `pour` from the tip to the
- *  first piece out, `first` from then to the first landing and `spread` to the last. `arc` is px,
- *  `spin` the % of pieces that turn and `turns` eighths of a turn. */
+/** The keys are frames, except `arc` (px), `spin` (the % of pieces that turn) and `turns` (eighths of a turn). */
 export const BOX_TIP = { tip: -3, fall: 8, pour: 4, first: 6, spread: 10, arc: 9, spin: 50, turns: 4 };
 
 function boxKeys(moveFrames, k) {
-  const tip = Math.max(0, moveFrames + k.tip), flat = tip + Math.max(2, k.fall), pour = tip + Math.max(0, k.pour);
+  const { tip, flat } = fallKeys(moveFrames, k), pour = tip + Math.max(0, k.pour);
   const first = pour + Math.max(2, k.first);
   return { tip, flat, pour, first, last: first + Math.max(0, k.spread) };
 }
-const degAt = (keys, f) => (f <= keys.tip ? 0 : f >= keys.flat ? 90
-  : Math.round(90 * ((f - keys.tip) / (keys.flat - keys.tip)) ** 2));
-const onTwos = f => f - (f % 2);
 
-/** The clip for boxes drawn upright by `still`, their trash held as `SPREAD`, laid as `LAY` and drawn
+/** Returns the clip for boxes drawn upright by `still`, their trash held as `SPREAD`, laid as `LAY` and drawn
  *  in `STYLE`, as the sprites at rest have them. */
 export function createBoxTip({ T, still, LAY, STYLE, SPREAD }) {
   const toPile = createToPile({ T, LAY, STYLE });
-  /** The box of draw seed `seed` shoved `dir` from cell `from` to `to`, its trash landing as the pile
+  /** Returns the clip of the box of draw seed `seed` shoved `dir` from cell `from` to `to`, its trash landing as the pile
    *  of seed `pileSeed` on cell `pileAt`. `layers(f, along)` is the clip `f` frames from the start of
    *  the move as `[foot, px]` pairs in px on the room, where `along` is how far along its move the box
    *  is, 0 to 1. `end` is the first frame drawn at rest. */
@@ -61,6 +57,6 @@ export function createBoxTip({ T, still, LAY, STYLE, SPREAD }) {
       return out;
     }
     const last = Math.max(keys.flat, keys.last);
-    return { layers, keys, end: last + (last % 2) };
+    return { layers, keys, end: evenEnd(last) };
   };
 }

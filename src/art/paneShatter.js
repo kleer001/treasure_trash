@@ -1,19 +1,17 @@
-// The clip of a pane of glass shoved over and breaking into the glass on the floor, in 60 Hz frames.
+// `paneShatter.js` is the clip of a pane of glass shoved over and breaking into the glass on the floor, in 60 Hz frames.
 import { C } from './flight.js';
 import { frame, restAt } from './pane.js';
 import { glassShards } from './glass.js';
 import { moved } from './stills.js';
+import { arc, onTwos, quadOut } from './timing.js';
 
-/** In frames: `tip` for the pane to fall flat, `flash` white once it is down, `scatter` for the last
- *  shard to land. `burst` is how far out from the fallen pane the shards start, 0 to 1 of the way to
- *  where they land; `hop` is px. */
+/** The keys are frames, except `burst`, a fraction from 0 to 1, and `hop`, which is px. */
 export const SHATTER = { tip: 8, flash: 2, scatter: 16, burst: 0.3, hop: 5 };
-const onTwos = f => f - (f % 2);
 
-/** The pane standing in cell `from`, shoved `dir` to break into the glass of cell `to`, where
+/** Returns the clip of the pane standing in cell `from`, shoved `dir` to break into the glass of cell `to`, where
  *  `has(x, y)` says whether a cell is glass once it has and `look` is the glass's look.
  *  `layers(f)` is the pane and the shards in the air `f` frames from the start of the move, as
- *  `{ kind, foot, px }` in px on the room; `ground(f)` the pixels of cell `to`'s glass down by then.
+ *  `{ kind, foot, px }` in px on the room; `ground(f)` is the pixels of cell `to`'s glass that are down by frame `f`.
  *  `end` is the first frame drawn at rest. */
 export function paneShatter({ dir, from, to, has, look, k = SHATTER }) {
   const O = restAt(...from, C), f90 = frame(dir, 90), lift = dir === 'l' || dir === 'r' ? f90.s.h / 2 : 0;
@@ -38,7 +36,7 @@ export function paneShatter({ dir, from, to, has, look, k = SHATTER }) {
     return shards.flatMap(s => {
       const u = flown(s, f);
       if (u >= 1) return [];
-      const e = 1 - (1 - u) ** 2, dx = Math.round(s.d[0] * (1 - e)), dy = Math.round(s.d[1] * (1 - e)), up = Math.round(k.hop * 4 * u * (1 - u));
+      const e = quadOut(u), dx = Math.round(s.d[0] * (1 - e)), dy = Math.round(s.d[1] * (1 - e)), up = Math.round(arc(u, k.hop));
       return [{ kind: 'air', foot: s.foot + dy, px: s.px.map(([x, y, c]) => [x + dx, y + dy - up, c]) }];
     });
   }

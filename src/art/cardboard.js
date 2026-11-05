@@ -1,6 +1,7 @@
-// The cardboard: a square panel torn from a box, lying flat, seen from above.
-//   c face, r rib, l lit crease, s shade crease, x bare flute, y paper between flutes, f torn fibre
+// The cardboard is a square panel torn from a box, lying flat, seen from above.
+//   Palette: k ink, c face, r rib, l lit crease, s shade crease, x bare flute, y paper between flutes, f torn fibre.
 import { mulberry32 } from '../rng.js';
+import { N4 } from './spread.js';
 
 export const CARDBOARD_PALETTE = { c: '#dcc6a2', r: '#cfb791', l: '#ecdcbf', s: '#b59c78', x: '#a9957a', y: '#c9b79a', f: '#f3ead8', k: '#19152b' };
 export const CARDBOARD_ROWS = [
@@ -34,10 +35,11 @@ export const CARDBOARD_ROWS = [
 export const CARDBOARD = { w: CARDBOARD_ROWS[0].length, h: CARDBOARD_ROWS.length,
   px: CARDBOARD_ROWS.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, CARDBOARD_PALETTE[c]]]))) };
 
-/** The sheet soaked through. `seed` places the dark circles. */
+/** WET_LOOK is the look of the sheet soaked through. */
 export const WET_LOOK = { count: 4, rmin: 2, rmax: 4, soak: 1,
   wet: { c: '#a8865e', r: '#9a7a54', l: '#b89870', s: '#7e6142', x: '#7c6a54', y: '#93806a', f: '#c2ac8a',
     w: '#6a4430', W: '#5a3a28', e: '#7a5a3c' } };
+/** Returns the cardboard cell soaked through, as `{ w, h, px: [x, y, colour] }`. `seed` places its dark circles. */
 export function wetCardboard(seed, look = WET_LOOK) {
   const N = CARDBOARD_ROWS.length, rand = mulberry32(seed);
   const on = (x, y) => x >= 0 && y >= 0 && x < N && y < N && !'.k'.includes(CARDBOARD_ROWS[y][x]);
@@ -48,11 +50,11 @@ export function wetCardboard(seed, look = WET_LOOK) {
     return [cx + 0.5, cy + 0.5, look.rmin + rand() * Math.max(0, look.rmax - look.rmin)];
   });
   // How many steps in from the sheet's edge each pixel is, out to `soak`.
-  const depth = new Map(), key = (x, y) => x * 100 + y, SIDES = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  let ring = cells.filter(([x, y]) => SIDES.some(([dx, dy]) => !on(x + dx, y + dy)));
+  const depth = new Map(), key = (x, y) => x * 100 + y;
+  let ring = cells.filter(([x, y]) => N4.some(([dx, dy]) => !on(x + dx, y + dy)));
   for (let d = 1; d <= look.soak && ring.length; d++) {
     ring.forEach(([x, y]) => depth.set(key(x, y), d));
-    ring = cells.filter(([x, y]) => !depth.has(key(x, y)) && SIDES.some(([dx, dy]) => depth.get(key(x + dx, y + dy)) === d));
+    ring = cells.filter(([x, y]) => !depth.has(key(x, y)) && N4.some(([dx, dy]) => depth.get(key(x + dx, y + dy)) === d));
   }
   const px = [];
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {

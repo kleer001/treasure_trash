@@ -1,6 +1,7 @@
-// The couch, drawn from a 3D model.
+// The couch is drawn from a 3D model.
 //   k ink, and the leather from deepest to highlight: d e f g h i
 import { mulberry32 } from '../rng.js';
+import { N4 } from './spread.js';
 
 const RAMP = 'defghi';
 export const COUCH_LOOK = {
@@ -189,7 +190,7 @@ const palette = L => ({
   w: L.stuffing, W: L.stuffShade, x: L.holeColour, r: L.rimColour,
 });
 
-/** The view's rows with the wear laid on, as rows of palette letters, and where stains and mould lie over them. */
+/** Returns the view's rows with the wear laid on, as rows of palette letters, and where stains and mould lie over them. */
 function wear(rows, L, salt) {
   const base = rows.map(r => [...r]), g = rows.map(r => [...r]), h = g.length, w = g[0].length;
   const stain = rows.map(r => Array(r.length).fill('')), mould = rows.map(r => Array(r.length).fill(''));
@@ -197,7 +198,6 @@ function wear(rows, L, salt) {
   const stream = kind => mulberry32((Math.imul(L.seed, 0x9e3779b1) ^ Math.imul(salt, 0x85ebca6b) ^ Math.imul(kind, 0xc2b2ae35)) >>> 0);
   let rnd;
   const shade = (x, y) => (y >= 0 && y < h && x >= 0 && x < w ? RAMP.indexOf(base[y][x]) : -1);
-  const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const faces = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++)
     if (shade(x, y) >= L.minShade && N4.every(([dx, dy]) => shade(x + dx, y + dy) >= 0)) faces.push([x, y]);
@@ -220,7 +220,7 @@ function wear(rows, L, salt) {
   const roomy = faces.filter(([x, y]) => size[cushion[y][x]] >= 16);
   const count = n => Math.floor(n) + (rnd() < n % 1 ? 1 : 0);
   const between = (a, b) => a + rnd() * Math.max(0, b - a);
-  /** A blob with a ragged edge: [x, y, d], d its distance out from the middle (1 at the edge). */
+  /** Returns a blob with a ragged edge as `[x, y, d]`, where `d` is its distance out from the middle, 1 at the edge. */
   const blob = (cx, cy, rx, ry, jag) => {
     const out = [];
     for (let y = Math.floor(cy - ry - 1); y <= Math.ceil(cy + ry + 1); y++)
@@ -291,7 +291,7 @@ const sprite = ({ rows, stain, mould }, pal, L) => ({ w: rows[0].length, h: rows
     }
     return [[x, y, col]];
   })) });
-/** Each view worn to `look`: { w, h, px }. */
+/** Returns each view worn to `look`, as `{ w, h, px }`. */
 export function couchViews(look) {
   const pal = palette(look);
   return Object.fromEntries(Object.entries(ROWS).map(([k, r], i) => [k, sprite(wear(r, look, i + 1), pal, look)]));

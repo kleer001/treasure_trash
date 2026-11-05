@@ -1,6 +1,7 @@
-// The raccoon, drawn by hand from its parts.
-// Seen from the front it is the bench sprite cut into those parts, so at rest it is that sprite
-// exactly. From the side and from behind it is drawn here, in the same colours.
+// The raccoon is drawn by hand from its parts.
+// Seen from the front, it is the `raccoon` sprite in `src/art/assets.json`, cut into those parts. At rest it is that sprite exactly.
+// From the side and from behind it is drawn here, in the same colours.
+import { quadOut } from './timing.js';
 
 const PAL = { a: '#020106', b: '#06050e', c: '#19152b', d: '#3a2a40', e: '#453d51', f: '#584c62', g: '#765c62',
   h: '#896e6e', i: '#a8826e', j: '#ca8b68', k: '#d6d3b0', l: '#d9ac87', m: '#f1eccb' };
@@ -102,7 +103,7 @@ const BACK_ART = [
   '.aaggaaaaaaggaa....',
   '..aaaa.....aaaa....',
 ];
-/** The tail seen from behind. */
+/** The tail, seen from behind, as rows of palette letters. */
 const BACK_TAIL = [
   '...................',
   '...................',
@@ -148,7 +149,7 @@ export const ART = { PAL, FRONT_CUT, SIDE_ART, SIDE_CUT, BACK_ART, BACK_CUT, BAC
 
 const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
 export const ACTIONS = ['sit', 'crawl', 'push', 'stuck'];
-/** Each action's phases, in order, by the setting that times each one. */
+/** Each action's phases, in order, each timed by the `ui` setting of its name, except `idle`. */
 const PHASES = {
   sit: ['idle'],
   crawl: ['crouch', 'pull', 'pull', 'settle'],
@@ -156,10 +157,9 @@ const PHASES = {
   stuck: ['brace', 'shove', 'strain', 'giveUp', 'settle'],
 };
 const BETWEEN = { l: { r: 'd' }, r: { l: 'd' }, u: { d: 'r' }, d: { u: 'r' } };
-const LEG = 3;                                 // px
+const LEG = 3;                                 // how far a leg stretches behind a leaning body, in px
 const REST = { root: 0, lean: 0, crouch: 0, reach: 0, trail: 0, sway: 0, breath: 0, blink: false, stepA: 0, stepB: 0 };
 const ease = u => u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
-const out = u => 1 - (1 - u) ** 2;
 const mix = (a, b, u) => a + (b - a) * u;
 
 export function createRaccoon(front) {
@@ -178,7 +178,7 @@ export function createRaccoon(front) {
   };
   const viewOf = facing => facing === 'd' ? 'front' : facing === 'u' ? 'back' : 'side';
 
-  /** Leg `list` with its top `from` px and its foot `to` px along `[fx, fy]`. */
+  /** Returns leg `list` with its top `from` px and its foot `to` px along `[fx, fy]`. */
   function leg(list, from, to, fx, fy) {
     const ys = list.map(p => p[1]), y0 = Math.min(...ys), y1 = Math.max(...ys);
     if (fx) return list.map(([x, y, col]) => [x + fx * Math.round(from + (to - from) * (y - y0) / Math.max(1, y1 - y0)), y, col]);
@@ -189,7 +189,7 @@ export function createRaccoon(front) {
     return px;
   }
 
-  /** The raccoon in view `view`, mirrored when it faces left, posed by `k` with forward along `[fx, fy]`: its pixels in px from its box's top-left, which may stray outside the box. */
+  /** Returns the raccoon in view `view` as `{ w, h, px }`, with `px` as `[x, y, colour]` in px from its box's top-left. The pixels may lie outside the box. `mirror` flips it, for facing left. `k` is the pose, and `[fx, fy]` is forward. */
   function pose(view, mirror, [fx, fy], k) {
     const V = VIEWS[view], px = [];
     const along = n => [Math.round(n * fx), Math.round(n * fy)];
@@ -216,13 +216,13 @@ export function createRaccoon(front) {
     return { w: V.w, h: V.h, px };
   }
 
-  /** The phases action `action` takes, the raccoon facing `from` and pressed `dir`, each `[name, ms]`, timed by `ui`. */
+  /** Returns the phases `action` takes, with the raccoon facing `from` and pressed `dir`, each as `[name, ms]` timed by `ui`. */
   const phases = (action, from, dir, ui) => {
     const main = PHASES[action].map(p => [p, p === 'idle' ? ui.breaths * ui.breath : ui[p]]);
     return action === 'sit' || from === dir ? main : [['turn', ui.turn], ...main];
   };
 
-  /** The pose `t` ms into action `action`: the way it faces, its view, whether that is mirrored, and the pose keys. */
+  /** Returns the pose `t` ms into action `action`: the way it faces, its view, whether that is mirrored, and the pose keys. */
   function at(action, from, dir, t, ui, dist, gap = 0) {
     const k = { ...REST }, lunge = gap + ui.lunge;
     let face = action === 'sit' ? from : dir, name = null, u = 1, start = 0, hitch = 0;
@@ -250,7 +250,7 @@ export function createRaccoon(front) {
       case 'crouch': k.crouch = Math.round(ui.crouchPx * ease(u)); break;
       case 'pull': {
         k.crouch = ui.crouchPx;
-        const reach = u < 0.4 ? out(u / 0.4) : 1 - ease((u - 0.4) / 0.6);
+        const reach = u < 0.4 ? quadOut(u / 0.4) : 1 - ease((u - 0.4) / 0.6);
         k.reach = Math.round(ui.reach * reach);
         k.root = hitch * half + (u < 0.4 ? 0 : half * ease((u - 0.4) / 0.6));
         k.trail = Math.round(ui.trail * Math.sin(Math.max(0, (u - 0.4) / 0.6) * Math.PI));
@@ -272,8 +272,8 @@ export function createRaccoon(front) {
         k.crouch = Math.round(ease(u));
         break;
       case 'shove':
-        k.lean = Math.round(mix(-ui.bracePx, lunge, out(u)));
-        k.reach = Math.round(ui.reach * out(u));
+        k.lean = Math.round(mix(-ui.bracePx, lunge, quadOut(u)));
+        k.reach = Math.round(ui.reach * quadOut(u));
         k.crouch = 1;
         k.sway = Math.round(ui.sway * Math.sin(u * Math.PI));
         break;
@@ -300,7 +300,7 @@ export function createRaccoon(front) {
     return { face, view: viewOf(face), mirror: face === 'l', k };
   }
 
-  /** Where the thing a push shoves is, `t` ms into it: px along the push, of `dist`. */
+  /** Returns how far the thing a push shoves has moved, in px, `t` ms into the action. `dist` is the full push in px. */
   function thing(action, from, dir, t, ui, dist) {
     let start = 0;
     for (const [p, ms] of phases(action, from, dir, ui)) {

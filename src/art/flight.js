@@ -1,15 +1,16 @@
-// The bag rip frame by frame; its board and tear come from src/rules.js.
+// `flight.js` draws the bag rip frame by frame. `explain` in `src/rules.js` decides the tear.
 import { explain, TRASH, cell } from '../rules.js';
 import { toState } from '../format.js';
 import { cellSeed } from '../stage.js';
 import { mulberry32 } from '../rng.js';
 import { settle, drawPile, SHADOW, ORDER } from './pile.js';
-import { spreadPiles, hash } from './spread.js';
+import { spreadPiles, hash, BAYER } from './spread.js';
+import { arc } from './timing.js';
 import { wallTile } from './room.js';
 
 export const C = 24, FLOOR = '#896e6e', SEAM = '#584c62';
 const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
-// The bag and the raccoon from the push on, ms: from each key's time, the bag sprite, the bag's nudge and the raccoon's lunge toward the bag, px.
+// Each key is in ms from the push. `body` is the bag's sprite. `nudge` moves the bag, and `lunge` moves the raccoon toward it, both in px.
 export const KEYS = [
   { t: 0, body: 'bag', lunge: 0 },
   { t: 160, body: 'bag', nudge: 1, lunge: 3 },
@@ -35,17 +36,16 @@ export const FLIGHT_SLIDERS = {
 
 const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
 const DARKEN = rgb(SHADOW).map((c, i) => c / rgb(FLOOR)[i]);
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-// The shadow a landed piece has in each pile shadow style: how far it reaches past the piece, px, and its offset.
+// Each pile shadow style gives the shadow of a landed piece. `r` is its reach past the piece in px. `dx, dy` is its offset in px.
 const LANDED = { base: { r: 1.5, dx: 0, dy: 0 }, drop: { r: 0.5, dx: 1, dy: 1 }, none: { r: 0.5, dx: 0, dy: 0 } };
 const DRIFT = { s: [0, 1], se: [Math.SQRT1_2, Math.SQRT1_2], e: [1, 0] };
 
-/** Drawing and flight for one trash set `T`, sprites `A`, pile look `STYLE`, and `OBJ`, the sprite of each occupant code. */
+/** Returns the drawing and flight for one trash set `T`, with sprites `A`, pile look `STYLE` and `OBJ`, the sprite of each occupant code. */
 export function createFlight({ T, A, STYLE, OBJ }) {
   const drawSpr = (ctx, spr, x, y) => { for (const [px, py, col] of spr.px) { ctx.fillStyle = col; ctx.fillRect(x + px, y + py, 1, 1); } };
   const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
 
-  /** A square N×N board, each `[x, y, glyph]` of `put` placed on it. */
+  /** Returns a square N×N board, with each `[x, y, glyph]` of `put` placed on it. */
   function board(N, room, put) {
     const rows = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) =>
       room === 'walled' && (x === 0 || y === 0 || x === N - 1 || y === N - 1) ? '#' : '-'));
@@ -68,7 +68,7 @@ export function createFlight({ T, A, STYLE, OBJ }) {
     return { cells, pieces };
   }
 
-  /** The piles the TRASH cells hold after the tear, laid as the Trash Spread page `S` lays B. */
+  /** Returns the tear for `dir` on a `room` board, with the piles the TRASH cells hold after it. The edges method lays them from settings `S`, as the Trash Spread page (`art/bench/spread.html`) holds them. */
   function setup(dir, room, S) {
     const [dx, dy] = DIRS[dir], N = room === 'walled' ? 5 : 7, b = (N - 1) / 2;
     const s = board(N, room, [[b, b, '$'], [b - dx, b - dy, '@']]);
@@ -80,7 +80,7 @@ export function createFlight({ T, A, STYLE, OBJ }) {
     return { s, r, N, W: N * C, dx, dy, bx, by, sourceOf: () => middle, aimed: spawned.map(e => e.cells[0]), ...rest(s, r.next, N, (cells, isTrash) => spreadPiles(T, 'edges', S.edges, { C, W: N, H: N, cells, isTrash, seed: S.seed, hues: S.hues })), wrap: S.wrap };
   }
 
-  /** Each piece's leave and land times, in ms after the first could leave, its arc height and turn, from the settings `f`.
+  /** Returns each piece with its leave and land times, in ms after the first could leave, its arc height and its turn, from the settings `f`.
    *  `B.sourceOf(q, launch)` is where piece `q` is when it leaves. */
   function plan(B, f) {
     const v = f.spread / 100, far = f.far / 100, heavy = f.heavy / 100, BIAS = { hero: -1, mid: 0, bit: 1 };
@@ -111,11 +111,11 @@ export function createFlight({ T, A, STYLE, OBJ }) {
   function inAir(q, since) {
     const u = (since - q.launch) / q.dur, { m, k } = T.poseOf(q.p.name, q.p.turn);
     const s = T.sprite(q.p.name, q.p.alt, T.pose(q.p.name, m, k - Math.round(q.spin * (1 - u))));
-    const hc = q.height * 4 * u * (1 - u);
+    const hc = arc(u, q.height);
     return { s, gx: Math.round(q.sx + (q.rx - q.sx) * u - s.w / 2), gy: Math.round(q.sy + (q.ry - q.sy) * u - s.h / 2), hc, h: Math.round(hc) };
   }
 
-  /** How strongly each pixel of a W×H canvas lies in the shadow of `flying`, 0..1. */
+  /** Returns how strongly each pixel of a W×H canvas lies in the shadow of `flying`, from 0 to 1. */
   function shade(W, H, flying, cast) {
     const a = new Float32Array(W * H), L = LANDED[STYLE.shadow], [ux, uy] = DRIFT[cast.light];
     for (const f of flying) {
@@ -140,7 +140,7 @@ export function createFlight({ T, A, STYLE, OBJ }) {
     return a;
   }
 
-  /** Darken a W×H canvas by the shade `a`, as `blend`. A dither is pinned to the canvas so it does not crawl as a shadow moves. */
+  /** Darkens a W×H canvas by the shade `a`, in the way `blend` names. A dither is pinned to the canvas so it does not crawl as a shadow moves. */
   function darken(ctx, W, H, a, blend) {
     const img = ctx.getImageData(0, 0, W, H), d = img.data;
     for (let i = 0; i < a.length; i++) {
@@ -191,7 +191,7 @@ export function createFlight({ T, A, STYLE, OBJ }) {
     drawSpr(ctx, A.raccoon, ...at(A.raccoon, s.rac.x, s.rac.y));
   }
 
-  /** The frame `t` ms after the push. */
+  /** Draws the frame `t` ms after the push. */
   function frameAt(ctx, B, P, t, cast) {
     const since = t - TEAR;
     ground(ctx, B);

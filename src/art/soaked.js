@@ -1,8 +1,9 @@
-// The cardboard and the sponge marked by what they met.
+// The cardboard and the sponge are marked by what they met.
 // Marks are mixed into the colour under them, so each pixel stays solid.
 import { mulberry32 } from '../rng.js';
 import { CARDBOARD_ROWS, CARDBOARD_PALETTE } from './cardboard.js';
 import { SPONGE_LOOK, SPONGE_PALETTE, spongeRows } from './sponge.js';
+import { N4 } from './spread.js';
 
 const MARKS = { soak: 1, edge: '#000000', edgeAmt: 0, count: 0, rmin: 1, rmax: 2, blot: '#000000', blotAmt: 0, ring: 0, specks: 0, speck: '#ffffff' };
 export const SOAKED_LOOK = {
@@ -26,9 +27,8 @@ export const SOAKED_LOOK = {
 
 export const mix = (a, b, t) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t)
   .toString(16).padStart(2, '0')).join('');
-const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
-/** `rows` marked to look `L`, as { w, h, px: [x, y, colour] }; `ooze` and `coat` say which of the
+/** Returns `rows` marked to look `L`, as { w, h, px: [x, y, colour] }. `ooze` and `coat` say which of the
  *  outside marks this thing takes. */
 function marked(rows, palette, L, { ooze = false, coat = false }) {
   const h = rows.length, w = rows[0].length, rand = mulberry32(L.seed);
@@ -36,7 +36,7 @@ function marked(rows, palette, L, { ooze = false, coat = false }) {
   const cells = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (body(x, y)) cells.push([x, y]);
   const pick = () => cells[Math.floor(rand() * cells.length)];
-  // How many steps in from the edge each pixel is, out to `soak`.
+  // Each cell's depth is its steps in from the edge, out to `L.soak`.
   const depth = new Map(), key = (x, y) => x * 1000 + y;
   let ring = cells.filter(([x, y]) => N4.some(([dx, dy]) => !body(x + dx, y + dy)));
   for (let d = 1; d <= L.soak && ring.length; d++) {
@@ -82,8 +82,8 @@ function marked(rows, palette, L, { ooze = false, coat = false }) {
   return { w, h, px: [...out.values()] };
 }
 
-/** The sheet, one cell from its top-left corner, after lying over `kind`: water, tar or grease. */
+/** Returns the sheet, one cell from its top-left corner, marked for `kind`: water, tar or grease. */
 export const soakedCardboard = (kind, look = SOAKED_LOOK.cardboard[kind]) => marked(CARDBOARD_ROWS, CARDBOARD_PALETTE, look, { ooze: true });
-/** The sponge at `size`, its bottom row on the ground, after soaking up water or grease, or sticking in tar. */
+/** Returns the sponge at `size`, its bottom row on the ground, marked for `kind`. */
 export const soakedSponge = (kind, look = SOAKED_LOOK.sponge[kind], size = SPONGE_LOOK) =>
   ({ ...marked(spongeRows(size), SPONGE_PALETTE, look, { coat: true }), dx: size.dx, dy: size.dy });

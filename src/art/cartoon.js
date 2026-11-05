@@ -1,9 +1,10 @@
-// The raccoon, cartoon. Facing left is the mirror.
+// The raccoon is drawn cartoon style. Facing left is the mirror of facing right.
 // From the front and the back every frame is a list of whole parts and where each goes, in drawing order.
 // Every frame of an action carries a beat.
 // A frame's `fr` is its hold in 60 Hz screen frames.
 
 import { ART } from './raccoon.js';
+import { N4 } from './spread.js';
 
 export const W = 44, H = 18;
 const GROUND = H - 1;
@@ -17,7 +18,7 @@ const shift = (rows, [x0, y0, x1, y1], dx, dy) => {
   for (const [x, y, c] of box) if (g[y + dy]?.[x + dx] !== undefined) g[y + dy][x + dx] = c;
   return g.map(r => r.join(''));
 };
-/** Rows `rows` with the box moved by `dx, dy`, so nothing opens up. */
+/** Returns `rows` with the box moved by `dx, dy`, and the old drawing kept wherever the box has left it, so nothing opens up. */
 const drag = (rows, box, dx, dy) => shift(rows, box, dx, dy).map((r, y) => [...r].map((c, x) => (c === '.' ? rows[y][x] : c)).join(''));
 const pad = (rows, n) => rows.map(r => r + '.'.repeat(n));
 const ghost = (rows, ch) => rows.map(r => r.replace(/[^.]/g, ch));
@@ -211,7 +212,7 @@ const PARTS = {
   sole: ['akka', 'alla', 'aaaa'],
 };
 
-/** A leg as a line `w` px thick from `[x0, y0]` to `[x1, y1]`. */
+/** Returns a limb as a line `w` px thick from `[x0, y0]` to `[x1, y1]`, its last pixels in the `paw` colour. */
 function limb([x0, y0], [x1, y1], fill, paw, w = 1) {
   const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)), core = new Map();
   for (let i = 0; i <= n; i++) {
@@ -219,7 +220,7 @@ function limb([x0, y0], [x1, y1], fill, paw, w = 1) {
     for (const [ox, oy] of i === n ? [[0, 0], [1, 0], [0, 1], [1, 1]] : Array.from({ length: w }, (_, k) => [k, 0])) core.set(`${x + ox},${y + oy}`, [x + ox, y + oy, i === n ? paw : fill]);
   }
   const edge = new Map();
-  for (const [x, y] of core.values()) for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+  for (const [x, y] of core.values()) for (const [ox, oy] of N4) {
     const k = `${x + ox},${y + oy}`;
     if (!core.has(k)) edge.set(k, [x + ox, y + oy, 'a']);
   }
@@ -256,7 +257,7 @@ const F = (name, fr, dx, [body, bx, by], [head, hdx, hdy], [tail, tdy], feet, o 
 const P = [0, 0], PLANT = [P, P, P, P];
 /** A sit: `under` is drawn beneath the sprite `art`, `top` over it. */
 const sitting = (name, fr, dx, thing, art, o) => ({ name, fr, dx, thing, seated: true, parts: [...(o.under ?? []), ...art, ...(o.top ?? [])] });
-/** The side sit, the raccoon's rest. */
+/** `S` is the side sit, the raccoon's rest. */
 const S = (name, fr, dx, thing, art = 'sit', o = {}) => sitting(name, fr, dx, thing, [[art, 11, 0]], o);
 
 const as = beat => fs => fs.map(f => ({ ...f, beat }));
@@ -364,7 +365,7 @@ const front = (name, fr, dx, hy, [lh, rh], o = {}) => {
 };
 const frontSit = (name, fr, dx, thing, head = 'frontHead', o = {}) => sitting(name, fr, dx, thing,
   [['frontSitTail', X + 15 + (o.flick ?? 0), 11 - (o.flick ?? 0)], ['frontSitBody', X, 12], [head, X + (o.hx ?? 0), 0]], o);
-/** From the back, low: the rump's top on row `ry`, the ears and the top of the skull over it, the hind feet `lf` and `rf`. `o.under` goes behind the rump, `o.top` over all. */
+/** Returns the back view, low: the rump's top on row `ry`, the ears and the top of the skull over it, and the hind feet `lf` and `rf`. `o.under` goes behind the rump, and `o.top` goes over all. */
 const back = (name, fr, dx, ry, [lf, rf], o = {}) => {
   const sway = o.sway ?? 0, s = o.splay ?? 0, wag = o.wag ?? 0;
   const tail = { up: ['backTailUp', X - 1 + sway, ry - 6], stiff: ['backTailDown', X + 6 + sway, ry - 7],
@@ -541,7 +542,7 @@ const CROSS = {
   'u>d': [['sit', 11, 0]],
 };
 const OTHER = { r: 'l', l: 'r', u: 'u', d: 'd' };
-/** The frames that turn him from facing `from` to facing `to`, each marked with whether it is drawn mirrored. */
+/** Returns the frames that turn him from facing `from` to facing `to`, each marked with whether it is drawn mirrored. */
 export function turn(from, to) {
   if (from === to) return [];
   const mirror = from === 'l' || (to === 'l' && from !== 'r');

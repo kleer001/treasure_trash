@@ -1,5 +1,6 @@
-// Ways to lay trash over a board's TRASH cells, next to pileLayout's mound per cell.
-// Each returns a Map 'x,y' -> pile { cx, cy, pieces } with cell-local pieces, as pileLayout does, so settle() and drawPile() take them unchanged.
+// Four methods lay trash over a board's TRASH cells: `mound`, `flat`, `edges` and `field`. `mound` is pileLayout, one mound per cell.
+// Each method returns a Map 'x,y' -> pile { cx, cy, pieces } with cell-local pieces, as pileLayout does, so settle() and drawPile() take them unchanged.
+// The pixel helpers the art shares, `hash`, `noise`, `BAYER` and `N4`, are defined in this file.
 import { mulberry32 } from '../rng.js';
 import { cellSeed } from '../stage.js';
 import { ORDER, sizes, pileLayout, chooser } from './pile.js';
@@ -29,6 +30,11 @@ const optOf = (o, C, seed) => ({ ...o, C, spill: o.spill / 100, falloff: (o.fall
 /** The pieces `given` poured into TRASH cell `[x, y]` by B, with the Trash Spread page's settings `o`. */
 export const pourPile = (T, o, { C, cell: [x, y], given, isTrash, seed, key }) => pourLayout(T, x, y, given, isTrash, optOf(o, C, seed), key);
 
+/** `BAYER` is a 4×4 ordered-dither matrix. Index it by `(y & 3) * 4 + (x & 3)`. */
+export const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+/** `N4` lists the four neighbours that share an edge, as `[dx, dy]` steps. */
+export const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
 export function hash(...v) {
   let h = 0x811c9dc5;
   for (const x of v) { h = Math.imul(h ^ (x | 0), 0x01000193); h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995); }
@@ -54,7 +60,7 @@ function centred(T, p, x, y) {
   return { ...p, x: Math.round(x - s.w / 2), y: Math.round(y - s.h / 2) };
 }
 
-/** A: each cell on its own. */
+/** The `flat` method lays each cell on its own. */
 export function flatLayout(T, cells, chooseOf, rndOf, { C, min, max, spill, jitter }) {
   const out = new Map(), over = Math.round(spill * C), span = C + 2 * over;
   for (const [x, y] of cells) {
@@ -74,7 +80,7 @@ export function flatLayout(T, cells, chooseOf, rndOf, { C, min, max, spill, jitt
   return out;
 }
 
-/** B's test for cell (x, y): `ext`, how far past each edge its grid reaches, and `weigh(piece, px, py)`, the chance the piece centred on (px, py) lands. */
+/** Returns the test that the `edges` method uses for cell (x, y). `ext` is how far past each edge its grid reaches, in px. `weigh(piece, px, py)` is the chance that a piece centred on (px, py) lands. */
 function edgeTest(T, x, y, isTrash, { C, spill, knit, falloff, rough, seed }) {
   const over = spill * C;
   const toTrash = [isTrash(x - 1, y), isTrash(x + 1, y), isTrash(x, y - 1), isTrash(x, y + 1)];
@@ -86,7 +92,8 @@ function edgeTest(T, x, y, isTrash, { C, spill, knit, falloff, rough, seed }) {
     const xs = s.px.map(p => piece.x + p[0]), ys = s.px.map(p => piece.y + p[1]);
     const past = [-Math.min(...xs), Math.max(...xs) - C + 1, -Math.min(...ys), Math.max(...ys) - C + 1];
     const bite = rough * noise(seed, x * C + px, y * C + py);
-    // The farthest any pixel lands from the nearest TRASH cell, which the edges alone miss at an inside corner.
+    // The farthest any pixel lands from the nearest TRASH cell. The edge tests alone miss an inside
+    // corner: two edges touch trash, and the cell between them does not.
     let far = 0;
     for (const [a, b] of s.px) {
       const X = x * C + piece.x + a, Y = y * C + piece.y + b, gx = Math.floor(X / C), gy = Math.floor(Y / C);
@@ -102,7 +109,7 @@ function edgeTest(T, x, y, isTrash, { C, spill, knit, falloff, rough, seed }) {
   return { ext: toTrash.map(t => t ? knit : over), weigh };
 }
 
-/** B: each cell on its own, its four edges reading the cell beyond. */
+/** The `edges` method lays each cell on its own. Its four edges read the cells beyond. */
 export function edgeLayout(T, cells, isTrash, chooseOf, rndOf, o) {
   const { C, min, max, jitter, seed } = o, out = new Map();
   for (const [x, y] of cells) {
@@ -144,7 +151,7 @@ export function pourLayout(T, x, y, given, isTrash, o, key) {
   return { cx: C / 2, cy: C / 2, pieces: byLayer(pieces) };
 }
 
-/** C: one field of points over the whole board, knowing no cells. */
+/** The `field` method lays one field of points over the whole board. Each point goes to the TRASH cell it is in, or nearest to. */
 export function fieldLayout(T, board, chooseOf, { C, n, spill, falloff, rough, jitter, seed }) {
   const { W, H, isTrash } = board, over = spill * C, out = new Map();
   const R = Math.ceil((over + rough) / C) + 1;

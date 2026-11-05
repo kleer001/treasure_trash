@@ -1,26 +1,22 @@
-// The clip of a full can tipping over, in 60 Hz frames.
+// `canTip.js` is the clip of a full can tipping over, in 60 Hz frames.
 import { DIRS } from '../rules.js';
 import { C } from './flight.js';
 import { frame, restAt, bagIn, spun, CAN } from './can.js';
 import { at, moved } from './stills.js';
 import { stretch } from './stretch.js';
+import { arc, degAt, evenEnd, fallKeys, onTwos, quadOut } from './timing.js';
 
 /** `hop` is how high the bag arcs and `depth` how far it squashes, in px. */
 export const TIP = { tip: -3, fall: 7, pour: 4, fly: 5, squash: 8, hop: 6, depth: 8, spin: true };
 
-/** The clip's keys, in frames from the start of a move that takes `moveFrames`. */
+/** The clip's keys are in frames from the start of a move that takes `moveFrames`. */
 function tipKeys(moveFrames, k) {
-  const tip = Math.max(0, moveFrames + k.tip), flat = tip + Math.max(2, k.fall);
+  const { tip, flat } = fallKeys(moveFrames, k);
   const pour = tip + Math.max(0, k.pour), land = pour + Math.max(2, k.fly), rest = land + Math.max(1, k.squash);
   return { tip, flat, pour, land, rest };
 }
-/** How far over the can is at frame `f`, degrees. */
-const degAt = (keys, f) => (f <= keys.tip ? 0 : f >= keys.flat ? 90
-  : Math.round(90 * ((f - keys.tip) / (keys.flat - keys.tip)) ** 2));
-const quadOut = u => 1 - (1 - u) ** 2;
-const onTwos = f => f - (f % 2);
 
-/** Every in-between of the fall toward the viewer and away, as calls that trace it, to run before
+/** Returns every in-between of the fall toward the viewer and away, as calls that trace it, to run before
  *  a clip needs them. */
 export function tracings() {
   const keys = tipKeys(0, TIP), out = [];
@@ -28,20 +24,22 @@ export function tracings() {
   return out;
 }
 
-/** The clip for the bag drawing `BAG`, whose last row is the shadow it stands on. */
+/** Returns the clip for the bag drawing `BAG`, whose last row is the shadow it stands on. */
 export function createCanTip(BAG) {
   const AIR = { ...BAG, px: BAG.px.filter(p => p[1] < BAG.h - 1) };
   const [BX, BY] = bagIn(BAG), MID = [BX + BAG.w / 2, BY + BAG.h / 2];
   const GRID = Array.from({ length: BAG.h }, () => Array(BAG.w).fill(null));
   for (const [x, y, c] of BAG.px) GRID[y][x] = c;
-  /** The bag resized to w × h, nearest pixel, so every pixel stays one of the sprite's own. */
+  /** Resizes the bag to w × h, nearest pixel, so every pixel stays one of the sprite's own. */
   const resize = (w, h) => {
     const rows = stretch(GRID, h, 0, 0).map(r => stretch(r, w, 0, 0));
     return { w, h, px: rows.flatMap((r, y) => r.flatMap((c, x) => (c ? [[x, y, c]] : []))) };
   };
 
-  /** `layers(f, along)` is the can and its bag `f` frames from the start of its move, as `[foot, px]` pairs
-   *  in px on the room, where `along` is how far along its move the can is, 0 to 1. `end` is the first frame drawn at rest. */
+  /** The clip of a can falling toward `dir` from cell `from` to cell `to`, its bag landing in cell `bagTo`,
+   *  its move taking `moveFrames` frames. Returns `{ layers, keys, end }`. `layers(f, along)` is the can and
+   *  its bag `f` frames from the start of the move, as `[foot, px]` pairs in px on the room, where `along` is
+   *  how far along the move the can is, 0 to 1. `end` is the first frame drawn at rest. */
   return ({ dir, from, to, bagTo, moveFrames, down = false, k = TIP }) => {
     const keys = tipKeys(moveFrames, k), [dx] = DIRS[dir];
     const O = restAt(...from, C), end = restAt(...to, C, dir), f90 = frame(dir, 90);
@@ -58,7 +56,7 @@ export function createCanTip(BAG) {
     const thrown = inCan(keys.pour, 1), spin = k.spin ? dx * 360 : 0;
     const leaving = f => {
       const u = Math.min(1, (f - keys.pour) / (keys.land - keys.pour)), e = quadOut(u);
-      return { x: thrown.x + (landing[0] - thrown.x) * e, y: thrown.y + (landing[1] - thrown.y) * e - k.hop * 4 * u * (1 - u),
+      return { x: thrown.x + (landing[0] - thrown.x) * e, y: thrown.y + (landing[1] - thrown.y) * e - arc(u, k.hop),
         turn: thrown.turn + (spin - thrown.turn) * e };
     };
     const air = (b, keep) => {
@@ -82,6 +80,6 @@ export function createCanTip(BAG) {
       }
       return out;
     }
-    return { layers, keys, end: keys.rest + (keys.rest % 2) };
+    return { layers, keys, end: evenEnd(keys.rest) };
   };
 }

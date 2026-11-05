@@ -1,11 +1,12 @@
-// Pieces of trash flying from one point into the piles they land as, in 60 Hz frames.
+// `toPile.js` flies pieces of trash from one point into the piles they land as, in 60 Hz frames.
 import { mulberry32 } from '../rng.js';
 import { C } from './flight.js';
 import { drawPile, pileLayout } from './pile.js';
+import { arc } from './timing.js';
 
 const seeded = (seed, i) => mulberry32((seed ^ Math.imul(i + 1, 2654435761)) >>> 0);
 
-/** Piles laid out as `LAY` and drawn in `STYLE`, as the pile sprites lay and draw them at rest. */
+/** Lays piles as `LAY` and draws them in `STYLE`, as the pile sprites lay and draw them at rest. */
 export function createToPile({ T, LAY, STYLE }) {
   const POSES = new Map();
   const poseOf = p => {
@@ -14,10 +15,11 @@ export function createToPile({ T, LAY, STYLE }) {
     return POSES.get(id);
   };
 
-  /** The piles `{ x, y, seed }`, their pieces flung from px `from` at frame `go` and landing from frame
-   *  `first` to frame `last`. `k.arc` is px, `k.spin` the % of pieces that turn and `k.turns` eighths
-   *  of a turn. `at(t)` is `{ air, piles }`: each piece in the air as `{ px, x, y, up, foot }`, its px
-   *  from (x, y) on the floor, `up` px above it; and each pile's landed pieces as `px` on the room. */
+  /** Takes the piles `{ x, y, seed }`. Each pile's pieces fly from px `from` at frame `go`.
+   *  They land from frame `first` to frame `last`. `k.arc` is the flight height in px.
+   *  `k.spin` is the % of pieces that turn. `k.turns` is the most eighths of a turn a piece turns.
+   *  `at(t)` returns `{ air, piles }`. Each piece in the air is `{ px, x, y, up, foot }`: `px` is its pixels from (x, y) on the floor, and `up` is how many px above it it is.
+   *  Each pile gives its landed pieces as `px` on the room. */
   return ({ piles, from: [sx, sy], go, first, last, k }) => {
     const laid = piles.map(p => ({ ...p, pile: pileLayout(T, p.seed, LAY) }));
     const flights = laid.map(({ seed, pile }) => pile.pieces.map((_, i) => {
@@ -46,7 +48,7 @@ export function createToPile({ T, LAY, STYLE }) {
         const spr = T.sprite(p.name, p.alt, T.pose(p.name, m, turn - Math.round(fl.spin * (1 - u))));
         const ox = sx + fl.jitter[0], oy = sy + fl.jitter[1], rx = x * C + p.x + rest.w / 2, ry = y * C + p.y + rest.h / 2;
         const gx = Math.round(ox + (rx - ox) * u - spr.w / 2), gy = Math.round(oy + (ry - oy) * u - spr.h / 2);
-        air.push({ px: spr.px, x: gx, y: gy, up: Math.round(k.arc * fl.lift * 4 * u * (1 - u)), foot: gy + spr.h });
+        air.push({ px: spr.px, x: gx, y: gy, up: Math.round(arc(u, k.arc * fl.lift)), foot: gy + spr.h });
         return false;
       }));
       return { air, piles: laid.map((_, i) => pileDrawing(i, downs[i])) };

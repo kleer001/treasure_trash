@@ -1,11 +1,12 @@
-// The skateboard, built once as a model of blocks and drawn from it.
+// The skateboard is built once as a model of blocks and drawn from it.
 import { INK } from './tip.js';
+import { N4 } from './spread.js';
 
-export const LIFT = 10;                        // px
+export const LIFT = 10;                        // The top of the deck stands this many px above the floor.
 export const VIEWS = { end: 'end on, from straight in front', tilt: 'from 45° above', top: 'top at the floor’s scale' };
 const LEN = 44, HALF = 6;                      // px: the deck's length, and half its width
-const TRUCKS = [10, 33];                       // px along the deck
-const FOOT = 22;                               // the bottom row of a cell, from the cell's top
+const TRUCKS = [10, 33];                       // Each value is where a truck sits, in px along the deck.
+const FOOT = 22;                               // px from the cell's top down to the floor line
 const K = Math.SQRT1_2;                        // what 45° above does to a length along the floor and to a height
 const GRIP = '#262440', PLY = '#d9ac87', GRAPHIC = '#a84f38', PLATE = '#453d51', HANGER = '#67819e', AXLE = '#d6d3b0',
   WHEEL = '#d6d3b0', GLINT = '#f1eccb', HUB = '#a8826e', MARK = '#765c62', SHADOW = '#765c62';
@@ -13,9 +14,9 @@ const GRIP = '#262440', PLY = '#d9ac87', GRAPHIC = '#a84f38', PLATE = '#453d51',
 const RING = [[0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]];
 
 const end = u => Math.min(u, LEN - 1 - u);
-/** How far the deck has risen at `u` px along it. */
+/** Returns how far the deck has risen at `u` px along it. */
 const rise = u => end(u) < 6 ? [3, 3, 2, 1, 1, 0][end(u)] : 0;
-/** Half the deck's width at `u` px along it. */
+/** Returns half the deck's width at `u` px along it. */
 const halfAt = u => end(u) === 0 ? HALF - 2 : end(u) === 1 ? HALF - 1 : HALF;
 
 /** The deck as blocks `{u, v, h, col, part}`: `u` px along it, `v` px across it (positive toward
@@ -42,7 +43,7 @@ const BLOCKS = (() => {
   return b;
 })();
 
-/** Where block `b` shows in each view, in px from the top-left of the two cells the deck covers, and `key`, how near the viewer it is. */
+/** Each view places block `b` at `x` and `y`, in px from the top-left of the two cells the deck covers. `key` is how near the viewer the block is. */
 const PROJECT = {
   side: b => ({ x: 2 + b.u, y: FOOT - b.h, key: b.v }),
   end: b => ({ x: 12 + b.v, y: 24 + FOOT - b.h, key: b.u }),
@@ -51,7 +52,7 @@ const PROJECT = {
 };
 
 const CACHE = new Map();
-/** The deck lying across the picture (`lie` 'x') or up and down it ('y', seen in `view`), its wheels turned `turn` eighths of a turn: px from the top-left of the two cells it covers. */
+/** Returns the deck as `[x, y, colour]` pixels, in px from the top-left of the two cells it covers. `lie` 'x' lays it across the picture. `lie` 'y' stands it up and down, seen in `view`. `turn` turns the wheels, in eighths, when `lie` is 'x'. */
 export function deck(lie, view, turn = 0) {
   const name = lie === 'x' ? 'side' : view, k = `${name},${name === 'side' ? ((turn % 8) + 8) % 8 : 0}`;
   if (CACHE.has(k)) return CACHE.get(k);
@@ -64,7 +65,7 @@ export function deck(lie, view, turn = 0) {
   }
   const px = [];
   for (const [, p] of at) {
-    const ring = p.part.startsWith('wheel') && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => at.get(`${p.x + dx},${p.y + dy}`)?.part !== p.part);
+    const ring = p.part.startsWith('wheel') && N4.some(([dx, dy]) => at.get(`${p.x + dx},${p.y + dy}`)?.part !== p.part);
     px.push([p.x, p.y, ring ? INK : p.col]);
   }
   if (name === 'side') {
@@ -78,7 +79,7 @@ export function deck(lie, view, turn = 0) {
   return px;
 }
 
-/** The row a load's bottom stands on, in the cell whose bottom row is `foot`. */
+/** Returns the row a load's bottom stands on, in the cell whose bottom row is `foot`. */
 export function standRow(lie, view, foot, y0) {
   if (lie === 'y' && view === 'tilt') return Math.round(y0 + 24.5 + (foot - y0 - 24.5) * K - LIFT * K);
   return foot - LIFT;

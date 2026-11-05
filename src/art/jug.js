@@ -1,8 +1,9 @@
-// The water jug seen straight from the side.
+// The water jug is drawn straight from the side.
 import { paint, tipper, INK } from './tip.js';
+import { N4 } from './spread.js';
 
 export const JUG = { W: 16, H: 22, D: 16 };   // px: width, height, diameter seen end on
-const FOLD = 9;                               // px the jug's foot moves
+const FOLD = 9;
 const LEVELS = 8;                             // water levels drawn between full and empty
 const DEEP = '#244287', MID = '#3169b0', LIGHT = '#7dafb3', SHINE = '#f1eccb', PLASTIC = '#67819e', CAP = '#2b2d55';
 
@@ -10,10 +11,10 @@ const SPAN = [[5, 10], [5, 10], [6, 9], [6, 9], [4, 11], [2, 13], [1, 14]];
 const span = r => r < SPAN.length ? SPAN[r] : r === JUG.H - 2 ? [1, 14] : r === JUG.H - 1 ? [2, 13] : [0, 15];
 const RIDGES = [10, 14, 18];
 const inJug = (c, r) => r >= 0 && r < JUG.H && c >= span(r)[0] && c <= span(r)[1] && !(r === 0 && (c === 5 || c === 10));
-/** The water's top row in the upright jug, at `level` from 1 full to 0 empty. */
+/** Returns the water's top row in the upright jug, at `level` from 1 full to 0 empty. */
 const waterTop = level => 4 + Math.round((1 - level) * (JUG.H - 4));
 
-/** The colour of the upright jug's front at column `c`, row `r`, holding water up to `level`. */
+/** Returns a function giving the colour of the upright jug's front at column `c` and row `r`, for water up to `level`. */
 const side = level => (c, r) => {
   if (r < 2) return MID;
   const [a, b] = span(r), f = (c - a) / Math.max(1, b - a), ridge = RIDGES.includes(r);
@@ -28,7 +29,7 @@ function front(level) {
 }
 
 const { W, H, D } = JUG, R = D / 2, MC = (W - 1) / 2, MR = (D - 1) / 2;
-/** The colour of an end of the jug `dx` px right of its axis and `dy` px below it as it shows. */
+/** Returns a function giving the colour of one end of the jug, at `dx` px right of its axis and `dy` px below it. It gives null where no colour shows. */
 const endColour = (level, neck) => (dx, dy) => {
   const d = Math.hypot(dx, dy), k = R - d;
   if (neck && d < 2.2) return d < 1.2 && dx < 0 && dy < 0 ? MID : CAP;
@@ -46,7 +47,7 @@ const RADII = Array.from({ length: H }, (_, r) => Array.from({ length: W }, (_, 
 const between = (a, b, lo, hi) => Math.abs(a) < 1e-9 ? (b >= lo && b <= hi ? [-Infinity, Infinity] : null)
   : a > 0 ? [(lo - b) / a, (hi - b) / a] : [(hi - b) / a, (lo - b) / a];
 
-/** The jug `deg` degrees into a fall toward the viewer ('d') or away ('u'), holding water up to `level`. */
+/** Returns the jug `deg` degrees into a fall toward the viewer ('d') or away ('u'), holding water up to `level`. */
 function rolled(dir, deg, level) {
   const s = dir === 'u' ? 1 : -1, pv = s * R, t = deg * Math.PI / 180;
   const cos = deg === 90 ? 0 : Math.cos(t), sin = deg === 90 ? 1 : Math.sin(t);
@@ -75,7 +76,7 @@ function rolled(dir, deg, level) {
   const px = [];
   for (const [key, { row, v, face, water }] of hits) {
     const [x, y] = key.split(',').map(Number);
-    const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => !hits.has(`${x + a},${y + b}`));
+    const edge = N4.some(([a, b]) => !hits.has(`${x + a},${y + b}`));
     const col = edge ? (face === 'side' ? capped(row, INK) : INK)
       : (face === 'side' ? sideAt(x, row) : (face === 'neck' ? neckAt : baseAt)(x - MC, down * v)) ?? (water ? wet(x, 8) : null);
     if (col) px.push([x, y, col]);
@@ -90,9 +91,9 @@ const JUGS = Array.from({ length: LEVELS + 1 }, (_, i) => {
 const at = level => JUGS[Math.round(Math.max(0, Math.min(1, level)) * LEVELS)];
 
 export const rest = dir => JUGS[0].rest(dir);
-/** The top-left of the jug in cell (cx, cy). */
+/** Returns the top-left of the jug in cell (cx, cy). */
 export const restAt = (cx, cy, C, fell = null) => JUGS[0].restAt(cx, cy, C, fell);
-/** See `tipper`. */
+/** The falls come from `tipper` in `tip.js`. */
 export const frame = (dir, deg, level) => at(level).frame(dir, deg);
 export const full = front(1);
 /** Where the jug's mouth is in the upright jug: the top of its neck, half way back. */

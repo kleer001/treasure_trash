@@ -1,6 +1,6 @@
-// A water cell seen from above.
+// The water cell is drawn seen from above.
 import { mulberry32 } from '../rng.js';
-import { hash, noise } from './spread.js';
+import { hash, noise, BAYER, N4 } from './spread.js';
 import { chooser } from './pile.js';
 import { slickShape, slickCell } from './slick.js';
 
@@ -8,9 +8,8 @@ const EDGE = '#2b2d55', DEEP = '#244287', MID = '#3169b0', LIGHT = '#7dafb3', SH
 /** The water's colours: its rim, its shaded edge, its body, its ripples and its brightest glint. */
 export const WATER = { EDGE, DEEP, MID, LIGHT, SHINE };
 const SLUDGE = '#67819e';                     // the packed crossing between its scraps
-export const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
-/** The puddle's look: a slick in the water's colours. */
+/** The puddle's look is a slick in the water's colours. */
 export const PUDDLE = { seed: 31, lobes: 5, size: 7, lump: 0.25, fill: 1.1, shine: 0.9, sheen: 0.08, band: 4,
   body: MID, edge: EDGE, glint: DEEP, hues: [LIGHT] };
 
@@ -38,7 +37,7 @@ export function soaked(hex) {
   return SOAKS.get(hex);
 }
 
-/** The pixels of the crossing trash has packed water cell (cx, cy) into, in px from the board's top-left. */
+/** Returns the pixels of the crossing that trash has packed water cell (cx, cy) into, in px from the board's top-left. */
 export function crossing(T, cx, cy, C, wet, bits) {
   const { inside, rim } = outline(cx, cy, C, wet), rnd = mulberry32(hash(cx, cy, 21)), choose = chooser(T, rnd);
   const at = new Map();
@@ -60,12 +59,12 @@ export function crossing(T, cx, cy, C, wet, bits) {
 const threshold = (look, x, y) => look.pattern === 'dither' ? (BAYER[(y & 3) * 4 + (x & 3)] + 0.5) / 16
   : look.pattern === 'speckle' ? hash(x, y, 41) / 4294967296 : noise(43, x, y, look.scale);
 
-/** Every pixel of the water and crossing cells of an N×N board, keyed 'x,y' from its top-left: `water`, its colour as open water; `packed`, its colour where a crossing reaches it, else null; and `owner`, the crossing cell that reaches it. `kind(x, y)` is 'water', 'crossing' or dry. */
+/** Returns every pixel of the water and crossing cells of an N×N board, keyed 'x,y' from its top-left. Each value has `water`, its colour as open water. `packed` is its colour where a crossing reaches it, or null. `owner` is the crossing cell that reaches it, or null. `kind(x, y)` is 'water', 'crossing' or dry. */
 export function canal(T, N, C, kind, look) {
   const wet = (x, y) => kind(x, y) === 'water' || kind(x, y) === 'crossing';
   const seams = [];
   for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < N; cx++) if (kind(cx, cy) === 'crossing')
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (kind(cx + dx, cy + dy) === 'water') {
+    for (const [dx, dy] of N4) if (kind(cx + dx, cy + dy) === 'water') {
       const x = (cx + (dx > 0)) * C, y = (cy + (dy > 0)) * C;
       seams.push({ cell: [cx, cy], x0: dx ? x : cx * C, x1: dx ? x : (cx + 1) * C, y0: dy ? y : cy * C, y1: dy ? y : (cy + 1) * C });
     }

@@ -1,18 +1,18 @@
-// The splash a pour throws up where it meets the floor, in 60 Hz frames and px on the room.
+// The splash is what a pour throws up where it meets the floor, in 60 Hz frames and px on the room.
 import { mulberry32 } from '../rng.js';
 import { SHADOW } from './pile.js';
 import { WATER } from './water.js';
+import { arc, evenEnd } from './timing.js';
 
-/** `hit` is frames from the pour to the first burst, `calm` frames from the end of the pour to the
- *  last burst, `every` frames between bursts. `first` and `drops` count the drops of the first burst
- *  and of each burst after it. `rise`, `reach`, `firstRise`, `firstReach`, `size` and `ring` are px,
- *  `life` frames, `wide` degrees either side of the pour's way, `colour` a key of `WATER`. */
+/** Frames: `hit`, `calm`, `every` and `life`. Px: `rise`, `reach`, `firstRise`, `firstReach`, `size` and `ring`.
+ *  `wide` is in degrees either side of the pour's way. `colour` is a key of `WATER`.
+ *  `first` and `drops` count the drops in the first burst and in each later burst. */
 export const SPLASH = { hit: 0, calm: 0, every: 4, first: 5, firstRise: 5, firstReach: 10, drops: 3, rise: 5, reach: 6,
   life: 8, wide: 90, size: 1, ring: 3, colour: 'LIGHT', rim: false, shadow: true, seed: 167 };
 
-/** The splash of a pour going (ux, uy) that lands at px `at` from frame `pour` to frame `dry`.
- *  `drops(f)` is the splash at frame `f` as `[foot, px]` pairs in px on the room; `end` is the
- *  first frame with every drop down. */
+/** Returns the splash of a pour that lands at px `at`. `dir` is the pour's way, as `[ux, uy]`. The pour runs from frame `pour` to frame `dry`.
+ *  `drops(f)` is the splash at frame `f`, as `[foot, px]` pairs in px on the room.
+ *  `end` is the frame with nothing left to draw, rounded up to an even frame. */
 export function pourSplash({ at: [ax, ay], dir: [ux, uy], pour, dry, k = SPLASH }) {
   const start = pour + k.hit, stop = Math.max(start, dry + k.calm);
   const base = Math.atan2(uy, ux), half = k.wide * Math.PI / 180, drops = [];
@@ -34,7 +34,7 @@ export function pourSplash({ at: [ax, ay], dir: [ux, uy], pour, dry, k = SPLASH 
     for (const d of drops) {
       const t = f - d.b;
       if (t < 0 || t >= d.life) continue;
-      const u = t / d.life, x = Math.round(ax + d.dx * u), y = Math.round(ay + d.dy * u), z = Math.round(d.h * 4 * u * (1 - u));
+      const u = t / d.life, x = Math.round(ax + d.dx * u), y = Math.round(ay + d.dy * u), z = Math.round(arc(u, d.h));
       const px = blob(x, y - z);
       if (k.shadow && z > 0) px.unshift(...Array.from({ length: k.size }, (_, i) => [x + i, y + k.size - 1, SHADOW]));
       out.push([y + k.size, px]);
@@ -50,5 +50,5 @@ export function pourSplash({ at: [ax, ay], dir: [ux, uy], pour, dry, k = SPLASH 
     return out;
   }
   const end = Math.max(dry, ...drops.map(d => d.b + d.life));
-  return { drops: at, end: end + (end % 2) };
+  return { drops: at, end: evenEnd(end) };
 }

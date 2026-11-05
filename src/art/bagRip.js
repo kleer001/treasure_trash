@@ -1,5 +1,4 @@
-// The clip of a bag he tears: it bulges, splits into scraps, and its trash and the scraps fly to
-// the piles the tear spills. In 60 Hz frames, counted from the start of his move.
+// `bagRip.js` is the clip of a bag he tears, in 60 Hz frames from the start of his move.
 import { DIRS } from '../rules.js';
 import { mulberry32 } from '../rng.js';
 import { C } from './flight.js';
@@ -9,20 +8,16 @@ import { moved } from './stills.js';
 import { stretch } from './stretch.js';
 import { INK } from './tip.js';
 import { createToPile } from './toPile.js';
+import { N4 } from './spread.js';
+import { arc, evenEnd, quadOut } from './timing.js';
 
-/** `push` is the frame of his thud. `press` is the frames the bag swells before `rip`; `first` and
- *  `sfirst` are the frames from the rip to the first landing, `spread` and `sspread` from the first
- *  landing to the last. `squash`, `bulge`, `scatter` and the arcs are px; `flat` and `spin` are %;
- *  `turns` are eighths of a turn. */
+/** The keys are frames, except `squash`, `bulge`, `scatter` and the arcs (px), `flat` and `spin` (%), `turns` (eighths of a turn), and `fewest`, `most` and `tumbles` (counts). */
 export const RIP = { push: 7, rip: 3, press: 5, first: 6, spread: 10, sfirst: 4, sspread: 8, squash: 0, bulge: 2,
   fewest: 4, most: 10, sarc: 11, tumbles: 2, flat: 65, scatter: 5, ink: true, arc: 9, spin: 50, turns: 4 };
 
-const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const quadOut = u => 1 - (1 - u) ** 2;
 
-/** His push toward `dir` with the drive drawn out, a stride every two frames, so that the thud
- *  lands `push` frames into the move. */
+/** Returns his push toward `dir` as drawing frames `{ f, t0, t1 }`, with `t0` and `t1` in 60 Hz frames from the start of the push. The drive repeats to fill the time up to the thud, so the thud lands at frame `push`. */
 export function tearPress(dir, push = RIP.push) {
   const fs = press('push', dir, { lead: false }).map(sg => sg.f);
   const slam = fs.find(f => f.name === 'slam'), drive = fs.find(f => f.name === 'drive'), thud = fs.find(f => f.name === 'thud');
@@ -35,14 +30,14 @@ export function tearPress(dir, push = RIP.push) {
   return drawn.map(f => ({ f, t0: t, t1: (t += f.fr) }));
 }
 
-/** The clip's keys, in frames from the start of the move. */
+/** The clip's keys are in frames from the start of the move. */
 export function ripKeys(k = RIP) {
   const rip = k.rip, first = rip + Math.max(2, k.first), sfirst = rip + Math.max(2, k.sfirst);
   return { squash: rip - Math.max(0, k.press), rip, first, last: first + Math.max(0, k.spread),
     sfirst, slast: sfirst + Math.max(0, k.sspread) };
 }
 
-/** The clip for the bag drawing `BAG`, whose last row is the shadow it stands on. `LAY` and `STYLE`
+/** Returns the clip for the bag drawing `BAG`, whose last row is the shadow it stands on. `LAY` and `STYLE`
  *  are the ones the piles are drawn with at rest, so the clip lands on the drawing the sprites make. */
 export function createBagRip({ T, BAG, LAY, STYLE }) {
   const GRID = Array.from({ length: BAG.h }, () => Array(BAG.w).fill(null));
@@ -57,7 +52,7 @@ export function createBagRip({ T, BAG, LAY, STYLE }) {
   return ({ dir, bag: [bx, by], seed, cells, k = RIP }) => {
     const [dx, dy] = DIRS[dir], keys = ripKeys(k), rnd = mulberry32(seed);
 
-    /** The bag `q` of the way into its squash. */
+    /** Returns the bag drawn `q` of the way into its squash, `q` from 0 to 1. */
     const bagAt = q => {
       const across = dx !== 0, sq = Math.round(q * k.squash), bu = Math.round(q * k.bulge);
       const w = BAG.w + (across ? -sq : bu), h = BAG.h + (across ? bu : -sq);
@@ -94,13 +89,13 @@ export function createBagRip({ T, BAG, LAY, STYLE }) {
       });
     })();
 
-    /** A scrap `u` of the way through its flight: its drawing, its top-left on the floor, and how high it is. */
+    /** Returns the scrap `u` of the way through its flight as `{ px, x, y, vh, up }`: its drawing, its top-left, its visible height and its lift in px. */
     const scrapAt = (sc, u) => {
       const turn = Math.cos(Math.PI * k.tumbles * u), vh = sc.h * (1 + (k.flat / 100 - 1) * u) * Math.max(0.15, Math.abs(turn));
       const rows = stretch(sc.grid, Math.max(1, Math.round(vh)), 0, 0);
       const px = (turn < 0 && u < 1 ? rows.slice().reverse() : rows).flatMap((r, j) => r.flatMap((c, i) => (c ? [[i, j, c]] : [])));
       const cx = sc.from[0] + (sc.at[0] - sc.from[0]) * u, cy = sc.from[1] + (sc.at[1] - sc.from[1]) * u;
-      return { px, x: Math.round(cx - sc.w / 2), y: Math.round(cy - vh / 2), vh, up: Math.round(k.sarc * sc.lift * 4 * u * (1 - u)) };
+      return { px, x: Math.round(cx - sc.w / 2), y: Math.round(cy - vh / 2), vh, up: Math.round(arc(u, k.sarc * sc.lift)) };
     };
     const landed = scraps.map(sc => { const s = scrapAt(sc, 1); return moved(s.px, s.x, s.y); });
 
@@ -131,7 +126,7 @@ export function createBagRip({ T, BAG, LAY, STYLE }) {
 
     const e = Math.max(keys.last, keys.slast);
     return {
-      layers, end: e + (e % 2),
+      layers, end: evenEnd(e),
       piles: piles.map(({ x, y, seed: s }, i) => ({ seed: s,
         scraps: scraps.flatMap((sc, j) => (sc.to === i ? moved(landed[j], -x * C, -y * C) : [])) })),
     };
