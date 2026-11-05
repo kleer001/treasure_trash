@@ -31,9 +31,9 @@ export const spriteHandle = sp => handleAt([sp.tx, sp.ty],
  * draw seeds are not in it: they are the stage's own bookkeeping, and a rebuilt stage hands out
  * fresh ones.
  *
- * Two censuses are the whole of the invariant every checker asks: landing an action's steps on a
- * stage must leave the same sprites as building a stage from the board that action produced. It
- * lives here, with the sprites, so no checker can hold its own idea of what a sprite is.
+ * Every checker asks the same invariant: landing an action's steps on a stage must leave the same
+ * sprites as building a stage from the board that action produced. The definition of a sprite lives
+ * here, with the sprites, so no checker can hold its own idea of what a sprite is.
  */
 export const shapeOf = sp => JSON.stringify([
   sp.kind, sp.tx, sp.ty, sp.parent, sp.ref ?? null, sp.o ?? null, sp.ck ?? null,
@@ -56,8 +56,7 @@ const kindIn = (lane, o, effect) => (lane === CART_LANE ? CART : lane === BODY_L
  * Build a stage from a board.
  *
  * `seed` fixes the cosmetic stream, so a replay of the same room looks identical. Each sprite
- * keeps its own draw seed for life — which is what stops a pile of trash changing colour when
- * a cart carries it somewhere, since `drawTrash` derives its specks from the cell.
+ * keeps its own draw seed for life, so a pile keeps its look when it moves.
  *
  * `decor` is which way things face, from `decorOf`; null is a room as its file lays it out. The
  * board cannot say: facing is no rule's business, so it lives in what came before rather than in
@@ -79,7 +78,7 @@ export function stageFrom(state, seed = 1, decor = null) {
 
   mint(RACCOON, state.rac.x, state.rac.y);
 
-  // So ids and seeds are canonical.
+  // Scanned in board order, so a board always mints the same ids and seeds.
   const seenCart = new Set(), seenPid = new Set();
   for (let y = 0; y < state.rows; y++) for (let x = 0; x < state.cols; x++) {
     const c = cell(state, x, y);
@@ -105,8 +104,8 @@ export function stageFrom(state, seed = 1, decor = null) {
     // kind added later cannot be missed.
     if (c.o === NONE || isMultiCell(c.o)) continue;
     const extra = { parent: isCart(c) ? c.cart : null };
-    // `depth` is how far down the stack it is, and it is also what tells two sprites of the
-    // same code on the same cell apart.
+    // `depth` is how far down the cell's stack this thing lies, and it also tells two sprites of
+    // the same code on one cell apart.
     chainOf(c).forEach((o, depth) => mint(o, x, y, { ...extra, depth }));
   }
   return stage;
@@ -128,7 +127,10 @@ export function shedOf(step, m) {
   return step.spawned.find(({ from: f }) => f && ((f[0] === x && f[1] === y) || (f[0] === lx && f[1] === ly)));
 }
 
-/** The way a container that emptied in step `step` as movement `m` fell. */
+/**
+ * Returns the way a container that emptied in step `step` as movement `m` fell, toward what came out
+ * of it: 'r', 'l', 'd', 'u', or null.
+ */
 function spilled(step, m) {
   const [lx, ly] = restsOn(m), out = shedOf(step, m);
   if (!out) {
@@ -191,7 +193,8 @@ export function applyStep(stage, step, racTo = null) {
     sp.ax = sp.x; sp.ay = sp.y; sp.tx = sp.x; sp.ty = sp.y; sp.nudge = null;
   }
 
-  // A step can move several things that are alike —
+  // Every sprite is resolved before any of them is changed, by the handle its entry names rather
+  // than by anything about how it draws. A step can move several things that are alike —
   // a barrow riding in a barrow is the same code on the same cell as the barrow carrying it —
   // and it can turn one into another. A handle cares about neither.
   const held = holding(stage);
@@ -221,8 +224,7 @@ export function applyStep(stage, step, racTo = null) {
       load.tx = load.ax + m.dx; load.ty = load.ay + m.dy;
       load.heading = wayOf(m.dx, m.dy) ?? load.heading;
     }
-    // Pivot cargo on itself and
-    // it spins in place while the cart leans out from under it.
+    // Cargo takes the cart's pivot, so it swings with the cart rather than spinning on its own middle.
     if (m.effect !== 'rattles') return;
     const xs = sp.cells.map(([cx]) => cx), ys = sp.cells.map(([, cy]) => cy);
     const pivot = [sp.ax + (Math.min(...xs) + Math.max(...xs)) / 2 + 0.5,
@@ -240,17 +242,14 @@ export function applyStep(stage, step, racTo = null) {
         sp.kind = CART; sp.ref = rest.ref; sp.ck = carriedKind(m.o); sp.cells = [[0, 0]];
       }
     } else if (rest.lane !== BODY_LANE) {
-      // A sprite that is cargo and still carries a cart kind is one a rebuild of
-      // the same board would not produce. The same object, so it is converted rather
-      // than swapped, which keeps its draw seed and stops it popping. Immediately, too, or a bin
-      // still drawn full alongside the bag it has just thrown reads as two bags.
+      // Cargo must not keep a cart kind, or the stage would differ from a rebuild of the board.
+      // It is converted in place and at once, so it keeps its draw seed and does not pop. One thing
+      // never shows as two sprites.
       sp.kind = rest.o; sp.ref = undefined; sp.cells = undefined; sp.ck = undefined;
     }
     sp.depth = laneDepth(rest.lane);
-    // A slot shift is a true no-op on the board and
-    // would otherwise read as nothing at all. Something being scooped up is not hit by
-    // anything, so it does not lurch — which is why this is asked before the entry says what
-    // it is riding in now.
+    // A move that goes nowhere shows nothing on the board, so the cart's nudge is what shows it.
+    // The parent is read before this step sets it, so a thing joining a cart does not lurch.
     const carrier = carriage.get(sp.parent);
     if (carrier && m.dx === 0 && m.dy === 0) sp.nudge = [carrier.dx, carrier.dy];
     if (m.parent !== undefined) sp.parent = m.parent;
@@ -263,15 +262,13 @@ export function applyStep(stage, step, racTo = null) {
     if (g.effect === 'falls') sp.falls = true;
     else if (g.effect === 'fills') {
       sp.soaks = true;
-      // Taking that seed now
-      // is what makes the swap invisible.
+      // Taking the cell's seed now is what makes the swap invisible.
       sp.seed = cellSeed(Math.round(sp.tx), Math.round(sp.ty));
     }
     else if (!isBody(sp)) sp.dying = true;
   });
 
-  // Last, because what a sprite already on the stage is coming to rest as is the question these
-  // are asked against.
+  // Last, so each spawn is checked against what the stage holds as it comes to rest.
   for (const e of step.spawned) {
     // Loud, for the reason every other lookup here is: a handle something is still resting at is
     // the rules and the stage disagreeing about how many things the board has.
@@ -306,24 +303,22 @@ export function applyStep(stage, step, racTo = null) {
   for (const sp of stage.sprites) sp.handle = spriteHandle(sp);
 }
 
+/** A falling sprite finishes its travel at this share of the beat, then drops. */
+const FALL_AT = 1 / 3;
+
+/** The ground changes once the trash has crossed into the canal, so the water answers the trash. */
+const FILL_AT = 0.6;
+
 /**
  * Place every sprite at eased progress `u` between its anchor and its target.
  *
- * `cells` is how many cells of travel that `u` buys — the pace of the beat. Duration belongs to
- * the beat and distance belongs to the sprite, so one `u` for everybody stretches whatever
- * crossed a single cell over however long the FURTHEST traveller took.
+ * `cells` is how many cells of travel `u` buys: the pace of the beat. Duration belongs to the beat
+ * and distance to the sprite, so one `u` for everybody stretches a single-cell move over the
+ * furthest traveller's time.
  *
- * `cells = 0` is the beat that has no pace. A nudge and a
- * deflate always keep the beat's own time — a nudged sprite has no distance to normalise by,
- * and a deflating one is timed by the beat that consumed it rather than by how far it drifted.
+ * With `cells = 0` a nudge and a deflate keep the beat's own time. A nudged sprite has no distance
+ * to normalise by, and a deflating one is timed by the beat that consumed it.
  */
-/** When something dropping through a grate has finished travelling and starts going down. It is the thing being looked at. */
-const FALL_AT = 1 / 3;
-
-/** When trash that is filling a canal has finished crossing into it and the water starts
- *  becoming ground. The ground is answering it. */
-const FILL_AT = 0.6;
-
 export function advance(stage, u, cells = 0) {
   for (const sp of stage.sprites) {
     const d = Math.abs(sp.tx - sp.ax) + Math.abs(sp.ty - sp.ay);
@@ -334,7 +329,6 @@ export function advance(stage, u, cells = 0) {
     if (sp.nudge) { sp.x += sp.nudge[0] * NUDGE * bump(u); sp.y += sp.nudge[1] * NUDGE * bump(u); }
     if (sp.rattle) sp.tilt = wobble(u) * (sp.rattle[0] || sp.rattle[1]);
     if (sp.dying) sp.deflate = 1 - u;
-    // Filling while it is still in flight has the cell answer before the thing that answers it has arrived.
     if (sp.soaks) {
       const fly = Math.min(1, u / FILL_AT);
       sp.x = sp.ax + (sp.tx - sp.ax) * fly;
@@ -342,8 +336,7 @@ export function advance(stage, u, cells = 0) {
       sp.soak = fly;
       sp.fill = Math.max(0, Math.min(1, (u - FILL_AT) / (1 - FILL_AT)));
     }
-    // Shrinking on the way would say it
-    // was disappearing rather than falling, and the cell it fell into would not be legible.
+    // A falling sprite keeps its full size on the way, or it would read as vanishing.
     if (sp.falls) {
       const fly = Math.min(1, u / FALL_AT);
       sp.x = sp.ax + (sp.tx - sp.ax) * fly;
@@ -354,7 +347,7 @@ export function advance(stage, u, cells = 0) {
 }
 
 /**
- * The wobble of a thing too heavy to shift, in degrees, over one beat.
+ * Returns the wobble in degrees of a thing too heavy to shift. `u` runs from 0 to 1 over one beat.
  */
 export const wobble = u =>
   (u < 0.35 ? 10 * (u / 0.35)
@@ -364,8 +357,7 @@ export const wobble = u =>
 /** How far a nudged sprite gets before it is stopped, as a fraction of a cell. */
 export const NUDGE = 0.25;
 const HIT = 0.62;
-/** Zero at both ends, so it lands on the cell the
- *  board says it is on. */
+/** `bump` is zero at both ends, so a nudged sprite lands on the cell the board says it is on. */
 export const bump = u => (u < HIT ? u / HIT : Math.pow(1 - (u - HIT) / (1 - HIT), 2));
 
 export function settle(stage) {
@@ -379,23 +371,35 @@ export function settle(stage) {
   }
 }
 
+/**
+ * Returns the sprites at `handles`, in the same order. Sprite `i` takes the seed and scraps of
+ * `piles[i]`.
+ */
+export function dressPiles(stage, handles, piles) {
+  return handles.map((handle, i) => {
+    const sp = stage.sprites.find(s => s.handle === handle);
+    sp.seed = piles[i].seed;
+    sp.scraps = piles[i].scraps;
+    return sp;
+  });
+}
+
 // --- what a pile looks like ---------------------------------------------------------------
 
 /** Silhouettes a scrap of rubbish can take. Indices, so a renderer picks its own drawing. */
 export const PILE_SHAPES = ['ball', 'box', 'wedge', 'tube'];
 export const PILE_TONES = 5;
 
+export const cellSeed = (x, y) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
+
 /**
- * The three pieces one pile is made of, derived from its seed and nothing else.
- * Six dots picked freely
- * from five colours have no dominant anything and every pile reads as the same confetti.
+ * The pieces one pile is made of, derived from its seed and nothing else. Pieces picked freely
+ * from the palette have no dominant tone, so every pile reads as the same confetti.
  *
  * Returns palette INDICES and cell fractions, never colours or pixels: the game and the bench
  * have different palettes and cell sizes and must draw the same piles. Largest first, so a
  * renderer drawing in order gets the small pieces on top.
  */
-export const cellSeed = (x, y) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
-
 export function pileLook(seed) {
   const rnd = mulberry32(seed >>> 0);
   const tone = Math.floor(rnd() * PILE_TONES);
@@ -421,15 +425,13 @@ const dist = st => Math.max(1, ...st.moved.map(m => Math.abs(m.dx) + Math.abs(m.
 const rolls = st => st.moved.some(m =>
   laneOf(m.handle) === CART_LANE && m.becomes.lane === CART_LANE);
 
-/**
- * Crammed into the same beat, it reads as the sprite
- *  being cut rather than as something dropping through. */
+/** A drop gets beats of its own, since crammed into one it reads as cut rather than as falling. */
 const drops = st => st.gone.some(g => g.effect === 'falls');
 
 export const CELL_MS = 7 * 1000 / 60;
 
 /**
- * A traced action, cut into the segments a clock can play.
+ * Returns the traced action `r` cut into the segments a clock can play.
  *
  * `cellTime` is milliseconds per cell of travel.
  */
@@ -460,7 +462,8 @@ export function timeline(r, cellTime) {
 export const easeOut = t => 1 - Math.pow(1 - t, 3);
 
 /**
- * For whatever is stopped by something else, where decelerating into the obstacle would be wrong.
+ * Returns the position at `t`, from 0 to 1, for whatever is stopped by something else. Decelerating
+ * into the obstacle would be wrong there.
  */
 export function rollEase(t, cells = 1) {
   const r = Math.min(0.5, 1 / Math.max(1, cells));

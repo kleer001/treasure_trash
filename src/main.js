@@ -7,8 +7,8 @@ import {
   MAG_U, MAG_D, MAG_L, MAG_R,
   FURNITURE,
   DIRS,
-  exitLit, fan, inGrid, cell, isMultiCell, stateKey, restsOn,
-  GREASE, TAR, GLASS, COVERED, isGlass, isBarrow, barrowFace, gripTarget, OCCUPANTS as CODES,
+  exitLit, fan, inGrid, cell, isMultiCell, stateKey,
+  GREASE, TAR, GLASS, COVERED, isBarrow, barrowFace, gripTarget, OCCUPANTS as CODES,
 } from './rules.js';
 import { parseLevelPack, toGrid } from './format.js';
 import { deadScan } from './solver.js';
@@ -22,20 +22,22 @@ import { createPlay, tell } from './play.js';
 import { mulberry32 } from './rng.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
 import { createPixelSprites, loadPixelArt, PIXEL_CELL } from './pixel.js';
-import { createScreen, loadScreenArt } from './screen.js';
+import { createScreen, loadScreenArt, SCREEN } from './screen.js';
+import { createClips } from './clips.js';
 import { press, moveStart, moveStop, segAt, travelAt } from './art/press.js';
 import { RECOVERIES } from './art/cartoon.js';
 import { tracings } from './art/canTip.js';
 import { tearPress } from './art/bagRip.js';
 import { LOOK as DOOR } from './art/door.js';
+import { BAYER } from './art/spread.js';
 import { createCompositor } from './compositor.js';
 import { reverseStep } from './tape.js';
 import { P, PATTERNS, KINDS, layWall, drawWipe, wallFrom, roomBeats } from './wipe.js';
 import { createWipeTune } from './wipeTune.js';
-// stage owns the objects, their motion and its envelopes
+// The stage owns the objects, their motion and their envelopes.
 import {
   CART, COUCH, RACCOON, SPLASH, advance, applyStep, cellSeed, easeOut, rollEase, settle,
-  stageFrom, timeline, face, shedOf, CELL_MS,
+  stageFrom, timeline, face, CELL_MS,
 } from './stage.js';
 
 const CANF = CAN_FULL, CANE = CAN_EMPTY;
@@ -50,9 +52,6 @@ let heldMs = null;
 const clockMs = () => heldMs ?? performance.now();
 const TWOS = 2 * 1000 / 60;
 const since = t0 => Math.floor((clockMs() - t0) / TWOS) * TWOS;
-// The occupant codes the sprite dispatcher needs; it takes them rather than importing the
-// rules, so the art has no idea a rulebook exists.
-
 
 const WHY = {
   edge:    "that's the edge of the alley",
@@ -126,18 +125,17 @@ if(dbg){
 // once the packs have loaded, since what he notices depends on the running order.
 let crow = null, watch = null, play = null;
 let crowDbg = null;    // his inner workings, on `?debug`
-// His clock. A hidden tab stops the frames but not `performance.now()`, and a clock that jumped
-// the whole absence would land every line due in it unseen.
+// His clock advances in capped steps. A hidden tab stops the frames but not `performance.now()`,
+// and a clock that jumped the whole absence would land every line due in it unseen.
 let crowT = 0, crowLast = performance.now();
 const now = () => { const p = performance.now(); crowT += Math.min(p - crowLast, 100); crowLast = p; return crowT; };
 let beat = false;      // this run set a new record for the room, and the win screen says so
 let blocked = null;   // { cells, reason, dir }
-// The notice is never on screen for longer than the thing it is apologising for.
 let busy = false;
 // The solvability indicator. `deadKeys` is every board this room can no longer be won from — a property of the ROOM.
 // An indicator that has not finished thinking says nothing rather than guessing.
 let deadKeys = null, scan = null, scanRaf = 0, lost = false;
-let armed = null;     // direction of a tear that is aimed but not yet committed
+let armed = null;     // direction of a push or tear that is aimed but not yet committed
 
 // ---- the rejection animation ---------------------------------------------------------
 // The state never changes here: the sequence plays out and rewinds itself, so the invalid
@@ -171,9 +169,10 @@ function fxPhase(){
   return null;                                 // done
 }
 // ---- the move animation --------------------------------------------------------------
-// Driven by what the rules REPORT moved, not by diffing two boards. A diff cannot tell a
-// wheelie bin's dropped bag from the bin itself — both simply appear. `stage` owns the objects and their fractional positions,
-// `timeline` cuts the traced action into segments, and this only keeps the clock.
+// Driven by what the rules REPORT moved, not by diffing two boards. A diff cannot tell a piece
+// that moved from one that appeared in its place. `stage` owns the
+// objects and their fractional positions, `timeline` cuts the traced action into segments, and
+// this only keeps the clock.
 let stage = null, board = null, anim = null;
 
 // In the pixel art he is drawn press by press: the drawings of one action, played from the cell he
@@ -200,80 +199,6 @@ function doorRoll(){
 }
 const doorLive = () => PIXEL && !!door && (door.lit || since(door.t0) < DOOR.roll * FRAME_MS);
 
-// The clip draws what the container shed too — the bag, or the water and its puddle —
-// so that sprite waits under it.
-let dumps = [];
-function noteDump(step, moveFrames){
-  if(!PIXEL) return;
-  for(const m of step.moved){
-    if(m.o === m.becomes.o) continue;
-    const out = shedOf(step, m), kind = out?.o === BAG || out?.o === TRASH ? out.o : out?.effect === 'pours' ? SPLASH : null;
-    if(!kind) continue;
-    const [x, y] = restsOn(m), [bx, by] = out.cells[0];
-    const container = stage.sprites.find(sp => sp.kind === m.becomes.o && sp.tx === x && sp.ty === y);
-    const shed = stage.sprites.find(sp => sp.kind === kind && sp.tx === bx && sp.ty === by
-      && !sp.dying && (kind === SPLASH || !sp.spent || sp.falls));
-    const clip = container && shed
-      && SP.dump(m.becomes.o, { container, shed, from: m.cells[0], to: [x, y], shedTo: [bx, by], moveFrames, down: !!shed.falls });
-    if(clip) dumps.push({ container, shed, at: [x, y], shedTo: [bx, by], t0: clockMs(), ...clip });
-  }
-}
-const dumpAt = d => Math.round(since(d.t0) / FRAME_MS);
-const dumpDraw = sp => { const d = dumps.find(d => d.container === sp); d.draw(dumpAt(d)); };
-const pouringOn = (x, y) => dumps.find(d => d.ground && d.shedTo[0] === x && d.shedTo[1] === y);
-const dumpLive = d => since(d.t0) < d.end * FRAME_MS && stage.sprites.includes(d.container)
-  && d.container.tx === d.at[0] && d.container.ty === d.at[1];
-
-// A tear's clip draws the bag and the piles it spills, so those sprites wait under it. The piles
-// take their seeds and scraps from the clip when the step lands, so the clip ends on their drawing.
-let rips = [];
-function startRip(dir, step){
-  if(!PIXEL) return;
-  const gone = step.gone.find(g => g.o === BAG), spawned = step.spawned.filter(e => e.o === TRASH);
-  const bag = stage.sprites.find(sp => sp.handle === gone.handle), cells = spawned.map(e => e.cells[0]);
-  rips.push({ t0: pose.t0, move: moveStart(pose.segs), handle: gone.handle, bag, cells, handles: spawned.map(e => e.handle),
-    piles: null, clip: SP.rip({ dir, bag: gone.cells[0], seed: bag.seed, cells }) });
-}
-function landRip(step){
-  const r = rips.find(r => !r.piles && step.gone.some(g => g.handle === r.handle));
-  if(!r) return;
-  r.piles = r.handles.map(h => stage.sprites.find(sp => sp.handle === h));
-  r.piles.forEach((sp, i) => { sp.seed = r.clip.piles[i].seed; sp.scraps = r.clip.piles[i].scraps; });
-}
-const ripAt = r => { const g = Math.floor(since(r.t0) / FRAME_MS); return g - g % 2 - r.move; };
-const ripLive = r => ripAt(r) < r.clip.end
-  && (!r.piles || r.piles.every((sp, i) => stage.sprites.includes(sp) && sp.tx === r.cells[i][0] && sp.ty === r.cells[i][1]));
-const ripOwns = sp => rips.some(r => r.bag === sp || r.piles?.includes(sp));
-
-// A pane's clip draws the pane and its glass until the glass is down, so the room leaves that floor bare.
-let breaks = [];
-function noteBreak(step, b){
-  if(!PIXEL) return;
-  const gone = step.gone.find(g => g.o === PANE), out = gone && step.spawned.find(e => e.from);
-  if(!out || !isGlass(cell(b, ...out.cells[0]))) return;
-  const [fx, fy] = gone.cells[0], [tx, ty] = out.cells[0];
-  const dir = Object.keys(DIRS).find(d => DIRS[d][0] === tx - fx && DIRS[d][1] === ty - fy);
-  breaks.push({ pane: stage.sprites.find(sp => sp.handle === gone.handle), at: [tx, ty], t0: clockMs(),
-    ...SP.shatter({ dir, from: [fx, fy], to: [tx, ty], has: (x, y) => inGrid(b, x, y) && isGlass(cell(b, x, y)) }) });
-}
-const breakAt = b => Math.round(since(b.t0) / FRAME_MS);
-
-// A thing come down in the water plunges and bobs before it lies still.
-let floats = [];
-function noteFloat(step, b, moveFrames){
-  if(!PIXEL) return;
-  for(const m of step.moved){
-    if(m.o !== m.becomes.o) continue;
-    const [x, y] = restsOn(m), c = cell(b, x, y);
-    if(!c.water || c.bridge) continue;
-    const sp = stage.sprites.find(sp => sp.kind === m.o && sp.tx === x && sp.ty === y);
-    if(sp) floats.push({ sp, at: [x, y], t0: clockMs(), tin: moveFrames });
-  }
-}
-const bobAt = fl => Math.round(since(fl.t0) / FRAME_MS) - fl.tin;
-const floatLive = fl => bobAt(fl) < SP.bobEnd && stage.sprites.includes(fl.sp) && fl.sp.tx === fl.at[0] && fl.sp.ty === fl.at[1];
-const bobbingNow = sp => floats.find(fl => fl.sp === sp && bobAt(fl) >= 0);
-const breakingOn = (x, y) => breaks.find(b => b.at[0] === x && b.at[1] === y);
 const slow = matchMedia('(prefers-reduced-motion: reduce)');
 
 // The stage is NOT rebuilt per action. It is already standing on `prev` — `rest()` built it
@@ -288,6 +213,10 @@ function startMv(prev, r){
   if(!raf) raf = requestAnimationFrame(tick);
 }
 
+function applyItem(it, frames){
+  applyStep(stage, it.step, it.racTo);
+  clips.note(it.step, it.next, frames);
+}
 /** Returns false once the whole action has played out. */
 function stepMv(){
   const seg = anim.segs[anim.si], e = since(anim.t0);
@@ -301,11 +230,7 @@ function stepMv(){
     anim.k++;
     const it = seg.items[anim.k];
     board = it.board;
-    applyStep(stage, it.step, it.racTo);
-    noteDump(it.step, moveFrames(seg));
-    noteBreak(it.step, it.next);
-    noteFloat(it.step, it.next, moveFrames(seg));
-    landRip(it.step);
+    applyItem(it, moveFrames(seg));
   }
   advance(stage, slow.matches ? 0 : d - k, seg.pace);
   if(t < 1) return true;
@@ -325,17 +250,13 @@ function moveFrames(seg){
 
 /** An input cutting an animation short still has to finish it. */
 function landMv(){
-  // The step that was in flight first: `applyStep` finds a sprite by its ANCHOR, so leaving one
-  // part-way through a beat makes every step after it fail to find what it names.
+  // The step in flight must land first: `applyStep` finds a sprite by its ANCHOR, so a step left
+  // part-way through a beat makes every later step fail to find what it names.
   if(anim.k >= 0) settle(stage);
   for(let s = anim.si; s < anim.segs.length; s++){
     const items = anim.segs[s].items;
     for(let i = (s === anim.si ? anim.k + 1 : 0); i < items.length; i++){
-      applyStep(stage, items[i].step, items[i].racTo);
-      noteDump(items[i].step, 0);
-      noteBreak(items[i].step, items[i].next);
-      noteFloat(items[i].step, items[i].next, 0);
-      landRip(items[i].step);
+      applyItem(items[i], 0);
       settle(stage);
     }
   }
@@ -361,7 +282,7 @@ function record(){
   rec.prev = next;
 }
 // The lit door's shimmer never ends, so it is not asked about.
-const moving = () => !!(anim || pose || fx || dumps.length || rips.length || breaks.length || floats.length || (door && since(door.t0) < DOOR.roll * FRAME_MS));
+const moving = () => !!(anim || pose || fx || clips.anyLive() || (door && since(door.t0) < DOOR.roll * FRAME_MS));
 
 function startRewind(tape){
   // A wipe or the shimmer may have drawn over the screen since the tape stopped.
@@ -389,7 +310,7 @@ const WIPE = { exit: 12, empty: 30, cover: 40, roomHold: 60, roomHoldMax: 120, r
   lay: 8, order: 'same', leave: 'hop', pattern: 'room', kind: 'room' };
 const FRAME_MS = 1000 / 60;
 let wipe = null, wipeSet = WIPE, lastWipe = null;
-let wall = null;      // a wall is hundreds of bricks
+let wall = null;      // laid once per board size and kind, since laying one is costly
 
 function startWipe(replay = false){
   if(!replay) playWinChime();
@@ -423,7 +344,6 @@ function leaving(){
   return f >= wallFrom(t) + t.cover + t.hold ? null : Math.min(1, f / t.exit);
 }
 // A 4x4 ordered dither: pixel art is all there or not there, so he goes a few pixels at a time.
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 function leave(sp, k){
   const x0 = sp.x * CS, y0 = sp.y * CS;
   ctx.save();
@@ -475,13 +395,10 @@ function tick(){
     }
     if(f >= wallFrom(t) + t.cover + t.hold + t.reveal) wipe = null;
   }
-  dumps = dumps.filter(dumpLive);
-  rips = rips.filter(ripLive);
-  breaks = breaks.filter(b => breakAt(b) < b.end);
-  floats = floats.filter(floatLive);
+  clips.prune();
   render();
   if(rec?.on && !moving()) rec.on = false;
-  if(fx || anim || wipe || pose || doorLive() || dumps.length || rips.length || breaks.length || floats.length || rewind) raf ||= requestAnimationFrame(tick);
+  if(fx || anim || wipe || pose || doorLive() || clips.anyLive() || rewind) raf ||= requestAnimationFrame(tick);
 }
 
 function handOver(keep = false){
@@ -505,7 +422,7 @@ const cancelAnim = () => {
 
 // ---- audio: a procedural two-tone "no" for a refused input.
 let ac = null;
-// A driver walks thousands of beats and every refusal in them buzzes. Muting is the harness's
+// A driver walks many beats and every refusal in them buzzes. Muting is the harness's
 // business rather than the audio's, so the flag lives here and the probe is what sets it.
 let muted = false;
 /** The context, created on first input — browsers refuse to start one before a gesture. */
@@ -539,7 +456,7 @@ function primeWinChime(){
   audio().decodeAudioData(bytes).then(b => { winBuf = b; });
 }
 function playWinChime(){
-  if(muted || !winBuf) return;                          // not decoded yet
+  if(muted || !winBuf) return;
   const src = audio().createBufferSource(), g = audio().createGain();
   src.buffer = winBuf;
   g.gain.value = WIN_GAIN;
@@ -577,7 +494,7 @@ function act(dir){
     const stay = state.rac.x === res.prev.rac.x && state.rac.y === res.prev.rac.y;
     startPose(r.kind === 'tear' ? 'tear' : r.steps[0].moved.length || stay ? 'push' : 'crawl', dir, res.prev.rac, stay);
     startMv(res.prev, r);
-    if(r.kind === 'tear') startRip(dir, r.steps[0]);
+    if(r.kind === 'tear') clips.startRip(dir, r.steps[0], pose);
     startTape(kept);
     if(won){ beat = res.beat; startWipe(); dbg?.note(`won in ${moves}`); }
     readLost();
@@ -590,14 +507,14 @@ function undo(){
   const res = play.undo(); sync();
   if(res.kind === 'none') return;
   const tape = tapes.pop();
-  blocked=null; anim = null; board = state; stage = tape.stage; rips = []; breaks = []; floats = [];
+  blocked=null; anim = null; board = state; stage = tape.stage; clips.reset();
   if(tape.steps.length) startRewind(tape);
   readLost(); render(); dbg?.note(`undo -> ${moves}`);
   tell(watch, now(), res);
 }
 function restart(){ load(cur, true); }
 function load(i, again = false){
-  cancelAnim(); busy = false; door = null; fxSeen = new Set(); tapes = []; rec = null; rips = []; breaks = []; floats = [];
+  cancelAnim(); busy = false; door = null; fxSeen = new Set(); tapes = []; rec = null; clips.reset();
   const res = play.load(i, again); sync();
   blocked=null; beat=false;
   startScan();
@@ -620,11 +537,9 @@ function readLost(){ lost = !!deadKeys && !won && deadKeys.has(stateKey(state));
 const SCAN_BUDGET_MS = 1200;
 let scanSpent = 0;
 
-// The verdict is wanted once per room and then never
-// again — every move after it is a lookup — so there is no reason for it to compete with the
-// arrow key. `requestIdleCallback` hands back how long the browser expects to be doing nothing,
-// which is the longest wait available and the only honest answer to "when should this run".
-// The timeout is what stops a page that is never idle from never answering at all.
+// The verdict is wanted once per room, and every move after it is a lookup, so it runs on idle
+// time rather than competing with the arrow key. `requestIdleCallback` reports the idle time left.
+// The timeout stops a page that is never idle from never answering at all.
 const askIdle = window.requestIdleCallback
   ? cb => requestIdleCallback(cb, { timeout: 400 })
   : cb => requestAnimationFrame(() => cb({ timeRemaining: () => 6 }));
@@ -666,6 +581,7 @@ function rest(){ anim = null; board = state; stage = stageFrom(state, cur + 1, d
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 const SP = PIXEL ? createPixelSprites({ ctx, art: await loadPixelArt(new URL('./art/', import.meta.url)) })
   : createSprites({ ctx, cell: CS, pad: PAD });
+const clips = createClips({ pixel: PIXEL, art: SP, stage: () => stage, clock: clockMs, since, frame: FRAME_MS });
 // In the pixel art the room is drawn off screen, and the screen frames it.
 const screenCv = document.getElementById('screen');
 const screen = PIXEL ? createScreen({ canvas: screenCv, art: await loadScreenArt(new URL('./art/', import.meta.url)), C: CS }) : null;
@@ -676,15 +592,9 @@ if(PIXEL) for(const job of tracings()) askIdle(job);
 const BANDS = ['couch','cart','loose','carried','raccoon'];
 const bandOf = sp => sp.kind === COUCH ? 0 : sp.kind === CART ? 1
   : sp.kind === RACCOON ? 4 : (sp.parent === null ? 2 : 3);
-const RIP_BAND = { pile: 0.02, shadow: 0.0205, air: 0.021, bag: 0.04, pane: 0.04 };
-/** A tear's or a break's layer's place in the sort, as the row of cells its foot is on and a band in that row. */
-function ripFoot({ kind, foot }){
-  const row = Math.ceil(foot / PIXEL_CELL) - 1;
-  return row + RIP_BAND[kind] + (kind === 'air' ? 0.004 * (foot / PIXEL_CELL - row) : 0);
-}
 
-// Here rather than in each drawing, because
-// every kind can end up inside a barrow and none of them knows how deep it is.
+// The nudge that clears a thing riding inside another is done here rather than in each drawing,
+// because no drawing knows how deep it is.
 function drawSprite(sp, f){
   const [jx, jy] = jolt(sp);
   if(!sp.depth && !jx && !jy) return paintSprite(sp, f);
@@ -706,9 +616,8 @@ function jolt(sp){
 // Everything but the ground is a sprite with a position of its own.
 function paintSprite(sp, f){
   const { state:s, ph, fx } = f;
-  // Wrapped round the whole draw rather than pushed into one sprite, so it costs the drawings nothing.
+  // The tilt wraps the whole draw rather than being pushed into one sprite, so it costs the drawings nothing.
   if(sp.tilt){
-    // So cargo swings with the cart rather than spinning on its own middle.
     const [pvx, pvy] = sp.pivot ?? [sp.x + 0.5, sp.y + 1];
     const px = pvx * CS, py = pvy * CS;
     ctx.save();
@@ -730,8 +639,7 @@ function paintSprite(sp, f){
   else if(sp.kind === COUCH){
     if(sp.o === BICYCLE) SP.bicycle(sp.cells, sp.x, sp.y);
     else if(sp.o === RUG) SP.rug(sp.cells, sp.x, sp.y);
-    // An open cabinet is one piece and two drawings: the cabinet, and the drawer standing out of
-    // it.
+    // An open cabinet is one piece and two drawings: the cabinet, and the drawer standing out of it.
     else if(CODES.cabinetFace(sp.o)){
       const f = DIRS[CODES.cabinetFace(sp.o)];
       const other = sp.cells.find(([ox,oy]) => ox || oy);
@@ -746,21 +654,18 @@ function paintSprite(sp, f){
     if(isBarrow(sp.ck)) SP.barrow(sp.x, sp.y, barrowFace(sp.ck));
     else SP.skateboard(sp.cells, sp.x, sp.y);
   }
-  else if(dumps.some(d => d.shed === sp)) return;
+  else if(clips.paint(sp)) return;
   else if(sp.kind === SPLASH) SP.splash(sp.x, sp.y);
-  else if(dumps.some(d => d.container === sp)) dumpDraw(sp);
-  else if(bobbingNow(sp)) SP.bob(sp.kind, sp.x, sp.y, bobAt(bobbingNow(sp)), sp.lie);
   else drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
-    seed: sp.seed, face: sp.face, lie: sp.lie, wet: sp.soaks ? (sp.soak ?? 1) : 0, scraps: sp.scraps,
+    seed: sp.seed, lie: sp.lie, wet: sp.soaks ? (sp.soak ?? 1) : 0, scraps: sp.scraps,
     // a bag mid-refusal deflates where it stands; a torn one deflates as its fan grows
     k: sp.dying ? (sp.deflate ?? 1)
       : ph && fx.bx===Math.round(sp.x) && fx.by===Math.round(sp.y) ? 1-ph.burst : 1,
   });
 }
 
-/** Here rather than in each drawing, because `k` is a scale only some of them take and every
- *  kind can end up over a grate — a bag out of a can, a can out of a cart, a tyre that rolled
- *  onto one. Vanishing between frames instead reads as the sprite being forgotten. */
+/** A falling sprite is scaled here rather than in each drawing, because `k` is a scale only some
+ *  of them take. Vanishing between frames instead reads as the sprite being forgotten. */
 function drawFalling(sp, f){
   const k = sp.deflate ?? 1;
   if(k <= 0) return;
@@ -794,7 +699,7 @@ function holdsOn(f){
 const comp = createCompositor([
   { name:'clear', draw:(ctx,f)=>ctx.clearRect(0,0,f.w,f.h) },
 
-  // Terrain only — the ground is the one thing that is still a property of the square. Read
+  // Terrain only: the ground is the one thing that is still a property of the square. It is read
   // from the board the animation is currently on.
   { name:'terrain', draw:(ctx,f)=>{
     const s=f.state, b=f.board;
@@ -805,9 +710,8 @@ const comp = createCompositor([
     for(let y=0;y<b.rows;y++) for(let x=0;x<b.cols;x++){
       const c=cell(b,x,y);
       if(c.wall){ if(PIXEL) SP.wall(x,y); continue; }
-      const pour = pouringOn(x,y), broke = breakingOn(x,y);
-      if(pour){ SP.floor(x,y); pour.ground(dumpAt(pour)); }
-      else if(broke){ SP.floor(x,y); broke.ground(breakAt(broke)); }
+      const laid = clips.groundOn(x,y);
+      if(laid){ SP.floor(x,y); laid(); }
       else if(c.water)              SP.water(x,y,false,0,filling.get(`${x},${y}`)??0);
       else if(c.bridge)             SP.water(x,y,true,cellSeed(x,y));
       else if(c.grate)              SP.grate(x,y);
@@ -823,7 +727,7 @@ const comp = createCompositor([
 
   { name:'holds', draw:(ctx,f)=>{ for(const [a,b] of holdsOn(f)) SP.hold(...a, ...b); } },
 
-  // None of it is board state.
+  // The debris belongs to the animation: none of it is board state.
   { name:'debris', draw:(ctx,f)=>{
     if(!f.ph) return;
     const s=f.state;
@@ -839,10 +743,9 @@ const comp = createCompositor([
   ...(PIXEL ? [{ name:'things', draw:(ctx,f)=>{
     const foot = sp => sp.kind === RACCOON && pose?.act === 'tear' ? pose.y + 0.03
       : sp.y + Math.max(0, ...(sp.cells ?? [[0,0]]).map(c => c[1])) + bandOf(sp) * 0.01;
-    const items = f.sprites.filter(sp => !ripOwns(sp) && !breaks.some(b => b.pane === sp))
+    const items = f.sprites.filter(sp => !clips.owns(sp))
       .map(sp => [foot(sp), () => (sp.falls ? drawFalling : drawSprite)(sp,f)]);
-    for(const r of rips) for(const l of r.clip.layers(ripAt(r))) items.push([ripFoot(l), l.paint]);
-    for(const b of breaks) for(const l of b.layers(breakAt(b))) items.push([ripFoot(l), l.paint]);
+    items.push(...clips.layers());
     for(const [, paint] of items.sort((a,b) => a[0] - b[0])) paint();
   }}, { name:'over', draw:()=>{
     if(pose && pose.act !== 'tear' && leaving() === null) SP.pressing(poseSeg(), pose.dir, pose.x, pose.y, { stay: pose.stay, over: true });
@@ -850,7 +753,6 @@ const comp = createCompositor([
     for(const sp of f.sprites) if(bandOf(sp)===band) (sp.falls ? drawFalling : drawSprite)(sp,f);
   }}))),
 
-  // Fan preview, over everything including the exit sign.
   { name:'grips', draw:(ctx,f)=>{
     for(const [[ax,ay],[bx,by]] of holdsOn(f)){
       const n=Math.hypot(bx-ax, by-ay) || 1;
@@ -935,9 +837,9 @@ function paintHud(){
     : bestMoves !== null ? `${'★'.repeat(st)}${'☆'.repeat(3-st)} best ${bestMoves}` : '';
   sc.className = 'score'+(bestMoves!==null||won?' show':'')+(beat?' beat':'');
   const lo=document.getElementById('lost');
-  // Short enough to sit on the moves row: a standing notice that pushes the board down the
-  // page every time it appears is a bigger interruption than the thing it is reporting. It
-  // still names the way back, because the point of saying it is that you can act on it.
+  // The notice is short enough to sit on the moves row. A standing notice that pushes the board
+  // down the page is a bigger interruption than the thing it reports. It still names the way back,
+  // because saying it helps only if you can act on it.
   lo.innerHTML = lost ? '<b>✕</b> unwinnable — undo or restart' : '';
   lo.className = 'lost'+(lost?' show':'');
   document.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(i===cur?' on':''));
@@ -946,7 +848,7 @@ function paintHud(){
 // His panel is DOM, like the HUD.
 const crowBox = document.getElementById('crow'), veil = document.getElementById('veil');
 const crowFace = document.getElementById('crowface'), crowLine = document.getElementById('crowline');
-const SETTLE_MS = 40 * 1000 / 60;
+const SETTLE_MS = SCREEN.SETTLE * 1000 / 60;
 let speaking = false, shownFace = '', shownText = '';
 let crowView = { talking: false, speech: false, face: 'closed', text: '' }, faceUp = { id: '', t0: 0 }, settleT0 = -Infinity;
 function paintCrow(v){
@@ -957,7 +859,7 @@ function paintCrow(v){
     crowView = v; present();
     return;
   }
-  if(v.speech !== speaking) v.speech ? toSpeech() : toDock();
+  if(v.speech !== speaking){ if(v.speech) toSpeech(); else toDock(); }
   const face = v.talking || v.face !== 'closed' ? v.face : '';
   if(face !== shownFace) crowFace.textContent = shownFace = face;
   if(v.text !== shownText) crowLine.textContent = shownText = v.text;
@@ -981,7 +883,7 @@ function toDock(){
     { transform: 'translate(0,0) scale(1.03,.96)', offset: .9 },
     { transform: 'none' },
   ], { duration: SETTLE_MS });
-  veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SETTLE_MS * .6, easing: 'ease-out' });
+  veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SETTLE_MS * SCREEN.VEIL, easing: 'ease-out' });
 }
 
 function drawLanding(x,y){
@@ -1025,7 +927,7 @@ function drawBlocked(x,y){
   ctx.stroke();
   ctx.restore();
 }
-// off-grid: there is no cell to paint, so mark the wall of the alley itself
+// Off the grid there is no cell to paint, so the wall of the alley itself is marked.
 function drawEdgeBar(x,y,dir){
   const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
   const x0=px(x), y0=px(y), T=9;
@@ -1037,7 +939,7 @@ function drawEdgeBar(x,y,dir){
   ctx.restore();
 }
 
-// The overlays below draw in the same space as the sprites.
+// `px` converts a cell coordinate to pixels. The overlays below draw in the same space as the sprites.
 function px(x){return x*CS}
 
 
@@ -1076,16 +978,15 @@ document.getElementById('controls').addEventListener('click',e=>{
 });
 
 // Levels are data on disk, in the same pack the verifier checks. Fail loudly.
-// A room's id is
-// unique across the whole game, so nothing downstream has to know which act it came from.
+// A room's id is unique across the whole game, so nothing downstream has to know which act it came from.
 // A scratch pack can be named on the query string. That is how a new piece gets played in the
 // real game before it belongs in an act: the bench pages import `src/` and prove the
 // rules, but only this path exercises input, refusal painting, the HUD and the sprites. Inert
 // in the built artifact, which has no query string and serves its packs from inside itself.
 const ACTS = new URLSearchParams(location.search).get('acts')?.split(',') ?? ['act1.tt', 'act2.tt'];
-// Which rooms came from which act. The pack names itself; the file name is the fallback so a
+// Each room is listed under its act. The pack names itself; the file name is the fallback, so a
 // pack with no `:pack` line still gets a heading rather than an empty one.
-// Short enough to sit on one line beside the room range.
+// The label is short enough to sit on one line beside the room range.
 const actLabel = (name, file) =>
   (name ?? '').split('—').pop().replace(/\s*\(.*\)\s*$/, '').trim()
   || file.replace(/\.tt$/, '');
@@ -1124,7 +1025,7 @@ winBytes = await loadAsset('sfx/win-chime.mp3', 'bytes');
   watch = createWatch({ crow, levels: LEVELS, acts: ACT_OF, progress, memory, rng });
   play = createPlay({ levels: LEVELS, progress });
 }
-// `<details>` rather than a hand-rolled accordion, so the
+// The folds are `<details>` rather than a hand-rolled accordion, so the
 // keyboard and the screen reader get the behaviour for free.
 const grid=document.getElementById('lvlgrid'), sheet=document.getElementById('sheet');
 for(const a of ACT_OF){
@@ -1151,15 +1052,15 @@ for(const a of ACT_OF){
   a.fold=fold; a.tag=tag;
 }
 
-/** Called on open, so it is never stale. */
+/** Called on open, so the picker is never stale. */
 function paintProgress(){
   LEVELS.forEach((L,i)=>{
     const b=CELLS[i]; if(!b) return;
     const n=progress.stars(L.id, L.par), done=progress.done(L.id);
     b.className='cell'+(done?' done':'');
     b.setAttribute('aria-current',String(i===cur));
-    // At this size a hollow star reads as a filled one, so the count has
-    // to be legible by LENGTH rather than by shape.
+    // Only filled stars are written: at this size a hollow star reads as a filled one, so the count
+    // is legible by LENGTH rather than by shape.
     b.querySelector('.stars').textContent = '★'.repeat(n);
     const bestMoves=progress.best(L.id);
     b.title = `${L.name ?? L.id} — par ${L.par}`
@@ -1199,7 +1100,7 @@ load(0);
 requestAnimationFrame(function crowFrame(){
   const t = now();
   // A speech is not the player idling.
-  speaking ? watch.key(t) : watch.tick(t, state);
+  if(speaking) watch.key(t); else watch.tick(t, state);
   paintCrow(crow.view(t));
   crowDbg?.paint(crow.peek(), watch.peek(t));
   requestAnimationFrame(crowFrame);

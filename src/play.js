@@ -6,7 +6,7 @@ import { toState } from './format.js';
 import { decorAfter } from './stage.js';
 
 /**
- * `levels` is the running order. Every call answers
+ * `levels` is the running order and `progress` records a win the moment it lands. Every call answers
  * with what happened, as `{ kind, ... }`; `tell` passes that on to the crow.
  */
 export function createPlay({ levels, progress }) {
@@ -17,10 +17,10 @@ export function createPlay({ levels, progress }) {
     get state() { return state; },
     get decor() { return decor; },
     get moves() { return history.length; },
-    /** The moves that made the board, as `lurd` letters: with the room, a replay. */
+    /** The moves that made the board, as `lurd` letters. With the room, they make a replay. */
     get path() { return history.map(h => h.dir).join(''); },
     get won() { return won; },
-    /** The direction of a tear that is aimed and not yet committed. */
+    /** The direction of a push or tear that is aimed and not yet committed. */
     get armed() { return armed; },
 
     load(i, again = false) {
@@ -67,5 +67,8 @@ export function tell(watch, t, res) {
   else if (res.kind === 'armed') watch.key(t);
   else if (res.kind === 'moved') watch.action(t, res.dir, res.r, res.prev);
   else if (res.kind === 'undone') watch.undo(t);
-  else if (res.kind === 'loaded') res.again ? watch.restart(t, res.state) : watch.room(t, res.cur, res.state);
+  else if (res.kind === 'loaded') {
+    if (res.again) watch.restart(t, res.state);
+    else watch.room(t, res.cur, res.state);
+  }
 }

@@ -14,7 +14,7 @@ export const PALETTE = {
   ink: '#1a1a1a', grn: '#2e9e5b',
   floor: '#fff', floorLine: '#e6e6e2', outline: '#fff',
   canal: '#2e6f8e', bridge: '#7fb7c4', ripple: 'rgba(255,255,255,.45)',
-  // The outline goes off white so a pale scrap keeps an edge against the bridge it now is.
+  // The wet outline is off white, so a pale scrap keeps an edge against the bridge it has become.
   wetOutline: '#d3e3ea',
   grease: '#6b6a4e', greaseSheen: 'rgba(190,215,120,.55)',
   tar: '#23232a', tarSheen: 'rgba(120,120,140,.35)',
@@ -51,14 +51,12 @@ export const PALETTE = {
   eye: '#fff', pupil: '#111', tail: '#8b8f95', tailTip: '#4a4e54',
 };
 
-/** Which way out of the room the exit's arrow points. */
+/** The way the exit's arrow points: out of the room, at the nearest board edge. */
 export const exitArrowDir = (cols, rows, x, y) =>
   [[y, [0, -1]], [rows - 1 - y, [0, 1]], [x, [-1, 0]], [cols - 1 - x, [1, 0]]]
     .reduce((a, b) => (b[0] < a[0] ? b : a))[1];
 
-/**
- * Bind a canvas and a cell size, get the alley's drawings back.
- */
+/** Bind a canvas and a cell size, get the alley's drawings back. */
 export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0.118)), palette = {} }) {
   const CS = cell, PAD = pad, P = { ...PALETTE, ...palette };
   const px = n => n * CS;
@@ -130,7 +128,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.restore();
     },
 
-    // The lanes past water.
+    // Each lane is drawn over the square the floor would take, so the ground stays one pass.
     grease(x, y) {
       const x0 = px(x), y0 = px(y);
       ctx.fillStyle = P.grease; ctx.fillRect(x0 + 1, y0 + 1, CS - 2, CS - 2);
@@ -164,7 +162,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       shard([[0.28, 0.64], [0.52, 0.60], [0.44, 0.84]]);
     },
 
-    // A flap of cardboard, seam down the middle.
     covered(x, y) {
       const x0 = px(x), y0 = px(y);
       ctx.fillStyle = P.covered; ctx.fillRect(x0 + 1, y0 + 1, CS - 2, CS - 2);
@@ -173,7 +170,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.beginPath(); ctx.moveTo(x0 + CS / 2, y0 + 3); ctx.lineTo(x0 + CS / 2, y0 + CS - 3); ctx.stroke();
     },
 
-    // A hole with bars across it.
     grate(x, y) {
       const x0 = px(x), y0 = px(y);
       ctx.fillStyle = P.grate; ctx.fillRect(x0 + 1, y0 + 1, CS - 2, CS - 2);
@@ -200,7 +196,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       }
     },
 
-    // A sponge: soft corners and pores.
     sponge(x, y) {
       const x0 = px(x) + PAD, y0 = px(y) + PAD, w = CS - 2 * PAD, h = CS - 2 * PAD;
       ctx.fillStyle = P.sponge; ctx.strokeStyle = P.spongeEdge; ctx.lineWidth = 2;
@@ -212,7 +207,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       }
     },
 
-    // A flattened sheet: seen from above it is a rectangle with one fold across it.
     cardboard(x, y) {
       const x0 = px(x) + PAD, y0 = px(y) + PAD + 2, w = CS - 2 * PAD, h = CS - 2 * PAD - 4;
       ctx.fillStyle = P.card; ctx.strokeStyle = P.cardEdge; ctx.lineWidth = 2;
@@ -231,7 +225,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.stroke();
     },
 
-    // A tyre, seen edge-on, so its axis is the long way it is drawn.
     tyre(x, y, horizontal) {
       const cx = px(x) + CS / 2, cy = px(y) + CS / 2;
       const a = CS * 0.40, b = CS * 0.20;
@@ -249,7 +242,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.beginPath(); ctx.ellipse(cx, cy, rx * 0.28, ry * 0.28, 0, 0, 7); ctx.fill();
     },
 
-    // A bicycle lying on the floor, seen from above — which is its side profile. Drawn across
+    // A bicycle lying on the floor. Seen from above, that is its side profile. Drawn across
     // the whole footprint in (u, v): u runs the long axis and v across it, so one drawing
     // serves either orientation.
     bicycle(cells, ox = 0, oy = 0) {
@@ -312,9 +305,8 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.restore();
     },
 
-    // A rolled rug: a grey bolt lying on the floor, tied with string, the spiral of its own roll
-    // showing at the end. Drawn across the whole footprint in (u, v) the way the bicycle is —
-    // u along the long axis, v across it — so one drawing serves either way it lies.
+    // A rolled rug, drawn across its whole footprint in (u, v): u runs the long axis and v across
+    // it, so one drawing serves either way it lies.
     rug(cells, ox = 0, oy = 0) {
       let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
       for (const [cx, cy] of cells) {
@@ -326,10 +318,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       const W = px((along ? maxy - miny : maxx - minx) + 1);
       const x0 = px(ox + minx), y0 = px(oy + miny);
       const pt = (u, v) => (along ? [x0 + u * L, y0 + v * W] : [x0 + v * W, y0 + u * L]);
-      const box = (u0, v0, u1, v1) => {
-        const [ax, ay] = pt(u0, v0), [bx, by] = pt(u1, v1);
-        return [Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay)];
-      };
       const line = (u0, v0, u1, v1) => {
         ctx.moveTo(...pt(u0, v0)); ctx.lineTo(...pt(u1, v1));
       };
@@ -361,13 +349,11 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.fillStyle = P.rug; ctx.strokeStyle = P.rugEdge;
       ctx.fill(); ctx.stroke();
 
-      // The weave, along the roll — a couple of slack lines, not a texture.
       ctx.strokeStyle = P.rugWeave; ctx.lineWidth = 1.5;
       ctx.beginPath();
       line(capU, 0.34, end - 0.04, 0.34); line(capU, 0.66, end - 0.04, 0.66);
       ctx.stroke();
 
-      // The end you see the roll from, and the spiral wound into it.
       const [scx, scy] = pt(end, mid);
       ctx.fillStyle = P.rugCore; ctx.strokeStyle = P.rugCoreEdge; ctx.lineWidth = 2.5;
       ctx.beginPath(); ctx.arc(scx, scy, rr, 0, 7); ctx.fill(); ctx.stroke();
@@ -376,13 +362,13 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       for (let i = 0; i <= 48; i++) {
         const s = i / 48, a = s * Math.PI * 3.6, rad = rr * (0.10 + 0.78 * s);
         const [sx, sy] = [scx + Math.cos(a) * rad, scy + Math.sin(a) * rad];
-        i ? ctx.lineTo(sx, sy) : ctx.moveTo(sx, sy);
+        if (i) ctx.lineTo(sx, sy);
+        else ctx.moveTo(sx, sy);
       }
       ctx.stroke();
 
-      // The string: a plain band round the bolt, and the bow tied over it. The bow is strands
-      // crossing at a few degrees, not an X — the angle is taken in PIXELS and converted back,
-      // so a long footprint does not shear it flat.
+      // The bow is strands crossing at a few degrees, not an X. Its angle is taken in PIXELS and
+      // converted back, so a long footprint does not shear it flat.
       const lean = (u, deg) => {
         const s = Math.tan((deg * Math.PI) / 180) * ((BOT - TOP) * W) / L / 2;
         line(u - s, TOP - 0.02, u + s, BOT + 0.02);
@@ -397,7 +383,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.restore();
     },
 
-    // An office chair from above: seat, back, and castors showing at the corners.
     chair(x, y) {
       const x0 = px(x) + PAD, y0 = px(y) + PAD, w = CS - 2 * PAD, h = CS - 2 * PAD;
       ctx.fillStyle = P.castor;
@@ -410,7 +395,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.beginPath(); ctx.roundRect(x0 + w * 0.24, y0 + h * 0.30, w * 0.52, h * 0.50, 4); ctx.fill();
     },
 
-    // A broom head-on: bristles wide across the cell.
     broom(x, y) {
       const cx = px(x) + CS / 2, y0 = px(y) + PAD, h = CS - 2 * PAD;
       ctx.strokeStyle = P.handle; ctx.lineWidth = 4; ctx.lineCap = 'round';
@@ -424,7 +408,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       }
     },
 
-    // A filing cabinet from above.
     cabinet(x, y, face, open) {
       const x0 = px(x) + PAD, y0 = px(y) + PAD, w = CS - 2 * PAD, h = CS - 2 * PAD;
       ctx.fillStyle = P.cab; ctx.strokeStyle = P.cabEdge; ctx.lineWidth = 2;
@@ -434,7 +417,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       const cx = px(x) + CS / 2 + fx * CS * 0.30, cy = px(y) + CS / 2 + fy * CS * 0.30;
       const pw = fx ? CS * 0.08 : CS * 0.34, ph = fx ? CS * 0.34 : CS * 0.08;
       ctx.fillRect(cx - pw / 2, cy - ph / 2, pw, ph);
-      if (open) {                                  // a seam where the drawer has come away
+      if (open) {
         ctx.strokeStyle = P.cabEdge; ctx.lineWidth = 2;
         ctx.beginPath();
         if (fx) { ctx.moveTo(px(x) + CS / 2, y0 + 2); ctx.lineTo(px(x) + CS / 2, y0 + h - 2); }
@@ -443,9 +426,8 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       }
     },
 
-    // The drawer, out. Shallower than the body it came from, and JOINED to it: it is flush on
-    // the side it slid from, with runners bridging the gap, so the pair reads as one object with
-    // a moving part rather than as two cabinets standing next to each other.
+    // The drawer reads as joined to its body, so the pair reads as one object with a moving part
+    // rather than as two cabinets standing next to each other.
     //
     // `face` points from the body to the drawer. Without one — a board drawn with no cabinet to
     // read it from — it falls back to a free-standing slab.
@@ -459,9 +441,8 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       const w = CS - 2 * inset + (fx ? back : 0), h = CS - 2 * inset + (fy ? back : 0);
       ctx.fillStyle = P.cab; ctx.strokeStyle = P.cabEdge; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.roundRect(x0, y0, w, h, fx || fy ? 2 : 3); ctx.fill(); ctx.stroke();
-      // Two runners, along the axis it slides on. They reach back PAST the cell edge and into
-      // the body's own cell — ink crossing the boundary is what makes the two read as one
-      // object, and a runner that stops at the edge leaves a seam that reads as a gap.
+      // Two runners along the axis it slides on. They reach past the cell edge, because a runner
+      // that stops at the edge leaves a seam that reads as a gap.
       if (fx || fy) {
         ctx.strokeStyle = P.cabEdge; ctx.lineWidth = 3;
         const cx = px(x) + CS / 2, cy = px(y) + CS / 2;
@@ -483,8 +464,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
     /**
      * A barrow from above: the tub, and the two handles you take hold of.
      *
-     * `face` is the way the tub points. So the drawing has one job: say which way it is pointing, from a glance, before
-     * anybody shoves it.
+     * `face` is the way the tub points, which the drawing shows at a glance, before anybody shoves it.
      */
     barrow(x, y, face) {
       const cx = px(x) + CS / 2, cy = px(y) + CS / 2;
@@ -501,7 +481,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
         ctx.moveTo(cx + ox + ax * CS * from, cy + oy + ay * CS * from);
         ctx.lineTo(cx + ox + ax * CS * to, cy + oy + ay * CS * to);
         ctx.stroke();
-        ctx.strokeStyle = P.barrowGrip;                    // the bit a hand closes on
+        ctx.strokeStyle = P.barrowGrip;
         ctx.beginPath();
         ctx.moveTo(cx + ox + ax * CS * from, cy + oy + ay * CS * from);
         ctx.lineTo(cx + ox + ax * CS * -0.36, cy + oy + ay * CS * -0.36);
@@ -509,7 +489,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       }
       ctx.lineCap = 'butt';
 
-      // The tub, out in front: a tapered tray seen down into, with its mouth the leading edge.
       const tw = CS * 0.56, th = CS * 0.56;
       const mx = cx + ax * CS * 0.19, my = cy + ay * CS * 0.19;
       ctx.fillStyle = P.barrow; ctx.strokeStyle = P.barrowEdge; ctx.lineWidth = 2;
@@ -520,7 +499,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.beginPath();
       ctx.roundRect(mx - tw * 0.31, my - th * 0.31, tw * 0.62, th * 0.62, 5);
       ctx.fill();
-      // The lip it scoops over, drawn open: the one edge with no wall across it.
       ctx.strokeStyle = P.barrowWell; ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(mx + ax * tw * 0.5 - bx * tw * 0.34, my + ay * th * 0.5 - by * th * 0.34);
@@ -528,7 +506,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.stroke();
     },
 
-    // A horseshoe magnet, opening the way its field runs.
     magnet(x, y, face) {
       const cx = px(x) + CS / 2, cy = px(y) + CS / 2, r = CS * 0.28;
       const turn = { r: 0, d: Math.PI / 2, l: Math.PI, u: -Math.PI / 2 }[face];
@@ -537,7 +514,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.lineCap = 'butt'; ctx.lineWidth = CS * 0.19;
       ctx.strokeStyle = P.magBody;
       ctx.beginPath(); ctx.arc(0, 0, r, gap, -gap, false); ctx.stroke();
-      // Two short poles at the ends of the opening, and only there.
       ctx.strokeStyle = P.magTip;
       ctx.beginPath(); ctx.arc(0, 0, r, gap, gap + Math.PI * 0.12, false); ctx.stroke();
       ctx.beginPath(); ctx.arc(0, 0, r, -gap - Math.PI * 0.12, -gap, false); ctx.stroke();
@@ -597,7 +573,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
      * A pile of rubbish. Its look comes from `seed` — the thing's own, not the square's — so a
      * pile carried across the alley by a cart arrives as the same pile it left as.
      *
-     * `src` is where it is flying out of, if it is.
+     * `src` is the cell `[x, y]` that a flying pile comes out of.
      */
     trash(x, y, { seed = 0, k = 1, src = null, wet = 0 } = {}) {
       if (k <= 0) return;
@@ -635,13 +611,13 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.lineTo(cx - 6, top + 6); ctx.lineTo(cx - w / 2 + 4, top + 2);
       ctx.closePath(); ctx.fill();
       ctx.strokeStyle = P.bagEdge; ctx.lineWidth = 2; ctx.stroke();  // a rim, for dark grounds
-      ctx.fillStyle = P.yel; star(cx + 6, top + h * 0.5, 5);      // the shiny inside
+      ctx.fillStyle = P.yel; star(cx + 6, top + h * 0.5, 5);
       ctx.restore();
     },
 
-    // Nothing shrinks to fit — being carried is a relationship between two objects, not a
-    // smaller object. ox/oy offset the roll. Cells give the long axis, so one drawing serves
-    // both lies of the board.
+    // Cargo on the board is drawn at full size: being carried is a relationship between two objects,
+    // not a smaller object. `ox`/`oy` offset the roll, and the cells give the long axis, so one drawing
+    // serves both lies of the board.
     skateboard(cells, ox = 0, oy = 0) {
       const xs = cells.map(c => c[0]), ys = cells.map(c => c[1]);
       const x0 = px(Math.min(...xs) + ox), y0 = px(Math.min(...ys) + oy);
@@ -654,7 +630,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       const waist = W * 0.86;
       const trucks = [-L * 0.29, L * 0.29];
 
-      // A waisted pill: round flared ends, a slightly narrower middle.
       const outline = (l, ww, wa) => {
         const hx = l / 2, hw = ww / 2, hwa = wa / 2, e = hw * 0.95;
         ctx.beginPath();
@@ -746,11 +721,11 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       }
       ctx.fillStyle = P.metalRim; ctx.strokeStyle = P.metalEdge; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.ellipse(cx, top, w / 2, 6, 0, 0, 7); ctx.fill(); ctx.stroke();
-      if (full) {                                    // black bag bulging out
+      if (full) {
         ctx.fillStyle = P.bagBody;
         ctx.beginPath(); ctx.ellipse(cx, top - 3, w / 2 - 3, 9, 0, 0, 7); ctx.fill();
         ctx.fillStyle = P.yel; star(cx + 5, top - 4, 4);
-      } else {                                       // open dark mouth
+      } else {
         ctx.fillStyle = P.metalMouth;
         ctx.beginPath(); ctx.ellipse(cx, top, w / 2 - 3, 4, 0, 0, 7); ctx.fill();
       }
@@ -763,7 +738,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.save();
       ctx.fillStyle = P.binBody; ctx.strokeStyle = P.binEdge; ctx.lineWidth = 2;
       ctx.fillRect(cx - w / 2, top, w, h); ctx.strokeRect(cx - w / 2, top, w, h);
-      if (!full) {                                   // the mouth the tipped-back lid uncovers
+      if (!full) {
         ctx.fillStyle = P.binMouth;
         ctx.fillRect(cx - w / 2 + 2, top + 1, w - 4, 6);
       }
@@ -803,7 +778,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
         ctx.fillRect(x0 + (l ? 0 : M), y0 + (u ? 0 : M),
           CS - (l ? 0 : M) - (r ? 0 : M), CS - (u ? 0 : M) - (d ? 0 : M));
       }
-      ctx.fillStyle = cushion;                        // one cushion per cell
+      ctx.fillStyle = cushion;
       for (const [cx, cy] of cells)
         ctx.fillRect(px(cx + ox) + M + 6, px(cy + oy) + M + 6, CS - 2 * M - 12, CS - 2 * M - 12);
       ctx.strokeStyle = edge; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
@@ -836,25 +811,25 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.save();
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       ctx.strokeStyle = P.jugEdge; ctx.lineWidth = 2;
-      // the handle first, so the body's fill covers where it meets the shoulder
+      // The handle comes first, so the body's fill covers where it meets the shoulder.
       ctx.beginPath(); ctx.moveTo(R - 2, shoulder + 8);
       ctx.quadraticCurveTo(R + 12, top + h * 0.48, R - 2, top + h * 0.74); ctx.stroke();
       ctx.fillStyle = P.jugEdge;
-      ctx.fillRect(bx - neck / 2 - 2, top - 4, neck + 4, 5);       // the cap
+      ctx.fillRect(bx - neck / 2 - 2, top - 4, neck + 4, 5);
       body();
-      ctx.fillStyle = P.jugAir; ctx.fill();                        // the air above the water
+      ctx.fillStyle = P.jugAir; ctx.fill();
       ctx.save(); ctx.clip();
-      if (full) ctx.fillStyle = P.jugWater, ctx.fillRect(L, wl, w, bot - wl);
-      ctx.strokeStyle = 'rgba(255,255,255,.65)'; ctx.lineWidth = 2; // two moulded ribs
+      if (full) { ctx.fillStyle = P.jugWater; ctx.fillRect(L, wl, w, bot - wl); }
+      ctx.strokeStyle = 'rgba(255,255,255,.65)'; ctx.lineWidth = 2;
       for (const t of [0.60, 0.82]) {
         const yy = top + h * t;
         ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(R, yy); ctx.stroke();
       }
       if (full) {
-        ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2; // the waterline, brightest
+        ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(L, wl + 2); ctx.quadraticCurveTo(bx, wl - 4, R, wl + 2); ctx.stroke();
       }
-      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 4; // clipped: only the inner half
+      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 4;
       body(); ctx.stroke();
       ctx.restore();
       ctx.strokeStyle = P.jugEdge; ctx.lineWidth = 2;
@@ -884,7 +859,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.fillStyle = P.wheelieLid; ctx.strokeStyle = P.wheelieEdge; ctx.lineWidth = 2;
       ctx.fillRect(-2, -8, w + 4, 8); ctx.strokeRect(-2, -8, w + 4, 8);
       ctx.restore();
-      if (full) {                                     // the bag showing through the gap
+      if (full) {
         ctx.fillStyle = P.bagBody;
         ctx.beginPath(); ctx.ellipse(cx + 3, top - 2, w / 2 - 4, 7, 0, 0, 7); ctx.fill();
         ctx.fillStyle = P.yel; star(cx + 8, top - 3, 4);
@@ -892,7 +867,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.restore();
     },
 
-    // Water going where water was not: the jug's pour, mid-flight. Not an occupant.
+    // A splash is water going where water was not: the jug's pour, mid-flight. It is not an occupant.
     splash(x, y) {
       const cx = px(x) + CS / 2, cy = px(y) + CS / 2, r = CS * 0.34;
       ctx.save();
@@ -941,7 +916,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
  * occupant constants; passing them keeps this file free of any dependency on the rules.
  */
 export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
-  const { k = 1, seed = 0, src = null, face = null, wet = 0, lie = null, scraps = null } = opts;
+  const { k = 1, seed = 0, src = null, wet = 0, lie = null, scraps = null } = opts;
   if (o === codes.TRASH) sprites.trash(x, y, { seed, k, src, wet, scraps });
   else if (o === codes.BAG) sprites.bag(x, y, k);
   else if (o === codes.CAN_FULL) sprites.can(x, y, true);
@@ -964,7 +939,7 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   // where it is, not about what it looks like.
   else if (codes.carriedFace(o)) sprites.barrow(x, y, codes.carriedFace(o));
   else if (codes.cabinetFace(o)) sprites.cabinet(x, y, codes.cabinetFace(o), codes.isCabinetOpen(o));
-  // Not silence. An occupant with no drawing here is invisible on the board, which reads as a
-  // rules bug and is found by playing rather than by testing — so it stops the frame instead.
+  // An occupant with no drawing here would be invisible on the board. That is a rules bug, and the
+  // throw shows it at once rather than in a playtest.
   else if (o !== codes.NONE) throw new Error(`no drawing for occupant ${o}`);
 }

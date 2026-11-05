@@ -9,7 +9,7 @@ import {
 import { laneOf, CART_LANE } from '../src/handles.js';
 import { toState } from '../src/format.js';
 import {
-  stageFrom, applyStep, advance, settle, rollEase, easeOut, pileLook, bump, NUDGE,
+  stageFrom, applyStep, advance, settle, rollEase, easeOut, pileLook, bump, NUDGE, dressPiles,
   CART, COUCH, RACCOON,
 } from '../src/stage.js';
 
@@ -384,4 +384,13 @@ test('a body swapped for something else leaves the stage', () => {
   settle(stage);
   assert.equal(of(stage, COUCH).length, 0, 'the body is gone');
   assert.equal(of(stage, BAG).length, 1, 'and what replaced it is on the stage');
+});
+
+test('dressPiles gives each named sprite the seed and scraps of its own pile, in order', () => {
+  const stage = { sprites: [{ handle: 'a' }, { handle: 'b' }, { handle: 'c' }] };
+  const got = dressPiles(stage, ['c', 'a'], [{ seed: 1, scraps: 'x' }, { seed: 2, scraps: 'y' }]);
+  assert.deepEqual(got.map(sp => sp.handle), ['c', 'a']);
+  assert.deepEqual([stage.sprites[0].seed, stage.sprites[0].scraps], [2, 'y']);
+  assert.deepEqual([stage.sprites[2].seed, stage.sprites[2].scraps], [1, 'x']);
+  assert.equal(stage.sprites[1].seed, undefined);
 });

@@ -1,13 +1,15 @@
 // The pixel screen: the strip over the room, the room on the alley, and the crow's dock. It draws
 // what it is handed and keeps no game state.
 import { wallTile } from './art/room.js';
+import { BAYER } from './art/spread.js';
+import { onTwos } from './art/timing.js';
 
-/** Sizes in screen px. The room is drawn at `BOARD` screen px an art px, and the screen at `ZOOM`
- *  device px a screen px. `SETTLE` is frames for his panel to drop to its dock after a speech. */
-export const SCREEN = { W: 480, H: 270, STRIP: 16, DOCK: 48, PORTRAIT: 40, GAP: 4, BOARD: 1.5, ZOOM: 2, SETTLE: 40 };
+/** Sizes in screen px. The room is drawn at `BOARD` screen px per art px, and the screen at `ZOOM`
+ *  device px per screen px. `SETTLE` is how many frames his panel takes to drop to its dock after a
+ *  speech, and `VEIL` is the share of that drop over which the veil lifts. */
+export const SCREEN = { W: 480, H: 270, STRIP: 16, DOCK: 48, PORTRAIT: 40, GAP: 4, BOARD: 1.5, ZOOM: 2, SETTLE: 40, VEIL: 0.6 };
 const INK = '#f2ead8', STRIP_INK = '#e8dcc8', STRIP_BG = '#120d14', DOCK_BG = '#0f171c', BOX_BG = '#1c2b33';
 const FRAME_MS = 1000 / 60;
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
 /** The baked font, `src/art/font.json`, and the crow's portraits: `src/art/crow.json` and the
  *  atlas `src/art/crow.png`, one 40 px frame a cell, his stills on the first row. */
@@ -19,7 +21,7 @@ export async function loadScreenArt(base) {
 }
 
 export function createScreen({ canvas, art: { font, crow, atlas }, C }) {
-  const { W, H, STRIP, DOCK, PORTRAIT, GAP, BOARD, ZOOM, SETTLE } = SCREEN, AREA = H - STRIP - DOCK;
+  const { W, H, STRIP, DOCK, PORTRAIT, GAP, BOARD, ZOOM, SETTLE, VEIL } = SCREEN, AREA = H - STRIP - DOCK;
   const layer = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
   const g = canvas.getContext('2d'), hud = layer(W, H), hg = hud.getContext('2d'), panel = layer(W, DOCK), pg = panel.getContext('2d');
   canvas.width = W * ZOOM; canvas.height = H * ZOOM;
@@ -56,7 +58,7 @@ export function createScreen({ canvas, art: { font, crow, atlas }, C }) {
   function portrait(ctx, x, y, face, ms) {
     const still = crow.stills.indexOf(face), clip = crow.clips[face];
     if (still < 0 && !clip) throw new Error(`the crow has no face ${face}`);
-    const on2 = Math.floor(ms / FRAME_MS / 2) * 2;
+    const on2 = onTwos(Math.floor(ms / FRAME_MS));
     const [col, row] = clip ? [Math.min(clip.frames - 1, Math.floor(on2 * crow.fps / 60)), clip.row] : [still, 0];
     ctx.drawImage(atlas, col * crow.size, row * crow.size, crow.size, crow.size, x, y, PORTRAIT, PORTRAIT);
   }
@@ -82,7 +84,7 @@ export function createScreen({ canvas, art: { font, crow, atlas }, C }) {
     return hg.createPattern(c, 'repeat');
   });
 
-  // His panel `k` of the way through its drop to the dock: px its middle is over the dock's, and its squash.
+  // His panel `k` of the way through its drop to the dock: `up` is px above the dock's middle, and `sx`, `sy` are its squash.
   const MIDDLE = H - DOCK / 2 - H / 2;
   const KEYS = [[0, MIDDLE, 1, 1], [0.55, 0, 1.06, 0.88], [0.75, 14, 0.98, 1.04], [0.9, 0, 1.03, 0.96], [1, 0, 1, 1]];
   const EASE = [u => u * u, u => 1 - (1 - u) ** 2, u => u * u, u => u];
@@ -111,7 +113,7 @@ export function createScreen({ canvas, art: { font, crow, atlas }, C }) {
       text(hg, right, W - 6 - widthOf(right), 4, STRIP_INK);
 
       paintPanel(v, faceMs);
-      const k = settle === null ? 0 : Math.min(1, settle / SETTLE), veil = settle === null ? 16 : Math.round(16 * Math.max(0, 1 - k / 0.6));
+      const k = settle === null ? 0 : Math.min(1, settle / SETTLE), veil = settle === null ? 16 : Math.round(16 * Math.max(0, 1 - k / VEIL));
       if (veil) { hg.fillStyle = veils[veil]; hg.fillRect(0, 0, W, H - DOCK); }
       hg.fillStyle = DOCK_BG; hg.fillRect(0, H - DOCK, W, DOCK);
       const d = settle === null ? { up: MIDDLE, sx: 1, sy: 1 } : drop(k);

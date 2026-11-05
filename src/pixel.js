@@ -51,7 +51,7 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
   const ripClip = createBagRip({ T, BAG: A.bag, LAY, STYLE });
   const boxClip = createBoxTip({ T, still, LAY, STYLE, SPREAD: LOOK.spread });
   const BIKE = bicycle();
-  // The sitting frame of each facing.
+  // The sitting frame of each facing, which he holds between presses.
   const SIT = Object.fromEntries(['u', 'd', 'l', 'r'].map(d => {
     const s = draw(ACTIONS[VIEW[d]].crawl[0]);
     return [d, d === 'l' ? mirror(s) : s];
@@ -63,7 +63,7 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
   const P = v => Math.round(v * C);
   const put = (px, x0, y0) => { for (const [a, b, col] of px) { ctx.fillStyle = col; ctx.fillRect(x0 + a, y0 + b, 1, 1); } };
   const standing = (spr, x, y) => put(spr.px, P(x) + Math.floor((C - spr.w) / 2), P(y) + C - spr.h - 1);
-  // Which pixels of the room are water, by the outline each water cell draws.
+  // Each water cell's outline gives the pixels of the room that are water.
   let shores = new Map(), shoresOf = null;
   const shore = (cx, cy) => {
     if (shoresOf !== board) { shores = new Map(); shoresOf = board; }
@@ -142,7 +142,7 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
   };
 
   return {
-    /** The board the ground is read from. */
+    /** Sets the board the ground is read from. */
     setBoard(b) { board = b; },
     wall(x, y) { wallTile(ctx, x, y, C); },
     floor(x, y) {
@@ -211,14 +211,14 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
       else placeholder(s.x + ox, s.y + oy, 'couch', s.w, s.h);
     },
     raccoon(x, y, heading = 'd') { standing(SIT[heading], x, y); },
-    /** He mid-press: drawing `seg` toward `dir` from cell (x, y). `stay`: he ends on the cell he
-     *  started from. `over` draws only the parts that go
-     *  in front of what he pushes. */
+    /** Draws the raccoon mid-press: `seg` toward `dir` from cell (x, y). `stay`: he ends on the cell he
+     *  started from. `over` draws only the parts that go in front of what he pushes. */
     pressing(seg, dir, x, y, { stay = false, over = false } = {}) {
       const p = place(stay && seg.f.dx > 0 ? { f: { ...seg.f, dx: 0 } } : seg, dir, x, y);
       put(over ? p.over : p.px, p.x, p.y);
     },
-    splash(x, y) { placeholder(x, y, 'splash'); },
+    /** A lone splash has no look of its own: the clip of the pour draws the whole spray. */
+    splash() {},
 
     sponge(x, y) { put(SPONGE.px, P(x) + Math.floor((C - SPONGE.w) / 2) + SPONGE.dx, P(y) + C - SPONGE.h - 1 + SPONGE.dy); },
     cardboard(x, y) { put(CARDBOARD.px, P(x), P(y)); },
