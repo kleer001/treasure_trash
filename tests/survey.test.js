@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { toState } from '../src/format.js';
-import { groups, place, staticallyDead } from '../tools/survey.mjs';
+import { groups, place, staticallyDead, BAGS } from '../tools/survey.mjs';
 import { mulberry32 } from '../src/rng.js';
+import { MAX_STATES } from '../tools/metrics.mjs';
 
 const S = grid => toState({ id: 't', grid });
 
@@ -30,7 +31,6 @@ test('a bound above the true graph size changes nothing', () => {
 // --- the alphabet ------------------------------------------------------------
 
 test('every surveyed group can actually be cleared and lands in the target bag band', () => {
-  const BAGS = { $: 1, C: 1, W: 1, S: 2, B: 1 };
   const all = groups();
   assert.ok(all.length > 0);
   for (const g of all) {
@@ -52,7 +52,7 @@ test('groups are multisets, listed once each', () => {
   assert.equal(new Set(all).size, all.length);
   for (const g of all) assert.deepEqual([...g], [...g].sort(cmpAlphabet), `${g} is not canonical`);
 });
-const ORDER = [...'$CcxSWwBjFP'];
+const ORDER = [...'$CcxWwBjFP'];
 const cmpAlphabet = (a, b) => ORDER.indexOf(a) - ORDER.indexOf(b);
 
 // --- the pre-filter ----------------------------------------------------------
@@ -70,7 +70,7 @@ test('the pre-filter never discards a board that can be won', () => {
       try { s = toState(room); } catch { continue; }
       if (!staticallyDead(s)) continue;
       let shortest;
-      try { shortest = analyze(s, { maxStates: 50_000 }).minMoves; }
+      try { shortest = analyze(s, { maxStates: MAX_STATES }).minMoves; }
       catch (e) { if (e instanceof TooManyStates) continue; throw e; }
       rejected++;
       checked++;

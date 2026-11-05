@@ -58,12 +58,9 @@ export function disagreement(mine, theirs) {
 // ---------------------------------------------------------------- the corpus
 
 /**
- * Rooms the acts do not contain. Seeded, so a failure is reproducible from the seed
- * printed in the report rather than from a corpus file nobody kept.
- */
-/**
- * Lay terrain over a drawn room. Every lane the `:water` mask carries, not only the canal —
- * a corpus that cannot express grease or a one-way cannot catch an engine that gets them wrong.
+ * Returns `room` with up to `n` terrain cells on its `:water` mask. Every lane the mask carries is
+ * drawn from, not only the canal: a corpus that cannot express grease or a one-way cannot catch an
+ * engine that gets them wrong.
  *
  * An OCCUPIED cell is fair game and is the point: it is where the two engines part company.
  */
@@ -81,14 +78,18 @@ function sprinkleTerrain(room, rnd, n) {
   return { ...room, water: rows.map(r => r.join('')) };
 }
 
+/**
+ * Returns up to `count` generated rooms that the acts do not contain. Seeded, so a failure is
+ * reproducible from the seed printed in the report rather than from a corpus file nobody kept.
+ */
 export function generatedRooms(count, seed) {
   const rnd = mulberry32(seed);
   // Every piece the rules know, in combinations the acts do not contain. A group left
   // out here is a piece the gate cannot see, and a gate that cannot see a piece reports
   // agreement about it either way.
   const GROUPS = ['$', '$b', '$C', '$W', 'xB', '$P', 'CP', '$j', 'Fb', '$$b', 'BW', 'jb',
-                  '$Bw', 'xPC', 'F$', 'S$', '$bw',
-                  // the roster added since
+                  '$Bw', 'xPC', 'F$', '$bw',
+                  // the rest of the roster
                   '$s', 'Cd', '$g', 'oO', '$o', 'UC', 'Y$', 'Uo', 'hC', '$h', 'r$', 'rC',
                   'a$', 'mC', 'eo', 'kU', 'qC', 'f$', 'pU', 'q$C', 'rh$', 'dg', 'sC', 'YU', 'Pq',
                   // the barrow, at every facing, forwards and backwards into things
@@ -102,7 +103,7 @@ export function generatedRooms(count, seed) {
     if (!plan) continue;
     let room = placeOn(GROUPS[Math.floor(rnd() * GROUPS.length)], plan, w, h, rnd);
     if (!room) continue;
-    // Half the corpus carries terrain. The other half keeps the bare-floor cases.
+    // Some rooms carry terrain. The rest keep the bare-floor cases.
     if (rnd() < 0.5) room = sprinkleTerrain(room, rnd, 1 + Math.floor(rnd() * 4));
     try { toState(room); } catch { continue; }
     out.push({ name: `generated#${out.length}`, level: { id: 'gen', ...room } });

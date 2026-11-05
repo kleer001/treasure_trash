@@ -49,8 +49,7 @@ const READ = {
   ...Object.fromEntries([...'JQ'].map(ch => [ch, { o: CABO_R }])),
   // The magnet, by the way its field points.
   'f': { o: MAG_U }, 'l': { o: MAG_D }, 'p': { o: MAG_L }, 'q': { o: MAG_R },
-  // A barrow riding in something, still facing the way it faces. Only ever found in a cart
-  // cell.
+  // A barrow riding in something, still facing the way it faces. Only ever found in a cart cell.
   '^': { o: BAR_U }, 'v': { o: BAR_D }, '<': { o: BAR_L }, '>': { o: BAR_R },
   'E': { exit: true },
   // Furniture glyphs name a PIECE, not a kind of thing: a 4-connected blob of one letter is
@@ -61,17 +60,18 @@ const READ = {
   '+': { exit: true, rac: true },     // raccoon standing on the exit (XSB's player-on-goal)
   // No glyph for water or for an occupied exit — see FORMATS.md for why each is absent.
 };
+export const occupantOf = ch => READ[ch]?.o;
 
-// The `:water` mask alphabet. One character per terrain, and the floor aliases read as dry so a
-// mask can be written with `-` or `.` like any other block. The directive keeps its old name;
-// what it carries is every terrain lane.
+// The `:water` mask has one character per terrain. The floor aliases read as dry, so a mask can
+// be written with `-` or `.` like any other block. The directive is named `:water` in the level
+// files, and what it carries is every terrain lane.
 export const WET = '~';   // open canal
 const FILLED = '=';     // a canal cell somebody filled in: floor, and drawn as the plank it is
 
 // Terrain reaches a cell one of two ways, and which one decides whether `stateKey` carries it.
 // MUTABLE lanes ride in `ter`, one exclusive value, because a move can change them. STATIC lanes
-// are their own flags and stay out of the key: they cannot
-// differ between two states of one room.
+// are their own flags and stay out of the key, because they cannot differ between two states of
+// one room.
 const TER_GLYPHS = {
   '%': { ter: GREASE }, 'T': { ter: TAR }, '*': { ter: GLASS }, '_': { ter: COVERED },
   'O': { grate: true },
@@ -111,8 +111,8 @@ export const MULTI_POOLS = [
 // same reason water is: a cart cell holds cargo, and one character cannot say "empty cart
 // cell", "cart holding a can" and "cart Q holding trash" at once. Same blob rule, own pool.
 export const SKATE_POOL = [...'PQR'];
-// A barrow's axis is in the glyph because nothing else carries it.
 
+// A barrow's facing is in the glyph because nothing else carries it.
 const CART_KINDS_IN_MASK = [
   { glyphs: [...'PQR'], ck: SKATE, size: 2, word: 'two', what: 'skateboard' },
   // A barrow faces the way its tub points, and the mask says so outright: the direction it
@@ -182,17 +182,6 @@ function pieceLetters(s) {
       throw new Error(`more than ${spec.pool.length} ${spec.what} pieces: the glyph pool is ${spec.pool.join('')}`);
     letters.set(c.pid, spec.pool[n]);
     used.set(spec.o, n + 1);
-  }
-  return letters;
-}
-
-function poolLetters(s, field, pool, what) {
-  const letters = new Map();
-  for (const row of s.cells) for (const c of row) {
-    if (c[field] === undefined || letters.has(c[field])) continue;
-    if (letters.size >= pool.length)
-      throw new Error(`more than ${pool.length} ${what}: the glyph pool is ${pool.join('')}`);
-    letters.set(c[field], pool[letters.size]);
   }
   return letters;
 }
@@ -415,7 +404,8 @@ export function toState(level) {
       }
       marks.push(row);
     }
-    // One counter across the kinds, and a size rule per kind: the kinds cannot share a single check.
+    // One id counter runs across all the kinds. Each kind has its own size check, because the
+    // kinds differ in size.
     let nextCid = 0;
     for (const k of CART_KINDS_IN_MASK)
       nextCid = labelBlobs(cells,
@@ -469,9 +459,7 @@ export function toState(level) {
       cells[y][x].hold = codes;
     }
   }
-  // Here rather than at each caller: the game, the
-  // solver and every tool build their start board through this function, and a board that reached
-  // one of them unsettled would be a different room from the one the others were reading.
+  // Settled here rather than at each caller, so the game, the solver and every tool start from the same board.
   return settleAtRest({ cols, rows, cells, rac });
 }
 

@@ -4,8 +4,8 @@
 //   node tools/survey.mjs [--samples N] [--workers N] [--out FILE] [--groups N]
 //
 // This game has a roster, and the roster is the game. This samples random placements of every
-// legal group of four and reports how often each group yields a solvable room and how often it
-// yields an interesting one.
+// legal group of `SIZE` pieces and reports how often each group yields a solvable room and how
+// often it yields an interesting one.
 //
 // The output is a MAP, not levels: one JSONL row per group. Harvesting rooms from the fertile
 // groups is a separate, deeper pass.
@@ -15,18 +15,19 @@ import { fileURLToPath } from 'node:url';
 import { isMainThread, workerData } from 'node:worker_threads';
 import { defaultWorkers, run, serve } from './pool.mjs';
 import { engineFor, connect, measureMany, measureHere, TOO_BIG } from './engine.mjs';
-import { toState } from '../src/format.js';
-import { bagsLeft } from '../src/rules.js';
+import { toState, occupantOf } from '../src/format.js';
+import { bagsLeft, BAGS_IN } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
+import { MAX_STATES } from './metrics.mjs';
 
 // ---------------------------------------------------------------- the alphabet
-const POINTS = ['$', 'C', 'c', 'x', 'S', 'W', 'w', 'B', 'j'];
+const POINTS = ['$', 'C', 'c', 'x', 'W', 'w', 'B', 'j'];
 const DOMINOES = ['F', 'P'];                       // couch (occupant grid), cart (its own mask)
 const ALPHABET = [...POINTS, ...DOMINOES];
 
-// Mirrors BAGS_IN in the rules.
-const BAGS = { $: 1, C: 1, W: 1, S: 2, B: 1 };
-const CARRIERS = new Set(Object.keys(BAGS));
+// Read from the rules, so the bag band cannot drift from what the rules count.
+export const BAGS = Object.fromEntries(POINTS.map(g => [g, BAGS_IN[occupantOf(g)] ?? 0]));
+const CARRIERS = new Set(POINTS.filter(g => BAGS[g] > 0));
 
 const POOL_CAP = { F: 6, P: 3 };
 
@@ -39,7 +40,7 @@ export function groups() {
   const walk = (start, acc) => {
     if (acc.length === SIZE) {
       if (!acc.some(g => CARRIERS.has(g))) return;
-      // The par runs away from the band we are aiming at.
+      // The bag count is the band this survey aims at.
       const bags = acc.reduce((n, g) => n + (BAGS[g] ?? 0), 0);
       if (bags < 2 || bags > 4) return;
       for (const [g, cap] of Object.entries(POOL_CAP))
@@ -141,14 +142,13 @@ export function staticallyDead(s) {
 }
 
 // ---------------------------------------------------------------- one group
-// It is a design bound as much as a memory one: `analyze` holds every state as a cloned board, so a fleet of workers each chasing a million-state graph exhausts the machine before it finds anything worth keeping.
-const MAX_STATES = 50_000;
 
-// Deliberately loose: this pass ranks GROUPS against each other, and a group that only ever yields par-6 rooms is a finding, not a failure.
+// Deliberately loose: this pass ranks GROUPS against each other, so a group that yields only short
+// rooms is a finding, not a failure.
 const isInteresting = d => d.par >= 12 && d.solves <= 2 && d.traps >= 1;
 
 /**
- * `engine` is the sanctioned port, or null to enumerate here. This is where the pipeline's hours are, so it is the first thing the port was pointed at.
+ * `engine` is the sanctioned port, or null to enumerate here.
  */
 async function surveyGroup(group, samples, seed, engine = null) {
   const rnd = mulberry32(seed);
@@ -160,9 +160,8 @@ async function surveyGroup(group, samples, seed, engine = null) {
 
   // DRAWN FIRST, JUDGED AFTER. Every placement comes off the seeded stream and nothing about a
   // draw depends on how the last one scored, so the whole batch can be drawn and then asked at
-  // once — which is what lets the engine be handed two hundred boards instead of two hundred
-  // round trips. The counters are totals and `pars` is filled in draw order either way, so the
-  // row this writes is the row the one-at-a-time loop wrote.
+  // once. The engine then takes one batch rather than one round trip per board. The counters are
+  // totals, and `pars` is filled in draw order, so the row does not depend on who answered.
   const boards = [];
   for (let i = 0; i < samples; i++) {
     out.samples++;
