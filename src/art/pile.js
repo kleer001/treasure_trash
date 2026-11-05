@@ -5,7 +5,7 @@ import { mulberry32 } from '../rng.js';
 const SLOT_KEYS = { A: '1234', B: 'abcd', C: 'wxyz' };
 export const SHADOW = '#765c62';
 
-/** A palette-index grid (an array of equal-length strings, '.' empty). */
+/** A palette-index grid is an array of equal-length strings, '.' for empty. */
 function dihedral(grid, o) {
   let g = o & 4 ? grid.map(r => [...r].reverse().join('')) : grid;
   for (let k = 0; k < (o & 3); k++) g = [...g[0]].map((_, x) => g.map(r => r[x]).reverse().join(''));
@@ -25,7 +25,7 @@ function scale2x(g) {
   return out.map(r => r.join(''));
 }
 
-/** Indices stay indices, so palettes still swap. */
+/** The turned grid holds the input's palette indices, not colours, so palettes still swap. */
 function turn45(grid) {
   const big = scale2x(scale2x(scale2x(grid))), w = grid[0].length, h = grid.length;
   const side = Math.ceil((w + h) / Math.SQRT2) + 2, k = Math.SQRT1_2;
@@ -46,7 +46,7 @@ function turn45(grid) {
   return g.map(r => r.slice(x0, x1 + 1));
 }
 
-/** Sprites for every item in `D` (items.json). `diagonals` adds the 45° turns to each item's quarter turns and mirrors. */
+/** The trash set `T`: sprites for every item in `D` (items.json). `diagonals` adds the 45° turns to each item's quarter turns and mirrors. */
 export function createTrash(D, { accents = true, diagonals = true } = {}) {
   const ramp = name => name in D.ramps ? D.ramps[name]
     : accents ? D.accents[name].ramp : D.ramps[D.accents[name].gold];
@@ -64,7 +64,7 @@ export function createTrash(D, { accents = true, diagonals = true } = {}) {
     return m;
   }
 
-  /** Every distinct grid an item can lie as. */
+  /** Returns every distinct grid an item can lie as. `index` maps each grid's key to its place in the list. */
   function turnsOf(name) {
     if (turnCache.has(name)) return turnCache.get(name);
     const seen = new Map();
@@ -76,7 +76,7 @@ export function createTrash(D, { accents = true, diagonals = true } = {}) {
     return list;
   }
 
-  /** The turn an item lies in when mirrored if `m`, then turned `k` eighths clockwise. */
+  /** Returns the turn an item lies in, mirrored if `m`, then turned `k` eighths clockwise. */
   function pose(name, m, k) {
     k = ((k % 8) + 8) % 8;
     if (!diag(name)) k &= ~1;
@@ -108,15 +108,19 @@ export function createTrash(D, { accents = true, diagonals = true } = {}) {
            hero: bySize('hero'), mid: bySize('mid'), bit: bySize('bit') };
 }
 
-const REACH = { hero: 2, mid: 5, bit: 7 };          // px
+const REACH = { hero: 2, mid: 5, bit: 7 };          // The reach of each size of piece, in px.
 const MARGIN = 1;
-// So a pile reads as one heap, not as every colour in the catalog at once.
+// A pile reads as one heap, not as every colour in the catalog at once.
 const NEUTRAL = new Set(['paper', 'news', 'kraft', 'foam', 'cream', 'slate', 'brown', 'black', 'peach', 'plum']);
 const ACCENTS = 2;
 export const ORDER = { flat: 0, mid: 1, hero: 2, bit: 3 };  // draw order, bottom first
 const PICKS = new WeakMap();                         // per trash set: its accent hues, and the item pool for each pair of them
 
-/** The item picker for one pile: `choose(size, r, avoid)` draws a piece `{ name, alt, turn, size, layer }` of that size from `r` (default `rnd`). */
+/**
+ * Returns the item picker for trash set `T`, with its accent hues drawn from `rnd`. The picker
+ * `(size, r, avoid)` draws a piece `{ name, alt, turn, size, layer }` of that size from `r` (default
+ * `rnd`), and skips any name in the Set `avoid`.
+ */
 export function chooser(T, rnd) {
   const pickWith = r => list => list[Math.floor(r() * list.length)];
   const items = T.D.items;
@@ -147,9 +151,10 @@ export function sizes(n) {
   return [...Array(heroes).fill('hero'), ...Array(mids).fill('mid'), ...Array(n - heroes - mids).fill('bit')];
 }
 
-/** One pile: its centre `cx, cy` and its pieces `{ name, alt, turn, size, x, y }`, x and y the
- *  sprite's top-left in a cell of side `C`, listed bottom first. `spill` is how far past the
- *  cell's edge the pile may reach, as a fraction of the cell. */
+/** Returns one pile. Its centre is `cx, cy`.
+ *  Its pieces are `{ name, alt, turn, size, layer, x, y }`, listed bottom first.
+ *  `x` and `y` are the sprite's top-left in a cell of side `C`.
+ *  `spill` is how far past the cell's edge the pile may reach, as a fraction of the cell. */
 export function pileLayout(T, seed, { min = 9, max = 25, C = 24, spill = 0 } = {}) {
   const rnd = mulberry32(seed >>> 0);
   const choose = chooser(T, rnd);

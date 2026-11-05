@@ -1,4 +1,4 @@
-// The barrow, drawn by hand over orthographic renders of a model. Away from us facing u, at us facing d.
+// The barrow is drawn by hand over orthographic renders of a model. Facing `u` is away from us, and facing `d` is toward us.
 // Each view is a grid of palette characters, its bottom row on the ground.
 const PALETTE = {
   k: '#19152b', R: '#d6d3b0', T: '#453d51', t: '#262440', M: '#67819e', w: '#ca8b68', W: '#d9ac87', g: '#06050e', m: '#9aa2a9', n: '#67819e', o: '#262440', O: '#453d51', h: '#7dafb3',

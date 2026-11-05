@@ -1,5 +1,5 @@
 // A traced action reports what MOVED, not just what the board became.
-// These are coverage checks rather than a replay: an event vocabulary rich enough to
+// The tests in this file are coverage checks, not a replay: an event vocabulary rich enough to
 // reconstruct a board would be a second copy of the rules.
 
 import { test } from 'node:test';

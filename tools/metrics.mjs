@@ -78,8 +78,8 @@ function coupling(s) {
 }
 
 /**
- * Can every bag be opened first, or does some first choice lose the room outright? A bag is
- * identified by the cell the raccoon ends on.
+ * Finds whether every bag can be opened first, or whether some first choice loses the room
+ * outright. A bag is identified by the cell the raccoon ends on.
  *
  * Returns { first, safe } — how many distinct bags can be torn first at all, and how many
  * of those leave a winnable board. `safe < first` is the room asking "which one first?";
@@ -155,7 +155,7 @@ export function solveShape(start, actions) {
   let s = start, prev = null;
   let lines = 0, changes = 0, pushes = 0;
   const touched = new Set();
-  // A moving piece changes cell every shove, so counting cells would count one can four times.
+  // A moving piece changes cell every shove, so its cell cannot be its identity.
   const tokenAt = new Map();
   let nextTok = 0;
 
@@ -199,21 +199,8 @@ export function solveShape(start, actions) {
 }
 
 /**
- * Where the ways to lose sit RELATIVE TO OPTIMAL PLAY, read off a finished `analyze`.
- *
- * A raw trap count says nothing about whether a player will ever meet one.
- *
- * The states considered are every state on SOME shortest solve, not one canonical line — a
- * player solving optimally may take any of them.
- *
- *   onPath      fraction of the solve's depths at which optimal play can still lose the room
- *   firstOnPath the earliest such depth, or null if optimal play can never go wrong
- */
-/**
- * Every edge of the shortest-solve DAG that does work. What
- * both the dead-travel measure and the inert-piece test are actually asking about, so it is
- * defined once: two copies of this predicate would let `lead`/`tail` say a room does work at a
- * depth where `inertPieces` says nothing was touched.
+ * Yields every edge of the shortest-solve DAG that does work. Dead travel and inert pieces both ask
+ * this, so it is defined once: two copies could disagree about where the work is.
  */
 function* dagWork(a, onDag = shortestDag(a)) {
   for (const key of onDag) {
@@ -237,6 +224,17 @@ export function shortestDag(a) {
   return onDag;
 }
 
+/**
+ * Measures where the ways to lose sit RELATIVE TO OPTIMAL PLAY, read off a finished `analyze`.
+ *
+ * A raw trap count says nothing about whether a player will ever meet one.
+ *
+ * The states considered are every state on SOME shortest solve, not one canonical line — a
+ * player solving optimally may take any of them.
+ *
+ *   onPath      fraction of the solve's depths at which optimal play can still lose the room
+ *   firstOnPath the earliest such depth, or null if optimal play can never go wrong
+ */
 export function pathBite(a, onDag = shortestDag(a)) {
   const par = a.minMoves;
   if (par === null) return { onPath: 0, bitten: 0, firstOnPath: null };
@@ -253,26 +251,23 @@ export function pathBite(a, onDag = shortestDag(a)) {
 }
 
 /**
- * How much dead travel a room may have before it has to say so.
+ * Walk bounds, in actions, for the lead and tail of `deadTravel`.
  *
- * `verify.mjs` holds the pack to this and `chooseSets` will not pick a set that would fail it,
- * so the gate and the generator cannot disagree about what a well-sited room is.
+ * One bound, read by the pack gate and the set picker, so they judge a room by the same limit.
  */
 export const WALK_MAX = { lead: 4, tail: 4 };
 
 /**
- * The two stretches of the best line on which nothing happens.
+ * Measures the two stretches of the best line on which nothing happens.
  *
- *   lead  actions before the first one that touches a piece — the walk in
- *   tail  actions after the last one — the walk to the exit
+ *   lead  actions before the first one that touches a piece: the walk in.
+ *   tail  actions after the last one: the walk to the exit.
  *
  * Both are the best the player can do, taken over the whole shortest-solve DAG rather than one
  * canonical line, because a player solving optimally may take any of them.
  *
- * Dead travel is not difficulty and it is not measured by anything else here. Par counts it,
- * `walks` counts it wherever it falls, and `onPath` is a fraction of a par it inflates — so a
- * room can walk the player clear across itself after the last decision and read clean on
- * every other number.
+ * Dead travel is not difficulty. It is a separate measure, because a room can walk the player
+ * across itself and score the same on every other number.
  */
 export function deadTravel(a, onDag) {
   const par = a.minMoves;
@@ -287,8 +282,7 @@ export function deadTravel(a, onDag) {
 }
 
 // ---------------------------------------------------------------- inert pieces
-// Reachability is not the question. The two look alike from a sealed pocket: a piece can sit in
-// the open, on a route, and still do nothing.
+// Reachability is not the question. A piece can sit in the open, on a route, and still do nothing.
 
 /**
  * The pieces of a built board: one entry per furniture blob, per cart, and per other occupant,
@@ -327,8 +321,7 @@ function handledCells(a, onDag) {
     const [dx, dy] = DIRS[e.dir];
     add([n.state.rac.x + dx, n.state.rac.y + dy]);         // the cell shoved or torn into
     for (const st of watched(explain(n.state, e.dir, { trace: true })).steps ?? []) {
-      // Three lanes, and every entry in each of them names the whole span it is about, so
-      // neither can be missed by reading half of this.
+      // Each entry names the whole span of its piece, so every cell it names is added.
       for (const m of st.moved)
         { for (const c of m.cells) add(c); for (const c of spanRestsOn(m)) add(c); }
       for (const s of st.spawned) { for (const c of s.cells) add(c); if (s.from) add(s.from); }
@@ -381,20 +374,10 @@ export function inertPieces(room, a, { maxStates = MAX_STATES, onDag } = {}) {
 }
 
 // ---------------------------------------------------------------- the teaching gate
-// A teaching room holds its exit shut until its lesson is done. `inertPieces` above is a
-// weaker question and cannot stand in for this one: it asks whether a piece earns its cell.
+// The claim is declared per room and proved by covering the lesson and asking again.
+// `coverGate` builds the room with its lesson covered. `inertPieces` above asks another question.
 //
-// The claim is declared per room and proved by taking the lesson away. The operation that
-// removes each kind of lesson differs:
-//
-//   erase   the lesson is a piece. Its cells go back to bare floor.
-//   wall    the lesson is a lane the route has to CROSS. Its cells are taken away, because a
-//           crossing is proved by there being nothing left to cross to.
-//   dry     the lesson is what a lane DOES. Its cells stay and go back to bare floor.
-//   kind    the lesson is an action class. Every win is unreachable using the other classes.
-//
-// `none` is a claim too: this room has no gate. A room whose lesson IS the loss cannot hold its
-// exit shut until the player has lost.
+// `none` is a claim too: the room declares that it has no gate.
 
 const GATE_MODES = new Set(['erase', 'wall', 'dry', 'kind', 'none']);
 const GATE_KINDS = { push: PUSH, tear: TEAR, move: MOVE };
@@ -478,10 +461,10 @@ export function winnableWithoutKind(a, kind) {
 }
 
 // ---------------------------------------------------------------- room structure
-// Structural rejects, from the same paper, applied to the EMPTY room before anything is
-// placed on it. The open-floor rule is the load-bearing one: a room with a large clear
-// rectangle has "very bushy, but not very deep state spaces", so it costs a great deal to
-// enumerate and buys very little difficulty for the price.
+// Structural rejects, after the Sokoban deadlock literature cited in `solver.js`, applied to the
+// EMPTY room before anything is placed on it. The open-floor rule is the load-bearing one: a room
+// with a large clear rectangle has "very bushy, but not very deep state spaces", so it costs a
+// great deal to enumerate and buys very little difficulty for the price.
 
 /** The largest w*h all-floor axis-aligned rectangle, as {w,h}. */
 export function largestOpenBlock(isFloor, cols, rows) {
@@ -532,10 +515,7 @@ export function floorIsConnected(isFloor, cols, rows) {
 }
 
 /**
- * `floorIsConnected` over a built board, counting every cell that is not a wall — including
- * the ones a piece is standing on.
- *
- * Bare floor is not the question a finished room asks.
+ * True when every non-wall cell is connected, so a piece standing on floor cannot split the room.
  */
 export const isOneRoom = s =>
   floorIsConnected((x, y) => !s.cells[y][x].wall, s.cols, s.rows);
@@ -577,7 +557,7 @@ export function metrics(level) {
     traps: a.traps.length, exitRefusals: a.exitRefusals,
     bags, decisions, tears, walks, ...deadTravel(a),
     tightness: +(FAN_CELLS * bags / floor).toFixed(2),
-    // Low = the walk out was threaded.
+    // A low slack means the walk out was threaded.
     slack: freeCells(final),
     walkRatio: decisions ? +(walks / decisions).toFixed(2) : null,
     coupling: (v => v === null ? null : +v.toFixed(2))(coupling(start)),

@@ -1,5 +1,5 @@
-// The magnet: a red toy U with silver poles. The light is from the upper left in every facing.
-//   k ink, r body, R body lit, d body shade, m pole, M pole lit, n pole shade
+// The magnet is a red toy U with silver poles. The light is from the upper left in every facing.
+//   Palette: k ink, r body, R body lit, d body shade, m pole, M pole lit, n pole shade.
 const PALETTE = { k: '#19152b', r: '#c8453f', R: '#e77a5f', d: '#8a2a26', m: '#9aa2a9', M: '#d6d9dd', n: '#67819e' };
 const VIEWS = {
   u: [
@@ -97,5 +97,5 @@ const VIEWS = {
 };
 const sprite = rows => ({ w: rows[0].length, h: rows.length,
   px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]]))) });
-/** By the way its field points: { w, h, px: [x, y, colour] }. */
+/** The magnet, one sprite per view: `{ w, h, px: [x, y, colour] }`. */
 export const MAGNET = Object.fromEntries(Object.entries(VIEWS).map(([f, rows]) => [f, sprite(rows)]));

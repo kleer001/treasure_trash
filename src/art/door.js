@@ -1,4 +1,4 @@
-// The exit: a roller shutter under an EXIT sign.
+// The exit is a roller shutter under an EXIT sign.
 // Pixels are [x, y, colour] from the cell's top-left.
 export const RISE = 9;
 // The look of the door, in pixels, 60 Hz frames and pixels a second. `light` runs from the top

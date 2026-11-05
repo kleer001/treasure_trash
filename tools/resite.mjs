@@ -7,7 +7,8 @@
 // again.
 //
 // This searches the two cells the generator threw away, and keeps the best pair by
-// `deadTravel`. Walls cannot fix it — `shrink` may only take floor no solution touches.
+// `deadTravel`. Walls cannot fix a distant door, because `shrink` may only take floor no solution
+// touches.
 //
 // PER SET, like `shrink`: the three rooms share an outline, a raccoon and an exit, and that
 // sharing is the set. A pair has to be affordable to all three or to none.
@@ -152,7 +153,7 @@ export function resiteSet(set, floor = FLOOR) {
   let sweptExitAt = null, sweptRacAt = null;
 
   for (let round = 0; round < ROUNDS; round++) {
-    // Every candidate is a different graph and has to be built.
+    // Each exit candidate is a different graph and has to be built.
     if (!same([sweptExitAt, bestRac])) {
       sweptExitAt = bestRac;
       for (const s of spots) {
@@ -160,7 +161,8 @@ export function resiteSet(set, floor = FLOOR) {
         if (beats(c, best)) { best = c; bestExit = s; }
       }
     }
-    // One graph per room serves the whole sweep, and each candidate is a walk of it rather than a rebuild of it.
+    // One graph per room serves the whole sweep. Each raccoon candidate is a walk of it, not a
+    // rebuild.
     if (!same([sweptRacAt, bestExit])) {
       sweptRacAt = bestExit;
       const caches = grids.map(() => ({ graph: null }));
@@ -180,7 +182,8 @@ export function resiteSet(set, floor = FLOOR) {
   return {
     ...set, rooms,
     resited: !same([bestExit, exit]) || !same([bestRac, rac]),
-    // A diff against a state the file no longer holds, so it is for the run's report and is stripped before writing.
+    // walkWas is the walk before this ran. It is a diff against a state the file no longer holds,
+    // so it is for the run's report and is stripped before writing.
     walkWas: base.reduce((a, r) => a + r.lead + r.tail, 0),
   };
 }

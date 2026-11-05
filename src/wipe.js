@@ -79,7 +79,7 @@ export function brickPhase(r, f, t) {
   return { laid, gone };
 }
 
-/** The frame the first brick drops, counted from when he starts to leave. */
+/** Returns the frame the first brick drops, counted from when he starts to leave. */
 export const wallFrom = t => t.exit + t.empty;
 
 /**

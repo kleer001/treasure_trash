@@ -21,6 +21,8 @@ test('the key stays one character per cell, so the solver holds long keys cheapl
   assert.equal(grid.length, 5);
 });
 
+// Every lane is packed off 65, so the separator is unambiguous only while it sits below that
+// floor. The loop bound is 64, so a code added below it needs no edit to this test.
 test('no cell can emit the separator, at any occupant code or terrain', () => {
   const [sep] = stateKey(board([0])).slice(1);
   for (let o = 0; o <= 64; o++) for (let t = 0; t < TERRAINS; t++) for (const cart of [0, 1]) {

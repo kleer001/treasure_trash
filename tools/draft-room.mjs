@@ -65,7 +65,8 @@ export function draft(room) {
     }
   }
 
-  // A room still being drafted has not been sited yet, and rejecting it here would throw away the candidate instead of moving its exit.
+  // A room still being drafted has not been sited yet, and rejecting it here would throw away
+  // the candidate instead of moving its exit.
   Object.assign(out, { par: a.minMoves, solve: a.shortestLurd, solves: a.shortestCount,
                        traps: a.traps.length, bags, exitRefusals: a.exitRefusals,
                        ...deadTravel(a, onDag) });
@@ -91,7 +92,7 @@ const wallAt = (room, x, y) => ({
 });
 
 /**
- * Fill in the floor the solve never needed, so the room comes out shaped rather than
+ * Wall off the floor the solve never needs, so the room comes out shaped rather than
  * rectangular.
  *
  * `accept` sees the walled room's draft and the unwalled one's, and says whether the wall is
@@ -159,8 +160,8 @@ export function* rooms({ w, h, pieces = ['$'], exitAt = null, walled = false, pl
         if (cart.some(c => key(c) === key(ex) || key(c) === key(rac))) continue;
         const taken = new Set([key(ex), key(rac), ...cart.map(key)]);
         const spots = inside.filter(c => !taken.has(key(c)));
-        // Lazy: four pieces on a big board is millions of arrangements, and collecting them
-        // first costs the memory to hold every one and a spread wide enough to blow the stack.
+        // Lazy: a group on a big board has too many arrangements to collect first, and holding them
+        // all would cost the memory and a spread wide enough to blow the stack.
         function* place(rest, used) {
           if (!rest.length) { yield used; return; }
           for (const c of spots) {

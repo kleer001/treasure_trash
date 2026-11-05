@@ -57,11 +57,7 @@ function askedOver(rooms, { cap = 200 } = {}) {
   return asked;
 }
 
-/**
- * Every question worth asking, which is NOT the whole cartesian product. The plausible set per
- * site is the occupants that site is ever asked about at all — and the gap is one of those on a
- * lane it was never put to.
- */
+/** Returns, per site, the occupant names it was ever asked about, and no others. */
 const metAt = asked => {
   const seen = new Map();                       // site -> occupant names ever asked there
   for (const k of asked.keys()) {
@@ -123,9 +119,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log(`\n${takers.length} of the ${missing.length} unasked are on a lane that TAKES `
     + '— those are the ones where a gap can hide a wrong answer rather than a repeated one.');
 
-  // The list above is only as wide as what the corpus staged: it asks which LANES a site was
-  // never put to about a thing, and cannot ask about a thing the site never met. So the coarser
-  // cut as well — which occupants reach a site at all.
+  // The list above is only as wide as what the corpus staged, and it cannot name a thing a site
+  // never met. The coarser cut asks which occupants reach a site at all.
   const met = metAt(asked);
   const everyName = [...codeName.values()];
   console.log('\nNEVER REACHED AT ALL — the site has never decided the landing of these:\n');

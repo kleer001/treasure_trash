@@ -1,4 +1,4 @@
-// The bicycle. Across the screen it is a side profile; up the screen it is a Blender render cleaned by hand, seen from above.
+// `bicycle()` returns `side`, a side profile across the screen, and `up`, a Blender render cleaned by hand, seen from above.
 //   k ink, a tyre, f frame, F frame lit, m metal, M metal lit, s saddle and grips, p spoke
 const BASE = { k: '#06050e', a: '#262440', m: '#9aa2a9', M: '#d6d3b0', s: '#34192b', p: '#67819e' };
 export const FRAMES = {

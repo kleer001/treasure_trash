@@ -1,4 +1,4 @@
-// The wheelbarrow.
+// Tests for the wheelbarrow.
 // In the `:cart` mask a barrow is written as the direction it faces.
 
 import { test } from 'node:test';

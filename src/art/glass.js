@@ -1,5 +1,5 @@
-// Broken glass on the floor, seen from above.
-// The field is in floor pixels and each cell draws only its own.
+// This file draws broken glass on the floor, seen from above.
+// Pixels here are floor pixels. Each cell draws only the pixels inside its own bounds.
 import { mulberry32 } from '../rng.js';
 import { C } from './flight.js';
 

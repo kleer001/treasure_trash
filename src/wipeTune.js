@@ -17,8 +17,10 @@ const CHOICES = {
 };
 const LABEL = { room: 'by room', same: 'the same way', back: 'back the way it came', ...ARROW };
 
-/** The live settings. */
-/** `key`: where the settings are kept. `leaves`: the ways he can leave, where the screen has fewer. */
+/**
+ * Builds the tuning panel in `el`. `key`: where the settings are kept. `leaves`: the ways he can leave,
+ * where the screen has fewer.
+ */
 export function createWipeTune(el, defaults, { replay, snap, send, key = WIPE_KEY, leaves = LEAVES }) {
   const C = { ...CHOICES, leave: leaves };
 
@@ -29,7 +31,7 @@ export function createWipeTune(el, defaults, { replay, snap, send, key = WIPE_KE
       if (!(k in saved)) continue;
       if (C[k] ? C[k].includes(saved[k]) : Number.isInteger(saved[k]) && saved[k] > 0) set[k] = saved[k];
     }
-  } catch { /* a private window */ }
+  } catch { /* a private window: the defaults stand */ }
   const order = () => { for (const [lo, hi] of PAIRS) set[hi] = Math.max(set[hi], set[lo]); };
   order();
   const save = () => { try { localStorage.setItem(key, JSON.stringify(set)); } catch { /* as above */ } };

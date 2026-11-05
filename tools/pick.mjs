@@ -4,7 +4,7 @@
 //   node tools/pick.mjs [--in F] [--want N] [--par LO-HI] [--shortlist N] [--workers N]
 //                       [--first ID] [--pack NAME] [--out DIR]
 //
-// Three jobs the ranking alone cannot do.
+// The ranking alone cannot do these jobs.
 //
 // TIGHTEN FIRST. `tighten` walls off the floor a room's solution never needed. Since it moves
 // `traps`, `solves` and the graph — all scored terms — a score taken before it is a score of a
@@ -80,7 +80,7 @@ export function choose(scored, { want, lo, hi, bands = 5, maxPieceShare = 0.5, p
 
   // Every constraint here is HARD, and a short act is the honest outcome of failing one.
   // Topping up by dropping the piece cap would hand back exactly the act the cap exists to
-  // prevent — one piece, twenty rooms — and it would do it silently, at the moment the
+  // prevent — one piece in many rooms — and it would do it silently, at the moment the
   // candidates were thinnest. Widen the harvest, or raise the cap on purpose.
   const short = byBand
     .map((n, i) => (n < quota[i] ? { band: [edges[i], edges[i + 1]], got: n, want: quota[i] } : null))
@@ -116,8 +116,7 @@ export function chooseSets(sets, { want = 10, maxPieceShare = 0.5, maxPerRamp = 
     // takes back whatever par was padding. Where the top rung lands after that is where the
     // set actually lands.
     if (s.rooms[s.rooms.length - 1].par < SET_TOP_MIN) continue;
-    // `resite` moves the pair to the best cells the outline has. Those sets are not chosen,
-    // rather than chosen and then found by the verifier — a set the pack cannot accept is not a candidate.
+    // A set the pack cannot accept is not a candidate, so the walk bound is checked here.
     if (s.rooms.some(r => r.lead > WALK_MAX.lead || r.tail > WALK_MAX.tail)) continue;
     // And re-siting and walling both change what a piece is doing, so a set that left the
     // search with every piece working can arrive here with one standing idle.

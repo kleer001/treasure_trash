@@ -27,9 +27,9 @@ watchAccounts(true);
 
 // Neither end of a solve is free. The walk IN is the room withholding its first decision; the
 // walk OUT is worse, because it comes after the last one — the puzzle is over and the player is
-// still holding the controller. Both are invisible to every other check, and a room can pass
-// everything above and still open with a march down a corridor and close with a march to a door
-// in the far corner.
+// still holding the controller. Par counts both walks, and `WALK_MAX` bounds them. A room can pass
+// everything above and still open with a march down a corridor and close with a march to a door in
+// the far corner.
 
 // Every act, unless a pair is named on the command line.
 const PACKS = process.argv[2]
@@ -81,8 +81,8 @@ for (const { levelPath, solPath } of PACKS) {
     check('exit starts empty', exitCell.o === 0);
     check('raccoon does not start on the exit', !start.cells[start.rac.y][start.rac.x].exit);
     check('every open cell is in one region', isOneRoom(start));
-    // Asked before the round-trip because it fails the same comparison for a different reason,
-    // and the round-trip's name would hide it.
+    // This check runs before the round-trip. It fails the same comparison for a different reason,
+    // and the round-trip's name would hide that.
     if (start.cells.flat().some(c => isMagnet(c.o)))
       check('the board is authored at rest',
         toGrid(start).join('\n') === level.grid.join('\n'),
@@ -119,7 +119,7 @@ for (const { levelPath, solPath } of PACKS) {
         `found ${a.shortestCount}`);
     else console.log(`    · ${a.shortestCount} distinct shortest solve(s)`);
 
-    // Checked over the whole graph rather than the solve path, so it tests the engine and not the
+    // This check runs over the whole graph, not the solve path, so it tests the engine and not the
     // level design.
     const occupied = [...a.states.values()].find(n =>
       n.state.cells.some(row => row.some(c => c.exit && c.o !== 0)));
@@ -148,7 +148,7 @@ for (const { levelPath, solPath } of PACKS) {
     walk('walk to the first piece', lead, level.lead, WALK_MAX.lead);
     walk('walk to the exit', tail, level.tail, WALK_MAX.tail);
 
-    // The inert check above is a weaker question and does not stand in for this one.
+    // The teaching gate asks more than the inert check above, which does not stand in for it.
     if (level.gate !== undefined) {
       const g = parseGate(level.gate, level.id);
       if (g.mode === 'none') console.log('    \u00b7 gate none — the room declares it has none');

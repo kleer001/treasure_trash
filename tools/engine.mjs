@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 // Treasure Trash — talking to the sanctioned Rust engine.
 //
-// The engine is `engine/`, it is OFFLINE ONLY, and what it is for is level discovery, which is
-// where the pipeline's time goes. See **One engine** in CLAUDE.md for what it owes before it may
-// be used at all — the short version is that `tools/conform.mjs` proves it agrees with
-// `src/rules.js` on every build, which is the only reason a caller here may trust an answer it
-// did not compute itself.
+// The engine is `engine/`. It is OFFLINE ONLY, and it is for level discovery, which is where the
+// pipeline's time goes. Callers may trust its answers because `tools/conform.mjs` checks the
+// engine against `src/rules.js`. CLAUDE.md, section **One engine**, sets the conditions for use.
 //
 // This is the client half. `conform.mjs` and the pipeline tools both speak to a child process
 // over the same protocol, so the plumbing lives here once rather than in each of them.
@@ -94,15 +92,14 @@ export function measureHere(s, maxStates) {
 }
 
 /**
- * Which engine a pipeline run should use: a path to spawn, or null to enumerate in process.
- * Decided once on the main side and passed down, so every worker uses the same one.
+ * Returns the engine a pipeline run should use: a path to spawn, or null to enumerate in process.
+ * It is decided once on the main side and passed down, so every worker uses the same one.
  *
- * Auto-detected rather than opt-in, because the whole point is that the hours come down and a
- * flag nobody remembers saves nobody anything. ANNOUNCED on every run, because "why did that
- * take so long" should be answerable by reading the log — a fallback nobody is told about
- * is the kind this codebase does not allow. `--no-engine` forces the JS path. A build that is
- * present but stale is the same hazard as any build artifact, and `conform.mjs` is how you
- * check it.
+ * It is auto-detected, not opt-in. A flag nobody remembers saves nobody anything, and the whole
+ * point is that the hours come down. It is ANNOUNCED on every run, because "why did that take so
+ * long" must be answerable from the log. A fallback nobody is told about is the kind this codebase
+ * does not allow. `--no-engine` forces the JS path. A build that is present but stale is the same
+ * hazard as any build artifact, and `conform.mjs` is how you check it.
  */
 export function engineFor(argv, log = console.log) {
   if (argv.includes('--no-engine')) {

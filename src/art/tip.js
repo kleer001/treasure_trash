@@ -1,7 +1,7 @@
-// A thing that stands on its cell, seen straight from the side.
+// `tip.js` draws things that stand on a cell and fall over. Upright, each is seen straight from the side.
 export const INK = '#19152b';
 
-/** A w×h drawing of the pixels `inMask` holds. */
+/** Returns a w×h drawing of the pixels `inMask` holds. */
 export function paint(w, h, inMask, colour) {
   const px = [];
   for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) if (inMask(c, r)) {
@@ -21,14 +21,14 @@ function placed(px) {
     px: px.map(([x, y, col]) => [x - ox, y - oy, col]) }, ox, oy };
 }
 
-/** The falls of a thing drawn upright as `front`. End on, fallen toward the viewer, it shows `toward`, and fallen away `away`. The result of `fall(dir, deg)` gives its pixels `px` and its `place(bx, by, d)`, in px from the upright thing's top-left. What it holds also shows where `opens(bx, by)` says its upright drawing looks into it. */
+/** Returns `{ rest, restAt, frame }` for a thing drawn upright as `front`. End on, fallen toward the viewer, it shows `toward`, and fallen away `away`. The result of `fall(dir, deg)` gives its pixels `px` and its `place(bx, by, d)`, in px from the upright thing's top-left. `opens(bx, by)` says which upright pixels show what it holds. */
 export function tipper(front, toward, away, fold, fall = null, opens = () => false) {
   const W = front.w, H = front.h, D = toward.h, FRONT = at(front), TOWARD = at(toward), AWAY = at(away);
   const quarter = cw => ({ w: H, h: W, px: front.px.map(([x, y, col]) => cw ? [H - 1 - y, x, col] : [y, W - 1 - x, col]) });
   const FRAMES = new Map();
   const RESTS = { r: quarter(true), l: quarter(false), d: fall ? frameOf('d', 90).s : toward, u: fall ? frameOf('u', 90).s : away };
 
-  /** The px of `faces`, `[face, rows, shown]` from the foot up, stacked up from `bottom`. */
+  /** Returns the px of `faces`, `[face, rows, shown]` from the foot up, stacked up from `bottom`. */
   function stacked(bottom, faces) {
     const px = [];
     for (let y = bottom - (H + D); y < bottom; y++) {
@@ -60,7 +60,7 @@ export function tipper(front, toward, away, fold, fall = null, opens = () => fal
       hides: (x, y) => { const [bx, by] = upright(x, y); return bx >= 0 && bx < W && by >= 0 && by < H; } };
   }
 
-  /** A fall toward the viewer ('d') or away ('u'), `deg` degrees over. */
+  /** Returns a fall toward the viewer ('d') or away ('u'), `deg` degrees over. */
   function folded(dir, deg) {
     const [cos, sin] = trig(deg), towardViewer = dir === 'd';
     const bottom = H + Math.round((towardViewer ? 1 : -1) * fold * (1 - cos));
@@ -90,12 +90,12 @@ export function tipper(front, toward, away, fold, fall = null, opens = () => fal
 
   return {
     rest: dir => RESTS[dir],
-    /** The top-left of the thing in cell (cx, cy). */
+    /** Returns the top-left of the thing in cell (cx, cy). */
     restAt(cx, cy, C, fell = null) {
       const s = fell ? RESTS[fell] : front;
       return [cx * C + Math.floor((C - s.w) / 2), cy * C + C - s.h - 1];
     },
-    /** The thing `deg` degrees into a fall toward `dir`: its drawing `s` at `ox, oy`; `place(bx, by, d)`, where a point of the upright thing `d` px back from its front has gone; `shows(x, y)`, whether what it holds shows at that pixel over its rim; and `hides(x, y)`, whether its body is in front of that pixel. All in px from the upright thing's top-left. */
+    /** Returns the thing `deg` degrees into a fall toward `dir`: its drawing `s` at `ox, oy`; `place(bx, by, d)`, where a point of the upright thing `d` px back from its front has gone; `shows(x, y)`, whether what it holds shows at that pixel over its rim; and `hides(x, y)`, whether its body is in front of that pixel. All in px from the upright thing's top-left. */
     frame: frameOf,
   };
 }

@@ -3,7 +3,7 @@
 //
 //   node tools/act2.mjs [--in F] [--sets N] [--first ID] [--out DIR] [--dry]
 //
-// `sets.mjs` finds three-room sets on H outlines; this chooses sets from them and writes the act.
+// `sets.mjs` finds the candidate sets. This file chooses sets from them and writes the act.
 // Ordering is by `onPath`, because trap COUNT does not say whether a player will ever meet one.
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -15,12 +15,8 @@ const num = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d :
 const inPath = str('--in', 'levels/sets.jsonl');
 const outDir = str('--out', 'levels');
 const want = num('--sets', 10);
-// The cap is a proxy for variety, and a measured one costs more than it buys. Piece share is
-// `:traps` all over again — a count standing in for an experience — and the act already varies
-// where a player can feel it.
-//
-// Kept as a loose backstop rather than removed, because nothing has tested what an unbounded
-// pool looks like.
+// The cap is a proxy for variety. It is kept as a loose backstop rather than removed, because
+// nothing has tested what an unbounded pool looks like.
 const maxPieceShare = num('--maxpiece', 0.9);
 const first = num('--first', 31);
 const dry = process.argv.includes('--dry');

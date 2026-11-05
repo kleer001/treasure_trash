@@ -1,11 +1,11 @@
-// The recycling box seen straight from the side.
+// The recycling box is drawn straight from the side.
 import { mulberry32 } from '../rng.js';
 import { chooser, sizes } from './pile.js';
 import { hash } from './spread.js';
 import { paint, tipper, INK } from './tip.js';
 
 export const BOX = { W: 22, H: 16, D: 14 };   // px: rim width, height, depth front to back
-const FOLD = 12;                              // px the box's foot moves
+const FOLD = 12;                              // The foot moves this many px when the box lies flat.
 const DEEP = '#2b2d55', DARK = '#244287', MID = '#3169b0', LIGHT = '#7dafb3', MARK = '#f1eccb';
 
 export const front = (() => {
@@ -28,9 +28,9 @@ const base = paint(BOX.W, BOX.D, square(BOX.W, BOX.D), (c, r) => {
 });
 export const { rest, restAt, frame } = tipper(front, mouth, base, FOLD);
 
-/** What a full box holds, from its own `seed`: a count between `min` and `max`, each piece's look
- *  from its own hash (or one set of accent hues for the box when `hues` is 'cell'), `bx, by`, where
- *  its centre sits in the upright box, and `d`, how far back from the front. */
+/** Returns what a full box holds, from its own `seed`. The count is between `min` and `max`.
+ *  Each piece gets its own look, from its own hash. With `hues` 'cell', the pieces share one set of accent hues.
+ *  `bx` and `by` place its centre in the upright box, in px. `d` is how far back from the front it sits, in px. */
 export function contents(T, seed, { min, max }, hues) {
   const { W, D } = BOX, HEAP = 5, rnd = mulberry32(hash(seed, 1)), n = min + Math.floor(rnd() * (max - min + 1));
   const shared = hues === 'cell' ? chooser(T, mulberry32(hash(seed, 7))) : null;

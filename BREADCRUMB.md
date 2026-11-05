@@ -76,7 +76,7 @@ sits in the working tree (`src/rules.js`, `tests/magnet.test.js`) awaiting the o
 
 ### The skateboard rule, and where it lives
 
-`skateRollsAlong(s, cid, dx, dy)` in `src/rules.js`.
+`skateRollsAlong(s, cid, dx)` in `src/rules.js`.
 
 The owner's three rulings are written up in `tmp/skateboard-catalogue.md`.
 

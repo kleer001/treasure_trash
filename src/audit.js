@@ -19,12 +19,11 @@ const same = (a, b) => {
   return a === b;
 };
 
-/** Every lane either cell carries — so a cell that gained one is compared on it. */
 /**
- * Where two boards differ, and in which lanes — the lanes matter, see `unnamedOver`.
+ * Returns each cell that differs between two boards, with the lanes that differ on it. The lanes
+ * matter: see `unnamedOver`.
  *
- * Written without allocating for a cell that has not changed, which is nearly all of them: this
- * runs over every board the forced meetings reach, and the higher orders are millions of them.
+ * Allocates only for a changed cell, since this runs over every board the forced meetings reach.
  */
 function changedCells(a, b) {
   const out = [];
@@ -57,16 +56,13 @@ export function unnamedCells(before, after, step) {
   return changedCells(before, after).filter(c => !named.has(c.at));
 }
 
-/**
- * A lane the account does not carry at all. A hold is written on the board and has no sprite and
- * no entry — a known omission rather than a step that forgot, and counted so it cannot quietly
- * become one.
- */
+/** Lanes the account does not carry. Naming one here counts it as a known omission, not a
+ *  forgotten step. */
 export const UNACCOUNTED = ['grip'];
 
 /**
- * The same question of a whole traced action. The raccoon needs no exemption: where he stands is
- * not a lane of the cell he stands on.
+ * `unnamedOver` asks the question of a whole traced action. The raccoon needs no exemption: where
+ * he stands is not a lane of the cell he stands on.
  */
 export function unnamedOver(r, { silent = UNACCOUNTED } = {}) {
   const bad = [], quiet = [];
@@ -83,8 +79,8 @@ export function unnamedOver(r, { silent = UNACCOUNTED } = {}) {
 // --- watching a whole pipeline ------------------------------------------------------------
 //
 // The offline discovery run already traces every board it walks and throws the account away.
-// Turning this on makes those boards answer the question above for free. It tallies rather than
-// throws: a run should come back with a count, not stop at the first fault.
+// `watchAccounts` makes those boards answer the question `unnamedOver` asks, without a second run.
+// It tallies rather than throws: a run should come back with a count, not stop at the first fault.
 
 let tally = null;
 

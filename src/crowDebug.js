@@ -72,7 +72,7 @@ export function createCrowDebug(el, { events, tuning, snap, send }) {
   const esc = s => String(s).replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[ch]);
   const bar = (frac, w, ticks = []) => `<span class="bar" style="width:${w}px"><span style="width:${Math.max(0, Math.min(1, frac)) * 100}%"></span>${ticks.map(x => `<i style="left:${x * 100}%"></i>`).join('')}</span>`;
 
-  /** A drop's reason, worked out the first frame it is drawn. */
+  /** Returns the detail text of log row `r`, worked out the first frame the row is drawn. */
   function detail(r, c) {
     if (r.type === 'drop' && r.why === 'gap') {
       const g = c.gaps.find(([k]) => k === r.key);

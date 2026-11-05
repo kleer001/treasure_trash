@@ -8,9 +8,8 @@ import { OCCUPANTS, restsOn } from './rules.js';
 import { census } from './stage.js';
 import { CART_LANE, laneDepth } from './handles.js';
 
-// An occupant reads back under the name rules.js gives it, so a line here and a branch there
-// call the same thing the same thing. Derived rather than listed: a code added to the engine
-// is named here without anyone remembering to come back for it.
+// Occupant names come from rules.js, so a log line names a piece as the engine does. Derived
+// rather than listed: a code added to the engine is named here without a second edit.
 const NAME = Object.fromEntries(Object.entries(OCCUPANTS)
   .filter(([, v]) => typeof v === 'number').map(([k, v]) => [v, k]));
 const named = o => NAME[o] ?? `?${o}`;
@@ -26,7 +25,6 @@ const rests = m =>
 const span = e => `${e.o === null ? '' : named(e.o)}${e.ref === null ? '' : `#${e.ref}`} ${e.handle}`
   + (e.cells.length > 1 ? ` ${e.cells.map(at).join(' ')}` : '');
 
-/** One traced step, as lines. */
 const linesOf = step => {
   const out = [];
   if (step.impact) out.push('impact');
@@ -41,7 +39,7 @@ const linesOf = step => {
 };
 
 /**
- * `el` is the scrolling log. `cap` bounds the DOM: a session is thousands of moves and the
+ * `el` is the scrolling log. `cap` bounds the DOM: a session can run to very many moves, and the
  * interesting one is the last one.
  */
 export function createDebugLog(el, cap = 240) {
@@ -57,13 +55,13 @@ export function createDebugLog(el, cap = 240) {
     el.scrollTop = el.scrollHeight;
   };
   return {
-    /** A move that landed. */
+    /** Logs a move that landed: `r` is the explain result, with `kind`, `next` and `steps`. */
     action(n, dir, from, r) {
       add(`${n} ${dir} ${r.kind}`,
         [`rac ${at([from.x, from.y])}->${at([r.next.rac.x, r.next.rac.y])}`,
           ...r.steps.flatMap(linesOf)]);
     },
-    /** A move that did not. */
+    /** Logs a move that did not land: `r` is the explain result, with `reason` and `blame`. */
     refused(dir, r) {
       add(`- ${dir} refused: ${r.reason}`, r.blame.map(b => `blame ${at(b)}`), 'no');
     },
@@ -109,7 +107,8 @@ export function createProbe(read) {
     };
   };
 
-  // A beat is checked where the player would see it and not mid-slide. Bounded: a stuck animation is a result, not a hang.
+  // Waits until the game is at rest, so a beat is checked where the player sees it, not mid-slide.
+  // The wait is bounded: a stuck animation is a result, not a hang.
   const settled = (limit = 600) => new Promise(done => {
     let n = 0;
     const spin = () => (read.idle() || ++n > limit) ? done(n <= limit) : requestAnimationFrame(spin);
@@ -121,15 +120,14 @@ export function createProbe(read) {
     grid: () => read.grid(),
     /** Which way things face, by handle: `[handle, { heading, lie }]` pairs. */
     decor: () => [...(read.decor() ?? [])],
-    /** A person debugging by hand gets sound back with this. */
+    /** `walk` mutes the game. A person debugging by hand calls `mute(false)` to hear it. */
     mute: v => read.mute(v),
     /**
-     * Returns one
-     * record per key, and stops at the first beat that disagrees or throws — after that the stage
-     * and the board have already parted company and every later record says the same thing twice.
+     * One record per key. The walk stops at the first beat that disagrees, errors or does not
+     * settle, because each later beat starts from the state that beat left.
      */
     async walk(keys) {
-      read.mute(true);                 // a sweep is thousands of beats; every refusal in them buzzes
+      read.mute(true);                 // a sweep is many beats; every refusal in them buzzes
       const out = [];
       for (const k of keys) {
         const key = KEYNAME[k];
@@ -187,7 +185,10 @@ export function createProbe(read) {
     run: () => read.run(),
     idle: () => read.idle(),
 
-    /** False when the pack has no such id. */
+    /**
+     * Steps the picker round to room `id` and starts it clean. Returns false when the pack has no
+     * such id.
+     */
     goto(id) {
       for (let i = 0; i < LEVEL_SEARCH && read.level() !== id; i++) press('>');
       if (read.level() !== id) return false;
@@ -197,12 +198,12 @@ export function createProbe(read) {
   };
 }
 
-// A full turn round it is the most any search of it can need.
+// Bounds `goto`. It must be at least the room count of a pack, so one full turn reaches any id.
 const LEVEL_SEARCH = 400;
 const press = key => dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
 
-// The solve alphabet the level files are written in. A `.sol` says which shoves are shoves by
-// capitalising them, and the keyboard has no such distinction.
+// The solve alphabet the level files are written in. A `.sol` marks a push by capitalising its
+// direction, and the keyboard has no such distinction.
 const KEYNAME = {
   u: 'ArrowUp', d: 'ArrowDown', l: 'ArrowLeft', r: 'ArrowRight',
   U: 'ArrowUp', D: 'ArrowDown', L: 'ArrowLeft', R: 'ArrowRight',

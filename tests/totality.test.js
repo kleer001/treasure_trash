@@ -1,6 +1,6 @@
-// Every table that has to know about every piece, asked whether it does.
-// The reading is `tools/pieces.mjs`, which prints the same rows for a person. Asking over its
-// sheet rather than probing again is the point: a gate and a report that answer separately can
+// This file asks every table that has to know about every piece whether it does.
+// The reading is `tools/pieces.mjs`, which prints the same rows for a person. This file asks over
+// its `sheet()` and does not probe again. A gate and a report that answered separately could
 // disagree about what a piece owes, which is the one thing they exist to agree on.
 
 import { test } from 'node:test';

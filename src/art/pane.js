@@ -1,9 +1,9 @@
-// The pane of glass seen straight from the side, and the shards it leaves on the floor.
+// The pane of glass is drawn straight from the side, with the shards it leaves on the floor.
 import { paint, tipper } from './tip.js';
 import { hash } from './spread.js';
 
 export const PANE = { W: 18, H: 20 };
-const FOLD = 20;                              // px the pane's foot moves
+const FOLD = 20;                              // The foot moves this many px when the pane lies flat.
 const FRAME = '#67819e', TINT = '#7dafb3', GLINT = '#f1eccb', PALE = '#d6d3b0';
 
 const face = (w, h) => {

@@ -53,9 +53,9 @@ const SECOND = { F: 'G', Y: 'Z', U: 'V', J: 'Q', D: 'T' };
 const BODY_AXIS = { J: 'h', D: 'v' };
 
 /**
- * The wheeled pieces. These do not live in the grid at all — a cart cell holds its CARGO in the
- * grid, so which cells are cart cells is only ever said by the `:cart` mask, and a matrix built
- * out of grid glyphs alone could not put one on the board.
+ * The wheeled pieces. A cart is not a grid glyph. A cart cell holds its CARGO in the grid, so only
+ * the `:cart` mask says which cells are carts. A matrix built from grid glyphs alone could not put
+ * one on the board.
  *
  * `cargo` is what is riding in it, written in the grid cell underneath; `hold` is what THAT is
  * holding, which no grid cell can say.
@@ -80,10 +80,14 @@ export const LANES = {
 
 // ---------------------------------------------------------------- the handle invariant
 //
-// The census below compares a sorted SET of sprite shapes, so two things that draw alike and are
-// told apart wrongly leave it untouched — and the account and the stage now name a participant
-// the same way, which is what a swap would have to defeat. These three questions are put to the
-// account against the BOARDS instead, so they hold however the stage reaches its answer.
+// The census below compares a sorted SET of sprite shapes. Two things that draw alike and are
+// told apart wrongly leave that set unchanged. The account and the stage name a participant the
+// same way, which is what a swap would have to defeat. These three questions are put to the
+// account against the boards, so they hold however the stage reaches its answer:
+//
+//   TOTAL       every sprite answers to a handle the board holds.
+//   INJECTIVE   no two sprites answer to the same handle.
+//   CONTINUOUS  every entry a traced step lists names a thing the board holds either side of it.
 
 /** TOTAL and INJECTIVE, of a settled stage against the board it should be holding. */
 export function unresolvedSprites(stage, state, roll = handlesOf(state)) {
@@ -135,9 +139,9 @@ export function handleFaults(r) {
     // the first word: a handle it holds is a thing that was already there, and pairing a spawn
     // onto that handle cannot excuse the removal from saying what it took.
     const arrivals = new Map(step.spawned.map(sp => [sp.handle, sp]));
-    // One handle can hold two participants across a step, and both of them can be taken. The address
-    // cannot tell those apart, so what it is about is settled by WHAT it says it took: a removal
-    // naming the code that arrived is about the arrival, and any other is about the board.
+    // One handle can hold two participants across a step, and both of them can be taken. The
+    // address cannot tell those apart, so what it is about is settled by WHAT it says it took: a
+    // removal naming the code that arrived is about the arrival, and any other is about the board.
     const fromTheBoard = g => arrivals.get(g.handle)?.o !== g.o;
     const asArrived = g => {
       const { o } = arrivals.get(g.handle);
@@ -181,7 +185,8 @@ export function handleFaults(r) {
 // ---------------------------------------------------------------- the invariant
 
 /**
- * Returns null when the action is refused.
+ * Lands one action on a stage the way the game lands it, and says whether the sprites agree with
+ * the board it produced. Returns null when the action is refused.
  */
 export function landsWhereTheBoardSays(s, dir, bend = null) {
   const traced = explain(s, dir, { trace: true });
@@ -242,8 +247,8 @@ export function meeting(room, at, dir = 'r') {
   const same = (p, q) => JSON.stringify(p) === JSON.stringify(q);
   const blamed = !a.ok && (a.blame ?? []).some(([x, y]) => holes.includes(`${x},${y}`));
   const changed = a.ok && at.some(([x, y]) => !same(cell(s, x, y), cell(a.next, x, y)));
-  // Or it was CROSSED: a cell that is empty before and empty after shows nothing of the thing
-  // that went through it.
+  // A moved thing may have passed over a cell under test. If that cell is empty before and after,
+  // `changed` cannot see the pass.
   const crossed = a.ok && crossesTest(s, dir, holes);
   // What the lane's own terrain DID, as a change rather than a value. The value is masked out
   // of the whole-board comparison below — a lane is different from bare floor by definition, and
@@ -258,9 +263,9 @@ export function meeting(room, at, dir = 'r') {
   const usedUp = a.ok && at.some(([x, y]) =>
     !same(terrainOf(cell(s, x, y)), terrainOf(cell(a.next, x, y))));
 
-  // Mattered elsewhere is asked the way `inertPieces` asks whether a piece earns its cell. The
-  // cells it occupied are ignored, since those necessarily differ once it is gone — which is why
-  // it cannot be the only question.
+  // The `mattered` question is asked the way `inertPieces` asks whether a piece earns its cell.
+  // It ignores the cells the thing occupied, since those necessarily differ once it is gone. The
+  // questions above cover those cells.
   const bare = {
     ...room,
     grid: room.grid.map((row, y) =>
@@ -323,8 +328,7 @@ function crossesTest(s, dir, holes) {
 }
 
 /**
- * The forced meetings above are one shove each from a board built to stage a pairing; this is
- * what boards a room actually walks through do with the same questions.
+ * Asks the same questions as the forced meetings above, of every board a room walks through.
  */
 export function sweepRooms(rooms, { cap = 200 } = {}) {
   const bad = [];
@@ -437,10 +441,9 @@ export function corridor({ left, right = null, lane = '-', beyond = '-', under =
     if (!theirs) return null;
     at = theirs;
   }
+  // The lane the MET thing lands on is a different question from the lane the shove crosses.
   if (lane !== '-') water[ROW][front] = lane;
-  // The lane the thing being MET lands on, which is a different question from the lane the
-  // shove crosses.
-  // The ground the thing under test is itself standing on, which every pairing leaves dry.
+  // The ground the thing under test stands on. Only the fifth depth sets it.
   if (under !== '-') water[ROW][AT] = under;
   const past = Math.max(...at.map(([x]) => x)) + 1;
   if (beyond !== '-') {

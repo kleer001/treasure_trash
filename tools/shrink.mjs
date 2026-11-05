@@ -33,7 +33,6 @@ function read(grid, cart) {
   if (a.minMoves === null) return null;
   if (a.silentTraps.length) return null;
   if (bagsLeft(s) > 0 && a.exitRefusals === 0) return null;
-  // `inert` computed on demand: it costs about as much as the `analyze` above, and `holds` rejects most candidates before it looks.
   const onDag = shortestDag(a);
   return { room: { grid, ...(cart && { cart }) }, a, onDag,
            par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,
@@ -80,7 +79,7 @@ export function shrinkSet(set) {
     if (now.par !== base[i].par) return false;
     if (now.solves > base[i].solves) return false;
     if (now.traps < 1) return false;
-    // `resite` chose the pair; this may not undo it.
+    // `resite` chose the pair. A wall must not lengthen the lead or tail that `resite` left.
     if (now.lead > base[i].lead || now.tail > base[i].tail) return false;
     if (inertCount(now) > baseInert[i]) return false;
     return now.onPath >= base[i].onPath - 1e-9;

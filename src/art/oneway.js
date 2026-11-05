@@ -1,5 +1,5 @@
-// The one-way: a double chevron painted on the floor, seen from above.
-// Drawn pointing right; the other three facings are it turned.
+// The one-way is a double chevron painted on the floor, seen from above.
+// It is drawn pointing right, and the other three facings turn it.
 //   p paint, s worn paint
 const PALETTE = { p: '#e3c35a', s: '#b8913a' };
 const ROWS = [

@@ -5,11 +5,9 @@
  *
  *   node tools/crowjudge.mjs [--acts act1.tt,act2.tt] [--out tmp/crowjudge]
  *
- * Three players, two sittings each, every sitting from a fresh save:
+ * Each sitting starts from a fresh save. The players:
  *   steady     solves at par after a pause to think; in some rooms, one refused press. Talk: verbose.
- *   struggler  takes one planned detour in each room, the list in rotation: the same refusal three
- *              times, a lost board walked on and undone, an early or a deep restart, a run of undos
- *              redone, a short or a long pause, a room left unsolved and come back to. Talk: chatty.
+ *   struggler  takes one planned detour in each room, in rotation through `DETOURS`. Talk: chatty.
  *   impatient  fast moves, and skips every line. Talk: chatty, and quieter as the skips add up.
  *
  * Writes, under --out:

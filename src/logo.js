@@ -1,7 +1,7 @@
 // Trace ROM Studio wordmark, rendered procedurally to Canvas.
-// Flat lines read as one lit, curved surface.
+// The horizontal scanlines taper, so flat lines read as one lit, curved surface.
 
-/** Tuning for the mark. Scales via options. */
+/** Defaults for the mark. `drawLogo` options override them. */
 export const LOGO_DEFAULTS = {
   width: 900,
   height: 560,
@@ -12,13 +12,13 @@ export const LOGO_DEFAULTS = {
   fontSize: 130,
   rows: ['TRACE', 'ROM', 'STUDIO'],
   targetWidth: 600,
-  rowGap: 100, // center-to-center row spacing
+  rowGap: 100, // px from one row's center to the next
   pitch: 11, // scanline center-to-center spacing
   thicknessMax: 9.0,
   thicknessMin: 1.4,
 };
 
-/** Returns [0,1]. */
+/** Returns the taper at row `y` of a field `height` px tall, in [0,1]. */
 function taperAt(y, height) {
   const d = (y - height / 2) / (height / 2); // -1..1
   const c = Math.cos((d * Math.PI) / 2);
@@ -81,7 +81,7 @@ export function drawLogo(ctx, options = {}) {
   }
 }
 
-// Skipped under `node --test`.
+// Skipped under `node --test`, which has no document.
 if (typeof document !== 'undefined') {
   const canvas = document.getElementById('logo');
   if (canvas) {

@@ -1,4 +1,4 @@
-// The filing cabinet, side elevation, cleaned by hand from the Blender model's views. l is r mirrored.
+// The filing cabinet is cleaned by hand from the Blender model's views. The left-facing view is the right-facing one mirrored.
 // `ax` is the column of the body's centre.
 //   k ink, B top, b top's near edge, S carcase, F drawer front, f its lit top, g gap,
 //   i inside of the drawer, E drawer rim, Q rail lit, q rail, P pull lit, p pull

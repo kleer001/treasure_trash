@@ -79,9 +79,7 @@ const TIERS = [
 /** Every name and family the rank list places, for a test to hold against the lines. */
 export const RANK_ENTRIES = TIERS.flatMap(t => t.keys);
 
-// How long a line that has to wait stays worth saying. A win has been recorded
-// by the time anyone can undo it, so what is said about it outlives an undo. An act's first room
-// is often left before the line about the act can start, and the line is about the act, not the room.
+// How long a line that has to wait stays worth saying.
 const MOMENT = { timed: true, arrive: true, rewind: true };
 const LASTS = [
   ['story.', { timed: false, arrive: false, rewind: false }],
@@ -99,8 +97,8 @@ const variantOf = (key, events) => {
 };
 
 /**
- * Rank, tier and lifetime for every event, built once from `events`. An entry that places nothing
- * is a test's to catch, so a small table can stand in for the lines.
+ * Rank, tier and lifetime for every event, built once from `events`. An entry that matches no event
+ * is not an error here. A test holds `RANK_ENTRIES` against the events.
  */
 export function rankTable(events) {
   const keys = Object.keys(events).filter(k => !events[k].stretch && !variantOf(k, events));
@@ -130,7 +128,7 @@ export function createCrowMemory(store) {
     const raw = store.getItem(CROW_KEY);
     const parsed = raw ? JSON.parse(raw) : {};
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) data = parsed;
-  } catch { /* unreadable */ }
+  } catch { /* unreadable: the crow starts with no memory */ }
   for (const k of ['said', 'count', 'bags', 'rooms', 'left', 'flags'])
     if (!data[k] || typeof data[k] !== 'object' || Array.isArray(data[k])) data[k] = {};
   for (const [k, bag] of Object.entries(data.bags)) if (!Array.isArray(bag)) delete data.bags[k];
@@ -191,7 +189,7 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
   // A variant is remembered by its first line, so the bag survives the file being reordered.
   const firstOf = v => [v].flat()[0];
 
-  // `pick` narrows it, for a monologue that has to wait.
+  // `pick(line)` says whether a variant may be drawn now. Returns the index of the variant drawn.
   function draw(bagKey, lines, pick) {
     const ok = lines.map((v, i) => i).filter(i => pick(lines[i]));
     const bag = mem.bags[bagKey] ?? [];
@@ -231,7 +229,7 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
       return;
     }
     wants.push(c);
-    // The timer may be set as far out as a waiting monologue's turn.
+    // The timer only moves earlier, so a newer line never delays a timer already set.
     dueAt = Math.min(dueAt ?? Infinity, t + T.preWaitMs);
   }
 

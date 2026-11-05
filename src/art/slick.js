@@ -1,5 +1,5 @@
-// A slick on the floor, grease or tar.
-// Each cell draws only its own pixels, but the field is in floor pixels, so the pieces meet without a seam.
+// A slick is grease or tar on the floor.
+// Each cell draws only its own pixels. The field is in floor pixels, so the pieces meet without a seam.
 import { mulberry32 } from '../rng.js';
 import { C } from './flight.js';
 
@@ -15,7 +15,7 @@ const hash = (a, b, c) => {
   h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12;
   return (h >>> 0) / 4294967296;
 };
-// Value noise, so the outline wobbles in lumps rather than in single pixels.
+// The noise is value noise, so the outline wobbles in lumps rather than in single pixels.
 const noise = (x, y, seed) => {
   const ix = Math.floor(x / 4), iy = Math.floor(y / 4), fx = x / 4 - ix, fy = y / 4 - iy;
   const n = (a, b) => hash(ix + a, iy + b, seed);
@@ -34,8 +34,8 @@ function lobes(cx, cy, has, look) {
   return out;
 }
 
-/** Whether floor pixel (x, y) is in the slick of cell (cx, cy), for pixels in that cell and the
- *  cells around it. `has(x, y)` says whether a cell holds the same slick. */
+/** Returns whether floor pixel (x, y) is in the slick of cell (cx, cy). The test covers pixels in that cell and the cells around it.
+ *  `has(x, y)` says whether a cell holds the same slick. */
 export function slickShape(cx, cy, has, look) {
   const near = [];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++)
@@ -54,8 +54,8 @@ export function slickShape(cx, cy, has, look) {
   };
 }
 
-/** The pixels of the slick in cell (cx, cy), as [x, y, colour] within the cell. `has(x, y)` says
- *  whether a cell holds the same slick. `drift` moves the sheen by [x, y] floor pixels. */
+/** Returns the pixels of the slick in cell (cx, cy), as [x, y, colour] within the cell. `has(x, y)` says
+ *  whether a cell holds the same slick. `[ox, oy]` moves the sheen's pattern, in floor pixels. */
 export function slickCell(cx, cy, has, look, [ox, oy] = [0, 0]) {
   const on = slickShape(cx, cy, has, look), x0 = cx * C, y0 = cy * C;
   const inCell = (x, y) => x >= x0 && x < x0 + C && y >= y0 && y < y0 + C;

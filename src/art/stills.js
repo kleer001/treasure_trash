@@ -1,4 +1,4 @@
-// Each thing that stands upright in a cell, as one drawing.
+// Each thing that stands upright in a cell is one drawing.
 import { BAG, CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, JUG, JUG_EMPTY, WHEELIE, WHEELIE_EMPTY, PANE } from '../rules.js';
 import { C } from './flight.js';
 import * as CAN from './can.js';
@@ -8,10 +8,10 @@ import { bakedJug } from './jugTip.js';
 
 export const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
 export const moved = (px, dx, dy) => px.map(([x, y, col]) => [x + dx, y + dy, col]);
-/** What draws each thing that can lie, with the square jug's drawings baked into `J`. */
+/** Returns what draws each thing that can lie, with the square jug's drawings baked into `J`. */
 export const lyingOf = J => ({ [CAN_EMPTY]: CAN, [BIN_EMPTY]: BOX, [JUG_EMPTY]: bakedJug(J) });
 
-/** `still(o, cx, cy, seed, lie)`: thing `o` in cell (cx, cy) as `{ px, x, y, h }`, its pixels from its top-left (x, y) and its foot `h` below that; `null` for a thing with no drawing here. */
+/** `still(o, cx, cy, seed, lie)` returns thing `o` in cell (cx, cy) as `{ px, x, y, h }`, its pixels from its top-left (x, y) and its foot `h` below that, or `null` for a thing with no drawing here. */
 export function createStills({ T, A, O, LOOK, J }) {
   const LYING = lyingOf(J), JUGS = LYING[JUG_EMPTY];
   const heap = seed => BOX.contents(T, seed, LOOK.spread.edges, LOOK.spread.hues).sort((a, b) => b.by - a.by).flatMap(p => {
