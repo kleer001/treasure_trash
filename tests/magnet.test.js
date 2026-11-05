@@ -203,6 +203,52 @@ test('a hold breaks when the group cannot travel, and what is pushed goes on alo
   assert.equal(held(after), 0, 'so the hold broke');
 });
 
+test('a magnet that cannot follow is scraped off, and the rest of the group still travels', () => {
+  const s = S(['######', '##-###', '##l--#', '#qc--#', '#-@-E#', '######']);
+  assert.equal(held(s), 3, 'both magnets hold the can');
+  const after = push(s, 'u');
+  assert.deepEqual(toGrid(after).slice(1, 4), ['##l###', '##c--#', '#q@--#'],
+    'the one above came up with the can; the walled one stayed');
+  assert.equal(held(after), 2, 'and only its hold was cut');
+});
+
+test('a scraped magnet takes nothing for the rest of the beat, and takes hold again after it', () => {
+  const s = S(['########', '##-#####', '#qY----#', '#-Y----#', '#-@---E#', '########']);
+  assert.equal(held(s), 3, 'the magnet holds the bicycle');
+  const after = push(s, 'u');
+  assert.deepEqual(toGrid(after).slice(1, 3), ['##Y#####', '#qY----#'], 'still looking at it');
+  assert.equal(held(after), 0, 'but the cut holds for the beat');
+  assert.equal(held(push(after, 'r')), 3, 'and the next beat takes it back');
+});
+
+test('a barrow hook is never cut by the scrape, so the barrow still tows what it holds', () => {
+  const s = S(['#l#----', '@-FF---', '-------', 'E------'], null,
+              ['-------', '-r-----', '-------', '-------']);
+  s.cells[1][1].grip = 1;
+  assert.equal(held(s), 4, 'the magnet holds the barrow, and the barrow the couch');
+  const after = push(s, 'r');
+  assert.deepEqual(toGrid(after).slice(1, 2), ['-@-FF--'], 'barrow and couch went on together');
+  assert.equal(after.cells[1][2].grip, 1, 'and the barrow still holds the couch');
+  assert.equal(held(after), 3, 'only the magnet let go');
+});
+
+test('a barrow hook is never cut, so a couch blocked at its far end refuses the whole tow', () => {
+  const s = S(['-l-----', '@-FF#--', '-------', 'E------'], null,
+              ['-------', '-r-----', '-------', '-------']);
+  s.cells[1][1].grip = 1;
+  assert.equal(refuse(s, 'r'), 'canRoom', 'the couch cannot go, and no magnet is there to scrape');
+});
+
+test('no cut field is left on any board of a traced scrape', () => {
+  const s = S(['######', '##-###', '##l--#', '#qc--#', '#-@-E#', '######']);
+  const r = explain(s, 'u', { trace: true });
+  assert.ok(r.ok, `refused: ${r.reason}`);
+  assert.ok(r.frames.length > 1, 'the scrape is traced');
+  for (const b of [...r.frames, r.next])
+    for (const row of b.cells) for (const c of row)
+      assert.notEqual(c.grip, 0, 'a cut field is still on a traced board');
+});
+
 test('a hold that CAN travel still travels, and is not broken by the chance to break', () => {
   const s = S(['#####', '#-l-#', '#-c@#', '#E--#', '#####']);
   const after = push(s, 'l');
