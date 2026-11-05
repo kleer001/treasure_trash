@@ -4,7 +4,7 @@
 //   node tools/sets.mjs [--tries N] [--workers N] [--in F] [--out F]
 //
 // A set is three rooms on one outline that get harder in a stated way. Three ways are built
-// here, because an act that runs one device ten times is one idea told ten times:
+// here, because an act built on one device repeats one idea:
 //
 //   UPGRADE   same outline AND the same piece positions; each rung swaps an empty container
 //             for a full one. Aymeric du Peloux's Minicosmos pairs a layout with itself plus a
@@ -29,22 +29,19 @@ import { engineFor, connect, measureMany, measureHere, TOO_BIG } from './engine.
 import { staticallyDead } from './survey.mjs';
 import { placeOn, measure } from './harvest.mjs';
 import { hFamily } from './shapes.mjs';
+import { MAX_STATES } from './metrics.mjs';
 
-const MAX_STATES = 50_000;
-
-// The three containers that carry a bag when full and nothing when empty. Upgrading one is the
-// only way to add work to a board without adding a body to it.
+// The empty containers an UPGRADE rung swaps for full ones. Upgrading one adds work without adding
+// a body.
 export const UPGRADE = { c: 'C', w: 'W', b: 'B' };
 export const DOWNGRADE = { C: 'c', W: 'w', B: 'b' };
 
-// Two different floors, because they answer different questions. A SET must reach Act 2 — its
-// top rung is where the set actually lands, and a set opening easy is the point of a ramp rather
-// than a fault in it.
+// Par bounds for one room. The top rung of a set has a higher floor, `SET_TOP_MIN`.
 export const PAR_MIN = 8;
 export const PAR_MAX = 40;
 export const SET_TOP_MIN = 18;
 
-/** Every field here is on the wire, which is what lets the engine answer it. */
+/** The row fields `keep` reads are all on the wire, which is what lets the engine answer them. */
 function keep(s, r, parMin) {
   if (r.par === null) return false;
   if (r.par < parMin || r.par > PAR_MAX) return false;
@@ -67,7 +64,7 @@ async function look(engine, room, group, w, h, parMin = PAR_MIN) {
   if (r === TOO_BIG) return null;
   if (!keep(s, r, parMin)) return null;
   const row = measure(group, room, s, analyze(s, { maxStates: MAX_STATES }), w, h);
-  // Rejecting the rung rejects the set: three rooms cannot share a cast when one of them is short a member.
+  // A rung with an inert piece is dropped, and the set goes with it.
   if (row.inert) return null;
   return row;
 }
@@ -135,7 +132,7 @@ export async function additionSet(engine, plan, group, extras, rnd) {
 }
 
 /**
- * Fixing the mixture is what makes this a set rather than three rooms that happen to share a
+ * Fixing the mixture is what makes a PAR set rather than three rooms that happen to share a
  * silhouette: the player meets the same cast three times, arranged three ways.
  */
 export async function parSet(engine, plan, groups, rnd, tries = 40, gap = 3) {
@@ -148,7 +145,7 @@ export async function parSet(engine, plan, groups, rnd, tries = 40, gap = 3) {
     if (m) found.push(m);
   }
   found.sort((a, b) => a.par - b.par);
-  // Spread rather than adjacent: three rooms one move apart is not a ramp.
+  // Spread rather than adjacent, because rooms packed together do not read as a ramp.
   for (let i = 0; i < found.length; i++)
     for (let j = i + 1; j < found.length; j++) {
       if (found[j].par - found[i].par < gap) continue;
@@ -166,10 +163,10 @@ export async function parSet(engine, plan, groups, rnd, tries = 40, gap = 3) {
 /**
  * What each ramp draws from, derived from the fertility map rather than surveyed again.
  *
- * An UPGRADE base is a fertile group with its full containers emptied: the top rung is then a
- * mixture already known to make rooms. An ADDITION base is a fertile group with a piece removed,
- * and the pieces added back are the ones that were in it. Both are better aimed than a fresh
- * survey and cost nothing.
+ * An UPGRADE base is a fertile group with two of its full containers emptied: the top rung is
+ * then a mixture already known to make rooms. An ADDITION base is a fertile group with a piece
+ * removed, and the pieces added back are the ones that were in it. Both are better aimed than a
+ * fresh survey and cost nothing.
  */
 export function rampGroups(fertile) {
   const upgrade = [], addition = [];
@@ -182,7 +179,7 @@ export function rampGroups(fertile) {
     }
     for (let i = 0; i < g.length; i++) {
       const cut = [...g]; const gone = cut.splice(i, 1)[0];
-      // The last rung then adds a CARRIER, so the step is more work and not just more furniture.
+      // The last rung adds a CARRIER, so the step is more work and not just more furniture.
       const carrier = [...g].find(c => '$CWB'.includes(c)) ?? '$';
       addition.push({ base: cut.join(''), extras: [gone, carrier] });
     }
@@ -242,10 +239,10 @@ if (!isMainThread && workerData?.tool === 'sets') {
   const live = chunks.filter(c => c.length);
   const self = fileURLToPath(import.meta.url);
   const t0 = Date.now();
-  // Not `pool.mjs`: this is the one pass whose worker is not one function per item. `search`
-  // draws every plan in its chunk from ONE seeded stream, so splitting the chunk up would move
-  // the draws and find different sets — a different file, not a differently ordered one. What
-  // it takes from the pool is the point of it: results land at the index they were dealt.
+  // This pass does not use `pool.mjs`. It is the one pass whose worker is not one function per
+  // item. `search` draws every plan in its chunk from ONE seeded stream, so splitting the chunk up
+  // would move the draws and find different sets — a different file, not a differently ordered
+  // one. Results land at the index they were dealt.
   const byWorker = new Array(live.length);
   let done = 0, found = 0;
   await Promise.all(live.map((chunk, w) => new Promise((ok, no) => {

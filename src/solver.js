@@ -5,7 +5,7 @@
 // tables (Junghanns & Schaeffer, Rolling Stone): rather than pattern-matching a 5x4
 // window, we label the whole reachable graph live-or-dead and read the answers off it.
 
-import { DIR_ORDER, MOVE, explain, isWon, stateKey, cloneState, cell } from './rules.js';
+import { DIR_ORDER, MOVE, explain, isWon, stateKey, cloneState } from './rules.js';
 import { formatLurd } from './format.js';
 
 /** Thrown by `analyze` when `maxStates` is exceeded, so a caller can tell a room that is too
@@ -62,8 +62,7 @@ export function analyze(start, opts = {}) {
     frontier = next;
   }
 
-  // --- who has won: asked once, in Map order, because two passes over the graph asking the
-  // same question of every board is the whole board read twice.
+  // --- who has won: asked once per board, in Map order, so no board is read twice.
   const wins = [];
   for (const [key, node] of states) if (isWon(node.state)) wins.push(key);
 
@@ -167,8 +166,8 @@ export function reroot(a, start) {
   if (order.length !== a.states.size) return null;
 
   // Which boards are won is a property of the boards, and re-rooting does not touch one, so the
-  // set `analyze` found still stands. Asking `isWon` again would cost two sweeps of every cell
-  // of every state — more than the relabelling this function exists to do instead.
+  // set `analyze` found still stands. Asking `isWon` again would sweep every cell of every state a
+  // second time.
   return { ...a, ...shortestFrom(a.states, rootKey, a.wins, order) };
 }
 

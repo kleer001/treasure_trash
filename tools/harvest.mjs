@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Treasure Trash — deep harvest. Sample rooms from the groups the fertility map calls fertile,
 // and keep every metric each one scores, so ranking is a query over stored data rather than a
-// fresh multi-hour run every time the weights change.
+// fresh run every time the weights change.
 //
 //   node tools/harvest.mjs [--samples N] [--workers N] [--groups N] [--in F] [--out F]
 //                          [--family h|ring] [--water]
@@ -23,10 +23,10 @@ import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 import { staticallyDead } from './survey.mjs';
-import { bridgeSeats, bankOf, isBarrier, canals, FAMILIES } from './shapes.mjs';
+import { bridgeSeats, bankOf, isBarrier, canals, FAMILIES, isBigOpenBlock } from './shapes.mjs';
 import {
   solveShape, largestOpenBlock, floorIsConnected, hasNiche, pathBite, deadTravel, inertPieces,
-  shortestDag,
+  shortestDag, MAX_STATES,
 } from './metrics.mjs';
 import { parseLurd } from '../src/format.js';
 
@@ -38,11 +38,6 @@ const BARROWS = new Set([...'uvdelmrs']);
 
 // Walls make a bigger board affordable.
 const SHAPES = [[8, 4], [8, 5], [7, 5], [9, 5], [7, 4]];
-const MAX_STATES = 50_000;
-
-// A clear rectangle this size or larger is what makes a state space bushy and shallow.
-const OPEN_BLOCK_MIN_SIDE = 3;
-const OPEN_BLOCK_MIN_AREA = 12;
 
 /** A random outline that passes every structural check, or null if this draw failed. */
 export function outline(w, h, rnd, tries = 60) {
@@ -52,7 +47,7 @@ export function outline(w, h, rnd, tries = 60) {
     const isFloor = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !wall[y][x];
     for (let guard = 0; guard < w * h; guard++) {
       const b = largestOpenBlock(isFloor, w, h);
-      if (!(Math.min(b.w, b.h) >= OPEN_BLOCK_MIN_SIDE && b.area >= OPEN_BLOCK_MIN_AREA)) break;
+      if (!isBigOpenBlock(b)) break;
       const spots = [];
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (isFloor(x, y)) spots.push([x, y]);
       if (!spots.length) break;
@@ -63,7 +58,7 @@ export function outline(w, h, rnd, tries = 60) {
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (isFloor(x, y)) floor.push([x, y]);
     if (floor.length < 14) continue;
     const b = largestOpenBlock(isFloor, w, h);
-    if (Math.min(b.w, b.h) >= OPEN_BLOCK_MIN_SIDE && b.area >= OPEN_BLOCK_MIN_AREA) continue;
+    if (isBigOpenBlock(b)) continue;
     if (!floorIsConnected(isFloor, w, h)) continue;
     if (hasNiche(isFloor, w, h)) continue;
     return { wall, floor };
@@ -188,12 +183,12 @@ export function measure(group, room, s, a, w, h) {
     firstTrap: trapDepths.length ? Math.min(...trapDepths) : null,
     lastTrap: trapDepths.length ? Math.max(...trapDepths) : null,
     biteSteps: new Set(trapDepths).size,
-    // Nearly free here — the graph is already built — and it is the number a raw trap count
-    // cannot stand in for.
+    // The on-path measure is cheap here, since the graph is already built. A raw trap count cannot
+    // stand in for it.
     ...(({ onPath, bitten, firstOnPath }) => ({ onPath: +onPath.toFixed(3), bitten, firstOnPath }))(pathBite(a, onDag)),
-    // Placement hands the exit a random cell, so a room can be sound on every other number and still march the player across it after the last decision.
+    // Dead travel is kept apart from the other numbers, since a room can read clean on all of them.
     ...deadTravel(a, onDag),
-    // Stored per room because re-siting and walling both change it.
+    // The inert piece count is stored per room, because re-siting and walling both change it.
     inert: inertPieces(room, a, { onDag }).length,
     blind,
     lines: shape.lines, changes: shape.changes, pushes: shape.pushes, pieces: shape.pieces,
@@ -201,8 +196,8 @@ export function measure(group, room, s, a, w, h) {
     bags: bagsLeft(s), exitRefusals: a.exitRefusals,
     floor: s.cells.flat().filter(c => !c.wall).length,
     solve: a.shortestLurd,
-    // Every mask the room was built from, or the row does not rebuild into the room it measured
-    // — and rebuilding is the whole reason the metrics are stored rather than recomputed.
+    // The masks the room was built from are stored. Without them the row does not rebuild into the
+    // room it measured.
     grid: room.grid, ...(room.cart && { cart: room.cart }), ...(room.water && { water: room.water }),
   };
 }
@@ -225,7 +220,7 @@ async function harvestGroup(group, samples, seed, engine = null, plans = null) {
   const drawn = [];
   for (let i = 0; i < samples; i++) {
     stat.samples++;
-    // A family is enumerated, so a draw from it is a pick rather than a construction that can fail.
+    // A family is enumerated, so a draw from it is a pick, not a construction that can fail.
     let plan, w, h;
     if (plans) {
       plan = plans[Math.floor(rnd() * plans.length)];
@@ -235,7 +230,7 @@ async function harvestGroup(group, samples, seed, engine = null, plans = null) {
       plan = outline(w, h, rnd);
       if (!plan) { stat.noOutline++; continue; }
     }
-    // A canal that severs wants the aimed draw.
+    // A barrier canal is drawn with `across`, because a scattered draw rarely makes a crossing.
     const barrier = plan.water !== undefined && isBarrier(plan);
     if (barrier && !group.includes('$')) { stat.undrawable++; continue; }
     const room = placeOn(group, plan, w, h, rnd, barrier ? { across: true } : {});
@@ -257,7 +252,8 @@ async function harvestGroup(group, samples, seed, engine = null, plans = null) {
     const row = measure(group, room, s, analyze(s, { maxStates: MAX_STATES }), w, h);
     // Only a family names its outlines. A random one has nothing to be aggregated by.
     if (shape) row.shape = shape;
-    // Rejected here rather than carried and filtered later, because everything downstream would score it on a roster it does not really have.
+    // A room with an inert piece is rejected here, not carried and filtered later, because
+    // everything downstream would score it on a roster it does not really have.
     if (row.inert) { stat.inert++; continue; }
     stat.solvable++;
     keep.push(row);

@@ -26,8 +26,12 @@ import { WET } from '../src/format.js';
 import { fan } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 
+// A clear rectangle at least this big counts as an open block. Open blocks make bushy, shallow
+// state spaces; see `harvest.mjs`.
 const OPEN_BLOCK_MIN_SIDE = 3;
 const OPEN_BLOCK_MIN_AREA = 12;
+export const isBigOpenBlock = b =>
+  Math.min(b.w, b.h) >= OPEN_BLOCK_MIN_SIDE && b.area >= OPEN_BLOCK_MIN_AREA;
 const MIN_FLOOR = 16;
 
 const blank = (w, h) => Array.from({ length: h }, () => Array.from({ length: w }, () => false));
@@ -59,7 +63,7 @@ export function judge(wall, w, h, water = null) {
     floor: floorCells,
     block,
     ok: floorCells.length >= MIN_FLOOR
-      && !(Math.min(block.w, block.h) >= OPEN_BLOCK_MIN_SIDE && block.area >= OPEN_BLOCK_MIN_AREA)
+      && !isBigOpenBlock(block)
       && floorIsConnected(isFloor, w, h)
       && !hasNiche(isFloor, w, h),
   };
@@ -178,11 +182,10 @@ const MIN_DRY_FLOOR = 14;
 const MIN_BANK = 6;
 
 /**
- * `plan` with `cells` under water. Null when the result is not worth drawing on.
+ * Returns `plan` with `cells` under water, or null when the result is not worth drawing on.
  *
- * `floor` narrows to the DRY cells, which is what makes this safe downstream: `placeOn` draws
- * the exit, the raccoon and every piece from `floor` alone, so nothing starts in the canal
- * without that rule being written anywhere but here.
+ * Its `floor` holds only the DRY cells. `placeOn` draws the exit, the raccoon and every piece from
+ * `floor` alone, so nothing starts in the canal.
  */
 function flood(plan, cells, label) {
   const { w, h, wall } = plan;
@@ -195,8 +198,8 @@ function flood(plan, cells, label) {
   const dry = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (isDry(x, y)) dry.push([x, y]);
   if (dry.length < MIN_DRY_FLOOR) return null;
-  // `sides` is what tells a barrier from a nick in a corner. Severing is cheap, so the number a
-  // consumer wants is how big the SMALLER bank is, not whether there are two of them.
+  // `sides` tells a barrier from a nick in a corner. A consumer wants the size of the smaller
+  // bank, not the count of banks.
   const sides = floorComponents(isDry, w, h);
   return {
     ...plan, water, floor: dry, wet: cells.length, sides,
@@ -205,13 +208,12 @@ function flood(plan, cells, label) {
   };
 }
 
-/** `min` is the smallest the far bank may be. */
+/** A canal worth building a crossing over. `min` is the smallest the smaller bank may be. */
 export const isBarrier = (plan, min = MIN_BANK) =>
   plan.severs && plan.sides.length === 2 && plan.sides[1] >= min;
 
-// Both of the answers below are properties of a PLAN and nothing else, and a discovery run asks
-// the same plan for them thousands of times — each a flood fill, `bridgeSeats` one per floor cell
-// per direction. Keyed on the plan object, so a plan that goes out of scope takes its entry with it.
+// `bankOf` and `bridgeSeats` depend on the plan alone, and a discovery run asks the same plan for
+// them many times. Both cache on the plan object in a WeakMap, so an entry goes when its plan does.
 const BANKS = new WeakMap();
 const SEATS = new WeakMap();
 
@@ -244,12 +246,11 @@ export function bankOf(plan) {
 }
 
 /**
- * Every seat a bridging tear could be made from: a dry cell to stand a bag on and the direction
- * to shove it. `fan` comes back so placement can keep the exit and every other piece off those
- * cells.
+ * Returns every seat a bridging tear could be made from: a dry cell to stand a bag on and the
+ * direction to shove it. `fan` comes back so placement can keep the exit and every other piece off
+ * those cells.
  *
- * The bag has to sit in the row beside the water with its fan pointing across, and uniform
- * sampling almost never does that.
+ * It is enumerated rather than sampled, because uniform sampling rarely lands on one.
  */
 export function bridgeSeats(plan) {
   const hit = SEATS.get(plan);
@@ -279,9 +280,9 @@ export function bridgeSeats(plan) {
 }
 
 /**
- * Every straight canal on a plan: each contiguous run of `CANAL_MIN` cells or more along a
- * wall-free row or column. Enumerated rather than sampled, for the reason the families are —
- * a canal is part of the silhouette an act is built on, and a run is three numbers.
+ * Returns every straight canal on a plan: each contiguous run of `CANAL_MIN` cells or more along a
+ * wall-free row or column. Enumerated rather than sampled, for the reason the families are. A canal
+ * is part of the silhouette an act is built on, and each run is fixed by its place and length.
  */
 export function canals(plan) {
   const { w, h, wall } = plan;
@@ -312,7 +313,8 @@ export function puddles(plan, n, rnd, tries = 40) {
   for (let t = 0; t < tries; t++) {
     const cells = [];
     for (let k = 0; k < n; k++) {
-      // Manhattan 1 is exactly the neighbourhood `floorIsConnected` walks.
+      // Manhattan 1 is exactly the neighbourhood `floorIsConnected` walks, so two puddles left
+      // touching would read as one short canal.
       const open = plan.floor.filter(([x, y]) =>
         cells.every(([cx, cy]) => Math.abs(cx - x) + Math.abs(cy - y) > 1));
       if (!open.length) break;
