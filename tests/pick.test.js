@@ -13,7 +13,7 @@ const room = (over = {}) => ({
 
 // --- selection ---------------------------------------------------------------
 // The whole reason this is not `sort().slice(20)`: ranking alone hands back whatever the
-// metric loves, and an act of twenty rooms about one piece is one room twenty times.
+// metric loves, and an act of many rooms about one piece is one room repeated.
 
 test('the act is spread across par bands rather than heaped where the metric scores best', () => {
   const scored = [];
@@ -100,12 +100,14 @@ test('a cart room carries its mask into the pack', () => {
 
 test('tightening preserves par and never loosens the room', () => {
   const row = {
-    group: '$Bj', states: 99999,
-    grid: ['--------', '-@-$----', '--------', 'E-------', '--------'],
+    group: '$BjP', states: 99999,
+    grid: ['------', '--@B--', '--$E--', '-----j'],
+    cart: ['------', '------', '------', '--PP--'],
   };
-  const before = analyze(toState({ id: 'b', grid: row.grid }));
+  const before = analyze(toState({ id: 'b', grid: row.grid, cart: row.cart }));
   const after = refit(row);
-  if (after === null) return;
+  assert.notEqual(after, null, 'the fixture should tighten and hold its par');
+  assert.notDeepEqual(after.grid, row.grid, 'tightening should wall off some slack');
   assert.equal(after.par, before.minMoves, 'tightening must not change what the room asks');
   assert.ok(after.solves <= before.shortestCount, 'and must not add solutions');
   assert.ok(after.states <= before.reachable, 'walls only ever remove options');
