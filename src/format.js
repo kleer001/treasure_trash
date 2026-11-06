@@ -6,7 +6,7 @@ import {
   NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMPTY, JUG,
   JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
   CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R,
-  BAR_U, BAR_D, BAR_L, BAR_R, isCarriedBarrow,
+  BAR_U, BAR_D, BAR_L, BAR_R, isCarriedBarrow, cartKindOf,
   MAG_U, MAG_D, MAG_L, MAG_R,
   GREASE, TAR, GLASS, COVERED,
   FURNITURE, DIRS, MOVE, PUSH, TEAR, isMultiCell, settleAtRest,
@@ -487,7 +487,7 @@ export function toCart(s) {
   const letters = new Map(), used = new Map();
   for (const row of s.cells) for (const c of row) {
     if (c.cart === undefined || letters.has(c.cart)) continue;
-    const k = CART_KINDS_IN_MASK.find(m => m.ck === (c.ck ?? CART));
+    const k = CART_KINDS_IN_MASK.find(m => m.ck === cartKindOf(c));
     const n = used.get(k.what) ?? 0;
     if (n >= k.glyphs.length)
       throw new Error(`more than ${k.glyphs.length} of ${k.what}: the glyph pool is ${k.glyphs.join('')}`);
