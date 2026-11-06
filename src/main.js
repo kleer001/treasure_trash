@@ -235,8 +235,8 @@ function stepMv(){
   advance(stage, slow.matches ? 0 : d - k, seg.pace);
   if(t < 1) return true;
   settle(stage);
-  board = state;
-  if(++anim.si >= anim.segs.length) return false;
+  if(++anim.si >= anim.segs.length){ board = state; return false; }
+  board = seg.items.at(-1).next;
   anim.k = -1; anim.t0 = clockMs();
   return true;
 }
@@ -953,7 +953,7 @@ installFocusReclaim(window);
 
 // The listeners go on before the art and the crow have loaded; until then a key has nothing to act on.
 addEventListener('keydown',e=>{
-  if(!play || e.target.closest?.('input,textarea')) return;
+  if(!play || e.ctrlKey || e.altKey || e.metaKey || e.target.closest?.('input,textarea')) return;
   if(!document.getElementById('sheet').hidden){
     if(e.key==='Escape'){ e.preventDefault(); closePicker(); }
     return;
