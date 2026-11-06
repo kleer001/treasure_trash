@@ -46,7 +46,7 @@ function turn45(grid) {
   return g.map(r => r.slice(x0, x1 + 1));
 }
 
-/** The trash set `T`: sprites for every item in `D` (items.json). `diagonals` adds the 45° turns to each item's quarter turns and mirrors. */
+/** `D` is the parsed `items.json`. */
 export function createTrash(D, { accents = true, diagonals = true } = {}) {
   const ramp = name => name in D.ramps ? D.ramps[name]
     : accents ? D.accents[name].ramp : D.ramps[D.accents[name].gold];
@@ -114,7 +114,7 @@ const MARGIN = 1;
 const NEUTRAL = new Set(['paper', 'news', 'kraft', 'foam', 'cream', 'slate', 'brown', 'black', 'peach', 'plum']);
 const ACCENTS = 2;
 export const ORDER = { flat: 0, mid: 1, hero: 2, bit: 3 };  // draw order, bottom first
-const PICKS = new WeakMap();                         // per trash set: its accent hues, and the item pool for each pair of them
+const PICKS = new WeakMap();                         // Keyed by trash set. A value holds the set's accent hues and the item pool for each pair of them.
 
 /**
  * Returns the item picker for trash set `T`, with its accent hues drawn from `rnd`. The picker

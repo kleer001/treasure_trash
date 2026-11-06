@@ -1362,9 +1362,9 @@ function decide(s, dir, opts) {
     ? (f => ({ ok: true, kind, next, frames: f, steps: [step] }))([cloneState(s), next])
     : { ok: true, kind, next };
 
-  // This step shares the board it came from. That is sound because each path that writes to a
-  // board clones it first. Sharing saves an allocation per cell: the solver makes this step for
-  // every free direction of every state.
+  // The next board shares `cells` with the board it came from. That is sound only because each
+  // path that writes to a board clones it first. A copy here would allocate a board for every
+  // free direction of every state the solver expands.
   const stepOnto = () =>
     done({ cols: s.cols, rows: s.rows, cells: s.cells, rac: { x: tx, y: ty } }, MOVE, mkStep());
 
