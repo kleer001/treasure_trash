@@ -1341,10 +1341,17 @@ export function explain(s, dir, opts = {}) {
     // frame — either way the sweep writes to a copy or it writes to a board somebody else holds.
     const next = opts.trace || r.next.cells === s.cells ? cloneState(r.next) : r.next;
     const passes = settleMagnets(next, opts.trace);
-    if (passes.length) out = opts.trace
-      ? { ...r, next, frames: [...r.frames, ...passes.map(p => p.frame)],
-          steps: [...r.steps, ...passes.map(p => p.step)] }
-      : { ...r, next };
+    if (passes.length && opts.trace) {
+      // A pass that records nothing would be a beat in which nothing moves, so its board takes
+      // the place of the one before it.
+      const frames = [...r.frames], steps = [...r.steps];
+      for (const { frame, step } of passes) {
+        if (step.moved.length || step.spawned.length || step.gone.length) {
+          frames.push(frame); steps.push(step);
+        } else frames[frames.length - 1] = frame;
+      }
+      out = { ...r, next, frames, steps };
+    } else if (passes.length) out = { ...r, next };
   }
   if (r.cut) for (const b of [out.next, ...(out.frames ?? [])])
     for (const row of b.cells) for (const c of row) if (c.grip === CUT) c.grip = undefined;
@@ -1432,7 +1439,10 @@ function decide(s, dir, opts) {
     }
 
     const res = shoveCart(s, target.cart, [tx, ty], dx, dy, opts.trace === true);
-    if (res.ok && isBarrow(kind)) hookTow(res.next, target.cart, dx, dy);
+    if (res.ok && isBarrow(kind)) {
+      hookTow(res.next, target.cart, dx, dy);
+      if (res.frames) hookTow(res.frames.at(-1), target.cart, dx, dy);
+    }
     return res;
   }
 

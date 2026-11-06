@@ -177,6 +177,14 @@ test('a magnet cannot pull anything through the raccoon, or onto him', () => {
     'it closes as far as the cell above him and stops; he is not stood on and not passed');
 });
 
+test('a hold that a push breaks is gone on the beat the push lands, with no empty beat after', () => {
+  const s = S(['---l-', '--@q-', 'E----']);
+  s.cells[0][3].grip = 1;
+  const r = explain(s, 'r', { trace: true });
+  assert.equal(r.steps.length, 1);
+  assert.equal(r.frames.at(-1).cells[0][3].grip, undefined);
+});
+
 // A tow moves the magnet and its load in one beat, and the account has to name both. Shoving the
 // magnet is the well-worn path; shoving the HELD thing is the one that reaches `towMove`, and a
 // link made of plain occupants has neither a cart id nor a piece id to be named by. Nothing

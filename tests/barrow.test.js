@@ -169,6 +169,12 @@ test('a heavy barrow shoved into a heavy barrow is refused, since neither one mo
   assert.equal(refuse(S(['@CC-E'], ['-lr--']), 'r'), 'canRoom');
 });
 
+test('a barrow that hooks on as it stops has the hook on its last traced board too', () => {
+  const r = explain(S(['@---FF-E', '--------'], ['-r------', '--------']), 'r', { trace: true });
+  assert.equal(r.next.cells[0][3].grip, 1);
+  assert.equal(r.frames.at(-1).cells[0][3].grip, 1);
+});
+
 test('a hooked barrow is spoken for, and cannot be picked up', () => {
   const s = S(['@---FF-E', '--------'], ['-r-r----', '--------']);
   s.cells[0][3].grip = 1;
