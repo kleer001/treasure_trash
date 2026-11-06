@@ -1,6 +1,5 @@
 // The crow's inner workings, in a panel under his own, on `?debug`. It hears the director's log
-// and reads the director and the watcher through their `peek`s; it decides nothing. Everything
-// sits inside the factory because the artifact bundle runs every module in one scope.
+// and reads the director and the watcher through their `peek`s; it decides nothing.
 import { TALK } from './crow.js';
 
 /**

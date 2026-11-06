@@ -241,7 +241,7 @@ These govern how code is written. They are not design arguments.
 - New behavior is also PLAYED, in a browser, on the served page, before it is called done. A
   passing spec says the rule fires; only the played board says the piece is on screen where the
   rule put it. Bench rooms for a piece under construction live in `levels/scratch.tt`, reached
-  with `index.html?acts=scratch.tt` — a dev affordance, inert in the built artifact.
+  with `index.html?acts=scratch.tt`, a dev affordance.
 - A new piece is not finished when its own room plays. It is finished when it has been made to
   MEET the others: every terrain lane, and every other piece. A room's declared `:solve` is its
   shortest path, and the shortest path walks past the piece more often than not — so a pack of

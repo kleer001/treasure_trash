@@ -96,9 +96,8 @@ let decor=null;
 // One entry per act: { label, from, to } as indices into LEVELS. The picker folds on it.
 const ACT_OF = [], CELLS = [];
 const progress = createProgress(window.localStorage);
-// The play-by-play, on `?debug` and nowhere else: the artifact has no query string, so the
-// panel it holds is a hidden element nothing ever fills. Null when it is off, and every call
-// site is optional — the log is downstream of the game and may not be there at all.
+// The play-by-play is null without `?debug`, and every call site is optional: the log is
+// downstream of the game and may not be there at all.
 const dbg = new URLSearchParams(location.search).has('debug')
   ? createDebugLog(document.getElementById('dbglog')) : null;
 if(dbg){
@@ -982,8 +981,7 @@ document.getElementById('controls').addEventListener('click',e=>{
 // A room's id is unique across the whole game, so nothing downstream has to know which act it came from.
 // A scratch pack can be named on the query string. That is how a new piece gets played in the
 // real game before it belongs in an act: the bench pages import `src/` and prove the
-// rules, but only this path exercises input, refusal painting, the HUD and the sprites. Inert
-// in the built artifact, which has no query string and serves its packs from inside itself.
+// rules, but only this path exercises input, refusal painting, the HUD and the sprites.
 const ACTS = new URLSearchParams(location.search).get('acts')?.split(',') ?? ['act1.tt', 'act2.tt'];
 // Each room is listed under its act. The pack names itself; the file name is the fallback, so a
 // pack with no `:pack` line still gets a heading rather than an empty one.
@@ -991,16 +989,9 @@ const ACTS = new URLSearchParams(location.search).get('acts')?.split(',') ?? ['a
 const actLabel = (name, file) =>
   (name ?? '').split('—').pop().replace(/\s*\(.*\)\s*$/, '').trim()
   || file.replace(/\.tt$/, '');
-// THE ONE PLACE THE GAME READS A FILE, and it is a seam: `tools/build-artifact.mjs` replaces
-// this whole function so a single-file artifact serves the same bytes from inside itself,
-// with no request for the CSP to block. Keep every load going through here — the bundler
-// checks that the function is still findable, but it cannot see a fetch that grew somewhere
-// else, and the CSP will.
 async function loadAsset(path, as){
   // Resolved against this module, not the document: on a project Pages site the page sits a
-  // directory down, so a document-relative '../' climbs out of the deployment entirely. It
-  // lives in here because `import.meta` is module-only syntax and the bundle is one script —
-  // replacing this function has to take the last mention of it with it.
+  // directory down, so a document-relative '../' climbs out of the deployment entirely.
   const res = await fetch(new URL(`../${path}`, import.meta.url));
   if(!res.ok) throw new Error(`cannot load ${path} (${res.status}) — serve with ./run.sh`);
   return as === 'bytes' ? res.arrayBuffer() : res.text();
