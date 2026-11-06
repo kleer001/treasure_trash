@@ -75,10 +75,12 @@ test('cargo that shifts a slot is nudged, so the swap is visible at all', () => 
   advance(stage, 0.5);
   assert.ok(can.x > 2.05, `it should be visibly out of place mid-beat, was ${can.x}`);
   assert.ok(can.x <= 2 + NUDGE + 1e-9, 'but never further than a quarter cell');
+  const arriving = of(stage, CAN_EMPTY).find(sp => sp.id !== can.id && sp.tx === 3);
+  assert.ok(arriving, 'the can being loaded');
+  assert.equal(arriving.nudge, null, 'the one being loaded is not nudged');
+  assert.equal(arriving.x, 3, 'so it holds still mid-beat');
   settle(stage);
   assert.equal(can.x, 2, 'and it lands exactly where the board says');
-  const arriving = of(stage, CAN_EMPTY).find(sp => sp.id !== can.id && sp.x === 3);
-  assert.ok(arriving && arriving.nudge === null, 'the one being loaded is not nudged');
 });
 
 test('the nudge goes out and comes back, harder on the way back', () => {
@@ -135,12 +137,21 @@ test('cargo already aboard does not advance on a step that takes something in', 
   const s = S(['@--xxx-#', 'E-------'], ['-PP-----', '--------']);
   const r = explain(s, 'r', { trace: true });
   const stage = stageFrom(s, 1);
+  let takes = 0;
   r.steps.forEach((step, i) => {
+    const piles = of(stage, TRASH);
+    const aboard = new Map(piles.filter(sp => sp.parent !== null).map(sp => [sp.id, `${sp.tx},${sp.ty}`]));
+    const loose = new Set(piles.filter(sp => sp.parent === null).map(sp => sp.id));
     applyStep(stage, step, r.frames[i + 1].rac);
     settle(stage);
     const cells = of(stage, TRASH).map(sp => `${sp.x},${sp.y}`);
     assert.equal(new Set(cells).size, cells.length, `two piles share a cell after step ${i}`);
+    if (!of(stage, TRASH).some(sp => loose.has(sp.id) && sp.parent !== null)) return;
+    takes++;
+    for (const sp of of(stage, TRASH))
+      if (aboard.has(sp.id)) assert.equal(`${sp.tx},${sp.ty}`, aboard.get(sp.id), `pile ${sp.id} advanced on step ${i}`);
   });
+  assert.ok(takes >= 2, `the skateboard took a pile in on ${takes} step(s)`);
 });
 
 test('tipped cargo genuinely travels, and is somewhere in between mid-beat', () => {

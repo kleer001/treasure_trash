@@ -176,13 +176,13 @@ test('a monologue waiting out the timer does not hold back a single line', () =>
 });
 
 test('variants come out of a shuffle bag: none repeats until all have been said', () => {
-  const seq = [0.9, 0.5, 0.1, 0.5, 0.5, 0.5];
-  let i = 0;
-  const { c, log } = crow({ rng: () => seq[i++ % seq.length], tuning: { ...TUNING, eventGapMs: 0, repeatChance: { quiet: 1, chatty: 1, verbose: 1 } } });
+  const { c, log } = crow({ rng: () => 0, tuning: { ...TUNING, eventGapMs: 0, repeatChance: { quiet: 1, chatty: 1, verbose: 1 } } });
   let t = 0;
-  for (let k = 0; k < 3; k++) { c.fire('room.new', t); t += pre + 5000; c.view(t); }
+  for (let k = 0; k < 6; k++) { c.fire('room.new', t); t += pre + 5000; c.view(t); }
   const lines = log.filter(r => r.type === 'say').map(r => r.beats[0]);
-  assert.equal(new Set(lines).size, 3);
+  assert.equal(lines.length, 6);
+  assert.equal(new Set(lines.slice(0, 3)).size, 3, 'the first three are every variant');
+  assert.equal(new Set(lines.slice(3)).size, 3, 'and so are the three after the bag refills');
 });
 
 test('a refilled shuffle bag never opens on the line said last', () => {
@@ -192,6 +192,7 @@ test('a refilled shuffle bag never opens on the line said last', () => {
   for (const r of [0, 0, 0, 0.99]) { roll = r; c.fire('room.new', t); t += pre + 5000; c.view(t); }
   const lines = log.filter(r => r.type === 'say').map(r => r.beats[0]);
   assert.equal(lines.length, 4);
+  assert.equal(new Set(lines.slice(0, 3)).size, 3, 'the bag was emptied before it refilled');
   assert.notEqual(lines[3], lines[2]);
 });
 

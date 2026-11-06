@@ -109,10 +109,23 @@ test('every event name the code fires is a crow event', () => {
   for (const k of [...SPELT, ...builtNames()]) assert.ok(k in CROW, k);
 });
 
+// `refuse.<reason>` is fired with a reason the rules or the watcher return, so those are read
+// off their source the way SPELT is.
+const source = f => readFileSync(new URL(f, import.meta.url), 'utf8');
+const bodyOf = (text, head) => text.slice(text.indexOf(head), text.indexOf('\n}', text.indexOf(head)));
+const quoted = (text, re) => [...text.matchAll(re)].map(m => m[1]);
+const RULES_SRC = source('../src/rules.js');
+const REASONS = new Set([
+  ...quoted(RULES_SRC, /\breason: '([A-Za-z]+)'/g),
+  ...quoted(RULES_SRC, /reasonFor\([^;]*?'([A-Za-z]+)'\)/g),
+  ...quoted(bodyOf(RULES_SRC, 'const reasonFor'), /return '([A-Za-z]+)'/g),
+  ...quoted(bodyOf(source('../src/crowWatch.js'), 'export function refusal'), /'([A-Za-z]+)'/g),
+]);
+
 test('every crow event is fired by something', () => {
   const fired = new Set([...SPELT, ...builtNames()]);
   for (const [key, e] of Object.entries(CROW)) {
     if (e.stretch || fired.has(key) || fired.has(key.replace(/\.act\d+$/, ''))) continue;
-    assert.ok(/^refuse\.[a-z]+[A-Za-z]*$/.test(key), `${key} is never fired`);
+    assert.ok(key.startsWith('refuse.') && REASONS.has(key.slice('refuse.'.length)), `${key} is never fired`);
   }
 });

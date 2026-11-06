@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parseLevelPack, toState, parseLurd } from '../src/format.js';
-import { explain, stateKey, isWon, bagsLeft, MOVE, TEAR, NONE } from '../src/rules.js';
+import { explain, stateKey, isWon, bagsLeft, MOVE, TEAR } from '../src/rules.js';
 import { createProgress } from '../src/progress.js';
 import { createCrowMemory, TUNING } from '../src/crow.js';
 import { createWatch, teachRooms, pieceEvents, refusal, fullOn, leftOn } from '../src/crowWatch.js';
@@ -64,13 +64,15 @@ test('a shove names what the piece did', () => {
 });
 
 test('one refusal reason, water, is three different noes', () => {
-  const s = board(['######', '#@$--#', '#E####']);
-  const no = (x, y) => refusal(s, { reason: 'water', cells: [[x, y]], dir: 'r' });
-  assert.equal(no(3, 1), 'pour');
-  assert.equal(no(2, 1), 'afloat');
-  s.cells[1][2].o = NONE;
-  assert.equal(no(2, 1), 'water');
-  assert.equal(refusal(s, { reason: 'wall', cells: [[2, 1]], dir: 'r' }), 'wall');
+  const no = (grid, water, reason) => {
+    const s = board(grid, water), r = explain(s, 'r');
+    assert.equal(r.reason, reason, grid[1]);
+    return refusal(s, { reason: r.reason, cells: r.blame, dir: 'r' });
+  };
+  assert.equal(no(['######', '#@g--#', '#E####'], ['------', '---~--', '------'], 'water'), 'pour');
+  assert.equal(no(['######', '#@c--#', '#E####'], ['------', '--~---', '------'], 'water'), 'afloat');
+  assert.equal(no(['######', '#@---#', '#E####'], ['------', '--~---', '------'], 'water'), 'water');
+  assert.equal(no(['######', '#@#--#', '#E####'], undefined, 'wall'), 'wall');
 });
 
 test('a tuning that names an event the lines lack fails when the watcher is made', () => {
