@@ -22,16 +22,19 @@
 
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { isMainThread, workerData } from 'node:worker_threads';
 import {
   explain, cell, terrainOf, restsOn, DIR_ORDER, NONE,
 } from '../src/rules.js';
 import { toState, toGrid, toWater, toCart } from '../src/format.js';
-import { analyze } from '../src/solver.js';
+import { analyze, TooManyStates } from '../src/solver.js';
 import { MAX_STATES } from './metrics.mjs';
 import { stageFrom, applyStep, settle, timeline, census, spriteHandle, face, decorAfter } from '../src/stage.js';
 import { handlesOf, handleAt, anchorOf, spanOf, RAC_LANE } from '../src/handles.js';
 import { unnamedOver } from '../src/audit.js';
 import { root } from './packs.mjs';
+import { defaultWorkers, run as runPool, serve } from './pool.mjs';
 
 // ---------------------------------------------------------------- what there is to meet
 
@@ -48,9 +51,9 @@ export const PIECES = {
  *  same kind is written with. A 4-connected run of one letter is one piece, so two of a kind
  *  standing flush merge into a single illegal blob unless they are spelled apart. */
 export const BODIES = { couch: 'F', bicycle: 'Y', rug: 'U',
-                        cabinetOpenR: 'J', cabinetOpenD: 'D' };
-const SECOND = { F: 'G', Y: 'Z', U: 'V', J: 'Q', D: 'T' };
-const BODY_AXIS = { J: 'h', D: 'v' };
+                        cabinetOpenR: 'J', cabinetOpenD: 'D', cabinetOpenU: 'A' };
+const SECOND = { F: 'G', Y: 'Z', U: 'V', J: 'Q', D: 'T', I: 'P', A: 'L' };
+const BODY_AXIS = { J: 'h', D: 'v', I: 'h', A: 'v' };
 
 /**
  * The wheeled pieces. A cart is not a grid glyph. A cart cell holds its CARGO in the grid, so only
@@ -66,7 +69,13 @@ export const CARTS = {
   barrowL: { mask: 'l' }, barrowR: { mask: 'r' },
   barrowFull: { mask: 'r', cargo: 'C' },
   barrowStacked: { mask: 'r', cargo: '>', hold: 'C' },
+  barrowStackedU: { mask: 'r', cargo: '^', hold: 'C' },
+  barrowStackedD: { mask: 'r', cargo: 'v', hold: 'C' },
+  barrowStackedL: { mask: 'r', cargo: '<', hold: 'C' },
 };
+
+/** What the matrix stages only as the thing met, never as the thing shoved. */
+export const MET = { trash: 'x', cabinetOpenL: 'I' };
 const isCart = g => typeof g === 'object' && g !== null;
 // The cart mask is its own alphabet, so its second-of-a-kind letters are their own map. Put
 // them in with the grid's and `isBody` starts reading `m` — a filing cabinet — as half a couch.
@@ -407,7 +416,7 @@ export function corridor({ left, right = null, lane = '-', beyond = '-', under =
   grid[ROW][1] = '@';
   grid[ROW][W - 2] = 'E';
 
-  const isBody = g => Object.values(BODIES).includes(g) || Object.values(SECOND).includes(g);
+  const isBody = g => g in SECOND || Object.values(SECOND).includes(g);
   // Where a piece put down at column x reaches to, along the shove.
   const put = (glyph, x) => {
     if (isCart(glyph)) {
@@ -471,19 +480,19 @@ const secondOf = g => (isCart(g)
   : SECOND[g] ?? g);
 
 export function* cases({ fourth = false, fifth = false } = {}) {
-  const all = { ...PIECES, ...BODIES, ...CARTS };
+  const all = { ...PIECES, ...BODIES, ...CARTS }, met = { ...all, ...MET };
   // Zero or one case, so an unbuildable corridor yields nothing rather than a null to skip.
   const made = (id, what, room) => (room ? [{ id, what, ...room }] : []);
   for (const [pn, pg] of Object.entries(all)) {
     for (const [ln, lg] of Object.entries(LANES))
       yield* made(`${pn}-on-${ln}`, `${pn} shoved onto ${ln}`, corridor({ left: pg, lane: lg }));
-    for (const [qn, qg] of Object.entries(all))
+    for (const [qn, qg] of Object.entries(met))
       yield* made(`${pn}-into-${qn}`, `${pn} shoved into ${qn}`, corridor({ left: pg, right: qg }));
     if (Object.values(BODIES).includes(pg) || (isCart(pg) && pg.mask.length > 1))
-      for (const [qn, qg] of Object.entries(all))
+      for (const [qn, qg] of Object.entries(met))
         yield* made(`${pn}-broadside-into-${qn}`, `${pn} lying across, shoved into ${qn}`,
             corridor({ left: pg, right: qg, vertical: true }));
-    for (const [qn, qg] of Object.entries(all))
+    for (const [qn, qg] of Object.entries(met))
       for (const [ln, lg] of Object.entries(LANES))
         yield* made(`${pn}-into-${qn}-over-${ln}`, `${pn} shoved into ${qn} standing on ${ln}`,
             corridor({ left: pg, right: qg, beyond: lg }));
@@ -491,7 +500,7 @@ export function* cases({ fourth = false, fifth = false } = {}) {
     // different questions, and every pairing and every triple collapses them into one.
     if (!fourth && !fifth) continue;
     const both = fourth || fifth;
-    for (const [qn, qg] of Object.entries(all))
+    for (const [qn, qg] of Object.entries(met))
       for (const [ln, lg] of Object.entries(LANES))
         for (const [bn, bg] of Object.entries(LANES)) {
           if (both)
@@ -531,35 +540,54 @@ export function* run(only = null, { fourth = false, fifth = false } = {}) {
   }
 }
 
+/** One case's room, solved: its par, traps, solve count and solve, or `over` when it passes the
+ *  state bound. */
+function solveCase({ id, room }, maxStates) {
+  let a;
+  try { a = analyze(toState({ ...room, id }), { maxStates }); }
+  catch (e) { if (e instanceof TooManyStates) return { over: true }; throw e; }
+  return { par: a.minMoves, traps: a.traps.length, solves: a.shortestCount, lurd: a.shortestLurd };
+}
+
 /**
  * The cases as a playable pack, so any one of them can be poked by hand in the real game:
  * serve the root and open `index.html?acts=matrix.tt`.
  *
  * A room needs a solve to load, and computing it also settles whether the case is playable at
- * all. One that cannot be finished is dropped and COUNTED — a pack that quietly shrank would
- * read as a pack that passed.
+ * all. One that cannot be finished, and one that passes the state bound, are each COUNTED — a
+ * pack that quietly shrank would read as a pack that passed.
  */
-export function pack(rows) {
+export async function pack(rows, { workers = defaultWorkers(), maxStates = MAX_STATES,
+                                   onItem = progress } = {}) {
+  const built = rows.filter(r => r.verdict !== 'unbuildable' && r.state);
+  const solved = await runPool({
+    self: fileURLToPath(import.meta.url), tool: 'matrix', workers, onItem,
+    items: built.map(r => ({ id: r.id, room: r.room })), extra: () => ({ maxStates }),
+  });
   const out = [':pack   Treasure Trash — the interaction matrix (bench)', ''];
-  let dropped = 0;
-  for (const r of rows) {
-    if (r.verdict === 'unbuildable' || !r.state) { dropped++; continue; }
-    let a;
-    try { a = analyze(r.state, { maxStates: MAX_STATES }); } catch { dropped++; continue; }
-    if (a.minMoves === null) { dropped++; continue; }
+  let unfinishable = 0, over = 0;
+  built.forEach((r, i) => {
+    const a = solved[i];
+    if (a.over) { over++; return; }
+    if (a.par === null) { unfinishable++; return; }
     out.push(`:level  ${r.id}`, `:name   ${r.what}`,
-             `:par    ${a.minMoves}`, `:traps  ${a.traps.length}`,
-             `:solves ${a.shortestCount}`, `:solve  ${a.shortestLurd}`,
+             `:par    ${a.par}`, `:traps  ${a.traps}`,
+             `:solves ${a.solves}`, `:solve  ${a.lurd}`,
              ':grid', ...r.room.grid, ':end');
     if (r.room.water) out.push(':water', ...r.room.water, ':end');
     if (r.room.cart) out.push(':cart', ...r.room.cart, ':end');
     if (r.room.hold) out.push(':hold', ...r.room.hold, ':end');
     out.push('');
-  }
-  return { text: out.join('\n') + '\n', dropped };
+  });
+  return { text: out.join('\n') + '\n', unbuildable: rows.length - built.length, unfinishable, over };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const progress = ({ done, total, ms }) => {
+  if (done % 100 === 0 || done === total) console.log(`  solved ${done}/${total}  (${(ms / 1000).toFixed(0)}s)`);
+};
+
+if (!isMainThread && workerData?.tool === 'matrix') serve(item => solveCase(item, workerData.maxStates));
+else if (import.meta.url === `file://${process.argv[1]}`) {
   const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
   const list = process.argv.includes('--list'), packing = process.argv.includes('--pack');
   // The higher orders run long, so nothing is kept that the report does not need:
@@ -578,9 +606,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
   if (packing) {
     const at = resolve(root, 'levels', 'matrix.tt');
-    const { text, dropped } = pack(rows);
+    const { text, unbuildable, unfinishable, over } = await pack(rows);
     writeFileSync(at, text);
-    console.log(`\nwrote ${at} — ${dropped} case(s) left out as unfinishable`);
+    console.log(`\nwrote ${at} — left out: ${unfinishable} unfinishable,`
+      + ` ${over} over the ${MAX_STATES}-state bound, ${unbuildable} unbuildable`);
   }
   // Two numbers, never one. A case where the piece reached the thing under test and the answer
   // came out the same as bare floor is real coverage, but it is not an interaction, and reporting

@@ -2,14 +2,52 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { run, cases, reachable, meeting, corridor, sweepRooms,
-         landsWhereTheBoardSays } from '../tools/matrix.mjs';
+import { run, cases, reachable, meeting, corridor, sweepRooms, PIECES, BODIES, CARTS, MET, LANES,
+         landsWhereTheBoardSays, pack } from '../tools/matrix.mjs';
+import { analyze } from '../src/solver.js';
 import { generatedRooms } from '../tools/conform.mjs';
 import { actLevels } from '../tools/packs.mjs';
 import { toState } from '../src/format.js';
 import { handlesOf, laneOf, CART_LANE } from '../src/handles.js';
 import { arrives, cell, pieceCells, isCabinetOpen, cabinetFace,
-         carriedKind, DIRS } from '../src/rules.js';
+         carriedKind, DIRS, chainOf, terrainOf, OCCUPANTS, NONE, TERRAINS } from '../src/rules.js';
+
+/** What the boards of every case hold, read off the parsed boards rather than the tables. */
+function staged() {
+  const codes = new Set(), lanes = new Set();
+  for (const c of cases()) {
+    const s = toState({ ...c.room, id: c.id });
+    for (const row of s.cells) for (const cc of row) {
+      chainOf(cc).forEach(o => codes.add(o));
+      lanes.add(terrainOf(cc));
+      if (cc.grate) lanes.add('grate');
+      if (cc.oneway) lanes.add(`oneway ${cc.oneway}`);
+    }
+  }
+  return { codes, lanes };
+}
+
+test('the matrix stages every occupant code the engine has', () => {
+  const { codes } = staged();
+  const missing = Object.entries(OCCUPANTS)
+    .filter(([, o]) => typeof o === 'number' && o !== NONE && !codes.has(o)).map(([name]) => name);
+  assert.deepEqual(missing, []);
+});
+
+test('a thing staged only as the one met meets nothing when it is the one shoved', () => {
+  for (const [name, g] of Object.entries(MET))
+    for (const [ln, lg] of Object.entries(LANES)) {
+      const { room, at } = corridor({ left: g, lane: lg });
+      assert.equal(meeting(room, at).reached, false, `${name} shoved onto ${ln}`);
+    }
+});
+
+test('the matrix stages every terrain lane the engine has', () => {
+  const { lanes } = staged();
+  const want = [...Array.from({ length: TERRAINS }, (_, t) => t),
+                'grate', ...Object.keys(DIRS).map(d => `oneway ${d}`)];
+  assert.deepEqual(want.filter(l => !lanes.has(l)), []);
+});
 
 test('every piece meeting every lane and every other piece lands where it says it does', () => {
   const rows = [...run()];
@@ -17,14 +55,56 @@ test('every piece meeting every lane and every other piece lands where it says i
   assert.deepEqual(bad.map(r => `${r.id}: ${r.why}`), []);
 });
 
+/** The case ids the tables name: every lane and every thing met, for each way a piece can lie
+ *  in the corridor. Which way a piece can lie is asked of `corridor` with nothing else on the
+ *  board, and both pieces of a meeting lie the same way. */
+function named() {
+  const all = { ...PIECES, ...BODIES, ...CARTS }, met = { ...all, ...MET };
+  const lies = (g, vertical) => corridor({ left: g, vertical }) !== null;
+  const ids = [];
+  for (const [pn, pg] of Object.entries(all)) {
+    const multi = typeof pg === 'object' ? pg.mask.length > 1 : Object.values(BODIES).includes(pg);
+    if (lies(pg, false)) {
+      for (const ln of Object.keys(LANES)) ids.push(`${pn}-on-${ln}`);
+      for (const [qn, qg] of Object.entries(met)) {
+        if (!lies(qg, false)) continue;
+        ids.push(`${pn}-into-${qn}`);
+        for (const ln of Object.keys(LANES)) ids.push(`${pn}-into-${qn}-over-${ln}`);
+      }
+    }
+    if (multi && lies(pg, true))
+      for (const [qn, qg] of Object.entries(met))
+        if (lies(qg, true)) ids.push(`${pn}-broadside-into-${qn}`);
+  }
+  return ids.sort();
+}
+
 test('the matrix stages what it claims to stage', () => {
   const rows = [...run()];
-  const all = [...cases()];
-  assert.ok(all.length > 900, `only ${all.length} cases`);
+  assert.deepEqual([...cases()].map(c => c.id).sort(), named());
   const holes = rows.filter(r => r.verdict === 'NO-MEETING');
   assert.deepEqual(holes.map(r => r.id), [], 'these cases stage nothing');
   const mattered = rows.filter(r => r.mattered).length;
   assert.ok(mattered > 600, `only ${mattered} cases where the thing under test changed anything`);
+});
+
+test('the pack solves its rooms across workers, in row order, and reports each one', async () => {
+  const rows = [...run('canFull-into-')].slice(0, 12);
+  const done = [];
+  const { text, unfinishable, over } = await pack(rows, { workers: 3, onItem: e => done.push(e.done) });
+  assert.deepEqual(done, rows.map((_, i) => i + 1));
+  assert.equal(over, 0);
+  const solved = rows.map(r => ({ id: r.id, par: analyze(r.state).minMoves }));
+  assert.equal(unfinishable, solved.filter(r => r.par === null).length);
+  const levels = [...text.matchAll(/^:level\s+(\S+)\n:name.*\n:par\s+(\d+)/gm)].map(m => ({ id: m[1], par: +m[2] }));
+  assert.deepEqual(levels, solved.filter(r => r.par !== null));
+});
+
+test('the pack counts a room over the state bound apart from one that cannot be finished', async () => {
+  const rows = [...run('canFull-into-')].slice(0, 4);
+  const { text, unfinishable, over } = await pack(rows, { workers: 2, maxStates: 2, onItem: () => {} });
+  assert.deepEqual({ unfinishable, over }, { unfinishable: 0, over: rows.length });
+  assert.doesNotMatch(text, /^:level/m);
 });
 
 test('every case gets a verdict, and staging nothing is one of them', () => {

@@ -32,11 +32,9 @@ export async function serve(each) {
   parentPort.postMessage(null);
 }
 
-/** `serve` for a pass that maps a set to a set: one it cannot speak for comes through
- *  unchanged rather than dropped. */
-export const servePass = pass => serve(set => {
-  try { return pass(set) ?? set; } catch { return set; }
-});
+/** `serve` for a pass that maps a set to a set: one it returns null for comes through
+ *  unchanged rather than dropped. A throw fails the run. */
+export const servePass = pass => serve(set => pass(set) ?? set);
 
 /**
  * The main half: deal the items out, collect them back in the order they were dealt.
