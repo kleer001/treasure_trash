@@ -1,10 +1,19 @@
 // Each thing that stands upright in a cell is one drawing.
-import { BAG, CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, JUG, JUG_EMPTY, WHEELIE, WHEELIE_EMPTY, PANE } from '../rules.js';
+import { BAG, CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, JUG, JUG_EMPTY, WHEELIE, WHEELIE_EMPTY, PANE,
+         TIRE_H, TIRE_V, CHAIR, BROOM, SPONGE, CARDBOARD, MAG_U, MAG_D, MAG_L, MAG_R,
+         CABC_U, CABC_D, CABC_L, CABC_R, magnetFace, cabinetFace } from '../rules.js';
 import { C } from './flight.js';
 import * as CAN from './can.js';
 import * as BOX from './box.js';
 import * as GLASS from './pane.js';
 import { bakedJug } from './jugTip.js';
+import { TYRE } from './tyre.js';
+import { CHAIR as CHAIR_ART } from './chair.js';
+import { BROOM as BROOM_ART } from './broom.js';
+import { SPONGE as SPONGE_ART } from './sponge.js';
+import { CARDBOARD as CARDBOARD_ART } from './cardboard.js';
+import { MAGNET } from './magnet.js';
+import { CABINET } from './cabinet.js';
 
 export const at = (spr, cx, cy) => [cx * C + Math.floor((C - spr.w) / 2), cy * C + C - spr.h - 1];
 export const moved = (px, dx, dy) => px.map(([x, y, col]) => [x + dx, y + dy, col]);
@@ -19,9 +28,21 @@ export function createStills({ T, A, O, LOOK, J }) {
     return moved(s.px.filter(([x, y]) => y0 + y < 2 && x0 + x > 0 && x0 + x < BOX.BOX.W - 1), x0, y0);
   });
   const upright = (spr, P, under = []) => ({ px: [...under, ...spr.px], x: P[0], y: P[1], h: spr.h });
+  const standing = (spr, cx, cy) => upright(spr, at(spr, cx, cy));
   return (o, cx, cy, seed = 1, lie = null) => {
     if (lie) { const M = LYING[o]; return upright(M.rest(lie), M.restAt(cx, cy, C, lie)); }
     switch (o) {
+      case TIRE_H: return standing(TYRE.H, cx, cy);
+      case TIRE_V: return standing(TYRE.V, cx, cy);
+      case CHAIR: return standing(CHAIR_ART, cx, cy);
+      case BROOM: return standing(BROOM_ART, cx, cy);
+      case SPONGE: { const [x, y] = at(SPONGE_ART, cx, cy); return upright(SPONGE_ART, [x + SPONGE_ART.dx, y + SPONGE_ART.dy]); }
+      case CARDBOARD: return upright(CARDBOARD_ART, [cx * C, cy * C]);
+      case MAG_U: case MAG_D: case MAG_L: case MAG_R: return standing(MAGNET[magnetFace(o)], cx, cy);
+      case CABC_U: case CABC_D: case CABC_L: case CABC_R: {
+        const s = CABINET[cabinetFace(o)];
+        return upright(s, [cx * C + Math.floor(C / 2) - s.ax, cy * C + C - s.foot - 2]);
+      }
       case CAN_EMPTY: return upright(CAN.front, CAN.restAt(cx, cy, C));
       case CAN_FULL: {
         const [bx, by] = CAN.bagIn(A.bag), P = CAN.restAt(cx, cy, C), up = CAN.frame('r', 0);

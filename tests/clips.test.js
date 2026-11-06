@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { explain, JUG_EMPTY } from '../src/rules.js';
+import { explain, OCCUPANTS, JUG_EMPTY, TIRE_H, TIRE_V, CHAIR, BROOM, SPONGE, CARDBOARD, CABC_U, MAG_R } from '../src/rules.js';
 import { toState } from '../src/format.js';
 import { stageFrom, applyStep, settle, timeline, CELL_MS } from '../src/stage.js';
 import { createClips } from '../src/clips.js';
 import { createPixelSprites } from '../src/pixel.js';
+import { drawOccupant } from '../src/sprites.js';
 
 const POUR = toState({ id: 'pour', grid: ['#########', '#@j-----#', '#-------#', '#E#######'] });
 
@@ -70,4 +71,48 @@ test('a lone splash draws nothing', () => {
   ctx.out = [];
   SP.splash(3, 4);
   assert.deepEqual(ctx.out, []);
+});
+
+// The real pixel drawing, and a second one that records what a thing looks like standing.
+const restCtx = { out: [], fillStyle: '', fillRect(x, y, w, h) { this.out.push([x, y, w, h, this.fillStyle]); } };
+const REST = createPixelSprites({ ctx: restCtx, art: pixelArt });
+
+// Each row is one line of a room. A `~` is water: the grid reads it as floor, the water mask as water.
+const room = rows => toState({ id: 'float', grid: rows.map(r => r.replace(/~/g, '-')), water: rows.map(r => r.replace(/[^~]/g, '-')) });
+const waterCell = rows => { for (const [y, r] of rows.entries()) if (r.includes('~')) return [r.indexOf('~'), y]; };
+
+// Each thing the rules put on water with one key, and the room that does it.
+const FLOATS = [
+  ['a tyre rolls onto water', TIRE_H, 'r', ['#######', '#E@o~##', '#######']],
+  ['a tyre rolls down onto water', TIRE_V, 'd', ['#####', '#E-##', '##@##', '##O##', '##~##', '#####']],
+  ['a chair rolls onto water', CHAIR, 'r', ['#######', '#E@h~##', '#######']],
+  ['a broom is swept onto water', BROOM, 'r', ['#######', '#E@r~##', '#######']],
+  ['a sponge is swept onto water', SPONGE, 'r', ['#######', '#E@rs~#', '#######']],
+  ['flattened cardboard is swept onto water', CARDBOARD, 'r', ['#######', '#E@rd~#', '#######']],
+  ['a closed cabinet is pushed onto water', CABC_U, 'r', ['#######', '#E@a~##', '#######']],
+  ['a magnet is pushed onto water', MAG_R, 'r', ['#######', '#E@q~##', '#######']],
+];
+
+for (const [name, kind, dir, rows] of FLOATS) test(`${name}: its float draws the thing`, () => {
+  const state = room(rows), stage = stageFrom(state, 1, null);
+  const clips = createClips({ pixel: true, art: SP, stage: () => stage, clock: () => 0, since: () => 0, frame: 1000 / 60 });
+  let after = state;
+  for (const seg of timeline(explain(state, dir, { trace: true }), CELL_MS))
+    for (const it of seg.items) {
+      applyStep(stage, it.step, it.racTo);
+      clips.note(it.step, it.next, 0);
+      settle(stage);
+      after = it.next;
+    }
+  SP.setBoard(after);
+  clips.prune();
+  const [wx, wy] = waterCell(rows);
+  const sp = stage.sprites.find(s => s.kind === kind && s.tx === wx && s.ty === wy);
+  assert.ok(sp, `a ${kind} rests on the water`);
+  ctx.out = [];
+  assert.equal(clips.paint(sp), true);
+  restCtx.out = [];
+  drawOccupant(REST, OCCUPANTS, kind, 0, 0, {});
+  const standing = new Set(restCtx.out.map(p => p[4]));
+  assert.ok(ctx.out.some(p => standing.has(p[4])), 'the float paints the colours the thing stands in');
 });
