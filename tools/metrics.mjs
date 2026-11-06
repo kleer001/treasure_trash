@@ -24,8 +24,8 @@ import { dirname, resolve } from 'node:path';
 import { parseLevelPack, parseLurd, toState, toGrid, toCart } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import {
-  DIR_ORDER, DIRS, MOVE, PUSH, TEAR, BAG, NONE, explain, cell, fan, canStand, isOccupiable, bagsLeft,
-  isWon, restsOn, spanRestsOn,
+  DIR_ORDER, DIRS, MOVE, PUSH, TEAR, BAG, BAGS_IN, NONE, explain, cell, chainOf, fan, canStand, isOccupiable,
+  bagsLeft, isWon, restsOn, spanRestsOn,
 } from '../src/rules.js';
 import { laneOf, isBodyLane } from '../src/handles.js';
 import { watched } from '../src/audit.js';
@@ -79,7 +79,10 @@ function coupling(s) {
 
 /**
  * Finds whether every bag can be opened first, or whether some first choice loses the room
- * outright. A bag is identified by the cell the raccoon ends on.
+ * outright.
+ *
+ * The cell a bag is torn from is not its identity, because one bag can be torn from several cells.
+ * So a bag keeps one label while moves carry it from cell to cell.
  *
  * Returns { first, safe } — how many distinct bags can be torn first at all, and how many
  * of those leave a winnable board. `safe < first` is the room asking "which one first?";
@@ -87,14 +90,46 @@ function coupling(s) {
  */
 function orderChoices(a, start) {
   const intact = bagsLeft(start);
-  const safeByBag = new Map();
-  for (const [, node] of a.states) {
+  const bagsOf = s => {
+    const out = new Map();
+    for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++)
+      chainOf(cell(s, x, y)).forEach((o, i) => {
+        if (BAGS_IN[o]) out.set(`${y * s.cols + x}.${i}`, o);
+      });
+    return out;
+  };
+  const boardOrder = (p, q) => {
+    const [pc, pi] = p.split('.').map(Number), [qc, qi] = q.split('.').map(Number);
+    return pc - qc || pi - qi;
+  };
+
+  let fresh = 0;
+  const labels = new Map();
+  for (const [k, node] of a.states) {
     if (bagsLeft(node.state) !== intact) continue;
+    const now = bagsOf(node.state);
+    if (node.prev === null) {
+      labels.set(k, new Map([...now.keys()].map(name => [name, fresh++])));
+      continue;
+    }
+    const from = labels.get(node.prev);
+    if (!from) throw new Error('orderChoices: intact state reached from one that is not');
+    const lost = [...from.keys()].filter(name => !now.has(name)).sort(boardOrder);
+    const gained = [...now.keys()].filter(name => !from.has(name)).sort(boardOrder);
+    const kept = [...now.keys()].filter(name => from.has(name));
+    const next = new Map(kept.map(name => [name, from.get(name)]));
+    gained.forEach((name, i) => next.set(name, i < lost.length ? from.get(lost[i]) : fresh++));
+    labels.set(k, next);
+  }
+
+  const safeByBag = new Map();
+  for (const [k, node] of a.states) {
+    if (!labels.has(k)) continue;
     for (const e of node.edges) {
       if (e.kind !== TEAR) continue;
       const t = a.states.get(e.to).state;
-      const k = `${t.rac.x},${t.rac.y}`;
-      safeByBag.set(k, (safeByBag.get(k) ?? false) || !a.dead.has(e.to));
+      const bag = labels.get(k).get(`${t.rac.y * t.cols + t.rac.x}.0`);
+      safeByBag.set(bag, (safeByBag.get(bag) ?? false) || !a.dead.has(e.to));
     }
   }
   return { first: safeByBag.size, safe: [...safeByBag.values()].filter(Boolean).length };
