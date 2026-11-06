@@ -53,6 +53,13 @@ test('a swept pane over the canal does not break', () => {
   assert.equal(toWater(s)[0][3], '~', 'and still the canal');
 });
 
+test('a pane swept onto tar sticks there whole', () => {
+  const s = push(S(['@rg--E'], ['---T--']), 'r');
+  assert.equal(toGrid(s)[0], '-@rg-E', 'still a pane');
+  assert.equal(toWater(s)[0][3], 'T', 'and still tar');
+  assert.equal(refuse(s, 'r'), 'tar');
+});
+
 test('what the line sweeps into a grate is gone', () => {
   const s = push(S(['@rC---E'], ['---O---']), 'r');
   assert.equal(toGrid(s)[0], '-@r---E');

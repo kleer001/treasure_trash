@@ -63,6 +63,10 @@ test('a pane shatters into the next cell and leaves broken glass there', () => {
   assert.equal(toWater(s)[0][2], '*', 'and what it left is a hazard, not trash');
 });
 
+test('a pane shoved onto tar or grease shatters, and its glass takes the cell', () => {
+  for (const ter of 'T%') assert.equal(toWater(push(S(['@g---E'], [`--${ter}---`]), 'r'))[0][2], '*', ter);
+});
+
 test('a pane with nowhere to break rides intact, and against water it will not break at all', () => {
   assert.equal(refuse(S(['@gc--E']), 'r'), 'canRoom', 'boxed in behind a can');
   assert.equal(refuse(S(['@g---E'], ['--~---']), 'r'), 'water', 'and glass does not go in the canal');

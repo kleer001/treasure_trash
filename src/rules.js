@@ -1682,7 +1682,7 @@ function decide(s, dir, opts) {
         step.gone.push(leaves({ o: what, cells: [from], ...cost }));
         continue;
       }
-      if (what === PANE && isOccupiable(s, x + dx, y + dy) && !cell(s, ...to).water) {
+      if (what === PANE && isOccupiable(s, x + dx, y + dy) && !cell(s, ...to).water && !isTar(cell(s, ...to))) {
         step.moved.push(moves({ o: PANE, from, to }));
         step.gone.push(leaves({ o: PANE, cells: [from] }));
         cell(next, ...to).ter = GLASS;
