@@ -112,7 +112,7 @@ export function tighten(room, accept = (d, base) =>
       if (cur.water?.[y]?.[x] !== undefined && cur.water[y][x] !== '-') continue;
       const cand = wallAt(cur, x, y);
       const d = draft({ id: 'tighten', ...cand });
-      if (!d.ok || !accept(d, base) || !cartMustMove(cand)) continue;
+      if (!d.ok || !accept(d, base) || cartMustMove(cand) === false) continue;
       cur = cand; best = d; moved = true;
     }
   }

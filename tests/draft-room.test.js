@@ -58,3 +58,10 @@ test('tightening only ever turns floor into wall', () => {
   }));
   assert.deepEqual(t.room.cart, SLACK.cart);
 });
+
+test('tightening a room with no cart still walls off its slack', () => {
+  const t = tighten({ grid: ['E@---', '-$---', '-----'] });
+  assert.ok(t.room.grid.join('').includes('#'), 'no wall was placed in a room with no cart');
+  assert.ok(t.draft.ok);
+  assert.equal(t.draft.par, t.was.par);
+});
