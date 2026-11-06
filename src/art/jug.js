@@ -3,7 +3,6 @@ import { paint, tipper, INK } from './tip.js';
 import { N4 } from './spread.js';
 
 export const JUG = { W: 16, H: 22, D: 16 };   // px: width, height, diameter seen end on
-const FOLD = 9;
 const LEVELS = 8;                             // water levels drawn between full and empty
 const DEEP = '#244287', MID = '#3169b0', LIGHT = '#7dafb3', SHINE = '#f1eccb', PLASTIC = '#67819e', CAP = '#2b2d55';
 
@@ -86,7 +85,7 @@ function rolled(dir, deg, level) {
 
 const JUGS = Array.from({ length: LEVELS + 1 }, (_, i) => {
   const level = i / LEVELS;
-  return tipper(front(level), end(level, true), end(level, false), FOLD, (dir, deg) => rolled(dir, deg, level));
+  return tipper(front(level), end(level, true), end(level, false), null, (dir, deg) => rolled(dir, deg, level));
 });
 const at = level => JUGS[Math.round(Math.max(0, Math.min(1, level)) * LEVELS)];
 

@@ -3,7 +3,6 @@ import { tipper } from './tip.js';
 import { N4 } from './spread.js';
 
 export const CAN = { W: 22, H: 26, R: 10 };   // Units are px. W is the width with the handles, H the height, R the rim's radius.
-const FOLD = 10;
 
 export const ZINC = { ink: '#1e2128', deep: '#3e434d', dark: '#5d646f', mid: '#868d97', light: '#adb3bb', shine: '#dde0e3' };
 const HANDLE = 3;                             // How far a side handle stands out from the body, in px.
@@ -219,7 +218,7 @@ function traced(seen, sg, zp, deg) {
   return hits;
 }
 
-export const { rest, restAt, frame } = tipper(front, mouth, base, FOLD, fall, (x, y) => OPEN.has(`${x},${y}`));
+export const { rest, restAt, frame } = tipper(front, mouth, base, null, fall, (x, y) => OPEN.has(`${x},${y}`));
 
 /** Returns where the bag stands in the upright can: its top-left, in px from the can's. */
 export const bagIn = bag => [Math.floor((CAN.W - bag.w) / 2), -5];
