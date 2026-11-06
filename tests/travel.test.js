@@ -1,5 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { toState } from '../src/format.js';
 import { analyze } from '../src/solver.js';
 import { deadTravel, isOneRoom, inertPieces, roomPieces } from '../tools/metrics.mjs';
@@ -132,14 +136,49 @@ test('shrinking will not seal a piece into a pocket', () => {
   const set = {
     shape: 'test', ramp: 'par',
     rooms: [
-      { group: '$P', grid: ['-$-----', '-@-----', 'E------'], cart: ['-------', '-------', '-----PP'] },
-      { group: '$P', grid: ['-$-----', '--@----', 'E------'], cart: ['-------', '-------', '-----PP'] },
-      { group: '$P', grid: ['-$-----', '---@---', 'E------'], cart: ['-------', '-------', '-----PP'] },
+      { group: '$$x', grid: ['-----#x', '-E$----', '-@-----', '-$-----', '-------'] },
+      { group: '$$x', grid: ['@----#x', '-E$----', '-------', '-$-----', '-------'] },
+      { group: '$$x', grid: ['-@---#x', '-E$----', '-------', '-$-----', '-------'] },
     ],
   };
   const out = shrinkSet(set);
-  if (!out) return;                       // the set may simply not hold; that is not this bug
+  assert.ok(out, 'the fixture has to be readable where it stands');
   for (const r of out.rooms)
     assert.equal(isOneRoom(toState({ id: 'r', grid: r.grid, ...(r.cart && { cart: r.cart }) })),
       true, r.grid.join('\n'));
+});
+
+const runPass = (tool, set) => {
+  const dir = mkdtempSync(join(tmpdir(), 'tt-pass-'));
+  const path = join(dir, 'sets.jsonl');
+  writeFileSync(path, JSON.stringify(set) + '\n');
+  const log = execFileSync(process.execPath, [`tools/${tool}.mjs`, '--in', path, '--out', path, '--workers', '1'],
+    { encoding: 'utf8' });
+  const out = JSON.parse(readFileSync(path, 'utf8'));
+  rmSync(dir, { recursive: true });
+  return { log, out };
+};
+
+// Unsolvable, and its rooms disagree about where the raccoon starts.
+const UNREAD = {
+  shape: 'test', ramp: 'par',
+  rooms: [
+    { group: '$', grid: ['-$-', '-@-', 'E--'] },
+    { group: '$', grid: ['-$-', '--@', 'E--'] },
+    { group: '$', grid: ['-$@', '---', 'E--'] },
+  ],
+};
+
+test('resite counts a set it cannot read as unread, not as moved', () => {
+  const { log, out } = runPass('resite', { ...UNREAD, resited: true });
+  assert.match(log, /0 sets moved, 0 were already best placed, 1 could not be read/);
+  assert.equal(out.resited, undefined);
+  assert.equal(out.unread, undefined);
+});
+
+test('shrink counts a set it cannot read as unread, not as shrunk', () => {
+  const { log, out } = runPass('shrink', { ...UNREAD, shrunk: true });
+  assert.match(log, /0 sets shrank, 0 kept their floor, 1 could not be read/);
+  assert.equal(out.shrunk, undefined);
+  assert.equal(out.unread, undefined);
 });

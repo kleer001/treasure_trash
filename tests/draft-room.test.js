@@ -65,3 +65,16 @@ test('tightening a room with no cart still walls off its slack', () => {
   assert.ok(t.draft.ok);
   assert.equal(t.draft.par, t.was.par);
 });
+
+test('a group with two of one piece yields each arrangement once', () => {
+  const plan = ['-----', '-----', '-----'];
+  const keys = [...rooms({ plan, pieces: ['$', '$'] })].map(r => r.grid.join('/') + '|' + r.cart.join('/'));
+  assert.ok(keys.length > 0);
+  assert.equal(new Set(keys).size, keys.length);
+});
+
+test('a room past the state bound is refused, not enumerated', () => {
+  const d = draft({ id: 'big', grid: ['------', '-cc---', '---cc-', '-c----', '--@--E'] });
+  assert.equal(d.ok, false);
+  assert.match(d.notes.join(' '), /exceeds/);
+});

@@ -12,12 +12,18 @@
 //   import { draft, cartMustMove, ttBlock, hunt } from './draft-room.mjs';
 
 import { toState, toGrid, toWater, toCart } from '../src/format.js';
-import { analyze } from '../src/solver.js';
+import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import {
   deadTravel, isOneRoom, inertPieces, shortestDag,
-  parseGate, coverGate, winnableWithoutKind,
+  parseGate, coverGate, winnableWithoutKind, MAX_STATES,
 } from './metrics.mjs';
+
+/** The analysis, or null when the graph passes the pipeline's bound. */
+const solve = s => {
+  try { return analyze(s, { maxStates: MAX_STATES }); }
+  catch (e) { if (e instanceof TooManyStates) return null; throw e; }
+};
 
 /**
  * Everything verify.mjs would say about a candidate room, without putting it in the pack.
@@ -39,8 +45,9 @@ export function draft(room) {
   if (room.water && (toWater(s) ?? []).join('\n') !== room.water.join('\n')) no('water mask does not round-trip');
 
   const t0 = Date.now();
-  const a = analyze(s);
+  const a = solve(s);
   out.ms = Date.now() - t0;
+  if (!a) { no(`the state graph exceeds ${MAX_STATES} states`); return out; }
   out.reachable = a.reachable;
   if (a.minMoves === null) { no('unsolvable'); return out; }
 
@@ -60,8 +67,9 @@ export function draft(room) {
     // Every cover mode but `kind`, rather than a list of them: a mode left off a list here is a
     // room drafted against a question nobody asked.
     if (g.mode !== 'kind' && g.mode !== 'none') {
-      const covered = analyze(toState({ ...coverGate(room, g), id: `${room.id}~gated` }));
-      if (covered.minMoves !== null) no(`covered, the room is still solvable in ${covered.minMoves}`);
+      const covered = solve(toState({ ...coverGate(room, g), id: `${room.id}~gated` }));
+      if (!covered) no(`covered, the state graph exceeds ${MAX_STATES} states`);
+      else if (covered.minMoves !== null) no(`covered, the room is still solvable in ${covered.minMoves}`);
     }
   }
 
@@ -80,9 +88,7 @@ export function cartMustMove(room) {
   if (!room.cart) return null;
   const grid = room.grid.map((row, y) =>
     [...row].map((ch, x) => (room.cart[y][x] !== '-' ? '#' : ch)).join(''));
-  try {
-    return analyze(toState({ ...room, grid, cart: undefined })).minMoves === null;
-  } catch { return true; }
+  return analyze(toState({ ...room, grid, cart: undefined }), { maxStates: MAX_STATES }).minMoves === null;
 }
 
 const wallAt = (room, x, y) => ({
@@ -145,6 +151,7 @@ export function* rooms({ w, h, pieces = ['$'], exitAt = null, walled = false, pl
     : walled && (x === 0 || y === 0 || x === w - 1 || y === h - 1));
   const inside = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (!isWall(x, y)) inside.push([x, y]);
+  const order = [...pieces].sort();
   const key = ([x, y]) => `${x},${y}`;
   const at = new Set(inside.map(key));
   const carts = [];
@@ -162,14 +169,17 @@ export function* rooms({ w, h, pieces = ['$'], exitAt = null, walled = false, pl
         const spots = inside.filter(c => !taken.has(key(c)));
         // Lazy: a group on a big board has too many arrangements to collect first, and holding them
         // all would cost the memory and a spread wide enough to blow the stack.
-        function* place(rest, used) {
-          if (!rest.length) { yield used; return; }
-          for (const c of spots) {
-            if (used.some(u => key(u[1]) === key(c))) continue;
-            yield* place(rest.slice(1), [...used, [rest[0], c]]);
+        //
+        // Two of the same piece swapped is the same room, so a piece that repeats the one before it
+        // takes only a later spot.
+        function* place(k, used, last) {
+          if (k === order.length) { yield used; return; }
+          for (let i = k > 0 && order[k] === order[k - 1] ? last + 1 : 0; i < spots.length; i++) {
+            if (used.some(u => u[2] === i)) continue;
+            yield* place(k + 1, [...used, [order[k], spots[i], i]], i);
           }
         }
-        for (const arrangement of place(pieces, [])) {
+        for (const arrangement of place(0, [], -1)) {
           const grid = Array.from({ length: h }, (_, y) =>
             Array.from({ length: w }, (_, x) => (isWall(x, y) ? '#' : '-')));
           const mask = grid.map(r => r.map(() => '-'));

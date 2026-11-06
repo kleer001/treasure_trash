@@ -22,7 +22,7 @@
 import { readFileSync } from 'node:fs';
 import { toState } from '../src/format.js';
 import { analyze } from '../src/solver.js';
-import { pathBite } from './metrics.mjs';
+import { pathBite, MAX_STATES } from './metrics.mjs';
 
 /**
  * Re-solve one room to measure what the harvest could not store cheaply: the share of the solve
@@ -30,8 +30,9 @@ import { pathBite } from './metrics.mjs';
  * so it does not describe the walk the player takes.
  */
 export function refine(room) {
-  const s = toState({ id: 'refine', grid: room.grid, ...(room.cart && { cart: room.cart }) });
-  return pathBite(analyze(s));
+  const s = toState({ id: 'refine', grid: room.grid, ...(room.cart && { cart: room.cart }),
+                      ...(room.water && { water: room.water }) });
+  return pathBite(analyze(s, { maxStates: MAX_STATES }));
 }
 
 // ---------------------------------------------------------------- the terms

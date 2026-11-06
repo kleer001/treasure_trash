@@ -112,3 +112,19 @@ test('tightening preserves par and never loosens the room', () => {
   assert.ok(after.solves <= before.shortestCount, 'and must not add solutions');
   assert.ok(after.states <= before.reachable, 'walls only ever remove options');
 });
+
+test('a watered room keeps its water through refit and emit', () => {
+  const row = {
+    group: '$$$', states: 99999,
+    grid: ['-----', '-$E--', '-----', '-$@$-', '-----'],
+    water: ['-----', '-----', '~~~~~', '-----', '-----'],
+  };
+  const before = analyze(toState({ id: 'b', grid: row.grid, water: row.water }));
+  const after = refit(row);
+  assert.notEqual(after, null, 'the fixture should tighten and hold its par');
+  assert.equal(after.par, before.minMoves);
+  assert.deepEqual(after.water, row.water);
+  const l = parseLevelPack(emit([after], { first: 40, pack: 'Test Act' }).tt).levels[0];
+  assert.deepEqual(l.water, row.water);
+  assert.equal(analyze(toState(l)).minMoves, before.minMoves);
+});

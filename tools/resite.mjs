@@ -188,7 +188,8 @@ export function resiteSet(set, floor = FLOOR) {
   };
 }
 
-if (!isMainThread && workerData?.tool === 'resite') servePass(resiteSet);
+if (!isMainThread && workerData?.tool === 'resite')
+  servePass(set => resiteSet(set) ?? { ...set, resited: undefined, unread: true });
 else if (import.meta.url === `file://${process.argv[1]}`) {
   const str = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d : process.argv[i + 1]; };
   const num = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d : Number(process.argv[i + 1]); };
@@ -205,11 +206,12 @@ else if (import.meta.url === `file://${process.argv[1]}`) {
   const nowWalk = out.reduce((a, s) =>
     a + s.rooms.reduce((b, r) => b + (r.lead ?? 0) + (r.tail ?? 0), 0), 0);
   const worst = k => Math.max(...out.flatMap(s => s.rooms.map(r => r[k] ?? 0)));
-  writeFileSync(outPath, out.map(({ walkWas, ...s }) => JSON.stringify(s)).join('\n') + '\n');
+  writeFileSync(outPath, out.map(({ walkWas, unread, ...s }) => JSON.stringify(s)).join('\n') + '\n');
   console.log(`\ndead travel ${wasWalk} -> ${nowWalk} moves`
     + (wasWalk ? ` (${(100 * nowWalk / wasWalk).toFixed(0)}% of what it was)` : ''));
   console.log(`  worst room now: lead ${worst('lead')}, tail ${worst('tail')}`);
   console.log(`  ${out.filter(s => s.resited).length} sets moved,`
-    + ` ${out.filter(s => !s.resited).length} were already best placed`);
+    + ` ${out.filter(s => !s.unread && !s.resited).length} were already best placed,`
+    + ` ${out.filter(s => s.unread).length} could not be read`);
   console.log(`  -> ${outPath}`);
 }

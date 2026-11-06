@@ -109,7 +109,8 @@ export function shrinkSet(set) {
 
 const floorOf = g => g.join('').split('-').length - 1;
 
-if (!isMainThread && workerData?.tool === 'shrink') servePass(shrinkSet);
+if (!isMainThread && workerData?.tool === 'shrink')
+  servePass(set => shrinkSet(set) ?? { ...set, shrunk: undefined, unread: true });
 else if (import.meta.url === `file://${process.argv[1]}`) {
   const str = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d : process.argv[i + 1]; };
   const num = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d : Number(process.argv[i + 1]); };
@@ -125,9 +126,13 @@ else if (import.meta.url === `file://${process.argv[1]}`) {
 
   const nowFloor = out.flatMap(s => s.rooms.map(r => floorOf(r.grid)));
   const sum = a => a.reduce((x, y) => x + y, 0);
-  writeFileSync(outPath, out.map(s => JSON.stringify(s)).join('\n') + '\n');
+  const setFloor = s => sum(s.rooms.map(r => floorOf(r.grid)));
+  writeFileSync(outPath, out.map(({ unread, ...s }) => JSON.stringify(s)).join('\n') + '\n');
   console.log(`\nfloor ${sum(wasFloor)} -> ${sum(nowFloor)}`
     + ` (${(100 * sum(nowFloor) / sum(wasFloor)).toFixed(0)}% of what it was)`);
-  console.log(`  ${out.filter(s => s.shrunk).length} sets shrank, ${out.filter(s => !s.shrunk).length} refused`);
+  const shrank = out.filter((s, i) => setFloor(s) < setFloor(sets[i])).length;
+  const unread = out.filter(s => s.unread).length;
+  console.log(`  ${shrank} sets shrank, ${out.length - shrank - unread} kept their floor,`
+    + ` ${unread} could not be read`);
   console.log(`  -> ${outPath}`);
 }

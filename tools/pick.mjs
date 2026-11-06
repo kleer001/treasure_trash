@@ -22,23 +22,24 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
-import { toState, toGrid, toCart } from '../src/format.js';
+import { toState, toGrid, toCart, toWater } from '../src/format.js';
 import { analyze } from '../src/solver.js';
 import { tighten, ttBlock } from './draft-room.mjs';
 import { measure } from './harvest.mjs';
 import { score, dedupe, REQUIRE, WEIGHTS } from './score.mjs';
 import { SET_TOP_MIN } from './sets.mjs';
-import { WALK_MAX } from './metrics.mjs';
+import { WALK_MAX, MAX_STATES } from './metrics.mjs';
 
 export const ACT_WEIGHTS = { ...WEIGHTS, blindness: -0.3 };
 
 /** Tighten one harvested room and measure the room that comes out. Null if it will not hold. */
 export function refit(row) {
-  const room = { id: 'pick', grid: row.grid, ...(row.cart && { cart: row.cart }) };
+  const room = { id: 'pick', grid: row.grid, ...(row.cart && { cart: row.cart }),
+                 ...(row.water && { water: row.water }) };
   const t = tighten(room);
   if (!t) return null;
   const s = toState({ id: 'pick', ...t.room });
-  const a = analyze(s);
+  const a = analyze(s, { maxStates: MAX_STATES });
   if (a.minMoves === null) return null;
   const w = t.room.grid[0].length, h = t.room.grid.length;
   return { ...measure(row.group, t.room, s, a, w, h), wasStates: row.states };
@@ -148,12 +149,13 @@ export function emit(picked, { first = 31, pack = 'Treasure Trash — Act 2', no
     // Write the CANONICAL grid and mask, not the one the generator happened to build. The
     // pools hand out letters in placement order and the serialiser reads them back in raster
     // order, so a room with two carts can round-trip as Q-then-P and fail its own verifier.
-    const s = toState({ id: id(i), grid: r.grid, ...(r.cart && { cart: r.cart }) });
-    const canonCart = toCart(s);
+    const s = toState({ id: id(i), grid: r.grid, ...(r.cart && { cart: r.cart }),
+                        ...(r.water && { water: r.water }) });
+    const canonCart = toCart(s), canonWater = toWater(s);
     const room = {
       id: id(i), name: `TODO name ${id(i)}`,
       note: noteFor ? noteFor(r, i) : `TODO note — ${r.group}, ${r.lines} lines, ${r.changes} changes`,
-      grid: toGrid(s), ...(canonCart && { cart: canonCart }),
+      grid: toGrid(s), ...(canonCart && { cart: canonCart }), ...(canonWater && { water: canonWater }),
     };
     tt.push(ttBlock(room, { par: r.par, traps: r.traps, solves: r.solves, solve: r.solve }), '');
     sol.push(`:solution ${id(i)}`, `:moves  ${r.solve}`, '');
@@ -163,9 +165,7 @@ export function emit(picked, { first = 31, pack = 'Treasure Trash — Act 2', no
 }
 
 if (!isMainThread && workerData?.tool === 'pick') {
-  parentPort.postMessage(workerData.chunk.map(r => {
-    try { return refit(r); } catch { return null; }
-  }));
+  parentPort.postMessage(workerData.chunk.map(refit));
 } else if (import.meta.url === `file://${process.argv[1]}`) {
   const str = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d : process.argv[i + 1]; };
   const num = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d : Number(process.argv[i + 1]); };
