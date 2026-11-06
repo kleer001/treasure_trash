@@ -115,6 +115,7 @@ if(dbg){
     level: () => LEVELS[cur].id,
     moves: () => moves,
     won: () => won,
+    armed: () => armed,
     mute: v => { muted = v; },
     hold: () => { heldMs = performance.now(); },
     run: () => { heldMs = null; raf ||= requestAnimationFrame(tick); },

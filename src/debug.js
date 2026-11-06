@@ -96,14 +96,14 @@ export function createProbe(read) {
   addEventListener('error', e => errors.push(e.message ?? String(e.error)));
   addEventListener('unhandledrejection', e => errors.push(String(e.reason)));
 
-  const check = () => {
+  const check = (since = 0) => {
     const mine = census(read.stage()), theirs = census(read.refStage());
     return {
-      level: read.level(), moves: read.moves(), won: read.won(),
+      level: read.level(), moves: read.moves(), won: read.won(), armed: read.armed(),
       agree: JSON.stringify(mine) === JSON.stringify(theirs),
       drawnButGone: mine.filter(k => !theirs.includes(k)),
       onBoardButUndrawn: theirs.filter(k => !mine.includes(k)),
-      errors: [...errors],
+      errors: errors.slice(since),
     };
   };
 
@@ -123,20 +123,25 @@ export function createProbe(read) {
     /** `walk` mutes the game. A person debugging by hand calls `mute(false)` to hear it. */
     mute: v => read.mute(v),
     /**
-     * One record per key. The walk stops at the first beat that disagrees, errors or does not
-     * settle, because each later beat starts from the state that beat left.
+     * One record per key. The walk stops at the first beat that disagrees, errors, does not
+     * settle or does not land, because each later beat starts from the state that beat left.
+     * `landed` is false for a key the game refused, held or took for something else. A key that
+     * arms a push lands. A key that wins lands, and the next room may have started by the time
+     * the beat settles.
      */
     async walk(keys) {
       read.mute(true);                 // a sweep is many beats; every refusal in them buzzes
-      const out = [];
+      const out = [], since = errors.length;
       for (const k of keys) {
         const key = KEYNAME[k];
         if (!key) throw new Error(`walk: '${k}' is not a direction`);
+        const before = { moves: read.moves(), level: read.level(), armed: read.armed() };
         press(key);
         const rested = await settled();
-        const r = { key: k, ...check(), rested };
+        const r = { key: k, ...check(since), rested };
+        r.landed = r.moves === before.moves + 1 || r.level !== before.level || r.armed !== before.armed;
         out.push(r);
-        if (!r.agree || r.errors.length || !rested) break;
+        if (!r.agree || r.errors.length || !rested || !r.landed) break;
       }
       return out;
     },
@@ -153,16 +158,20 @@ export function createProbe(read) {
       for (const room of plan) {
         for (let i = 0; i < room.runs.length; i++) {
           const run = room.runs[i];
-          if (!this.goto(room.id)) { out.push({ room: room.id, error: 'no such room in this pack' }); break; }
+          if (!this.goto(room.id)) {
+            out.push({ room: room.id, error: 'no such room in this pack',
+                       missed: room.runs.slice(i).flatMap(r => r.covers.flatMap(c => c.had)) });
+            break;
+          }
           const beats = await this.walk(run.keys);
-          const bad = beats.find(b => !b.agree || b.errors.length || !b.rested);
-          const reached = beats.length;
+          const bad = beats.find(b => !b.agree || b.errors.length || !b.rested || !b.landed);
+          const reached = beats.filter(b => b.landed).length;
           out.push({
             room: room.id, run: i + 1, keys: run.keys.length, walked: reached,
             ok: !bad,
             had: run.covers.filter(c => c.after <= reached).flatMap(c => c.had),
             missed: run.covers.filter(c => c.after > reached).flatMap(c => c.had),
-            fault: bad ? { key: bad.key, atBeat: reached, errors: bad.errors,
+            fault: bad ? { key: bad.key, atBeat: beats.length, landed: bad.landed, errors: bad.errors,
                            drawnButGone: bad.drawnButGone,
                            onBoardButUndrawn: bad.onBoardButUndrawn } : null,
           });
