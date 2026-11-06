@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stateKey, step, SKATE, CART_KINDS, TERRAINS } from '../src/rules.js';
+import { stateKey, step, SKATE, CART_KINDS, TERRAINS, WATER, BRIDGE, OCCUPANTS } from '../src/rules.js';
 import { toState, toGrid, toWater } from '../src/format.js';
 
 const board = codes => ({
@@ -21,14 +21,15 @@ test('the key stays one character per cell, so the solver holds long keys cheapl
   assert.equal(grid.length, 5);
 });
 
-// Every lane is packed off 65, so the separator is unambiguous only while it sits below that
-// floor. The loop bound is 64, so a code added below it needs no edit to this test.
 test('no cell can emit the separator, at any occupant code or terrain', () => {
-  const [sep] = stateKey(board([0])).slice(1);
-  for (let o = 0; o <= 64; o++) for (let t = 0; t < TERRAINS; t++) for (const cart of [0, 1]) {
-    const ch = String.fromCharCode(65 + (o * TERRAINS + t) * 2 + cart);
-    assert.notEqual(ch, sep, `occupant ${o}, terrain ${t}, cart ${cart} emits the separator`);
-  }
+  const sep = stateKey(board([0]))[1];
+  const lane = t => (t === WATER ? { water: true } : t === BRIDGE ? { bridge: true } : { ter: t });
+  for (const o of Object.values(OCCUPANTS).filter(Number.isInteger))
+    for (let t = 0; t < TERRAINS; t++) for (const cart of [{}, { cart: 0, ck: SKATE }]) {
+      const c = { o, ...lane(t), ...cart };
+      const key = stateKey({ cols: 1, rows: 1, rac: { x: 0, y: 0 }, cells: [[c]] });
+      assert.notEqual(key[0], sep, `cell ${JSON.stringify(c)} emits the separator`);
+    }
 });
 
 test('carts of different kinds that swap positions are different boards', () => {

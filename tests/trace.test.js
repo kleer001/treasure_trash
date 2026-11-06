@@ -183,11 +183,10 @@ test('a tip lands contiguously behind the skateboard, never skipping a taken cel
     [['@cc--#', 'E-----'], ['-PP---', '------']],
     [['@cc---#', 'E------'], ['-PP----', '-------']],
     [['@cc-x-#', 'E------'], ['-PP----', '-------']],
-    [['@c-#', '-c-#', 'E---'], ['-P--', '-P--', '----']],
   ]) {
     const r = audit('contiguity', grid, 'r', { cart });
     const tip = r.steps.at(-1);
-    if (bodies(tip).length) continue;
+    assert.ok(tip.moved.length && !bodies(tip).length, `${grid[0]}: the last step is not a tip`);
     const before = r.frames[r.frames.length - 2];
     for (const m of tip.moved.filter(m => m.parent === null)) {
       const from = anchorOf(m.cells), to = restsOn(m);
@@ -218,11 +217,10 @@ test('a tip only ever moves cargo backward, and never past the run the skateboar
     [['@cc---#', 'E------'], ['-PP----', '-------'], null],
     [['@-c-#', 'E----'], ['-PP--', '-----'], null],
     [['@-x--#', 'E-----'], ['-PP---', '------'], ['--~---', '------']],
-    [['@c-#', '-c-#', 'E---'], ['-P--', '-P--', '----'], null],
   ]) {
     const r = audit('tip-direction', grid, 'r', { cart, water });
     const tip = r.steps.at(-1);
-    if (bodies(tip).length) continue;
+    assert.ok(tip.moved.length && !bodies(tip).length, `${grid[0]}: the last step is not a tip`);
     for (const m of tip.moved) {
       const back = -(m.dx + m.dy);
       assert.ok(back > 0, `a tip moved ${m.o} by ${m.dx},${m.dy} — not backward`);
