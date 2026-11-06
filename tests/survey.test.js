@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { toState } from '../src/format.js';
-import { groups, place, staticallyDead, BAGS } from '../tools/survey.mjs';
+import { groups, place, staticallyDead } from '../tools/survey.mjs';
+import { bagsLeft } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 import { MAX_STATES } from '../tools/metrics.mjs';
 
@@ -30,15 +31,16 @@ test('a bound above the true graph size changes nothing', () => {
 
 // --- the alphabet ------------------------------------------------------------
 
-test('every surveyed group can actually be cleared and lands in the target bag band', () => {
+test('every surveyed group places as a board that holds the target band of bags', () => {
   const all = groups();
   assert.ok(all.length > 0);
+  const rnd = mulberry32(3);
   for (const g of all) {
-    const bags = [...g].reduce((n, c) => n + (BAGS[c] ?? 0), 0);
-    assert.ok(bags >= 2 && bags <= 4, `${g} carries ${bags} bags`);
     assert.equal(g.length, 4, `${g} is not a group of four`);
-    assert.ok([...g].filter(c => c === 'P').length <= 3, `${g} wants more skateboards than SKATE_POOL has`);
-    assert.ok([...g].filter(c => c === 'F').length <= 6, `${g} wants more couches than FURN_POOL has`);
+    const room = place(g, rnd);
+    assert.ok(room, `${g} does not place`);
+    const bags = bagsLeft(toState(room));
+    assert.ok(bags >= 2 && bags <= 4, `${g} carries ${bags} bags`);
   }
 });
 

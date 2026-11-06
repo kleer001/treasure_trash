@@ -50,12 +50,9 @@ test('two different pieces in one solve is one change', () => {
 
 test('a room whose traps all hang off branches reads zero on the optimal line', () => {
   const pack = parseLevelPack(readFileSync('levels/act1.tt', 'utf8'));
-  const l29 = pack.levels.find(l => l.id === 'L29');
-  const a = analyze(toState(l29));
-  const b = pathBite(a);
+  const a = analyze(toState(pack.levels.find(l => l.id === 'L3')));
   assert.ok(a.traps.length > 0, 'the fixture has traps at all');
-  assert.ok(b.onPath >= 0 && b.onPath <= 1);
-  assert.equal(b.bitten, Math.round(b.onPath * a.minMoves));
+  assert.deepEqual(pathBite(a), { onPath: 0, bitten: 0, firstOnPath: null });
 });
 
 test('a room with no way to lose has no bite anywhere', () => {
