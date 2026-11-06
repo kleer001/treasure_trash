@@ -20,21 +20,25 @@ export function stars(best, par) {
 export function createProgress(store) {
   // Storage is outside the program: a user can edit it, and an older build can have left
   // something else there. Validated at this boundary and then trusted everywhere else.
+  //
+  // A store that throws on read, or that holds something other than a record, holds something
+  // unknown, so `write` leaves it alone.
   const read = () => {
     let raw = null;
-    try { raw = store.getItem(STORE_KEY); } catch { return {}; }
+    try { raw = store.getItem(STORE_KEY); } catch { return null; }
     if (!raw) return {};
     let parsed;
-    try { parsed = JSON.parse(raw); } catch { return {}; }
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    try { parsed = JSON.parse(raw); } catch { return null; }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
     const clean = {};
     for (const [id, moves] of Object.entries(parsed))
       if (Number.isInteger(moves) && moves > 0) clean[id] = moves;
     return clean;
   };
 
-  let best = read();
-  const write = () => { try { store.setItem(STORE_KEY, JSON.stringify(best)); } catch { /* full or blocked: play on */ } };
+  const stored = read();
+  let best = stored ?? {};
+  const write = () => { if (stored === null) return; try { store.setItem(STORE_KEY, JSON.stringify(best)); } catch { /* full or blocked: play on */ } };
 
   return {
     /** Fewest actions this room has ever been finished in, or null. */

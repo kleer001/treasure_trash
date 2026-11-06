@@ -123,3 +123,25 @@ test('clearing forgets everything, including on disk', () => {
   assert.equal(p.done('L1'), false);
   assert.equal(createProgress(store).done('L1'), false);
 });
+
+test('a store that holds something other than a record is never written over', () => {
+  for (const junk of ['not json', '[]', 'null', '"a string"']) {
+    const s = fakeStore({ [STORE_KEY]: junk });
+    createProgress(s).record('L1', 5);
+    assert.equal(s.raw()[STORE_KEY], junk);
+  }
+});
+
+test('a store that could not be read is never written over', () => {
+  const data = { [STORE_KEY]: '{"000":9,"001":14}' };
+  let reads = 0;
+  const flaky = {
+    getItem: k => { if (reads++ === 0) throw new Error('busy'); return data[k] ?? null; },
+    setItem: (k, v) => { data[k] = String(v); },
+  };
+  const p = createProgress(flaky);
+  p.record('005', 20);
+  assert.equal(p.best('005'), 20, 'it still knows about this session');
+  assert.equal(data[STORE_KEY], '{"000":9,"001":14}');
+  assert.equal(createProgress(flaky).best('000'), 9);
+});
