@@ -90,14 +90,15 @@ export async function upgradeSet(engine, plan, group, rnd) {
   const pick = [...empties].sort(() => (rnd() < 0.5 ? -1 : 1)).slice(0, 2);
 
   const rungs = [];
-  let grid = room.grid;
+  let grid = room.grid, label = group;
   for (let i = 0; i <= 2; i++) {
     if (i > 0) {
       const [x, y] = pick[i - 1];
-      grid = swapAt(grid, [x, y], UPGRADE[grid[y][x]]);
+      const empty = grid[y][x];
+      grid = swapAt(grid, [x, y], UPGRADE[empty]);
+      label = label.replace(empty, UPGRADE[empty]);
     }
-    const g = [...group].map(c => c).join('');
-    const m = await look(engine, { grid, ...(room.cart && { cart: room.cart }) }, g, plan.w, plan.h);
+    const m = await look(engine, { grid, ...(room.cart && { cart: room.cart }) }, label, plan.w, plan.h);
     if (!m) return null;
     rungs.push(m);
   }

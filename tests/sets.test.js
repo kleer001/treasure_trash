@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { rampGroups, UPGRADE, SET_TOP_MIN, PAR_MIN, PAR_MAX } from '../tools/sets.mjs';
+import { rampGroups, upgradeSet, UPGRADE, SET_TOP_MIN, PAR_MIN, PAR_MAX } from '../tools/sets.mjs';
+import { hFamily } from '../tools/shapes.mjs';
+import { mulberry32 } from '../src/rng.js';
 import { chooseSets } from '../tools/pick.mjs';
 import { toState } from '../src/format.js';
 import { bagsLeft } from '../src/rules.js';
@@ -137,4 +139,21 @@ test('coming up short is reported rather than padded', () => {
   const { sets, short } = chooseSets([fakeSet({ shape: 'a' }), fakeSet({ shape: 'b' })], { want: 10 });
   assert.equal(sets.length, 2);
   assert.equal(short, 8);
+});
+
+test('every upgrade rung is labelled with the containers its grid holds', () => {
+  const count = (str, ch) => [...str].filter(c => c === ch).length;
+  for (const s of SETS.filter(x => x.ramp === 'upgrade'))
+    for (const [p, q] of [[s.rooms[0], s.rooms[1]], [s.rooms[1], s.rooms[2]]])
+      for (const ch of [...Object.keys(UPGRADE), ...Object.values(UPGRADE)])
+        assert.equal(count(q.group, ch) - count(p.group, ch),
+          count(q.grid.join(''), ch) - count(p.grid.join(''), ch),
+          `${s.shape}: ${p.group} -> ${q.group} for ${ch}`);
+});
+
+test('an upgrade rung carries the label of the containers it filled', async () => {
+  const plan = hFamily().find(p => p.label === 'H 9x5 gap@2w4 cut1/2');
+  const s = await upgradeSet(null, plan, 'xbbB', mulberry32(29));
+  assert.ok(s, 'the fixture has to build a set');
+  assert.deepEqual(s.rooms.map(r => r.group), ['xbbB', 'xBbB', 'xBBB']);
 });
