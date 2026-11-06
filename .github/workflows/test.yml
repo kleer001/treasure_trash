@@ -35,8 +35,3 @@ jobs:
         run: cargo build --release --manifest-path engine/Cargo.toml
       - name: Conformance — the sanctioned port
         run: node tools/conform.mjs --engine engine/target/release/tt-engine --steps 1000000 --random 120
-      # The bundler flattens every module into one scope, so it breaks in ways the served
-      # game cannot: a module left out, an alias dropped, two modules declaring one name.
-      # It carries guards for all three, and they only fire if something runs the build.
-      - name: Bundle the artifact
-        run: node tools/build-artifact.mjs

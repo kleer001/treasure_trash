@@ -18,7 +18,7 @@ Expedition).
 | `src/` | The game: `rules.js` (the engine of record), `format.js`, `solver.js`, `stage.js`, `sprites.js`, `main.js`. |
 | `levels/`, `FORMATS.md` | The `.tt`/`.sol` level pack and the file syntax. |
 | `levels.md` | Index of the act rooms. |
-| `tools/` | Offline only: `verify.mjs`, `metrics.mjs`, `build-artifact.mjs`, `draft-room.mjs`. |
+| `tools/` | Offline only: `verify.mjs`, `metrics.mjs`, `draft-room.mjs`. |
 | `bench-skate.html` | The mechanic bench: a served page that imports `src/` to try one piece at a time. Presentation only — it carries no copy of the engine, and `verify.mjs` fails on a second copy of one anywhere in the tree. |
 | `BREADCRUMB.md` | Where we are, what's open, and the next move. Written and read by `/bob`. |
 | `GAME-SHEET.md` | Player-facing pitch (the fantasy, the loop, the hook). |
