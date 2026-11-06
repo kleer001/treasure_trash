@@ -1174,9 +1174,10 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
     const knocked = cloneState(s);
     const step = mkStep();
     for (const at of blame) strikeBack(knocked, at, dx, dy, step);
-    if (step.moved.length || step.spawned.length)
+    if (step.spawned.length)
       return { ok: true, kind: PUSH, next: knocked,
                ...(trace && (f => ({ frames: f, steps: [step] }))([cloneState(s), knocked])) };
+    if (step.moved.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
   }
   if (!blame.length) files.forEach((f, i) => {
     const back = f[f.length - 1], out = cell(s, ...back).o;
@@ -1217,7 +1218,7 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
     const d = cell(next, ...at(p, k)); d.cart = cid; d.ck = kind; setChain(d, loads[i][j].ch);
   }));
 
-  let n = 0, lastRoll = -1, stoppedAt = null;
+  let n = 0, lastRoll = -1, stoppedAt = null, shed = false;
   for (;;) {
     const ahead = aheadAt(n);
     const canShed = i => {
@@ -1287,6 +1288,7 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
       if (step) step.moved.push(moves({ o, from, to }));
     }
     n = end;
+    shed ||= spill.length > 0;
     for (const [[x, y], ch] of spill) {
       const m = step && step.moved.find(e =>
         e.o === ch[0] && restsOn(e)[0] === x && restsOn(e)[1] === y);
@@ -1305,6 +1307,8 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
 
   const blow = mkStep();
   for (const at of stoppedAt ?? []) strikeBack(next, at, dx, dy, blow);
+  if (n === 0 && !shed && !blow.spawned.length)
+    return { ok: false, reason: reasonFor(s, stoppedAt, 'canRoom'), blame: stoppedAt };
   if (trace && (blow.moved.length || blow.spawned.length)) {
     frames.push(cloneState(next)); steps.push(blow);
   }

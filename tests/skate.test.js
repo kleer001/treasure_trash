@@ -17,6 +17,10 @@ const refused = (grid, cart, dir, water) => {
   return r.reason;
 };
 
+test('a skateboard that can neither roll nor shed its load is refused', () => {
+  assert.equal(refused(['@C--', 'E---'], ['-PPu', '----'], 'r'), 'canRoom');
+});
+
 test('the raccoon follows the skateboard in, exactly as he follows a can', () => {
   const next = act(['@---E', '-----'], ['-PP--', '-----'], 'r');
   assert.deepEqual(next.rac, { x: 1, y: 0 });

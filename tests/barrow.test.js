@@ -165,6 +165,10 @@ test('a barrow carries a barrow carrying a barrow, and every load comes back', (
   assert.deepEqual(chainOf(cell(back, 5, 0)), [BAR_R, BAR_R, CAN_FULL], 'and it round-trips');
 });
 
+test('a heavy barrow shoved into a heavy barrow is refused, since neither one moves', () => {
+  assert.equal(refuse(S(['@CC-E'], ['-lr--']), 'r'), 'canRoom');
+});
+
 test('a hooked barrow is spoken for, and cannot be picked up', () => {
   const s = S(['@---FF-E', '--------'], ['-r-r----', '--------']);
   s.cells[0][3].grip = 1;
