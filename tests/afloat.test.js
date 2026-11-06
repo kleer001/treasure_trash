@@ -12,8 +12,10 @@ test('a thing over dry floor is drawn as it is', () => {
 });
 
 test('a thing afloat draws nothing of itself under its waterline where it is not water', () => {
-  const only = { wet: (x, y) => y <= waterline(S, 10), open: () => false };
-  assert.ok(afloat(S, 10, 10, waterline(S, 10), only).every(([, y]) => y <= waterline(S, 10)));
+  const only = { wet: (x, y) => y <= 11, open: () => false };
+  const got = afloat(S, 10, 10, 11, only);
+  assert.deepEqual(got.filter(([, y]) => y === 10), [[10, 10, '#ffffff'], [11, 10, '#ffffff']]);
+  assert.deepEqual(got.filter(([, y]) => y > 11), []);
 });
 
 test('a thing come down in the water starts at its rest and ends there with the water still', () => {

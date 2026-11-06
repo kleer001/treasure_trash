@@ -13,11 +13,24 @@ test('every kind the stage lays down has a lying drawing, and no other kind has 
   assert.deepEqual(new Set(THINGS.map(([o]) => o)), LIES);
 });
 
-test('a tipped thing lies the way it fell', () => {
-  for (const [o, M] of THINGS) for (const dir of 'udlr') {
-    const s = still(o, 2, 3, 1, dir), [x, y] = M.restAt(2, 3, C, dir);
-    assert.deepEqual(s.px, M.rest(dir).px, `${o} fallen ${dir}`);
-    assert.deepEqual([s.x, s.y], [x, y], `${o} fallen ${dir} is placed where it lies`);
+const span = (s, i) => { const v = s.px.map(p => p[i] + (i ? s.y : s.x)); return [Math.min(...v), Math.max(...v)]; };
+const pixels = s => s.px.map(p => p.join()).sort().join(' ');
+
+test('a tipped thing lies on the floor it stood on, centred where it stood', () => {
+  for (const [o] of THINGS) {
+    const up = still(o, 2, 3), [ux0, ux1] = span(up, 0);
+    for (const dir of 'udlr') {
+      const s = still(o, 2, 3, 1, dir), [x0, x1] = span(s, 0);
+      assert.equal(span(s, 1)[1], span(up, 1)[1], `${o} fallen ${dir}`);
+      assert.equal(x0 + x1, ux0 + ux1, `${o} fallen ${dir}`);
+    }
+  }
+});
+
+test('a tipped thing has its own drawing for each way it fell', () => {
+  for (const [o] of THINGS) {
+    const drawings = [null, ...'udlr'].map(dir => pixels(still(o, 2, 3, 1, dir)));
+    assert.equal(new Set(drawings).size, drawings.length, `${o}`);
   }
 });
 

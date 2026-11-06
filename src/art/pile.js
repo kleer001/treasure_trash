@@ -147,7 +147,7 @@ export function chooser(T, rnd) {
 
 /** The size classes of a pile of `n` pieces, heroes first. */
 export function sizes(n) {
-  const heroes = n >= 16 ? 2 : 1, mids = Math.round((n - heroes) * 0.45);
+  const heroes = n >= 16 ? 2 : Math.min(n, 1), mids = Math.round((n - heroes) * 0.45);
   return [...Array(heroes).fill('hero'), ...Array(mids).fill('mid'), ...Array(n - heroes - mids).fill('bit')];
 }
 

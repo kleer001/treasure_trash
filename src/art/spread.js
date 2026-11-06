@@ -17,18 +17,31 @@ export function spreadPiles(T, method, o, { C, W, H, cells, isTrash, seed, hues 
     if (!pickers.has(k)) pickers.set(k, chooser(T, mulberry32(hash(seed, x, y, 7))));
     return pickers.get(k);
   };
-  const opt = optOf(o, C, seed);
+  const opt = optOf(method, o, C, seed);
   if (method === 'mound') return new Map(cells.map(([x, y]) => [`${x},${y}`, pileLayout(T, cellSeed(x + seed * 131, y), opt)]));
   if (method === 'flat') return flatLayout(T, cells, chooseOf, rndOf, opt);
   if (method === 'edges') return edgeLayout(T, cells, isTrash, chooseOf, rndOf, opt);
   return fieldLayout(T, { W, H, isTrash }, chooseOf, opt);
 }
 
-/** The Trash Spread page's settings `o` as the layouts read them. */
-const optOf = (o, C, seed) => ({ ...o, C, spill: o.spill / 100, falloff: (o.falloff ?? 10) / 10, jitter: (o.jitter ?? 0) / 100, seed: hash(seed, 99) });
+const READS = {
+  mound: ['min', 'max', 'spill'],
+  flat: ['min', 'max', 'spill', 'jitter'],
+  edges: ['min', 'max', 'spill', 'knit', 'falloff', 'rough', 'jitter'],
+  field: ['n', 'spill', 'falloff', 'rough', 'jitter'],
+  pour: ['spill', 'knit', 'falloff', 'rough', 'jitter'],
+};
+
+/** The Trash Spread page's settings `o` as `method` reads them. */
+function optOf(method, o, C, seed) {
+  if (!READS[method]) throw new Error(`spread: no method '${method}'`);
+  const missing = READS[method].filter(k => typeof o[k] !== 'number');
+  if (missing.length) throw new Error(`spread ${method}: the settings have no ${missing.join(', ')}`);
+  return { ...o, C, spill: o.spill / 100, falloff: o.falloff / 10, jitter: o.jitter / 100, seed: hash(seed, 99) };
+}
 
 /** The pieces `given` poured into TRASH cell `[x, y]` by B, with the Trash Spread page's settings `o`. */
-export const pourPile = (T, o, { C, cell: [x, y], given, isTrash, seed, key }) => pourLayout(T, x, y, given, isTrash, optOf(o, C, seed), key);
+export const pourPile = (T, o, { C, cell: [x, y], given, isTrash, seed, key }) => pourLayout(T, x, y, given, isTrash, optOf('pour', o, C, seed), key);
 
 /** `BAYER` is a 4×4 ordered-dither matrix. Index it by `(y & 3) * 4 + (x & 3)`. */
 export const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];

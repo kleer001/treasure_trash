@@ -228,12 +228,13 @@ const trig = deg => {
   return d === 0 ? [1, 0] : d === 90 ? [0, 1] : d === 180 ? [-1, 0] : d === 270 ? [0, -1]
     : [Math.cos(d * Math.PI / 180), Math.sin(d * Math.PI / 180)];
 };
-const SPUN = new Map();
+const SPUN = new WeakMap();
 /** Sprite `spr` turned `deg` degrees clockwise about the centre of its w×h box: its pixels in px
  *  from that box's top-left, some of them outside it. */
 export function spun(spr, deg) {
-  const key = `${spr.w},${spr.h},${spr.px.length},${deg}`;
-  if (SPUN.has(key)) return SPUN.get(key);
+  if (!SPUN.has(spr)) SPUN.set(spr, new Map());
+  const turns = SPUN.get(spr);
+  if (turns.has(deg)) return turns.get(deg);
   const [cos, sin] = trig(deg), cx = spr.w / 2, cy = spr.h / 2, m = new Map(spr.px.map(([x, y, col]) => [`${x},${y}`, col]));
   const reach = Math.ceil(Math.hypot(spr.w, spr.h) / 2) + 1, px = [];
   for (let y = Math.floor(cy) - reach; y <= Math.ceil(cy) + reach; y++)
@@ -242,6 +243,6 @@ export function spun(spr, deg) {
       if (col) px.push([x, y, col]);
     }
   const out = { w: spr.w, h: spr.h, px };
-  SPUN.set(key, out);
+  turns.set(deg, out);
   return out;
 }

@@ -182,6 +182,7 @@ function frontOpen(out, depth) {
   const rows = D.map((r, y) => (y >= 9 && y <= 15 ? 'kSggggggggggSk' : r));
   const box = ['kQEEEEEEEEEEQk', ...Array(depth - 2).fill('kQEiiiiiiiiEQk'), 'kqEiiiiiiiiEqk'];
   const back = 9 + out - depth;
+  if (back < 12) throw new Error(`frontOpen: a drawer out ${out} px is too short for a box ${depth} px deep`);
   for (let y = 12; y < back; y++) lay(rows, y, ARMS);
   [...box, ...FRONT, '.kkkkkkkkkkkk.'].forEach((r, k) => lay(rows, back + k, r));
   return rows;

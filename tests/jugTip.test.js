@@ -5,6 +5,7 @@ import { JUG, JUG_EMPTY, DIRS } from '../src/rules.js';
 import { createStills } from '../src/art/stills.js';
 import { createJugTip, bakedJug } from '../src/art/jugTip.js';
 import { puddle } from '../src/art/water.js';
+import { SHADOW } from '../src/art/pile.js';
 import { C } from '../src/art/flight.js';
 
 const J = JSON.parse(readFileSync(new URL('../src/art/jug.json', import.meta.url)));
@@ -28,9 +29,15 @@ for (const dir of 'udlr') {
   });
 }
 
-test('the splash of a pour is down before the clip ends', () => {
-  const { layers, keys, end } = clip({ dir: 'r', from: [4, 4], to: [5, 4], wetAt: [6, 4], moveFrames: 7 });
+for (const dir of 'udlr') test(`the splash of a pour ${dir} flies over the cells it pours across and is down before the clip ends`, () => {
+  const [dx, dy] = DIRS[dir], to = [4 + dx, 4 + dy], wetAt = [4 + 2 * dx, 4 + 2 * dy];
+  const { layers, keys, end } = clip({ dir, from: [4, 4], to, wetAt, moveFrames: 7 });
+  const besideTheJug = f => layers(f, 1).slice(1).flatMap(([, px]) => px);
+  const flying = besideTheJug(keys.pour + 4);
+  assert.ok(flying.some(([, , c]) => c === SHADOW), 'no drop is in the air');
+  const cells = new Set(flying.map(([x, y]) => `${Math.floor(x / C)},${Math.floor(y / C)}`));
+  assert.ok(cells.has(wetAt.join()), [...cells].join(' '));
+  assert.deepEqual([...cells].filter(c => c !== to.join() && c !== wetAt.join()), []);
   assert.ok(keys.down <= end);
-  assert.ok(layers(keys.pour + 4, 1).length > 2);
-  assert.equal(layers(keys.down, 1).length, 1);
+  assert.deepEqual(besideTheJug(keys.down), []);
 });
