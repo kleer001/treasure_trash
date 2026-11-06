@@ -11,7 +11,7 @@ const PACKS = ['levels/act1.tt', 'levels/act2.tt'].flatMap(p =>
   parseLevelPack(readFileSync(p, 'utf8')).levels.map(l => [p, l]));
 
 const answer = a => a && [a.minMoves, a.shortestLurd, a.shortestCount, a.reachable,
-  a.dead.size, a.traps.length, a.exitRefusals].join('|');
+  a.dead.size, a.exitRefusals, ...a.traps.map(t => t.lurd), '|', ...a.silentTraps.map(t => t.lurd)].join('|');
 
 const moveRaccoon = (level, [x, y]) => ({
   ...level,

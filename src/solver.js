@@ -82,11 +82,23 @@ export function analyze(start, opts = {}) {
   const dead = new Set();
   for (const k of states.keys()) if (!live.has(k)) dead.add(k);
 
-  // --- traps: a legal action that takes a live state to a dead one
+  return {
+    states, wins, dead, exitRefusals,
+    ...trapsFrom(states, dead, states.keys()),
+    ...shortestFrom(states, rootKey, wins, wins),
+    reachable: states.size,
+  };
+}
+
+/**
+ * Every legal action that takes a live state to a dead one, each named by the path to it from the
+ * root the back-pointers lead to. `keys` is the discovery order, which sets the order of the list.
+ */
+function trapsFrom(states, dead, keys) {
   const traps = [];
-  for (const [key, node] of states) {
-    if (!live.has(key)) continue;
-    for (const e of node.edges) {
+  for (const key of keys) {
+    if (dead.has(key)) continue;
+    for (const e of states.get(key).edges) {
       if (!dead.has(e.to)) continue;
       traps.push({
         lurd: formatLurd([...pathTo(states, key), { dir: e.dir, kind: e.kind }]),
@@ -94,12 +106,7 @@ export function analyze(start, opts = {}) {
       });
     }
   }
-  return {
-    states, wins, dead, traps, exitRefusals,
-    ...shortestFrom(states, rootKey, wins, wins),
-    silentTraps: traps.filter(t => t.kind === MOVE),
-    reachable: states.size,
-  };
+  return { traps, silentTraps: traps.filter(t => t.kind === MOVE) };
 }
 
 /**
@@ -168,7 +175,7 @@ export function reroot(a, start) {
   // Which boards are won is a property of the boards, and re-rooting does not touch one, so the
   // set `analyze` found still stands. Asking `isWon` again would sweep every cell of every state a
   // second time.
-  return { ...a, ...shortestFrom(a.states, rootKey, a.wins, order) };
+  return { ...a, ...trapsFrom(a.states, a.dead, order), ...shortestFrom(a.states, rootKey, a.wins, order) };
 }
 
 /**
