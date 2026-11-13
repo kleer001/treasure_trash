@@ -28,8 +28,8 @@ const base = paint(BOX.W, BOX.D, square(BOX.W, BOX.D), (c, r) => {
 });
 export const { rest, restAt, frame } = tipper(front, mouth, base, FOLD);
 
-/** Returns what a full box holds, from its own `seed`. The count is between `min` and `max`.
- *  Each piece gets its own look, from its own hash. With `hues` 'cell', the pieces share one set of accent hues.
+/** Returns what a full box holds, from its own `seed`.
+ *  With `hues` 'cell', the pieces share one set of accent hues.
  *  `bx` and `by` place its centre in the upright box, in px. `d` is how far back from the front it sits, in px. */
 export function contents(T, seed, { min, max }, hues) {
   const { W, D } = BOX, HEAP = 5, rnd = mulberry32(hash(seed, 1)), n = min + Math.floor(rnd() * (max - min + 1));

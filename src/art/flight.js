@@ -68,7 +68,7 @@ export function createFlight({ T, A, STYLE, OBJ }) {
     return { cells, pieces };
   }
 
-  /** Returns the tear for `dir` on a `room` board, with the piles the TRASH cells hold after it. The edges method lays them from settings `S`, as the Trash Spread page (`art/bench/spread.html`) holds them. */
+  /** Returns the tear for `dir` on a `room` board, with the piles the TRASH cells hold after it. */
   function setup(dir, room, S) {
     const [dx, dy] = DIRS[dir], N = room === 'walled' ? 5 : 7, b = (N - 1) / 2;
     const s = board(N, room, [[b, b, '$'], [b - dx, b - dy, '@']]);

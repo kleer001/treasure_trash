@@ -8,11 +8,10 @@ import { arc, onTwos, quadOut } from './timing.js';
 /** The keys are frames, except `burst`, a fraction from 0 to 1, and `hop`, which is px. */
 export const SHATTER = { tip: 8, flash: 2, scatter: 16, burst: 0.3, hop: 5 };
 
-/** Returns the clip of the pane standing in cell `from`, shoved `dir` to break into the glass of cell `to`, where
- *  `has(x, y)` says whether a cell is glass once it has and `look` is the glass's look.
- *  `layers(f)` is the pane and the shards in the air `f` frames from the start of the move, as
- *  `{ kind, foot, px }` in px on the room; `ground(f)` is the pixels of cell `to`'s glass that are down by frame `f`.
- *  `end` is the first frame drawn at rest. */
+/** `has(x, y)` says whether cell (x, y) is glass after the move. `look` is the look of the glass.
+ *  `layers(f)` returns the pane, or the shards in the air, `f` frames after the start of the move, as
+ *  `{ kind, foot, px }` in px on the room. `ground(f)` returns the pixels of cell `to`'s glass that are down
+ *  by frame `f`. `end` is the first frame drawn at rest. */
 export function paneShatter({ dir, from, to, has, look, k = SHATTER }) {
   const O = restAt(...from, C), f90 = frame(dir, 90), lift = dir === 'l' || dir === 'r' ? f90.s.h / 2 : 0;
   const hit = [O[0] + f90.ox + f90.s.w / 2, O[1] + f90.oy + f90.s.h / 2], mid = [to[0] * C + C / 2, to[1] * C + C / 2];

@@ -1,4 +1,4 @@
-// Four methods lay trash over a board's TRASH cells: `mound`, `flat`, `edges` and `field`. `mound` is pileLayout, one mound per cell.
+// The methods lay trash over a board's TRASH cells: `mound`, `flat`, `edges` and `field`. `mound` is pileLayout, one mound per cell.
 // Each method returns a Map 'x,y' -> pile { cx, cy, pieces } with cell-local pieces, as pileLayout does, so settle() and drawPile() take them unchanged.
 // The pixel helpers the art shares, `hash`, `noise`, `BAYER` and `N4`, are defined in this file.
 import { mulberry32 } from '../rng.js';
@@ -40,7 +40,7 @@ function optOf(method, o, C, seed) {
   return { ...o, C, spill: o.spill / 100, falloff: o.falloff / 10, jitter: o.jitter / 100, seed: hash(seed, 99) };
 }
 
-/** The pieces `given` poured into TRASH cell `[x, y]` by B, with the Trash Spread page's settings `o`. */
+/** The pieces `given` are poured into TRASH cell `[x, y]`, with the Trash Spread page's settings `o`. */
 export const pourPile = (T, o, { C, cell: [x, y], given, isTrash, seed, key }) => pourLayout(T, x, y, given, isTrash, optOf('pour', o, C, seed), key);
 
 /** `BAYER` is a 4×4 ordered-dither matrix. Index it by `(y & 3) * 4 + (x & 3)`. */

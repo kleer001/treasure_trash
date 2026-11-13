@@ -1,6 +1,6 @@
 // `solid.js` makes a solid from a drawing and says how it meets the water. A solid is 1 px voxels
 // [x, h, z]: px right, px up from its lowest point, and px toward the viewer. The eye looks down at it
-// `EYE.eye` degrees with heights kept 1:1, so a point shows z × tan(eye) − h px down the picture.
+// `EYE.eye` degrees with heights kept 1:1.
 
 /** How far down the eye looks, in degrees. */
 export const EYE = { eye: 30 };
@@ -119,7 +119,6 @@ function part(s, { name, upright, lie = null, at = null, base = 0 }, k, deep, ro
   const idx = at ?? s.px.map((_, i) => i), px = idx.map(i => s.px[i]);
   const v = laid(build(r, cellsOf(upright?.px ?? px), k), lie).map(([x, h, z]) => [x, h + base, z]);
   const shown = project(v, k), drawn = new Map(px.map(([x, y, col]) => [`${x},${y}`, col]));
-  // The solid sits where its picture's lowest row and middle meet the drawing's.
   const a = frame([...shown.keys()].map(id => id.split(',').map(Number))), b = frame(cellsOf(px));
   const dx = Math.round((b.x0 + b.x1 - a.x0 - a.x1) / 2), dy = b.y1 - a.y1;
   const solid = columns(shown), sprite = columns(drawn);

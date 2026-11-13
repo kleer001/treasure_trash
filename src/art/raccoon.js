@@ -1,6 +1,6 @@
 // The raccoon is drawn by hand from its parts.
-// Seen from the front, it is the `raccoon` sprite in `src/art/assets.json`, cut into those parts. At rest it is that sprite exactly.
-// From the side and from behind it is drawn here, in the same colours.
+// The front view is the `raccoon` sprite in `src/art/assets.json`, cut into those parts.
+// The side and back views are drawn here, in the same colours.
 import { quadOut } from './timing.js';
 
 const PAL = { a: '#020106', b: '#06050e', c: '#19152b', d: '#3a2a40', e: '#453d51', f: '#584c62', g: '#765c62',
@@ -18,7 +18,7 @@ function parts(art, cut) {
   return out;
 }
 
-/** The bench sprite `front`, cut: H head, B body, L and R the legs, T the tail's tip, U its root. */
+/** The front view, cut: H head, B body, L and R the legs, T the tail's tip, U its root. */
 const FRONT_CUT = [
   '..HH........HH.....',
   '.HHHH......HHHH....',

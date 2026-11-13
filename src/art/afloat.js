@@ -19,10 +19,10 @@ export const REST = {
 const dithered = (pct, x, y) => pct / 100 * 16 > BAYER[(y & 3) * 4 + (x & 3)] + 0.5;
 
 /**
- * Returns sprite `s` with its top-left at (x0, y0), in px on the room, as it meets the water, with the
- * reflection, the contact line and the glints on the water around it. `met` is how it meets the water, as
- * `meets` in `solid.js` gives it. `wet(x, y)` says whether a pixel is water. `open(x, y)` says whether it
- * is water clear of the rim.
+ * Returns the `[x, y, colour]` pixels of sprite `s`, its top-left at (x0, y0) in px on the room, as it
+ * meets the water. The pixels include the reflection, the contact line and the glints on the water
+ * around it. `met` is how it meets the water, as `meets` in `solid.js` gives it. `wet(x, y)` says
+ * whether a pixel is water. `open(x, y)` says whether a pixel is water clear of the rim.
  */
 export function afloat(s, x0, y0, met, { wet, open }, k = REST) {
   const murk = k.murk / 100 * 16, out = [];
@@ -36,7 +36,7 @@ export function afloat(s, x0, y0, met, { wet, open }, k = REST) {
   const xs = [...met.line.keys()];
   if (!xs.length) return out;
   const a = Math.min(...xs), b = Math.max(...xs), under = [];
-  // The first row under water at column `x` of the sprite, in px on the room: past either end, the end's.
+  // The first row under water at column `x` of the sprite, in px on the room.
   const at = x => { const w = met.line.get(Math.min(b, Math.max(a, x))); return w === undefined ? null : y0 + w; };
   if (k.reflect > 0) {
     const toward = waterColour(k.reflectColour);

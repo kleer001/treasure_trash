@@ -36,7 +36,6 @@ function marked(rows, palette, L, { ooze = false, coat = false }) {
   const cells = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (body(x, y)) cells.push([x, y]);
   const pick = () => cells[Math.floor(rand() * cells.length)];
-  // Each cell's depth is its steps in from the edge, out to `L.soak`.
   const depth = new Map(), key = (x, y) => x * 1000 + y;
   let ring = cells.filter(([x, y]) => N4.some(([dx, dy]) => !body(x + dx, y + dy)));
   for (let d = 1; d <= L.soak && ring.length; d++) {

@@ -20,7 +20,7 @@ export const moved = (px, dx, dy) => px.map(([x, y, col]) => [x + dx, y + dy, co
 /** Returns what draws each thing that can lie, with the square jug's drawings baked into `J`. */
 export const lyingOf = J => ({ [CAN_EMPTY]: CAN, [BIN_EMPTY]: BOX, [JUG_EMPTY]: bakedJug(J) });
 
-/** `still(o, cx, cy, seed, lie)` returns thing `o` in cell (cx, cy) as `{ px, x, y, h, solid, from }`, its pixels from its top-left (x, y), its foot `h` below that, the key of its solid in `SOLIDS` in solid.js, and the drawing that solid is made from where that is not this one; or `null` for a thing with no drawing here. */
+/** `createStills` returns `(o, cx, cy, seed, lie)`, which gives thing `o` in cell (cx, cy) as `{ px, x, y, h, solid, from }`: its pixels from its top-left (x, y), its foot `h` below that, the key of its solid in `SOLIDS` in solid.js, and the drawing that solid is made from where that is not this one. It gives `null` for a thing with no drawing here. */
 export function createStills({ T, A, O, LOOK, J }) {
   const LYING = lyingOf(J), JUGS = LYING[JUG_EMPTY];
   const heap = seed => BOX.contents(T, seed, LOOK.spread.edges, LOOK.spread.hues).sort((a, b) => b.by - a.by).flatMap(p => {

@@ -23,9 +23,9 @@ export function jugKeys(moveFrames, k) {
 /** Returns the top-left, in px, where drawing `d` goes in cell (cx, cy), its foot `down` px below the cell's floor line. */
 const jugAt = (d, cx, cy, down) => [cx * C + Math.floor((C - d.w) / 2), (cy + 1) * C - d.h - 1 + down];
 
-/** Returns the square jug baked into `J`, from src/art/jug.json: its `drawing(dir, deg, F)`, the jug lying after
- *  falling `dir` as `rest(dir)`, and `restAt(cx, cy, C, fell)`, where it goes standing or lying, as
- *  src/art/can.js has them. Each pixel of a baked drawing is two hex digits into `J.palette`, '..' for none. */
+/** Returns the square jug baked into `J`, from src/art/jug.json. It has `drawing(dir, deg, F)`, `rest(dir)` for
+ *  the jug lying after falling `dir`, and `restAt(cx, cy, C, fell)` for where it goes standing or lying. Each pixel
+ *  of a baked drawing is two hex digits into `J.palette`, '..' for none. */
 export function bakedJug(J) {
   const memo = new Map();
   const drawing = (dir, deg, F) => {
@@ -97,7 +97,6 @@ export function createJugTip({ drawing, full, dy }) {
       const reach = Math.max(...all.map(([x, y]) => Math.hypot(x + 0.5 - lands[0], y + 0.5 - lands[1])));
       const r = reach * quadOut(Math.min(1, (f - keys.wet) / Math.max(1, keys.grown - keys.wet))) + 0.01;
       const grown = all.filter(([x, y]) => Math.hypot(x + 0.5 - lands[0], y + 0.5 - lands[1]) <= r);
-      // The rim is drawn where the grown water borders the part of this cell not yet reached. Across the cell's edge, the water keeps its own colour.
       const inside = new Set(grown.map(([x, y]) => `${x},${y}`)), mine = (x, y) => Math.floor(x / C) === wx && Math.floor(y / C) === wy;
       return grown.map(([x, y, c]) => [x, y, N4.some(([a, b]) => mine(x + a, y + b) && !inside.has(`${x + a},${y + b}`)) ? look.edge : c]);
     }

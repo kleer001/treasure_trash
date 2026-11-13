@@ -35,7 +35,6 @@ export const CARDBOARD_ROWS = [
 export const CARDBOARD = { w: CARDBOARD_ROWS[0].length, h: CARDBOARD_ROWS.length,
   px: CARDBOARD_ROWS.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, CARDBOARD_PALETTE[c]]]))) };
 
-/** WET_LOOK is the look of the sheet soaked through. */
 export const WET_LOOK = { count: 4, rmin: 2, rmax: 4, soak: 1,
   wet: { c: '#a8865e', r: '#9a7a54', l: '#b89870', s: '#7e6142', x: '#7c6a54', y: '#93806a', f: '#c2ac8a',
     w: '#6a4430', W: '#5a3a28', e: '#7a5a3c' } };

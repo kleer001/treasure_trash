@@ -244,7 +244,7 @@ const NECK = { normal: [11, -3], stretch: [14, -3], gather: [8, -2], squash: [12
 
 /** A side frame. `b`: body shape, its x and its top row. `h`: head [face, dx from the neck, dy].
  *  `t`: tail [shape, dy]. `feet`: [offset, lift] near fore, far fore, near hind, far hind, or null for
- *  a leg drawn by `o.top` instead. `o.smear` draws a ghost of the head 2 px behind it; `o.top` goes over
+ *  a leg drawn by `o.top` instead. `o.smear` draws a ghost of the head behind it; `o.top` goes over
  *  the head; `o.dust` and `o.fx` go on top of all. */
 const F = (name, fr, dx, [body, bx, by], [head, hdx, hdy], [tail, tdy], feet, o = {}) => {
   const [rx, ry] = RUMP[body], [nx, ny] = NECK[body], [ox, oy] = ROOT[tail];
@@ -255,7 +255,6 @@ const F = (name, fr, dx, [body, bx, by], [head, hdx, hdy], [tail, tdy], feet, o 
     top: o.top ?? [], dust: o.dust ?? [], fx: o.fx ?? [] };
 };
 const P = [0, 0], PLANT = [P, P, P, P];
-/** A sit: `under` is drawn beneath the sprite `art`, `top` over it. */
 const sitting = (name, fr, dx, thing, art, o) => ({ name, fr, dx, thing, seated: true, parts: [...(o.under ?? []), ...art, ...(o.top ?? [])] });
 /** `S` is the side sit, the raccoon's rest. */
 const S = (name, fr, dx, thing, art = 'sit', o = {}) => sitting(name, fr, dx, thing, [[art, 11, 0]], o);

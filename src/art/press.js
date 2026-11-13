@@ -1,4 +1,4 @@
-// `press.js` is one press by the cartoon raccoon, for a scene page that draws what the press does to a thing.
+// `press.js` is one press by the cartoon raccoon.
 // Times are in 60 Hz frames, from the action's rest.
 import { ACTIONS, RECOVERIES, draw, mirror } from './cartoon.js';
 import { C } from './flight.js';
@@ -9,7 +9,7 @@ const STEP = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
 /** Returns the drawings of `act` toward `dir`, as `{ f, t0, t1 }`. `holds` replaces each frame's authored hold. `lead` false drops every rest frame. `lead` true keeps only the opening rest. */
 export function press(act, dir, { recovery = RECOVERIES[0], holds = null, lead = true } = {}) {
   const fs = ACTIONS[VIEW[dir]][act].map((f, i) => ({ ...f, i }));
-  if (holds?.length !== fs.length) holds = null;    // tuned before the action gained or lost a frame
+  if (holds?.length !== fs.length) holds = null;    // Holds are keyed by frame index. A changed frame count makes them wrong.
   const segs = [];
   let t = 0;
   for (const f of fs) {

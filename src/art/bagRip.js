@@ -17,7 +17,7 @@ export const RIP = { push: 7, rip: 3, press: 5, first: 6, spread: 10, sfirst: 4,
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-/** Returns his push toward `dir` as drawing frames `{ f, t0, t1 }`, with `t0` and `t1` in 60 Hz frames from the start of the push. The drive repeats to fill the time up to the thud, so the thud lands at frame `push`. */
+/** Returns his push toward `dir` as drawing frames `{ f, t0, t1 }`, with `t0` and `t1` in 60 Hz frames from the start of the push. */
 export function tearPress(dir, push = RIP.push) {
   const fs = press('push', dir, { lead: false }).map(sg => sg.f);
   const slam = fs.find(f => f.name === 'slam'), drive = fs.find(f => f.name === 'drive'), thud = fs.find(f => f.name === 'thud');

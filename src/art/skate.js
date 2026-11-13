@@ -1,4 +1,4 @@
-// The skateboard is built once as a model of blocks and drawn from it.
+// `skate.js` draws the skateboard's deck.
 import { INK } from './tip.js';
 import { N4 } from './spread.js';
 

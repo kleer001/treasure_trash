@@ -27,7 +27,7 @@ export const WAKE = {
   },
 };
 
-/** Returns the value of curve `keys` at frame `f`, through every key and with no corner at one. */
+/** Returns the value of curve `keys` at frame `f`. The curve passes through every key and has no corner at any key. */
 export function curveAt(keys, f) {
   if (!keys.length || f < keys[0][0] || f > keys.at(-1)[0]) return 0;
   const i = keys.findIndex(q => q[0] >= f);
