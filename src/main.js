@@ -47,7 +47,7 @@ const pad = id => String(id).replace(/\D+/g,'').padStart(3,'0');
 // `?pixel` draws the board in the pixel art, one canvas pixel to an art pixel, scaled up whole.
 const PIXEL = new URLSearchParams(location.search).has('pixel');
 const CS = PIXEL ? PIXEL_CELL : 76, PAD=9;
-// The animation clock, in ms. Under `?debug` it can be stopped and stepped a 60 Hz frame at a time.
+// The animation clock, in ms. `?debug` can hold it and step it a frame at a time.
 let heldMs = null;
 const clockMs = () => heldMs ?? performance.now();
 const TWOS = 2 * 1000 / 60;
@@ -124,7 +124,7 @@ if(dbg){
 // The crow: `crow` says the lines, `watch` notices what he would say them about. Both are built
 // once the packs have loaded, since what he notices depends on the running order.
 let crow = null, watch = null, play = null;
-let crowDbg = null;    // his inner workings, on `?debug`
+let crowDbg = null;
 // His clock advances in capped steps. A hidden tab stops the frames but not `performance.now()`,
 // and a clock that jumped the whole absence would land every line due in it unseen.
 let crowT = 0, crowLast = performance.now();
@@ -132,8 +132,7 @@ const now = () => { const p = performance.now(); crowT += Math.min(p - crowLast,
 let beat = false;      // this run set a new record for the room, and the win screen says so
 let blocked = null;   // { cells, reason, dir }
 let busy = false;
-// The solvability indicator. `deadKeys` is every board this room can no longer be won from — a property of the ROOM.
-// An indicator that has not finished thinking says nothing rather than guessing.
+// `deadKeys` holds the state keys of this room that cannot be won.
 let deadKeys = null, scan = null, scanRaf = 0, lost = false;
 let armed = null;     // direction of a push or tear that is aimed but not yet committed
 
@@ -201,10 +200,9 @@ const doorLive = () => PIXEL && !!door && (door.lit || since(door.t0) < DOOR.rol
 
 const slow = matchMedia('(prefers-reduced-motion: reduce)');
 
-// The stage is NOT rebuilt per action. It is already standing on `prev` — `rest()` built it
-// when the room loaded and every action since has taken it forward — and rebuilding would
-// re-seed every sprite, which is how a pile of trash changed appearance when the board around
-// it shifted.
+// The stage is NOT rebuilt per action. It stands on `prev`: `rest()` builds it when the room
+// loads, and each action takes it forward. A rebuild would re-seed every sprite, so a pile of
+// trash would change its look when the board around it shifts.
 function startMv(prev, r){
   board = prev;
   const segs = timeline(r, CELL_MS), wind = pose ? moveStart(pose.segs) * FRAME_MS : 0;
@@ -248,7 +246,6 @@ function moveFrames(seg){
   return Math.round(seg.dur / seg.items.length / FRAME_MS);
 }
 
-/** An input cutting an animation short still has to finish it. */
 function landMv(){
   // The step in flight must land first: `applyStep` finds a sprite by its ANCHOR, so a step left
   // part-way through a beat makes every later step fail to find what it names.
@@ -264,10 +261,10 @@ function landMv(){
 }
 
 // ---- the undo rewind ----
+const REWIND_SPEED = 2;
 // Each move keeps a tape: the stage from before it, and its drawings as reverse steps
 // (`src/tape.js`). The stage is kept because one built again from a board deals the draw seeds
 // again, and every pile spawned since the room loaded would come back with a new look.
-const REWIND_SPEED = 2;
 let tapes = [], rec = null, rewind = null;
 
 function startTape(kept){
@@ -374,7 +371,7 @@ if(new URLSearchParams(location.search).has('wipe'))
     send: sendNote,
   });
 
-// One ticker for all three animations, so a rejection, a slide and the wipe cannot
+// One ticker for every animation, so a rejection, a slide and the wipe cannot
 // fight over `raf`.
 function tick(){
   raf = 0;
@@ -445,7 +442,6 @@ function beep(ok){
   } catch { /* audio is a nicety; never let it break input */ }
 }
 
-// The win chime is the one recorded sample.
 const WIN_GAIN = 0.35;                 // sits above the beeps without shouting
 let winBytes = null, winBuf = null;
 
@@ -526,14 +522,8 @@ function load(i, again = false){
 function sync(){ ({ cur, state, decor, moves, won, armed } = play); }
 
 // ---- the solvability indicator ----
-// The mess here is permanent, so a room can be lost long before it ends, and Sokoban's
-// documented frustration is exactly that: a long solution with no way to tell whether you
-// already derailed it.
-
-/** Whether the board he is standing on can still be won. */
 function readLost(){ lost = !!deadKeys && !won && deadKeys.has(stateKey(state)); }
 
-// How long the answer is worth waiting for.
 const SCAN_BUDGET_MS = 1200;
 let scanSpent = 0;
 
@@ -604,7 +594,7 @@ function drawSprite(sp, f){
   ctx.restore();
 }
 
-// What he slams into when it will not go takes the slam, in px.
+// Returns the [x, y] offset in px for a sprite that a refused push has struck. Other sprites get [0, 0].
 function jolt(sp){
   if(pose?.act !== 'stuck' || sp.kind === RACCOON) return [0, 0];
   const [dx, dy] = DIRS[pose.dir], tx = pose.x + dx, ty = pose.y + dy;
@@ -657,7 +647,6 @@ function paintSprite(sp, f){
   else {
     const own = () => drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
       seed: sp.seed, lie: sp.lie, wet: sp.soaks ? (sp.soak ?? 1) : 0, scraps: sp.scraps,
-      // a bag mid-refusal deflates where it stands; a torn one deflates as its fan grows
       k: sp.dying ? (sp.deflate ?? 1)
         : ph && fx.bx===Math.round(sp.x) && fx.by===Math.round(sp.y) ? 1-ph.burst : 1,
     });
@@ -769,9 +758,9 @@ const comp = createCompositor([
     for(const dir of (f.ph || f.moving ? [] : f.armed ? [f.armed] : ['u','d','l','r'])){
       const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
       const bx=s.rac.x+dx, by=s.rac.y+dy;
-      if(!inGrid(s,bx,by) || cell(s,bx,by).o!==BAG) continue;   // fan preview: bags only
+      if(!inGrid(s,bx,by) || cell(s,bx,by).o!==BAG) continue;
       for(const [fx,fy] of fan(bx,by,dx,dy)){
-        if(!inGrid(s,fx,fy) || red.has(`${fx},${fy}`)) continue;   // never tint under the red
+        if(!inGrid(s,fx,fy) || red.has(`${fx},${fy}`)) continue;
         ctx.fillStyle="rgba(255,207,0,.45)";
         ctx.fillRect(fx*cs+1,fy*cs+1,cs-2,cs-2);
         ctx.strokeStyle="rgba(224,170,0,.85)"; ctx.lineWidth=2;
@@ -785,7 +774,7 @@ const comp = createCompositor([
     const s=f.state;
     const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[f.armed];
     const ax=s.rac.x+dx, ay=s.rac.y+dy, o=cell(s,ax,ay).o;
-    // A push is as permanent as a tear, so it gets the same look-before-you-commit.
+    // A pending push shows its landing cells. A pending tear shows its fan.
     if(o===CANE||o===CANF){
       drawLanding(ax+dx, ay+dy);
       if(o===CANF) drawLanding(ax+2*dx, ay+2*dy);
@@ -942,7 +931,6 @@ function drawEdgeBar(x,y,dir){
   ctx.restore();
 }
 
-// `px` converts a cell coordinate to pixels. The overlays below draw in the same space as the sprites.
 function px(x){return x*CS}
 
 
@@ -980,15 +968,12 @@ document.getElementById('controls').addEventListener('click',e=>{
   else if(a==='next')load(cur+1); else if(a==='prev')load(cur-1);
 });
 
-// Levels are data on disk, in the same pack the verifier checks. Fail loudly.
-// A room's id is unique across the whole game, so nothing downstream has to know which act it came from.
-// A scratch pack can be named on the query string. That is how a new piece gets played in the
-// real game before it belongs in an act: the bench pages import `src/` and prove the
-// rules, but only this path exercises input, refusal painting, the HUD and the sprites.
+// `?acts=` names the packs to load, comma-separated. A scratch pack loads the same way, so a new
+// piece runs in the real game before it belongs in an act.
 const ACTS = new URLSearchParams(location.search).get('acts')?.split(',') ?? ['act1.tt', 'act2.tt'];
-// Each room is listed under its act. The pack names itself; the file name is the fallback, so a
-// pack with no `:pack` line still gets a heading rather than an empty one.
-// The label is short enough to sit on one line beside the room range.
+// The pack names itself. The file name is the fallback, so a pack with no `:pack` line still gets
+// a heading rather than an empty one. The label is short enough to sit on one line beside the
+// room range.
 const actLabel = (name, file) =>
   (name ?? '').split('—').pop().replace(/\s*\(.*\)\s*$/, '').trim()
   || file.replace(/\.tt$/, '');

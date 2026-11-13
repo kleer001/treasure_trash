@@ -14,7 +14,7 @@ export const PALETTE = {
   ink: '#1a1a1a', grn: '#2e9e5b',
   floor: '#fff', floorLine: '#e6e6e2', outline: '#fff',
   canal: '#2e6f8e', bridge: '#7fb7c4', ripple: 'rgba(255,255,255,.45)',
-  // The wet outline is off white, so a pale scrap keeps an edge against the bridge it has become.
+  // Pale, so a wet scrap keeps an edge against the bridge it has become.
   wetOutline: '#d3e3ea',
   grease: '#6b6a4e', greaseSheen: 'rgba(190,215,120,.55)',
   tar: '#23232a', tarSheen: 'rgba(120,120,140,.35)',
@@ -56,19 +56,18 @@ export const exitArrowDir = (cols, rows, x, y) =>
   [[y, [0, -1]], [rows - 1 - y, [0, 1]], [x, [-1, 0]], [cols - 1 - x, [1, 0]]]
     .reduce((a, b) => (b[0] < a[0] ? b : a))[1];
 
-/** Bind a canvas and a cell size, get the alley's drawings back. */
 export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0.118)), palette = {} }) {
   const CS = cell, PAD = pad, P = { ...PALETTE, ...palette };
   const px = n => n * CS;
   const TONES = [P.red, P.tea, P.yel, P.blu, P.pnk];
   const WET   = ['#7aa8c8', '#5fb8c9', '#a8cdd8', '#5d8fc0', '#8fa6cc'];
-  /** Two hex colours, `t` of the way from the first to the second. Takes `#abc` and `#aabbcc`
-   *  alike — the palette is written in both, and a shorthand read as longhand yields NaN, which
-   *  canvas ignores in favour of whatever colour it was already holding. */
+  /** Takes `#abc` and `#aabbcc` alike. The palette is written in both, and a shorthand read as
+   *  longhand yields NaN, which canvas ignores in favour of whatever colour it was already holding. */
   const ch = c => {
     const h = c.length < 7 ? c.replace(/^#(.)(.)(.)$/, '#$1$1$2$2$3$3') : c;
     return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   };
+  /** Two hex colours, `t` of the way from the first to the second. */
   const mix = (a, b, t) => {
     if (t <= 0) return a;
     if (t >= 1) return b;
@@ -180,7 +179,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       }
     },
 
-    // Ordinary floor with the only direction through it painted on.
     oneway(x, y, dir) {
       api.floor(x, y);
       const cx = px(x) + CS / 2, cy = px(y) + CS / 2, r = CS * 0.24;
@@ -214,7 +212,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.beginPath(); ctx.moveTo(x0 + w / 2, y0 + 2); ctx.lineTo(x0 + w / 2, y0 + h - 2); ctx.stroke();
     },
 
-    // A pane: mostly transparent, one highlight, so it reads as the fragile thing it is.
+    // See-through, so the pane reads as the fragile thing it is.
     pane(x, y) {
       const x0 = px(x) + PAD, y0 = px(y) + PAD, w = CS - 2 * PAD, h = CS - 2 * PAD;
       ctx.fillStyle = P.pane; ctx.strokeStyle = P.paneEdge; ctx.lineWidth = 2;
@@ -279,7 +277,6 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
         ctx.beginPath(); ctx.arc(cx, cy, Math.max(1.5, r * 0.15), 0, 7); ctx.fill();
       }
 
-      // The two triangles a diamond frame is, stroked twice: the darker pass is its outline.
       const TUBES = [[A, C], [A, S], [S, C], [S, H], [C, H], [H, B]];
       const frame = () => {
         ctx.beginPath();
@@ -292,7 +289,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.strokeStyle = P.bikeEdge; ctx.lineWidth = Math.max(3, W * 0.135); frame();
       ctx.strokeStyle = P.bike; ctx.lineWidth = Math.max(2, W * 0.085); frame();
 
-      // Saddle along the frame, bars across it — on a side view the grips point at the viewer.
+      // On a side view the grips point at the viewer, so the bars show as a short blob.
       ctx.fillStyle = P.tyre;
       const blob = (at, lu, lv) => {
         const [cx, cy] = pt(...at);
@@ -542,7 +539,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
     },
 
     // The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
-    // "safe condition" coding (ISO 7010 E002). The caller decides whether it is `lit`.
+    // "safe condition" coding (ISO 7010 E001 and E002). The caller decides whether it is `lit`.
     // `dir` points at the board edge he is actually leaving by — see `exitArrowDir`.
     exit(x, y, lit, dir = [0, -1]) {
       const [dx, dy] = dir;
@@ -682,7 +679,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.globalAlpha = 1;
       ctx.fillStyle = P.red;
       ctx.beginPath(); ctx.arc(cx, cy, W * 0.50, 0, 7); ctx.fill();
-      // Set down and to the right in solid black, no falloff — a screenprint drop, not a glow.
+      // Set down and to the right in solid ink, no falloff — a screenprint drop, not a glow.
       const size = W * 0.26, lead = size * 1.02, dx = size * 0.07, dy = size * 0.08;
       ctx.save();
       ctx.translate(cx, cy); ctx.rotate(-Math.PI / 6); ctx.translate(-cx, -cy);
@@ -748,7 +745,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       ctx.fillStyle = P.binLid; ctx.fillRect(0, 0, w, 7);
       ctx.strokeStyle = P.binEdge; ctx.strokeRect(0, 0, w, 7);
       ctx.restore();
-      // chasing arrows as a plain triangle outline — legible small, unlike the real mark
+      // The triangle stands in for the chasing arrows, which do not read at this size.
       ctx.strokeStyle = P.binMark; ctx.lineWidth = 3; ctx.lineJoin = 'round';
       const r = w * 0.26, my = top + h * 0.62;
       ctx.beginPath();
@@ -911,9 +908,9 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
 }
 
 /**
- * Dispatch an occupant code to its drawing. Kept beside the sprites so a new piece is one
- * entry here rather than a search through every renderer. `codes` is the rules module's
- * occupant constants; passing them keeps this file free of any dependency on the rules.
+ * The dispatch sits beside the sprites, so a new piece is one entry here rather than a search
+ * through every renderer. `codes` is the rules module's occupant constants; passing them keeps
+ * this file free of any dependency on the rules.
  */
 export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   const { k = 1, seed = 0, src = null, wet = 0, lie = null, scraps = null } = opts;
