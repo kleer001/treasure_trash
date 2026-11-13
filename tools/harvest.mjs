@@ -66,9 +66,7 @@ export function outline(w, h, rnd, tries = 60) {
   return null;
 }
 
-/**
- * Drop a group's pieces, a raccoon and an exit onto an outline. Null if the draw failed.
- */
+/** The placed room, or null if the draw failed. */
 export function placeOn(group, plan, w, h, rnd, opts = {}) {
   const pick = n => Math.floor(rnd() * n);
   const grid = Array.from({ length: h }, (_, y) =>

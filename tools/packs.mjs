@@ -3,7 +3,7 @@
 //
 // Discovered rather than listed, because an act nobody enumerates is an act nobody checks: the
 // pack that adds `act3.tt` should not also have to remember to add it to the verifier and to the
-// conformance corpus. One reading, so those two cannot come to disagree about what the acts hold.
+// conformance corpus. Both read through this module, so they cannot disagree about what the acts hold.
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

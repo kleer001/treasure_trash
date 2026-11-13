@@ -34,7 +34,6 @@ const codeName = new Map(Object.entries(OCCUPANTS)
 
 const key = (site, lane, o) => `${site}\t${lane}\t${codeName.get(o) ?? `o${o}`}`;
 
-/** Walk a corpus with the watcher on, and hand back every question it heard. */
 function askedOver(rooms, { cap = 200 } = {}) {
   const asked = new Map();
   watchLandings((site, lane, o, taken) => {

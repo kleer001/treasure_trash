@@ -7,10 +7,10 @@
 // and never renumbered, and several predicates read them as contiguous ranges, so a sheet that
 // regenerated them would quietly change what a saved board means.
 //
-// So this gathers the READING rather than the declarations. Three columns must be filled for
-// every piece and a specification asserts they are. The rest are optional by design, which is
-// exactly why nothing can fail loudly about them, and why a piece that was meant to slide and
-// never got its entry looks like a piece that was meant not to.
+// So this gathers the READING rather than the declarations. The columns every piece owes are named
+// in `tests/totality.test.js`, and that test asserts they are filled. The other columns are
+// optional by design, which is exactly why nothing can fail loudly about them, and why a piece
+// that was meant to slide and never got its entry looks like a piece that was meant not to.
 //
 //   node tools/pieces.mjs [--missing]
 

@@ -59,7 +59,6 @@ export const TERMS = {
     return r.firstTrap === null ? 0 : clamp01(1 - r.firstTrap / Math.max(1, r.par));
   },
 
-  // `onPath` is exact and exists only after --refine. Without it, `biteSteps` stands in for it.
   biteSpread: r => (r.onPath !== undefined ? r.onPath : clamp01(r.biteSteps / 12)),
 
   // A room that stays playable after the mistake cannot teach you what the mistake was.
@@ -95,8 +94,7 @@ export function score(room, weights = WEIGHTS) {
 }
 
 /**
- * Rooms that are too alike are one room. The generator finds near-duplicates in bulk, and many
- * of one idea is not an act.
+ * The generator finds near-duplicates in bulk, and many of one idea is not an act.
  */
 export function dedupe(scored) {
   const seen = new Set(), out = [];

@@ -64,7 +64,6 @@ async function look(engine, room, group, w, h, parMin = PAR_MIN) {
   if (r === TOO_BIG) return null;
   if (!keep(s, r, parMin)) return null;
   const row = measure(group, room, s, analyze(s, { maxStates: MAX_STATES }), w, h);
-  // A rung with an inert piece is dropped, and the set goes with it.
   if (row.inert) return null;
   return row;
 }

@@ -78,9 +78,6 @@ function coupling(s) {
 }
 
 /**
- * Finds whether every bag can be opened first, or whether some first choice loses the room
- * outright.
- *
  * The cell a bag is torn from is not its identity, because one bag can be torn from several cells.
  * So a bag keeps one label while moves carry it from cell to cell.
  *
@@ -470,14 +467,11 @@ export function coverGate(room, { mode, cells: named }, id = room.id) {
     }
   }
 
-  // Drying touches the lane and nothing else: the cell, and whatever is standing on it, stay.
   if (mode === 'dry') {
     if (!room.water) throw new Error(`${id}: :gate dry on a room with no terrain`);
     return { ...room, water: paint(room.water, '-') };
   }
   const out = { ...room, grid: paint(room.grid, mode === 'wall' ? '#' : '-') };
-  // Erasing a piece leaves the floor it stood on, terrain and all; walling takes the cell away,
-  // and a wall carries neither a lane nor a cart.
   if (room.water && mode === 'wall') out.water = paint(room.water, '-');
   if (room.cart) out.cart = paint(room.cart, '-');
   return out;

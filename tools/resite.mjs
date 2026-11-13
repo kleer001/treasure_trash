@@ -6,9 +6,7 @@
 // `placeOn` hands the exit and the raccoon two random free cells and never looks at them
 // again.
 //
-// This searches the two cells the generator threw away, and keeps the best pair by
-// `deadTravel`. Walls cannot fix a distant door, because `shrink` may only take floor no solution
-// touches.
+// Walls cannot fix a distant door, because `shrink` may only take floor no solution touches.
 //
 // PER SET, like `shrink`: the three rooms share an outline, a raccoon and an exit, and that
 // sharing is the set. A pair has to be affordable to all three or to none.

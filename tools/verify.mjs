@@ -4,7 +4,7 @@
 //
 //   node verify.mjs [levels/act1.tt] [levels/act1.sol]
 //
-// Exits non-zero on the first failing check, so it drops straight into CI.
+// Exits non-zero when any check fails, so it drops straight into CI.
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -21,15 +21,15 @@ import {
 import { actPacks, root } from './packs.mjs';
 import { watchAccounts } from '../src/audit.js';
 
-// Every declared solution is replayed here anyway. Counting what those boards say costs
-// nothing on top of the replay, and it is the only place that sees them all.
+// Every declared solution is replayed here anyway, so counting the boards it walks needs no second
+// pass. This is the only place that sees them all.
 watchAccounts(true);
 
 // Neither end of a solve is free. The walk IN is the room withholding its first decision; the
 // walk OUT is worse, because it comes after the last one — the puzzle is over and the player is
 // still holding the controller. A room can pass every other check and still open with a march
 // down a corridor and close with a march to a door in the far corner. A room that declares a walk
-// says that the march is meant, so a declared walk is held to its own number, not to `WALK_MAX`.
+// says that the walk is meant.
 
 // Every act, unless a pair is named on the command line.
 const PACKS = process.argv[2]
@@ -226,8 +226,8 @@ const MARKS = {
   'src/stage.js': 'function applyStep(', 'src/sprites.js': 'function createSprites(',
   'src/rng.js': 'function mulberry32(',
 };
-// The whole tree, because a copy does not have to be in a page. The likelier shape today is a
-// module beside the original with a faster something in it.
+// The whole tree, because a copy does not have to be in a page. The likelier shape is a module
+// beside the original with a faster something in it.
 const SKIP = new Set(['.git', 'node_modules', 'dist', 'clips', '.claude']);
 const walk = (dir, out = []) => {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -249,8 +249,7 @@ for (const full of walk(root)) {
 }
 // --- the two halves of putting something on a cell ---------------------------------------
 //
-// A branch that changes the board and says nothing about it is the fault this engine kept
-// producing. `drop` fuses the two acts for the landings that go through it; these enumerate the
+// A branch that changes the board and says nothing about it is a fault. `drop` fuses the two acts for the landings that go through it; these enumerate the
 // ones that cannot, so a new way of doing either is a decision rather than a line.
 //
 // Keyed on the source line itself, which is brittle to reformatting on purpose: the point is to

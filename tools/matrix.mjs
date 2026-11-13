@@ -336,9 +336,6 @@ function crossesTest(s, dir, holes) {
   return false;
 }
 
-/**
- * Asks the same questions as the forced meetings above, of every board a room walks through.
- */
 export function sweepRooms(rooms, { cap = 200 } = {}) {
   const bad = [];
   for (const room of rooms) {
@@ -522,7 +519,7 @@ export function* cases({ fourth = false, fifth = false } = {}) {
 // ---------------------------------------------------------------- the run
 
 /**
- * Run every case. Two ways a case can fail to be a case, and both are REPORTED rather than
+ * Two ways a case can fail to be a case, and both are REPORTED rather than
  * counted as passes: a board that will not build, and a board where the piece never met what it
  * was put there to meet. The second is the one that matters — it looks exactly like a pass.
  */

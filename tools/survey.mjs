@@ -56,9 +56,8 @@ export function groups() {
 
 // ---------------------------------------------------------------- placement
 /**
- * One random board: an exit, a raccoon and the group's pieces dropped on free cells. The
- * space is far too large to enumerate — `rooms()` in draft-room.mjs walks it exhaustively and
- * would never finish here — so placements are sampled.
+ * Placements are sampled, because the space is far too large to enumerate: `rooms()` in
+ * draft-room.mjs walks it exhaustively and would never finish here.
  *
  * Returns null when the draw could not be completed (a domino with no free pair left).
  */
@@ -189,10 +188,9 @@ async function surveyGroup(group, samples, seed, engine = null) {
 }
 
 // ---------------------------------------------------------------- workers
-// `groups`, `place` and `staticallyDead` are imported by the harvest pass, so neither branch
-// may run on import — a module that surveys when you require it is a module you cannot compose.
-// The tag matters: this module is imported by other tools, and their workers would
-// otherwise run this branch against workerData meant for them.
+// Other tools import this module, so neither branch may run on import — a module that surveys when
+// you require it is a module you cannot compose. The tag matters: a worker of another tool would
+// otherwise run this branch against workerData meant for it.
 if (!isMainThread && workerData?.tool === 'survey') {
   const { samples, seed, engineBin } = workerData;
   // One engine per worker. They are separate processes with separate graphs, so nothing is

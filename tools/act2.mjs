@@ -15,8 +15,7 @@ const num = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d :
 const inPath = str('--in', 'levels/sets.jsonl');
 const outDir = str('--out', 'levels');
 const want = num('--sets', 10);
-// The cap is a proxy for variety. It is kept as a loose backstop rather than removed, because
-// nothing has tested what an unbounded pool looks like.
+// The cap is a proxy for variety, kept as a loose backstop.
 const maxPieceShare = num('--maxpiece', 0.9);
 const first = num('--first', 31);
 const dry = process.argv.includes('--dry');

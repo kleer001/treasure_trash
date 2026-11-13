@@ -14,7 +14,7 @@
  * events the watcher fired and which lines the director let through. A scenario states what it is
  * there to cause before it runs, so a gap shows as an uncovered event rather than as silence.
  *
- * Seconds pass in a loop, not on a wall clock: an hour of play takes a moment. The crow, the
+ * Seconds pass in a loop, not on a wall clock. The crow, the
  * watcher, the rules, the solver and the game loop's bookkeeping (`src/play.js`) are the game's
  * own modules; the session below adds only the clock: how long a shove takes, and when keys land.
  */
@@ -154,7 +154,6 @@ export function session({ levels, acts, seed = 1, tuning = TUNING, stores = {}, 
     undo() { animUntil = 0; tell(watch, t, play.undo()); },
     restart() { load(play.cur, true); },
     skipKey() { if (!speaking) watch.key(t); crow.press(t); },
-    /** Plays LURD actions `pace` apart, each once the last has finished moving, as a player would. */
     play(actions, pace) { for (const a of actions) { wait(Math.max(pace, animUntil - t)); act(a.dir); } },
     step(dir, pace = 400) { wait(Math.max(pace, animUntil - t)); return act(dir); },
     quiet(most = 60000) {

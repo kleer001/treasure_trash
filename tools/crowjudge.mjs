@@ -14,8 +14,8 @@
  *   sittings/<player>-<seed>.json  each sitting's crow log, and every action with the board after it
  *   findings.json, findings.md     what the script finds: stale lines, false claims, pieces named
  *                                  that are not in the room, repeats, and big moments left unsaid
- *   packet.md, items.json          what it cannot judge: line pairs said back to back (C…), and up
- *                                  to three cards for each event he said (F…), for the readers
+ *   packet.md, items.json          what it cannot judge: line pairs said back to back (C…), and
+ *                                  cards for each event he said (F…), for the readers
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';

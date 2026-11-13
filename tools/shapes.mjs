@@ -26,8 +26,7 @@ import { WET } from '../src/format.js';
 import { fan } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 
-// A clear rectangle at least this big counts as an open block. Open blocks make bushy, shallow
-// state spaces; see `harvest.mjs`.
+// Open blocks make bushy, shallow state spaces; see `harvest.mjs`.
 const OPEN_BLOCK_MIN_SIDE = 3;
 const OPEN_BLOCK_MIN_AREA = 12;
 export const isBigOpenBlock = b =>
@@ -51,7 +50,8 @@ function rotated(w, h, gapY0, gapH, leftCut, rightCut) {
 }
 
 /**
- * Every structural rule, applied to the empty room before anything stands in it.
+ * `ok` is true when the outline passes every structural rule. `floor` and `block` are the open
+ * cells and the largest open rectangle.
  */
 export function judge(wall, w, h, water = null) {
   const isFloor = (x, y) => x >= 0 && y >= 0 && x < w && y < h
@@ -113,9 +113,8 @@ const BLOCK_SIZES = [];
 for (let h = 5; h <= 11; h++) for (let w = 6; w <= 14; w++) BLOCK_SIZES.push([w, h]);
 
 /**
- * Every room-and-block pairing the two block families share. They are the SAME silhouettes, one
- * made of wall and one of water, and enumerating them in one place is what keeps that true
- * rather than coincidental.
+ * The ring and lake families share these silhouettes, one made of wall and one of water.
+ * Enumerating them in one place keeps that true rather than coincidental.
  */
 function* blockPlacements() {
   for (const [w, h] of BLOCK_SIZES)
@@ -280,9 +279,9 @@ export function bridgeSeats(plan) {
 }
 
 /**
- * Returns every straight canal on a plan: each contiguous run of `CANAL_MIN` cells or more along a
- * wall-free row or column. Enumerated rather than sampled, for the reason the families are. A canal
- * is part of the silhouette an act is built on, and each run is fixed by its place and length.
+ * Returns every straight canal on a plan. Enumerated rather than sampled, for the reason the
+ * families are. A canal is part of the silhouette an act is built on, and each run is fixed by its
+ * place and length.
  */
 export function canals(plan) {
   const { w, h, wall } = plan;

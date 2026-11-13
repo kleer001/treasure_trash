@@ -7,8 +7,8 @@
 //   node tools/conform.mjs --engine '...' --steps 4000 --random 300 --seed 12
 //
 // This is what **One engine** in CLAUDE.md means by proof. A port is not sanctioned because
-// somebody read it carefully; it is sanctioned because this runs every build and fails on the
-// first disagreement. `tools/conform-ref.mjs` is the protocol, written out.
+// somebody read it carefully; it is sanctioned because this runs every build and fails on any
+// disagreement. `tools/conform-ref.mjs` is the protocol, written out.
 //
 // TWO GRAINS, and the coarse one exists to be diagnosed by the fine one.
 //
@@ -84,9 +84,8 @@ function sprinkleTerrain(room, rnd, n) {
  */
 export function generatedRooms(count, seed) {
   const rnd = mulberry32(seed);
-  // Every piece the rules know, in combinations the acts do not contain. A group left
-  // out here is a piece the gate cannot see, and a gate that cannot see a piece reports
-  // agreement about it either way.
+  // The groups here are combinations the acts do not contain. A group left out is a piece the
+  // gate cannot see, and a gate that cannot see a piece reports agreement about it either way.
   const GROUPS = ['$', '$b', '$C', '$W', 'xB', '$P', 'CP', '$j', 'Fb', '$$b', 'BW', 'jb',
                   '$Bw', 'xPC', 'F$', '$bw',
                   // the rest of the roster
@@ -138,9 +137,9 @@ export function nestedRooms() {
 }
 
 /**
- * Boards from a room, and every direction from each. Sampled evenly through BFS discovery order
- * rather than from the front, because the first hundred states of any room are the raccoon
- * walking about and the interesting boards are the ones several shoves deep.
+ * Sampled evenly through BFS discovery order rather than from the front, because the first states
+ * of any room are the raccoon walking about and the interesting boards are the ones several shoves
+ * deep.
  */
 function boardsOf(a, want) {
   const keys = [...a.states.keys()];
@@ -172,10 +171,8 @@ export async function conform(command, { rooms = null, steps = 120, random = 40,
     tally.rooms++;
 
     // Coarse first: one round trip says whether this room is worth taking apart. `measure` is
-    // asked in the same breath because it is the same enumeration — an engine the pipeline can
-    // use has to get the numbers the pipeline DECIDES on right, not only the ones a pack
-    // declares, and an unchecked metric is exactly the sort of thing that would be discovered
-    // by a re-sited act coming out different.
+    // asked in the same breath because it is the same enumeration. An engine the pipeline uses
+    // has to get the numbers the pipeline decides on right, not only the ones a pack declares.
     const board = shapeOf(start);
     const [theirs, theirMeasure] = await Promise.all([
       engine.ask({ op: 'answer', ...board, maxStates: MAX_STATES }),

@@ -39,13 +39,12 @@ function read(grid, cart) {
            onPath: pathBite(a, onDag).onPath, ...deadTravel(a, onDag) };
 }
 
-/** The count `holds` guards on, asked separately because asking is as dear as the `analyze`. */
+/** The count `holds` guards on, taken from the graph `read` already built. */
 const inertCount = r => inertPieces(r.room, r.a, { onDag: r.onDag }).length;
 
 /**
- * Crop to the box that still holds something. A wall pass can retire a whole side of the
- * outline, and what is left is frame: the room is drawn from the grid, so those columns are
- * blank screen the player is asked to look at.
+ * A wall pass can retire a whole side of the outline, and what is left is frame: the room is
+ * drawn from the grid, so those columns are blank screen the player is asked to look at.
  *
  * One box for the set, because three rooms cropped to their own contents are three rooms of
  * different sizes, and the shared outline is the set.
@@ -63,7 +62,6 @@ function crop(grids, carts) {
 }
 
 /**
- * Wall off every cell all three rooms can spare, greedily to a fixed point.
  * Returns the set re-measured, or null if it could not be read to begin with.
  */
 export function shrinkSet(set) {

@@ -12,11 +12,8 @@
 // the harvest used.
 //
 // PICK FOR AN ACT, NOT A TOP-N. Ranking alone hands back whatever the metric loves most.
-// Selection is constrained: par bands to fill, a ceiling on how much of the act any one piece
-// may appear in, and one room per piece group.
 //
-// EMIT ALL THREE FILES. A room lands in `.tt`, `.sol` and the `levels.md` table, and a room
-// present in two of the three is a broken pack.
+// EMIT ALL THREE FILES. A room present in two of the three is a broken pack.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
@@ -32,7 +29,7 @@ import { walksFit, MAX_STATES } from './metrics.mjs';
 
 export const ACT_WEIGHTS = { ...WEIGHTS, blindness: -0.3 };
 
-/** Tighten one harvested room and measure the room that comes out. Null if it will not hold. */
+/** The re-measured room, or null if it will not hold. */
 export function refit(row) {
   const room = { id: 'pick', grid: row.grid, ...(row.cart && { cart: row.cart }),
                  ...(row.water && { water: row.water }) };
@@ -46,8 +43,6 @@ export function refit(row) {
 }
 
 /**
- * Fill the act under constraints, best-first.
- *
  * `bands` splits the par range so the result is a curve rather than a heap at whatever par
  * the metric happens to favour. `maxPieceShare` caps how many rooms any single piece may
  * appear in — without it one piece takes the whole act on merit and the act teaches one idea.
@@ -91,8 +86,8 @@ export function choose(scored, { want, lo, hi, bands = 5, maxPieceShare = 0.5, p
 }
 
 /**
- * Choose an act made of SETS rather than of loose rooms. A set is three rooms sharing one
- * outline and one way of getting harder; `tools/sets.mjs` builds them.
+ * A set is three rooms sharing one outline and one way of getting harder; `tools/sets.mjs`
+ * builds them.
  *
  * The ramps are spread so the act does not run a single device end to end.
  */
@@ -120,8 +115,8 @@ export function chooseSets(sets, { want = 10, maxPieceShare = 0.5, maxPerRamp = 
     if (s.rooms[s.rooms.length - 1].par < SET_TOP_MIN) continue;
     // A set the pack cannot accept is not a candidate, so the walk bound is checked here.
     if (!s.rooms.every(r => walksFit(r))) continue;
-    // And re-siting and walling both change what a piece is doing, so a set that left the
-    // search with every piece working can arrive here with one standing idle.
+    // Re-siting and walling both change what a piece does, so a set that left the search with
+    // every piece working can arrive here with one standing idle.
     if (s.rooms.some(r => r.inert)) continue;
     if (byShape.has(s.shape)) continue;
     if ((byRamp[s.ramp] ?? 0) >= maxPerRamp) continue;
@@ -137,7 +132,7 @@ export function chooseSets(sets, { want = 10, maxPieceShare = 0.5, maxPerRamp = 
   return { sets: taken, byRamp, byPiece, short: Math.max(0, want - taken.length) };
 }
 
-/** The three files a room has to appear in, so it cannot land in two of them. */
+/** The text of the three act files. Each room appears in all three. */
 export function emit(picked, { first = 31, pack = 'Treasure Trash — Act 2', noteFor = null }) {
   const id = i => `L${first + i}`;
   const tt = [`:pack   ${pack}`, ':format 1', ';',

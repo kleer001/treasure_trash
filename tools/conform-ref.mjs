@@ -29,8 +29,8 @@
 //               "silentTraps":0, "onPath":0.125, "bitten":1, "firstOnPath":3,
 //               "lead":2, "tail":1}
 //
-// `measure` is `answer` plus what the level pipeline actually decides on, and it exists because
-// those are the numbers `resite` and `shrink` guard every candidate with. They are linear walks
+// `measure` is `answer` plus what the level pipeline decides on. The pipeline needs those numbers
+// for every candidate. They are linear walks
 // of a graph the enumeration already paid for, so an engine that returns only `answer` would
 // have to ship the graph itself for the caller to finish the job, which costs more than it
 // saves. A room that cannot be won reports par null and zeroes; there is no line to measure.
@@ -59,8 +59,8 @@ export const shapeOf = s => ({ grid: toGrid(s), cart: toCart(s), water: toWater(
 export const answerOf = a => ({ par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,
                                 reachable: a.reachable, exitRefusals: a.exitRefusals });
 
-/** The `measure` reply. The DAG is built once and shared, because building it is most of what
- *  measuring a room costs. */
+/** The `measure` reply. The DAG is built once and shared, so the two walks that read it do not
+ *  rebuild it. */
 export function measureOf(a) {
   const flat = { silentTraps: a.silentTraps.length, onPath: 0, bitten: 0, firstOnPath: null,
                  lead: 0, tail: 0 };

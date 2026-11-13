@@ -26,7 +26,6 @@ const solve = s => {
 };
 
 /**
- * Everything verify.mjs would say about a candidate room, without putting it in the pack.
  * `ok` is false when a check that a level author can actually fail did not hold.
  */
 export function draft(room) {
@@ -99,9 +98,6 @@ const wallAt = (room, x, y) => ({
 });
 
 /**
- * Wall off the floor the solve never needs, so the room comes out shaped rather than
- * rectangular.
- *
  * `accept` sees the walled room's draft and the unwalled one's, and says whether the wall is
  * worth it.
  */
@@ -126,7 +122,7 @@ export function tighten(room, accept = (d, base) =>
   return { room: cur, draft: best, was: base };
 }
 
-/** A room as it goes in the pack, numbers filled from `draft`. Every block closes itself. */
+/** `d` is the `draft` result that supplies the numbers. */
 export function ttBlock(room, d) {
   const L = [`:level  ${room.id}`, `:name   ${room.name}`];
   if (room.teach) L.push(`:teach  ${room.teach}`);
@@ -140,8 +136,6 @@ export function ttBlock(room, d) {
 }
 
 /**
- * Every room of this shape: one cart, the given loose pieces, a raccoon and an exit.
- *
  * `plan` is a mask of strings — '#' is wall, anything else is free floor — so the outline can
  * be anything, not just a rectangle. It sets `w`/`h` when they are not given. `walled` is the
  * plain rectangle-with-a-border case.
@@ -171,8 +165,7 @@ export function* rooms({ w, h, pieces = ['$'], exitAt = null, walled = false, pl
         // Lazy: a group on a big board has too many arrangements to collect first, and holding them
         // all would cost the memory and a spread wide enough to blow the stack.
         //
-        // Two of the same piece swapped is the same room, so a piece that repeats the one before it
-        // takes only a later spot.
+        // Two of the same piece swapped is the same room.
         function* place(k, used, last) {
           if (k === order.length) { yield used; return; }
           for (let i = k > 0 && order[k] === order[k - 1] ? last + 1 : 0; i < spots.length; i++) {
@@ -194,7 +187,6 @@ export function* rooms({ w, h, pieces = ['$'], exitAt = null, walled = false, pl
     }
 }
 
-/** Search a shape, keep the rooms `want` likes and that genuinely need their cart. */
 export function hunt(shape, want, limit = 12) {
   const hits = [];
   let seen = 0;

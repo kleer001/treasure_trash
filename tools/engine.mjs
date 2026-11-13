@@ -95,11 +95,11 @@ export function measureHere(s, maxStates) {
  * Returns the engine a pipeline run should use: a path to spawn, or null to enumerate in process.
  * It is decided once on the main side and passed down, so every worker uses the same one.
  *
- * It is auto-detected, not opt-in. A flag nobody remembers saves nobody anything, and the whole
- * point is that the hours come down. It is ANNOUNCED on every run, because "why did that take so
- * long" must be answerable from the log. A fallback nobody is told about is the kind this codebase
- * does not allow. `--no-engine` forces the JS path. A build that is present but stale is the same
- * hazard as any build artifact, and `conform.mjs` is how you check it.
+ * It is auto-detected, not opt-in: a flag nobody remembers saves nobody anything. It is ANNOUNCED
+ * on every run, because "why did that take so long" must be answerable from the log. A fallback
+ * nobody is told about is the kind this codebase does not allow. `--no-engine` forces the JS path.
+ * A build that is present but stale is the same hazard as any build artifact, and `conform.mjs` is
+ * how you check it.
  */
 export function engineFor(argv, log = console.log) {
   if (argv.includes('--no-engine')) {
