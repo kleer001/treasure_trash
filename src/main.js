@@ -212,7 +212,7 @@ function startMv(prev, r){
 }
 
 function applyItem(it, frames){
-  applyStep(stage, it.step, it.racTo);
+  applyStep(stage, it.step, it.racTo, it.board);
   clips.note(it.step, it.next, frames);
 }
 /** Returns false once the whole action has played out. */
@@ -646,7 +646,7 @@ function paintSprite(sp, f){
   }
   else {
     const own = () => drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
-      seed: sp.seed, lie: sp.lie, wet: sp.soaks ? (sp.soak ?? 1) : 0, scraps: sp.scraps,
+      seed: sp.seed, lie: sp.lie, wet: sp.soaks ? (sp.soak ?? 1) : 0, scraps: sp.scraps, soaked: sp.soaked,
       k: sp.dying ? (sp.deflate ?? 1)
         : ph && fx.bx===Math.round(sp.x) && fx.by===Math.round(sp.y) ? 1-ph.burst : 1,
     });

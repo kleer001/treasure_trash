@@ -9,7 +9,7 @@
 // owns a fractional position, and can be parented to a cart rather than standing on a square.
 
 import { NONE, cell, cartCells, pieceCells, isCart, isMultiCell,
-         carriedKind, chainOf, restsOn, CAN_EMPTY, BIN_EMPTY, JUG_EMPTY } from './rules.js';
+         carriedKind, chainOf, restsOn, CAN_EMPTY, BIN_EMPTY, JUG_EMPTY, SPONGE, CARDBOARD, GREASE, TAR } from './rules.js';
 import { handleAt, anchorOf, depthLane, laneDepth, laneOf,
          CART_LANE, BODY_LANE, RAC_LANE, isBodyLane } from './handles.js';
 import { mulberry32 } from './rng.js';
@@ -37,7 +37,7 @@ export const spriteHandle = sp => handleAt([sp.tx, sp.ty],
  */
 export const shapeOf = sp => JSON.stringify([
   sp.kind, sp.tx, sp.ty, sp.parent, sp.ref ?? null, sp.o ?? null, sp.ck ?? null,
-  sp.cells ?? null, sp.depth, sp.heading, sp.lie,
+  sp.cells ?? null, sp.depth, sp.heading, sp.lie, sp.soaked ?? null,
 ]);
 
 export const census = stage => stage.sprites.map(shapeOf).sort();
@@ -72,6 +72,7 @@ export function stageFrom(state, seed = 1, decor = null) {
     const worn = decor?.get(sp.handle);
     sp.heading = worn?.heading ?? (kind === RACCOON ? 'd' : null);
     sp.lie = worn?.lie ?? null;
+    sp.soaked = worn?.soaked ?? (SOAKERS.has(kind) && sp.parent === null ? liquidOf(cell(state, x, y)) : null);
     stage.sprites.push(sp);
     return sp;
   };
@@ -117,6 +118,9 @@ const offsets = (cells, ox, oy) => cells.map(([x, y]) => [x - ox, y - oy]);
 // --- which way things face ----------------------------------------------------------------
 
 export const LIES = new Set([CAN_EMPTY, BIN_EMPTY, JUG_EMPTY]);
+export const SOAKERS = new Set([SPONGE, CARDBOARD]);
+/** What a thing on cell `c` soaks up or stands in: a key of `SOAKED_LOOK` in art/soaked.js, or null. */
+export const liquidOf = c => (c.water ? 'water' : c.ter === GREASE ? 'grease' : c.ter === TAR ? 'tar' : null);
 /** The way a move of (dx, dy) went. */
 const wayOf = (dx, dy) => (!dx && !dy ? null
   : Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'r' : 'l') : (dy > 0 ? 'd' : 'u'));
@@ -151,7 +155,7 @@ export function face(stage, dir) {
 export function decorOf(stage) {
   const out = new Map();
   for (const sp of stage.sprites)
-    if (!sp.dying && !sp.spent && (sp.heading || sp.lie)) out.set(sp.handle, { heading: sp.heading, lie: sp.lie });
+    if (!sp.dying && !sp.spent && (sp.heading || sp.lie || sp.soaked)) out.set(sp.handle, { heading: sp.heading, lie: sp.lie, soaked: sp.soaked });
   return out;
 }
 
@@ -161,7 +165,7 @@ export function decorOf(stage) {
 export function decorAfter(state, decor, dir, r) {
   const stage = stageFrom(state, 1, decor);
   face(stage, dir);
-  if (r.ok) r.steps.forEach((step, k) => { applyStep(stage, step, r.frames[k + 1].rac); settle(stage); });
+  if (r.ok) r.steps.forEach((step, k) => { applyStep(stage, step, r.frames[k + 1].rac, r.frames[k]); settle(stage); });
   return decorOf(stage);
 }
 
@@ -186,9 +190,9 @@ const holding = stage => {
  * Retarget everything for one step of an action. Positions are not applied here — `advance`
  * interpolates between each sprite's anchor and its new target.
  *
- * Order matters within `moved`.
+ * Order matters within `moved`. `board` is the board the step starts from.
  */
-export function applyStep(stage, step, racTo = null) {
+export function applyStep(stage, step, racTo = null, board = null) {
   for (const sp of stage.sprites) {
     sp.ax = sp.x; sp.ay = sp.y; sp.tx = sp.x; sp.ty = sp.y; sp.nudge = null;
   }
@@ -253,6 +257,8 @@ export function applyStep(stage, step, racTo = null) {
     const carrier = carriage.get(sp.parent);
     if (carrier && m.dx === 0 && m.dy === 0) sp.nudge = [carrier.dx, carrier.dy];
     if (m.parent !== undefined) sp.parent = m.parent;
+    // It wears what it lands in once it has landed, not as it sets off.
+    if (SOAKERS.has(rest.o) && sp.parent === null) sp.soaking = liquidOf(cell(board, sp.tx, sp.ty));
   });
 
   step.gone.forEach((g, i) => {
@@ -368,6 +374,8 @@ export function settle(stage) {
     sp.rattle = null; sp.tilt = 0; sp.pivot = null;
     sp.x = sp.tx; sp.y = sp.ty;
     sp.ax = sp.x; sp.ay = sp.y;
+    if (sp.soaking) sp.soaked = sp.soaking;
+    sp.soaking = null;
   }
 }
 

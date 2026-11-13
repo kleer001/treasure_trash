@@ -214,7 +214,7 @@ export function landsWhereTheBoardSays(s, dir, bend = null) {
     // applied in order, each one settled before the next names anything.
     for (const seg of timeline(r, 1))
       for (const it of seg.items) {
-        applyStep(stage, it.step, it.racTo);
+        applyStep(stage, it.step, it.racTo, it.board);
         settle(stage);
       }
   } catch (e) { threw = e.message; }

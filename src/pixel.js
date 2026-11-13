@@ -19,7 +19,8 @@ import { door } from './art/door.js';
 import { BARROW } from './art/barrow.js';
 import { SPONGE } from './art/sponge.js';
 import { CARDBOARD, wetCardboard } from './art/cardboard.js';
-import { soakedSponge, soakedCardboard } from './art/soaked.js';
+import { SOAKED_LOOK, soakedSponge, soakedCardboard } from './art/soaked.js';
+import { liquidOf } from './stage.js';
 import { GRATE } from './art/grate.js';
 import { ONEWAY } from './art/oneway.js';
 import { TYRE } from './art/tyre.js';
@@ -104,7 +105,11 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
   const drawFloat = fl =>
     put(fl.a ? afloat(fl.s, fl.x0, fl.y0, fl.met, water) : fl.s.px.map(([a, b, c]) => [fl.x0 + a, fl.y0 + b, c]), 0, 0);
   const thing = (o, x, y, seed, lie) => drawFloat(floating(o, x, y, seed, lie));
-  const WET_SPONGE = soakedSponge('water'), WET_CARDBOARD = soakedCardboard('water');
+  /** The drawings `look(kind)` makes for each kind of soaking that `SOAKED_LOOK[of]` has, by kind. */
+  const soakedLooks = (of, look) => Object.fromEntries(Object.keys(SOAKED_LOOK[of]).map(k => [k, look(k)]));
+  const SPONGE_LOOKS = soakedLooks('sponge', soakedSponge), CARDBOARD_LOOKS = soakedLooks('cardboard', soakedCardboard);
+  /** What the cell nearest (x, y) holds that a thing on it soaks up, as `liquidOf` in stage.js says. */
+  const liquidAt = (x, y) => { const cx = Math.round(x), cy = Math.round(y); return inGrid(board, cx, cy) ? liquidOf(cell(board, cx, cy)) : null; };
   /** Draws `px` as the solid `name`, its top-left `dx, dy` px into cell (x, y), `a` of the way into the water. */
   const floated = (name, px, dx, dy, x, y, a = afloatAt(x, y)) => drawFloat(floatOf({ px, x: dx, y: dy, parts: [{ name }] }, x, y, a));
   const upright = (name, spr, x, y) => floated(name, spr.px, Math.floor((C - spr.w) / 2), C - spr.h - 1, x, y);
@@ -239,11 +244,12 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
     /** A lone splash has no look of its own: the clip of the pour draws the whole spray. */
     splash() {},
 
-    sponge(x, y) {
-      const s = afloatAt(x, y) >= 0.5 ? WET_SPONGE : SPONGE;
+    /** `soaked` is what it soaked up last: a key of `SOAKED_LOOK.sponge`, or null. */
+    sponge(x, y, soaked = null) {
+      const s = SPONGE_LOOKS[liquidAt(x, y) ?? soaked] ?? SPONGE;
       put(s.px, P(x) + Math.floor((C - s.w) / 2) + s.dx, P(y) + C - s.h - 1 + s.dy);
     },
-    cardboard(x, y) { put((afloatAt(x, y) >= 0.5 ? WET_CARDBOARD : CARDBOARD).px, P(x), P(y)); },
+    cardboard(x, y, soaked = null) { put((CARDBOARD_LOOKS[liquidAt(x, y) ?? soaked] ?? CARDBOARD).px, P(x), P(y)); },
     tyre(x, y, horizontal) { upright(horizontal ? 'tyreH' : 'tyreV', TYRE[horizontal ? 'H' : 'V'], x, y); },
     chair(x, y) { upright('chair', CHAIR, x, y); },
     broom(x, y) { upright('broom', BROOM, x, y); },

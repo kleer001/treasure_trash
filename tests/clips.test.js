@@ -25,7 +25,7 @@ const clipsFor = (stage, pixel = true) =>
 function playPour(clips, stage) {
   for (const seg of timeline(explain(POUR, 'r', { trace: true }), CELL_MS))
     for (const it of seg.items) {
-      applyStep(stage, it.step, it.racTo);
+      applyStep(stage, it.step, it.racTo, it.board);
       clips.note(it.step, it.next, 0);
       settle(stage);
     }
@@ -100,7 +100,7 @@ for (const [name, kind, dir, rows] of FLOATS) test(`${name}: its float draws the
   let after = state;
   for (const seg of timeline(explain(state, dir, { trace: true }), CELL_MS))
     for (const it of seg.items) {
-      applyStep(stage, it.step, it.racTo);
+      applyStep(stage, it.step, it.racTo, it.board);
       clips.note(it.step, it.next, 0);
       settle(stage);
       after = it.next;
@@ -138,6 +138,15 @@ const AT_REST = {
 
 const POND = room(['##########', '#~~~~----#', '#~~~~----#', '#~~~~----#', '#@------E#', '##########']);
 const drawnAt = (draw, x, y) => { ctx.out = []; draw(SP, x, y); return ctx.out.map(([px, py, , , col]) => [px - x * PIXEL_CELL, py - y * PIXEL_CELL, col]); };
+
+test('a soaked sponge or sheet on dry floor looks as it does standing in the water', () => {
+  SP.setBoard(POND);
+  for (const k of ['sponge', 'cardboard']) {
+    const dryLook = drawnAt((S, x, y) => S[k](x, y), 6, 2), soaked = drawnAt((S, x, y) => S[k](x, y, 'water'), 6, 2);
+    assert.notDeepEqual(soaked, dryLook, k);
+    assert.deepEqual(soaked, drawnAt((S, x, y) => S[k](x, y), 2, 2), k);
+  }
+});
 const top = px => Math.min(...px.map(p => p[1]));
 
 for (const [name, draw] of Object.entries(AT_REST)) test(`a ${name} at rest in water sits as deep in it as the rest look says`, () => {
@@ -160,7 +169,7 @@ test('a float clip hands the water every place the stage drew its thing, and the
   const clips = createClips({ pixel: true, stage: () => stage, clock: () => 0, since: () => now * 1000 / 60, frame: 1000 / 60,
     art: { ...art, wadeEnd: 30, wade: (o, at, t, draw) => { calls.push([o, t, at(0), at(6), at(t)]); draw(); } } });
   const [it] = timeline(explain(state, 'r', { trace: true }), CELL_MS)[0].items;
-  applyStep(stage, it.step, it.racTo);
+  applyStep(stage, it.step, it.racTo, it.board);
   clips.note(it.step, it.next, 10);
   const sp = stage.sprites.find(s => s.kind === TIRE_H);
   for (const [f, x] of [[0, 3], [4, 3.5], [8, 4]]) { now = f; sp.x = x; assert.equal(clips.paint(sp, own), true); }

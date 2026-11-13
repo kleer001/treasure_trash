@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, BIN_EMPTY, CAN_EMPTY } from '../src/rules.js';
+import { explain, BIN_EMPTY, CAN_EMPTY, SPONGE } from '../src/rules.js';
 import { toState } from '../src/format.js';
 import { stageFrom, applyStep, settle, face, census, decorAfter, RACCOON } from '../src/stage.js';
 
-const S = (grid, cart) => toState({ id: 't', grid, cart });
+const S = (grid, cart, water) => toState({ id: 't', grid, cart, water });
 /** Press each of `keys` from `s`, a refused press included. The board and the decoration after. */
 function press(s, keys, decor = null) {
   for (const k of keys) {
@@ -14,11 +14,12 @@ function press(s, keys, decor = null) {
   }
   return { s, decor };
 }
-const wearing = ({ s, decor }, kind) => {
+const worn = ({ s, decor }, kind) => {
   const sp = stageFrom(s, 1, decor).sprites.filter(p => p.kind === kind);
   assert.equal(sp.length, 1, `expected one ${String(kind)}, found ${sp.length}`);
-  return { heading: sp[0].heading, lie: sp[0].lie };
+  return sp[0];
 };
+const wearing = (after, kind) => { const sp = worn(after, kind); return { heading: sp.heading, lie: sp.lie }; };
 
 const OPEN = ['-----', '-----', '@B---', '-----', '----E'];
 
@@ -58,16 +59,41 @@ test('the same presses give the same decoration', () => {
   assert.deepEqual([...press(S(OPEN), keys).decor], [...press(S(OPEN), keys).decor]);
 });
 
-test('a stage rebuilt from a board and its decoration is the stage the presses left', () => {
-  let s = S(OPEN), decor = null;
+test('a sponge stays soaked with the water it soaked up when it is shoved on', () => {
+  const s = S(['@s---E'], null, ['--~---']);
+  assert.equal(worn({ s }, SPONGE).soaked, null);
+  const soaked = press(s, ['r']);
+  assert.equal(soaked.s.cells[0][2].water, false);
+  assert.equal(worn(soaked, SPONGE).soaked, 'water');
+  assert.equal(worn(press(soaked.s, ['r'], soaked.decor), SPONGE).soaked, 'water');
+});
+
+test('a sponge wears the last thing it soaked up or stood in', () => {
+  const s = S(['@s----E'], null, ['--%T---']);
+  assert.equal(worn(press(s, ['r']), SPONGE).soaked, 'grease');
+  assert.equal(worn(press(s, ['r', 'r']), SPONGE).soaked, 'tar');
+});
+
+test('a sponge the room sets in water is soaked from the start', () => {
+  assert.equal(worn({ s: S(['@-s--E'], null, ['--~---']) }, SPONGE).soaked, 'water');
+});
+
+/** Presses `keys` from `s`, landing each step on a live stage, and checks it against a rebuild after each press. */
+function liveMatchesRebuilt(s, keys) {
+  let decor = null;
   const live = stageFrom(s, 1, decor);
-  for (const k of ['r', 'l', 'd', 'r', 'u']) {
+  for (const k of keys) {
     const r = explain(s, k, { trace: true });
     decor = decorAfter(s, decor, k, r);
     face(live, k);
     if (!r.ok) continue;
-    r.steps.forEach((step, i) => { applyStep(live, step, r.frames[i + 1].rac); settle(live); });
+    r.steps.forEach((step, i) => { applyStep(live, step, r.frames[i + 1].rac, r.frames[i]); settle(live); });
     s = r.next;
     assert.deepEqual(census(live), census(stageFrom(s, 1, decor)), `after ${k}`);
   }
+}
+
+test('a stage rebuilt from a board and its decoration is the stage the presses left', () => {
+  liveMatchesRebuilt(S(OPEN), ['r', 'l', 'd', 'r', 'u']);
+  liveMatchesRebuilt(S(['@s----E'], null, ['--~%T--']), ['r', 'r', 'r']);
 });
