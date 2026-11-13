@@ -1,6 +1,6 @@
 // The clips that play over a move in the pixel art: a container's dump, a bag's tear, a pane's
-// shatter and a thing bobbing in the water. A clip starts when the rules report its step, takes the
-// sprites it draws so they wait under it, and ends when its drawing does. Nothing here touches the
+// shatter and the water a thing stirs on its way into the water. A clip starts when the rules report
+// its step, takes the sprites it draws so they wait under it, and ends when its drawing does. Nothing here touches the
 // page: the sprite set, the stage, the clock and the frame length come in at the boundary.
 import { BAG, TRASH, PANE, DIRS, inGrid, cell, restsOn, isGlass } from './rules.js';
 import { shedOf, dressPiles, SPLASH } from './stage.js';
@@ -26,13 +26,13 @@ export function createClips({ pixel, art, stage, clock, since, frame }) {
 
   const dumpAt = d => Math.round(since(d.t0) / frame);
   const breakAt = b => Math.round(since(b.t0) / frame);
-  const bobAt = fl => Math.round(since(fl.t0) / frame) - fl.tin;
+  const wadeAt = fl => Math.round(since(fl.t0) / frame);
   const ripAt = r => { const g = Math.floor(since(r.t0) / frame); return onTwos(g) - r.move; };
   const dumpLive = d => since(d.t0) < d.end * frame && sprites().includes(d.container)
     && d.container.tx === d.at[0] && d.container.ty === d.at[1];
   const ripLive = r => ripAt(r) < r.clip.end
     && (!r.piles || r.piles.every((sp, i) => sprites().includes(sp) && sp.tx === r.cells[i][0] && sp.ty === r.cells[i][1]));
-  const floatLive = fl => bobAt(fl) < art.bobEnd && sprites().includes(fl.sp)
+  const floatLive = fl => wadeAt(fl) < fl.tin + art.wadeEnd && sprites().includes(fl.sp)
     && fl.sp.tx === fl.at[0] && fl.sp.ty === fl.at[1];
 
   // The clip draws what the container shed as well, so that sprite waits under it.
@@ -67,8 +67,26 @@ export function createClips({ pixel, art, stage, clock, since, frame }) {
       const [x, y] = restsOn(m), c = cell(after, x, y);
       if (!c.water || c.bridge) continue;
       const thing = sprites().find(sp => sp.kind === m.o && sp.tx === x && sp.ty === y);
-      if (thing) floats.push({ sp: thing, at: [x, y], t0: clock(), tin: frames });
+      if (thing) floats.push({ sp: thing, at: [x, y], t0: clock(), tin: frames, path: [] });
     }
+  }
+
+  // The water reads the thing's whole way in, so each frame keeps where the stage drew it. A frame
+  // the screen skipped is put on the line between the frames drawn either side of it, or the speed
+  // the water reads from it would jump.
+  function wade(fl, own) {
+    const f = wadeAt(fl), path = fl.path;
+    path[f] ??= { x: fl.sp.x, y: fl.sp.y };
+    const at = g => {
+      let i = Math.min(g, path.length - 1), j = g;
+      while (i >= 0 && !path[i]) i--;
+      while (j < path.length && !path[j]) j++;
+      const a = path[i], b = path[j];
+      if (!a || !b || i === j) return a ?? b;
+      const u = (g - i) / (j - i);
+      return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u };
+    };
+    art.wade(fl.sp.kind, at, f, own, fl.sp.lie, fl.sp.seed ?? 0);
   }
 
   // The piles take their seeds and scraps from the clip when the step lands.
@@ -120,13 +138,14 @@ export function createClips({ pixel, art, stage, clock, since, frame }) {
     /** Whether a live clip draws `sp`'s own sprite: a torn bag, its piles or a broken pane. */
     owns: sp => rips.some(r => r.bag === sp || r.piles?.includes(sp)) || breaks.some(b => b.pane === sp),
 
-    /** Returns true when a live clip has `sp`, drawn or hidden, so the caller leaves it alone. */
-    paint(sp) {
+    /** Returns true when a live clip has `sp`, drawn or hidden, so the caller leaves it alone. `own()`
+     *  draws `sp` as it is drawn with no clip. */
+    paint(sp, own) {
       if (dumps.some(d => d.shed === sp)) return true;
       const dump = dumps.find(d => d.container === sp);
       if (dump) { dump.draw(dumpAt(dump)); return true; }
-      const fl = floats.find(fl => fl.sp === sp && bobAt(fl) >= 0);
-      if (fl) { art.bob(sp.kind, sp.x, sp.y, bobAt(fl), sp.lie); return true; }
+      const fl = floats.find(fl => fl.sp === sp);
+      if (fl) { wade(fl, own); return true; }
       return false;
     },
 

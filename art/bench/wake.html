@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Landing and wake</title>
+<link rel="stylesheet" href="trash/knobs.css">
+<style>
+  :root { --key: #0aa2bd; --head: #e6591f; --line: #d6d3cc; }
+  .stage { display: grid; gap: 0; }
+  .lane { position: relative; height: 64px; margin-left: 56px; border: 1px solid var(--line); border-top: 0; background: #fff; user-select: none; touch-action: none; }
+  .lane.first { border-top: 1px solid var(--line); }
+  .lane.dim { opacity: .45; }
+  .lane .name { position: absolute; left: -56px; width: 50px; top: 0; bottom: 0; display: flex; align-items: center; justify-content: flex-end; font-size: 12px; color: #6b6b66; }
+  .lane svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .lane .key { position: absolute; width: 10px; height: 10px; margin: -6px 0 0 -6px; border: 1px solid var(--key); border-radius: 50%; background: #fff; cursor: grab; box-shadow: 0 1px 2px rgba(0,0,0,.25); z-index: 2; }
+  .lane .tag { position: absolute; top: 2px; transform: translateX(-50%); font-size: 10px; color: #6b6b66; pointer-events: none; }
+  .lane .bar { position: absolute; top: 22px; height: 20px; background: #dcd6e4; font-size: 11px; display: flex; align-items: center; justify-content: center; color: #2a3242; overflow: hidden; }
+  .lane .r { position: absolute; top: 2px; right: 2px; z-index: 4; }
+  .lane .mark { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--key); }
+  .head { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--head); pointer-events: none; z-index: 3; }
+  .transport { display: flex; gap: 6px; align-items: center; margin: 8px 0 14px 56px; }
+  .transport input[type=range] { flex: 1; }
+  .transport input[type=number] { width: 64px; font: inherit; }
+  .gap { height: 14px; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <canvas id="view"></canvas>
+  <div class="gap"></div>
+  <div id="landing"></div>
+  <div class="transport">
+    <button id="toStart">⏮</button><button id="back">◀</button><button id="stop">■</button><button id="fwd">▶</button><button id="toEnd">⏭</button>
+    <input type="range" id="scrub" min="0" step="1"><input type="number" id="frame" min="0" step="1"><span id="of" class="status"></span>
+  </div>
+  <div id="aging"></div>
+</div>
+<div class="side" id="side"></div>
+
+<script type="module">
+import { loadPixelArt, createPixelSprites, PIXEL_CELL as C } from '../../src/pixel.js';
+import { toState } from '../../src/format.js';
+import { CAN_EMPTY, BIN_EMPTY, JUG_EMPTY, PANE, BAG, TIRE_H, TIRE_V, CHAIR, BROOM, MAG_R, OCCUPANTS } from '../../src/rules.js';
+import { drawOccupant } from '../../src/sprites.js';
+import { press, travelAt } from '../../src/art/press.js';
+import { rollEase, CELL_MS } from '../../src/stage.js';
+import { onTwos } from '../../src/art/timing.js';
+import { REST } from '../../src/art/afloat.js';
+import { WAKE, curveAt, landingFrames, ringStart } from '../../src/art/wake.js';
+import { load, save } from './trash/settings.js';
+import { el, bind, resetButton, sliders, switches, colour, resetAll, zoom, autosaver } from './trash/knobs.js';
+
+const KEY = 'trash-wake', $ = id => document.getElementById(id);
+const D = { ...structuredClone(WAKE), piece: 'can', motion: 'push', dir: 'r', seed: 1, zoom: 3 }, s = load(KEY, D);
+Object.assign(REST, load('trash-rest', REST));
+
+const GRID = ['#########', '#@------#', '#-------#', '#-------#', '#-------#', '#-------#', '#-------#', '#------E#', '#########'];
+const WET = GRID.map((row, y) => [...row].map((_, x) => (x >= 3 && x <= 5 && y >= 3 && y <= 5 ? '~' : '-')).join(''));
+const PIECES = { can: CAN_EMPTY, box: BIN_EMPTY, jug: JUG_EMPTY, pane: PANE, bag: BAG, tyre: null, chair: CHAIR, broom: BROOM, magnet: MAG_R };
+const STEP = { r: [1, 0], l: [-1, 0], d: [0, 1], u: [0, -1] };
+const ARROW = { r: '→', l: '←', d: '↓', u: '↑' };
+const MID = [4, 4], CELL_FRAMES = Math.round(CELL_MS * 60 / 1000);
+const MOTIONS = {
+  push: { label: 'push in', from: -2, to: -1 },
+  roll: { label: 'roll across', from: -3, to: 3 },
+  afloat: { label: 'shove afloat', from: -1, to: 0 },
+};
+
+const art = await loadPixelArt(new URL('../../src/art/', import.meta.url));
+const src = document.createElement('canvas');
+src.width = GRID[0].length * C; src.height = GRID.length * C;
+const S = createPixelSprites({ ctx: src.getContext('2d'), art });
+S.setBoard(toState({ id: 'wake', grid: GRID, water: WET }));
+
+/** The test move: `at(f)`, the thing's cell `f` frames in, and `end`, the frame it stops. */
+function motion() {
+  const [dx, dy] = STEP[s.dir], m = MOTIONS[s.motion];
+  const from = [MID[0] + m.from * dx, MID[1] + m.from * dy], cells = m.to - m.from;
+  const place = u => ({ x: from[0] + dx * cells * u, y: from[1] + dy * cells * u });
+  if (s.motion === 'roll') {
+    const end = cells * CELL_FRAMES;
+    return { at: f => place(rollEase(Math.min(1, Math.max(0, f / end)), cells)), end };
+  }
+  const segs = press('push', s.dir, { lead: false });
+  return { at: f => place(travelAt(segs, f)), end: segs.at(-1).t1 };
+}
+const piece = () => PIECES[s.piece] ?? (s.dir === 'l' || s.dir === 'r' ? TIRE_H : TIRE_V);
+const lastKey = name => s.curves[name].at(-1)?.[0] ?? 0;
+
+let clip, frame = 0;
+function rebuild() {
+  const m = motion(), path = S.wadePath(piece(), m.at);
+  const span = Math.max(m.end, 60) + 60;
+  const landed = landingFrames(path, span)[0] ?? null, ringAt = ringStart(path, span, s);
+  const tail = Math.max((ringAt ?? 0) + lastKey('ring'), (landed ?? 0) + lastKey('spray') + s.dropLife);
+  clip = { ...m, landed, ringAt, len: Math.max(m.end, tail) + 12 };
+  frame = Math.min(frame, clip.len - 1);
+}
+
+function draw() {
+  for (const k in WAKE) WAKE[k] = s[k];
+  GRID.forEach((row, y) => [...row].forEach((g, x) => (g === '#' ? S.wall(x, y) : WET[y][x] === '~' ? S.water(x, y, false) : S.floor(x, y))));
+  const t = onTwos(frame), at = clip.at(t);
+  S.wade(piece(), clip.at, t, () => drawOccupant(S, OCCUPANTS, piece(), at.x, at.y, { seed: s.seed }), null, s.seed);
+  const out = $('view');
+  out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d');
+  o.imageSmoothingEnabled = false;
+  o.drawImage(src, 0, 0, out.width, out.height);
+  $('scrub').max = clip.len - 1; $('scrub').value = frame; $('frame').value = frame; $('of').textContent = `of ${clip.len - 1}`;
+  for (const h of heads) h.style.left = `${frame / (clip.len - 1) * W()}px`;
+}
+
+// ---- curve lanes ----
+const RANGE = { ring: [0, 1], spray: [0, 1], wake: [0, 1] };
+const W = () => Math.max(560, $('view').width) - 56;
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+/** One lane: the keys of curve `name` drawn over `len` frames, frame 0 of the curve at frame `offset`. */
+function lane(root, name, { len, offset, head, first, dim }) {
+  const box = el('div', { className: `lane${first ? ' first' : ''}${dim ? ' dim' : ''}` });
+  box.style.width = `${W()}px`;
+  const [lo, hi] = RANGE[name], H = 64, pad = 8, keys = s.curves[name];
+  const X = f => (f + offset) / (len - 1) * W(), Y = v => H - pad - (v - lo) / (hi - lo) * (H - 2 * pad);
+  const frameAt = (e, r) => Math.round((e.clientX - r.left) / W() * (len - 1)) - offset;
+  const valueAt = (e, r) => Math.round(clamp(lo + (H - pad - (e.clientY - r.top)) / (H - 2 * pad) * (hi - lo), lo, hi) * 100) / 100;
+  const pts = [];
+  for (let f = keys[0][0]; f <= keys.at(-1)[0]; f += 0.5) pts.push(`${X(f).toFixed(1)},${Y(curveAt(keys, f)).toFixed(1)}`);
+  box.innerHTML = `<svg><line x1="0" x2="100%" y1="${Y(0)}" y2="${Y(0)}" stroke="#e4e1da"/><polyline fill="none" stroke="#0aa2bd" stroke-width="1.5" points="${pts.join(' ')}"/></svg>`;
+  box.append(el('div', { className: 'name', textContent: name }));
+  const reset = resetButton(() => { s.curves[name] = structuredClone(D.curves[name]); change(); }, () => keys, D.curves[name]);
+  reset.onpointerdown = e => e.stopPropagation();
+  box.append(reset);
+  for (const key of keys) {
+    const k = el('div', { className: 'key', title: `frame ${key[0]}, ${key[1]}` });
+    k.style.left = `${X(key[0])}px`; k.style.top = `${Y(key[1])}px`;
+    k.onpointerdown = e => {
+      e.preventDefault(); e.stopPropagation(); setPlay(0);
+      const r = box.getBoundingClientRect();
+      const move = ev => { key[0] = Math.max(0, frameAt(ev, r)); key[1] = valueAt(ev, r); keys.sort((a, b) => a[0] - b[0]); rebuild(); lanes(); draw(); };
+      const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); change(); };
+      addEventListener('pointermove', move); addEventListener('pointerup', up);
+    };
+    k.oncontextmenu = e => { e.preventDefault(); if (keys.length > 2) { keys.splice(keys.indexOf(key), 1); change(); } };
+    box.append(k);
+  }
+  box.ondblclick = e => { const r = box.getBoundingClientRect(); keys.push([Math.max(0, frameAt(e, r)), valueAt(e, r)]); keys.sort((a, b) => a[0] - b[0]); change(); };
+  if (head) {
+    box.onpointerdown = e => { setPlay(0); scrubTo(e, box, len); };
+    box.append(heads[heads.push(el('div', { className: 'head' })) - 1]);
+  }
+  root.append(box);
+}
+
+function scrubTo(e, box, len) {
+  const r = box.getBoundingClientRect();
+  const to = ev => { frame = clamp(Math.round((ev.clientX - r.left) / W() * (len - 1)), 0, len - 1); draw(); };
+  const up = () => { removeEventListener('pointermove', to); removeEventListener('pointerup', up); };
+  to(e); addEventListener('pointermove', to); addEventListener('pointerup', up);
+}
+
+const heads = [];
+function lanes() {
+  const land = $('landing'), age = $('aging');
+  land.innerHTML = ''; age.innerHTML = ''; heads.length = 0;
+  const len = clip.len, L = clip.landed;
+  const path = el('div', { className: 'lane first' });
+  path.style.width = `${W()}px`;
+  path.append(el('div', { className: 'name', textContent: 'move' }),
+    el('div', { className: 'bar', textContent: MOTIONS[s.motion].label, style: `left:0;width:${clip.end / (len - 1) * W()}px` }));
+  if (L !== null) path.append(el('div', { className: 'mark', style: `left:${L / (len - 1) * W()}px` }),
+    el('div', { className: 'tag', textContent: 'L', style: `left:${L / (len - 1) * W()}px` }));
+  path.append(heads[heads.push(el('div', { className: 'head' })) - 1]);
+  path.onpointerdown = e => { setPlay(0); scrubTo(e, path, len); };
+  land.append(path);
+  lane(land, 'ring', { len, offset: clip.ringAt ?? 0, head: true, dim: clip.ringAt === null });
+  lane(land, 'spray', { len, offset: L ?? 0, head: true, dim: L === null });
+  lane(age, 'wake', { len: Math.max(40, lastKey('wake') + 10), offset: 0, first: true });
+}
+
+// ---- transport ----
+let playDir = 0, last = 0;
+function setPlay(d) { playDir = d; if (d) { last = performance.now(); requestAnimationFrame(tick); } }
+function tick(now) {
+  if (!playDir) return;
+  const n = Math.floor((now - last) / (1000 / 60));
+  if (n > 0) {
+    last += n * 1000 / 60; frame += playDir * n;
+    if (frame <= 0 || frame >= clip.len - 1) { frame = clamp(frame, 0, clip.len - 1); playDir = 0; }
+    draw();
+  }
+  requestAnimationFrame(tick);
+}
+$('fwd').onclick = () => { if (frame >= clip.len - 1) frame = 0; setPlay(1); };
+$('back').onclick = () => { if (frame <= 0) frame = clip.len - 1; setPlay(-1); };
+$('stop').onclick = () => setPlay(0);
+$('toStart').onclick = () => { setPlay(0); frame = 0; draw(); };
+$('toEnd').onclick = () => { setPlay(0); frame = clip.len - 1; draw(); };
+$('scrub').oninput = () => { setPlay(0); frame = Number($('scrub').value); draw(); };
+$('frame').onchange = () => { setPlay(0); frame = clamp(Math.round(Number($('frame').value)), 0, clip.len - 1); draw(); };
+addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea, select')) return;
+  if (e.key === 'ArrowRight') { setPlay(0); frame = Math.min(clip.len - 1, frame + 1); draw(); }
+  if (e.key === 'ArrowLeft') { setPlay(0); frame = Math.max(0, frame - 1); draw(); }
+  if (e.key === ' ') { e.preventDefault(); playDir ? setPlay(0) : $('fwd').click(); }
+});
+
+// ---- controls ----
+const side = $('side');
+const change = () => { save(KEY, s); rebuild(); lanes(); draw(); autosave(); }, b = bind(s, D, change);
+b.resets.push(() => Object.assign(s.curves, structuredClone(D.curves)));
+const choice = (title, key, options) => {
+  const buttons = Object.entries(options).map(([v, label]) => el('button', { textContent: label, onclick: () => { s[key] = v; mark(); change(); } }));
+  const mark = () => buttons.forEach((b, i) => b.setAttribute('aria-pressed', Object.keys(options)[i] === s[key]));
+  mark();
+  side.append(el('div', { className: 'pick' }, [el('span', { textContent: title }), ...buttons]));
+};
+side.append(el('div', { className: 'group', textContent: 'test' }));
+const pick = el('select');
+for (const name of Object.keys(PIECES)) pick.append(new Option(name, name));
+pick.value = s.piece;
+pick.onchange = () => { s.piece = pick.value; change(); };
+side.append(el('div', { className: 'pick' }, [el('span', { textContent: 'piece' }), pick]));
+choice('move', 'motion', Object.fromEntries(Object.entries(MOTIONS).map(([k, m]) => [k, m.label])));
+choice('direction', 'dir', ARROW);
+sliders(side, null, [['seed', 'seed', 1, 999, 1]], b);
+sliders(side, 'landing', [['ref', 'full strength at px a frame', 0.5, 8, 0.5],
+  ['ringSpeed', 'ring spread px a frame', 0.1, 2, 0.1], ['squash', 'ring height %', 20, 100, 5]], b);
+switches(side, 'ring', [['ringFollows', 'ring follows the piece']], b);
+sliders(side, 'spray', [['drops', 'drops per 24 px', 0, 30, 1], ['rise', 'rise px', 0, 20, 1], ['throw', 'throw %', 0, 150, 10],
+  ['scatter', 'scatter px', 0, 12, 1], ['dropLife', 'air frames', 2, 40, 1]], b);
+sliders(side, 'wake', [['spread', 'spread px a frame', 0, 2, 0.05], ['bow', 'bow wave px', 0, 8, 1]], b);
+side.append(el('div', { className: 'group', textContent: 'colours' }));
+colour(side, 'ring', 'ringColour', b);
+colour(side, 'drops', 'dropColour', b);
+colour(side, 'wake', 'wakeColour', b);
+colour(side, 'bow wave', 'bowColour', b);
+zoom(side, b);
+resetAll(side, b);
+const autosave = autosaver(side, 'wake', () => s);
+rebuild(); draw(); lanes(); draw(); autosave();
+</script>
+</body>
+</html>

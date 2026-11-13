@@ -19,6 +19,9 @@ Run `./run.sh`, then open a page under `/art/bench/`.
 | `water.html` | Trash on water: a bag torn beside a canal. |
 | `crossing.html` | The crossing's edge: how far it breaks up into the open water it meets, and in what pattern. The Trash on Water bench reads these settings. |
 | `float.html` | Things afloat: an empty box, can or jug shoved into a canal, or a full can tipped into it or beside it. |
+| `rest.html` | Things at rest in the water: how low they sit, the murk under the waterline, the glint, a contact line and a reflection. The Landing and Wake page reads these settings. |
+| `solid.html` | The solid each thing that floats is made from, and the eye's angle down, as the water shows them: where the water meets it, and its reflection. |
+| `wake.html` | The water a thing stirs, made from its sprite and its move: the dip, the rings and the spray where it comes into the water, and the wake and the bow wave while it moves. The dip, rings, spray and wake each have a curve of keys. |
 | `skate.html` | The skateboard: a deck lying up and down the picture can be seen three ways. |
 | `raccoon.html` | The raccoon: sitting, crawling, and pushing, drawn by hand from its parts. |
 | `raccoon_cartoon_v1.html` | The cartoon raccoon, version 1: crawling, pushing, and sitting idle, from the side, the front and the back, frame by frame, with each frame's hold on a slider. |

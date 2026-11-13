@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Solids in water</title>
+<link rel="stylesheet" href="trash/knobs.css">
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="side" id="side"></div>
+
+<script type="module">
+import { loadPixelArt, createPixelSprites, PIXEL_CELL as C } from '../../src/pixel.js';
+import { toState } from '../../src/format.js';
+import { REST } from '../../src/art/afloat.js';
+import { EYE, SOLIDS, SHAPES } from '../../src/art/solid.js';
+import { load, save } from './trash/settings.js';
+import { el, bind, sliders, choice, zoom, autosaver } from './trash/knobs.js';
+import { SETS } from './trash/afloats.js';
+
+const KEY = 'trash-solid';
+const GRID = ['###########', ...Array(7).fill('#---------#'), '#@-------E#', '###########'];
+const WET = GRID.map((r, y) => (y >= 1 && y <= 7 ? '-~~~~~~~~~-' : '-----------'));
+const D = { eye: EYE.eye, solids: structuredClone(SOLIDS), zoom: 3, set: 1, piece: 'can' }, s = load(KEY, D);
+s.set = Math.min(Math.max(1, s.set), SETS.length);
+if (!(s.piece in SOLIDS)) s.piece = D.piece;
+Object.assign(REST, load('trash-rest', REST));
+
+const art = await loadPixelArt(new URL('../../src/art/', import.meta.url));
+const src = document.createElement('canvas');
+src.width = GRID[0].length * C; src.height = GRID.length * C;
+const S = createPixelSprites({ ctx: src.getContext('2d'), art });
+S.setBoard(toState({ id: 'solid', grid: GRID, water: WET }));
+
+function draw() {
+  EYE.eye = s.eye;
+  for (const k in SOLIDS) Object.assign(SOLIDS[k], s.solids[k]);
+  GRID.forEach((row, y) => [...row].forEach((g, x) => (g === '#' ? S.wall(x, y) : WET[y][x] === '~' ? S.water(x, y, false) : S.floor(x, y))));
+  for (const [, paint] of SETS[s.set - 1]) paint(S);
+  const out = document.getElementById('view');
+  out.width = src.width * s.zoom; out.height = src.height * s.zoom;
+  const o = out.getContext('2d');
+  o.imageSmoothingEnabled = false;
+  o.drawImage(src, 0, 0, out.width, out.height);
+}
+
+const side = document.getElementById('side');
+const change = () => { save(KEY, s); draw(); autosave(); }, b = bind(s, D, change);
+const set = el('input', { type: 'number', min: 1, max: SETS.length, step: 1, value: s.set });
+set.oninput = () => {
+  const n = Number(set.value);
+  if (Number.isInteger(n) && n >= 1 && n <= SETS.length) { s.set = n; change(); }
+};
+side.append(el('div', { className: 'pick' }, [el('span', { textContent: 'set' }), set, el('span', { textContent: `of ${SETS.length}` })]));
+sliders(side, 'eye', [['eye', 'degrees down', 5, 60, 1]], b);
+
+side.append(el('div', { className: 'group', textContent: 'solid' }));
+const piece = el('select');
+for (const k in SOLIDS) piece.append(new Option(k, k));
+piece.value = s.piece;
+piece.onchange = () => {
+  s.piece = piece.value;
+  s.set = SETS.findIndex(set => set.some(([solid]) => solid === s.piece)) + 1;
+  set.value = s.set;
+  knobs();
+  change();
+};
+side.append(el('div', { className: 'pick' }, [el('span', { textContent: 'thing' }), piece]));
+const panel = el('div', { className: 'side' });
+side.append(panel);
+function knobs() {
+  panel.replaceChildren();
+  const r = s.solids[s.piece], pb = bind(r, D.solids[s.piece], () => { knobs(); change(); });
+  choice(panel, 'shape', 'shape', SHAPES, pb);
+  if (r.shape === 'front' || r.shape === 'top') sliders(panel, null, [['size', r.shape === 'front' ? 'depth px' : 'height px', 1, 48, 1]], pb);
+}
+knobs();
+
+zoom(side, b);
+side.append(el('button', { textContent: 'reset', onclick: () => {
+  for (const back of b.resets) back();
+  s.solids = structuredClone(D.solids);
+  knobs();
+  b.change();
+} }));
+const autosave = autosaver(side, 'solid', () => s);
+draw(); autosave();
+</script>
+</body>
+</html>

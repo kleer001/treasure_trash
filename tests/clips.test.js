@@ -5,18 +5,19 @@ import { explain, OCCUPANTS, JUG_EMPTY, TIRE_H, TIRE_V, CHAIR, BROOM, SPONGE, CA
 import { toState } from '../src/format.js';
 import { stageFrom, applyStep, settle, timeline, CELL_MS } from '../src/stage.js';
 import { createClips } from '../src/clips.js';
-import { createPixelSprites } from '../src/pixel.js';
+import { createPixelSprites, PIXEL_CELL } from '../src/pixel.js';
+import { REST as REST_LOOK } from '../src/art/afloat.js';
 import { drawOccupant } from '../src/sprites.js';
 
 const POUR = toState({ id: 'pour', grid: ['#########', '#@j-----#', '#-------#', '#E#######'] });
 
 const drawn = [];
 const art = {
-  bobEnd: 0,
+  wadeEnd: 0,
   dump: () => ({ end: 5, draw: f => drawn.push(f), ground: () => {} }),
   rip: () => ({ end: 0, piles: [], layers: () => [] }),
   shatter: () => ({ end: 0, layers: () => [], ground: () => {} }),
-  bob: () => {},
+  wade: () => {},
 };
 const clipsFor = (stage, pixel = true) =>
   createClips({ pixel, art, stage: () => stage, clock: () => 0, since: () => 0, frame: 1000 / 60 });
@@ -110,9 +111,62 @@ for (const [name, kind, dir, rows] of FLOATS) test(`${name}: its float draws the
   const sp = stage.sprites.find(s => s.kind === kind && s.tx === wx && s.ty === wy);
   assert.ok(sp, `a ${kind} rests on the water`);
   ctx.out = [];
-  assert.equal(clips.paint(sp), true);
+  assert.equal(clips.paint(sp, () => drawOccupant(SP, OCCUPANTS, kind, sp.x, sp.y, {})), true);
   restCtx.out = [];
+  REST.setBoard(state);
   drawOccupant(REST, OCCUPANTS, kind, 0, 0, {});
   const standing = new Set(restCtx.out.map(p => p[4]));
   assert.ok(ctx.out.some(p => standing.has(p[4])), 'the float paints the colours the thing stands in');
+});
+
+// Each thing a move can leave at rest in the water, drawn as the game draws it with its first cell at (x, y).
+const AT_REST = {
+  bag: (S, x, y) => S.bag(x, y), can: (S, x, y) => S.can(x, y, false), 'lying can': (S, x, y) => S.can(x, y, false, 'r'),
+  'can lying toward': (S, x, y) => S.can(x, y, false, 'd'), 'can lying away': (S, x, y) => S.can(x, y, false, 'u'),
+  bin: (S, x, y) => S.recycleBin(x, y, false), 'lying bin': (S, x, y) => S.recycleBin(x, y, false, 'l'),
+  jug: (S, x, y) => S.jug(x, y, false), 'lying jug': (S, x, y) => S.jug(x, y, false, 'd'), pane: (S, x, y) => S.pane(x, y),
+  wheelie: (S, x, y) => S.wheelie(x, y, true),
+  tyre: (S, x, y) => S.tyre(x, y, true), 'tyre on its tread': (S, x, y) => S.tyre(x, y, false), chair: (S, x, y) => S.chair(x, y),
+  broom: (S, x, y) => S.broom(x, y),
+  magnet: (S, x, y) => S.magnet(x, y, 'r'), cabinet: (S, x, y) => S.cabinet(x, y, 'u'), 'open cabinet': (S, x, y) => S.cabinet(x, y, 'r', true),
+  barrow: (S, x, y) => S.barrow(x, y, 'l'), couch: (S, x, y) => S.furniture([[x, y], [x + 1, y]]),
+  'couch up the picture': (S, x, y) => S.furniture([[x, y], [x, y + 1]]),
+  bicycle: (S, x, y) => S.bicycle([[x, y], [x + 1, y]]), 'bicycle up the picture': (S, x, y) => S.bicycle([[x, y], [x, y + 1]]),
+  rug: (S, x, y) => S.rug([[x, y], [x + 1, y]]), 'rug up the picture': (S, x, y) => S.rug([[x, y], [x, y + 1]]),
+  skateboard: (S, x, y) => S.skateboard([[x, y], [x + 1, y]]), 'skateboard up the picture': (S, x, y) => S.skateboard([[x, y], [x, y + 1]]),
+};
+
+const POND = room(['##########', '#~~~~----#', '#~~~~----#', '#~~~~----#', '#@------E#', '##########']);
+const drawnAt = (draw, x, y) => { ctx.out = []; draw(SP, x, y); return ctx.out.map(([px, py, , , col]) => [px - x * PIXEL_CELL, py - y * PIXEL_CELL, col]); };
+const top = px => Math.min(...px.map(p => p[1]));
+
+for (const [name, draw] of Object.entries(AT_REST)) test(`a ${name} at rest in water sits as deep in it as the rest look says`, () => {
+  SP.setBoard(POND);
+  assert.equal(top(drawnAt(draw, 2, 2)) - top(drawnAt(draw, 6, 2)), REST_LOOK.sink);
+});
+
+const SOAKS = { sponge: (S, x, y) => S.sponge(x, y), cardboard: (S, x, y) => S.cardboard(x, y) };
+for (const [name, draw] of Object.entries(SOAKS)) test(`a ${name} in water is drawn soaked, as deep as on the floor and with nothing on the water`, () => {
+  SP.setBoard(POND);
+  const wet = drawnAt(draw, 2, 2), dry = drawnAt(draw, 6, 2);
+  assert.deepEqual(wet.map(([x, y]) => `${x},${y}`).sort(), dry.map(([x, y]) => `${x},${y}`).sort());
+  assert.notDeepEqual(wet, dry);
+});
+
+test('a float clip hands the water every place the stage drew its thing, and the line between them for a skipped frame', () => {
+  const state = room(['#######', '#E@o~##', '#######']), stage = stageFrom(state, 1, null);
+  let now = 0;
+  const calls = [], own = () => calls.push('own');
+  const clips = createClips({ pixel: true, stage: () => stage, clock: () => 0, since: () => now * 1000 / 60, frame: 1000 / 60,
+    art: { ...art, wadeEnd: 30, wade: (o, at, t, draw) => { calls.push([o, t, at(0), at(6), at(t)]); draw(); } } });
+  const [it] = timeline(explain(state, 'r', { trace: true }), CELL_MS)[0].items;
+  applyStep(stage, it.step, it.racTo);
+  clips.note(it.step, it.next, 10);
+  const sp = stage.sprites.find(s => s.kind === TIRE_H);
+  for (const [f, x] of [[0, 3], [4, 3.5], [8, 4]]) { now = f; sp.x = x; assert.equal(clips.paint(sp, own), true); }
+  assert.deepEqual(calls.at(-2), [TIRE_H, 8, { x: 3, y: 1 }, { x: 3.75, y: 1 }, { x: 4, y: 1 }]);
+  assert.equal(calls.at(-1), 'own');
+  now = 10 + 30;
+  clips.prune();
+  assert.equal(clips.anyLive(), false);
 });

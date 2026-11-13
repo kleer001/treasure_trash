@@ -7,6 +7,8 @@ import { slickShape, slickCell } from './slick.js';
 const EDGE = '#2b2d55', DEEP = '#244287', MID = '#3169b0', LIGHT = '#7dafb3', SHINE = '#f1eccb';
 /** The water's colours: its rim, its shaded edge, its body, its ripples and its brightest glint. */
 export const WATER = { EDGE, DEEP, MID, LIGHT, SHINE };
+/** A colour setting is a key of `WATER` or a `#rrggbb`. */
+export const waterColour = v => WATER[v] ?? v;
 const SLUDGE = '#67819e';                     // the packed crossing between its scraps
 
 /** The puddle's look is a slick in the water's colours. */

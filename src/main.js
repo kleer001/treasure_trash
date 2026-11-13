@@ -654,14 +654,17 @@ function paintSprite(sp, f){
     if(isBarrow(sp.ck)) SP.barrow(sp.x, sp.y, barrowFace(sp.ck));
     else SP.skateboard(sp.cells, sp.x, sp.y);
   }
-  else if(clips.paint(sp)) return;
-  else if(sp.kind === SPLASH) SP.splash(sp.x, sp.y);
-  else drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
-    seed: sp.seed, lie: sp.lie, wet: sp.soaks ? (sp.soak ?? 1) : 0, scraps: sp.scraps,
-    // a bag mid-refusal deflates where it stands; a torn one deflates as its fan grows
-    k: sp.dying ? (sp.deflate ?? 1)
-      : ph && fx.bx===Math.round(sp.x) && fx.by===Math.round(sp.y) ? 1-ph.burst : 1,
-  });
+  else {
+    const own = () => drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
+      seed: sp.seed, lie: sp.lie, wet: sp.soaks ? (sp.soak ?? 1) : 0, scraps: sp.scraps,
+      // a bag mid-refusal deflates where it stands; a torn one deflates as its fan grows
+      k: sp.dying ? (sp.deflate ?? 1)
+        : ph && fx.bx===Math.round(sp.x) && fx.by===Math.round(sp.y) ? 1-ph.burst : 1,
+    });
+    if(clips.paint(sp, own)) return;
+    if(sp.kind === SPLASH) SP.splash(sp.x, sp.y);
+    else own();
+  }
 }
 
 /** A falling sprite is scaled here rather than in each drawing, because `k` is a scale only some

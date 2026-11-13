@@ -11,12 +11,15 @@ import { createBagRip } from './art/bagRip.js';
 import { createBoxTip } from './art/boxTip.js';
 import { paneShatter } from './art/paneShatter.js';
 import { puddle, crossing, outline } from './art/water.js';
-import { FLOAT, afloat, bobbing, bobEnd, waterline } from './art/afloat.js';
+import { REST, afloat } from './art/afloat.js';
+import { meets } from './art/solid.js';
+import { wake, wakeEnd } from './art/wake.js';
 import { SKATEBOARD } from './art/skateboard.js';
 import { door } from './art/door.js';
 import { BARROW } from './art/barrow.js';
 import { SPONGE } from './art/sponge.js';
 import { CARDBOARD, wetCardboard } from './art/cardboard.js';
+import { soakedSponge, soakedCardboard } from './art/soaked.js';
 import { GRATE } from './art/grate.js';
 import { ONEWAY } from './art/oneway.js';
 import { TYRE } from './art/tyre.js';
@@ -83,18 +86,30 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
     const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, w = (cx, cy) => (shore(cx, cy) ? 1 : 0);
     return (1 - fx) * (1 - fy) * w(x0, y0) + fx * (1 - fy) * w(x0 + 1, y0) + (1 - fx) * fy * w(x0, y0 + 1) + fx * fy * w(x0 + 1, y0 + 1);
   };
-  /** Thing `o` drawn at (x, y) as far into the water as it has come: its sprite `s`, `w` px wide,
-   *  its top-left `x0, y0` and its waterline `yw`. The bag's last row is the shadow it stands on. */
+  /** Drawing `s`, its `px` from its top-left `s.x, s.y` px into cell (x, y), `a` of the way into the water,
+   *  with `s.parts` the solids that show it, as `meets` in solid.js takes them: `s`, `w` px wide, its top-left
+   *  `x0, y0`, `met`, how it meets the water, and `yw`, the middle of its first rows under water. */
+  const floatOf = (s, x, y, a) => {
+    const x0 = P(x) + s.x, y0 = P(y) + s.y + Math.round(REST.sink * a);
+    const met = meets(s, s.parts, { deep: REST.line, rows: REST.reflectRows }), ws = [...met.line.values()];
+    const yw = ws.length ? Math.round(ws.reduce((t, w) => t + w, 0) / ws.length) : Math.max(...s.px.map(p => p[1])) + 1;
+    return { a, s, w: Math.max(...s.px.map(p => p[0])) + 1, x0, y0, met, yw: y0 + yw };
+  };
+  /** Thing `o` drawn at (x, y) as far into the water as it has come. The bag's last row is the shadow it stands on. */
   const floating = (o, x, y, seed, lie) => {
     const st = still(o, 0, 0, seed, lie), a = afloatAt(x, y);
     const s = o === BAG && a >= 1 ? { ...st, px: st.px.filter(p => p[1] < st.h - 1) } : st;
-    const x0 = P(x) + st.x, y0 = P(y) + st.y + Math.round(FLOAT.drop * a);
-    return { a, s, w: Math.max(...s.px.map(p => p[0])) + 1, x0, y0, yw: waterline(s, y0) };
+    return floatOf({ ...s, parts: [{ name: st.solid, upright: st.from, lie }] }, x, y, a);
   };
-  const thing = (o, x, y, seed, lie) => {
-    const fl = floating(o, x, y, seed, lie);
-    put(fl.a ? afloat(fl.s, fl.x0, fl.y0, fl.yw, water) : fl.s.px.map(([a, b, c]) => [fl.x0 + a, fl.y0 + b, c]), 0, 0);
-  };
+  const drawFloat = fl =>
+    put(fl.a ? afloat(fl.s, fl.x0, fl.y0, fl.met, water) : fl.s.px.map(([a, b, c]) => [fl.x0 + a, fl.y0 + b, c]), 0, 0);
+  const thing = (o, x, y, seed, lie) => drawFloat(floating(o, x, y, seed, lie));
+  const WET_SPONGE = soakedSponge('water'), WET_CARDBOARD = soakedCardboard('water');
+  /** Draws `px` as the solid `name`, its top-left `dx, dy` px into cell (x, y), `a` of the way into the water. */
+  const floated = (name, px, dx, dy, x, y, a = afloatAt(x, y)) => drawFloat(floatOf({ px, x: dx, y: dy, parts: [{ name }] }, x, y, a));
+  const upright = (name, spr, x, y) => floated(name, spr.px, Math.floor((C - spr.w) / 2), C - spr.h - 1, x, y);
+  /** How far into the water `cells`, moved by (ox, oy), have come on average. */
+  const spanAfloat = (cells, ox, oy) => cells.reduce((t, [x, y]) => t + afloatAt(x + ox, y + oy), 0) / cells.length;
   const placeholder = (x, y, label, w = 1, h = 1) => {
     const x0 = P(x) + 2, y0 = P(y) + 2, W = w * C - 4, H = h * C - 4;
     ctx.fillStyle = '#5b5560'; ctx.fillRect(x0, y0, W, H);
@@ -173,18 +188,22 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
       if (k >= 1 && afloatAt(x, y)) thing(BAG, x, y);
       else if (k > 0) standing(k > 0.66 ? A.bag : k > 0.33 ? A.open : A.burst, x, y);
     },
-    /** Thing `o` afloat at (x, y), `f` frames after it came down in the water. */
-    bob(o, x, y, f, lie = null) {
-      const fl = floating(o, x, y, 1, lie), b = bobbing({ w: fl.w, x0: fl.x0, yw: fl.yw, f, open: water.open, seed: Math.round(x + y) });
+    /** How many frames after a thing stops the water it stirred takes to go still. */
+    wadeEnd: wakeEnd(),
+    /** The path that `wake` reads for thing `o` on `at(f)`, which returns its cell `{ x, y }` `f` frames in. */
+    wadePath(o, at, lie = null) { return f => { const { x, y } = at(f); return { ...floating(o, x, y, 1, lie), fx: x * C, fy: y * C }; }; },
+    /** The water thing `o` stirs `t` frames along the path `at(f)`, which returns its cell `{ x, y }` `f`
+     *  frames in, with `draw()` drawing the thing between the water and the drops over it. */
+    wade(o, at, t, draw, lie = null, seed = 0) {
+      const b = wake({ path: this.wadePath(o, at, lie), t, open: water.open, seed });
       put(b.under, 0, 0);
-      put(afloat(fl.s, fl.x0, fl.y0 + b.sink, fl.yw, water), 0, 0);
+      draw();
       put(b.over, 0, 0);
     },
-    bobEnd: bobEnd(),
     can(x, y, full, lie = null) { thing(full ? CAN_FULL : CAN_EMPTY, x, y, 1, lie); },
     recycleBin(x, y, full, lie = null) { thing(full ? BIN : BIN_EMPTY, x, y, 1, lie); },
     jug(x, y, full = true, lie = null) { thing(full ? JUG : JUG_EMPTY, x, y, 1, lie); },
-    wheelie(x, y, full) { put(wheelieFrame(full ? W.full : W.empty), P(x), P(y)); },
+    wheelie(x, y, full) { floated('wheelie', wheelieFrame(full ? W.full : W.empty), 0, 0, x, y); },
     /** `o`'s entry in `DUMPS` for `spec`, or `null` when `o` has none. */
     dump(o, spec) { return DUMPS[o]?.(spec) ?? null; },
     /** The clip of a torn bag from `createBagRip`, each layer's `px` given as `paint()`. */
@@ -202,12 +221,12 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
     pane(x, y) { thing(PANE, x, y); },
     skateboard(cells, ox = 0, oy = 0) {
       const s = span(cells), b = SKATEBOARD[s.w > 1 ? 'x' : 'y'];
-      put(b.px, P(s.x + ox) + Math.floor((s.w * C - b.w) / 2), P(s.y + oy) + Math.floor((s.h * C - b.h) / 2));
+      floated(s.w > 1 ? 'skateboard' : 'skateboardUp', b.px, Math.floor((s.w * C - b.w) / 2), Math.floor((s.h * C - b.h) / 2), s.x + ox, s.y + oy, spanAfloat(cells, ox, oy));
     },
     furniture(cells, ox = 0, oy = 0) {
       const s = span(cells);
       const v = s.w === 2 && s.h === 1 ? COUCH.front : s.w === 1 && s.h === 2 ? COUCH.left : null;
-      if (v) put(v.px, P(s.x + ox) + Math.floor((s.w * C - v.w) / 2), P(s.y + oy) + s.h * C - v.h - 1);
+      if (v) floated(s.w > 1 ? 'couch' : 'couchUp', v.px, Math.floor((s.w * C - v.w) / 2), s.h * C - v.h - 1, s.x + ox, s.y + oy, spanAfloat(cells, ox, oy));
       else placeholder(s.x + ox, s.y + oy, 'couch', s.w, s.h);
     },
     raccoon(x, y, heading = 'd') { standing(SIT[heading], x, y); },
@@ -220,29 +239,34 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
     /** A lone splash has no look of its own: the clip of the pour draws the whole spray. */
     splash() {},
 
-    sponge(x, y) { put(SPONGE.px, P(x) + Math.floor((C - SPONGE.w) / 2) + SPONGE.dx, P(y) + C - SPONGE.h - 1 + SPONGE.dy); },
-    cardboard(x, y) { put(CARDBOARD.px, P(x), P(y)); },
-    tyre(x, y, horizontal) { standing(TYRE[horizontal ? 'H' : 'V'], x, y); },
-    chair(x, y) { standing(CHAIR, x, y); },
-    broom(x, y) { standing(BROOM, x, y); },
-    magnet(x, y, face) { standing(MAGNET[face], x, y); },
-    barrow(x, y, face) { standing(BARROW[face], x, y); },
+    sponge(x, y) {
+      const s = afloatAt(x, y) >= 0.5 ? WET_SPONGE : SPONGE;
+      put(s.px, P(x) + Math.floor((C - s.w) / 2) + s.dx, P(y) + C - s.h - 1 + s.dy);
+    },
+    cardboard(x, y) { put((afloatAt(x, y) >= 0.5 ? WET_CARDBOARD : CARDBOARD).px, P(x), P(y)); },
+    tyre(x, y, horizontal) { upright(horizontal ? 'tyreH' : 'tyreV', TYRE[horizontal ? 'H' : 'V'], x, y); },
+    chair(x, y) { upright('chair', CHAIR, x, y); },
+    broom(x, y) { upright('broom', BROOM, x, y); },
+    magnet(x, y, face) { upright('magnet', MAGNET[face], x, y); },
+    barrow(x, y, face) { upright('barrow', BARROW[face], x, y); },
     cabinet(x, y, face, open) {
-      const s = (open ? CABINET_OPEN : CABINET)[face];
-      put(s.px, P(x) + Math.floor(C / 2) - s.ax, P(y) + C - s.foot - 2);
+      const s = (open ? CABINET_OPEN : CABINET)[face], up = s.raised?.at;
+      const parts = up ? [{ name: 'cabinet', at: s.px.flatMap((_, i) => (up.has(i) ? [] : [i])) }, { name: 'drawer', at: [...up], base: s.raised.lift }]
+        : [{ name: 'cabinet' }];
+      drawFloat(floatOf({ ...s, x: Math.floor(C / 2) - s.ax, y: C - s.foot - 2, parts }, x, y, afloatAt(x, y)));
     },
     // The open cabinet's drawing carries its drawer.
     drawer() {},
     bicycle(cells, ox = 0, oy = 0) {
       const s = span(cells);
       const b = s.h > 1 ? BIKE.up : BIKE.side;
-      put(b.px, P(s.x + ox) + Math.floor((s.w * C - b.w) / 2), P(s.y + oy) + s.h * C - b.h - 1);
+      floated(s.h > 1 ? 'bicycleUp' : 'bicycle', b.px, Math.floor((s.w * C - b.w) / 2), s.h * C - b.h - 1, s.x + ox, s.y + oy, spanAfloat(cells, ox, oy));
     },
     rug(cells, ox = 0, oy = 0) {
       const s = span(cells), x = s.x + ox, y = s.y + oy, across = s.w > s.h;
       const k = ((Math.round((across ? y : x) * 4) % TURNS) + TURNS) % TURNS;
       const d = RUG[across ? 'across' : 'up'][k];
-      put(d.px, P(x) + Math.floor(s.w * C / 2) - d.ax, P(y) + Math.floor(s.h * C / 2) - d.ay);
+      floated(across ? 'rug' : 'rugUp', d.px, Math.floor(s.w * C / 2) - d.ax, Math.floor(s.h * C / 2) - d.ay, x, y, spanAfloat(cells, ox, oy));
     },
     hold(x0, y0, x1, y1) {
       ctx.fillStyle = '#d6d3b0';

@@ -208,11 +208,23 @@ export function cabinetViews(look) {
 
 const sprite = ({ mid, foot, rows }) => ({ ax: Math.ceil(mid), foot, w: rows[0].length, h: rows.length,
   px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]]))) });
+/** The indices of the px of open sprite `o` that closed sprite `c` does not cover when their feet and centres meet. */
+const outside = (o, c) => {
+  const body = new Set(c.px.map(([x, y]) => `${x - c.ax},${y - c.foot}`));
+  return new Set(o.px.flatMap(([x, y], i) => (body.has(`${x - o.ax},${y - o.foot}`) ? [] : [i])));
+};
 /** The sprites for a look, closed and open, by the facing of the drawers: { ax, foot, w, h, px: [x, y, colour] }.
- *  `foot` is the row the carcase stands on. */
+ *  `foot` is the row the carcase stands on. An open sprite also has `raised`: `at`, the indices in `px` of the
+ *  drawer, which stands clear of the floor, and `lift`, how many px over the floor its underside is. */
 export function cabinetSprites(look) {
   const v = cabinetViews(look);
-  return Object.fromEntries(['closed', 'open'].map(k => [k, Object.fromEntries([...'udlr'].map(f => [f, sprite(v[k][f])]))]));
+  const out = Object.fromEntries(['closed', 'open'].map(k => [k, Object.fromEntries([...'udlr'].map(f => [f, sprite(v[k][f])]))]));
+  const at = Object.fromEntries([...'udlr'].map(f => [f, outside(out.open[f], out.closed[f])]));
+  const low = (s, keep) => Math.max(...s.px.filter((_, i) => keep(i)).map(p => p[1]));
+  // The side view shows the drawer at its true height over the floor.
+  const lift = low(out.open.r, i => !at.r.has(i)) - low(out.open.r, i => at.r.has(i));
+  for (const f of 'udlr') out.open[f].raised = { at: at[f], lift };
+  return out;
 }
 const SPRITES = cabinetSprites(CABINET_LOOK);
 export const CABINET = SPRITES.closed;

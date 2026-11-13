@@ -1,30 +1,31 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FLOAT, afloat, bobbing, bobEnd, waterline } from '../src/art/afloat.js';
+import { REST, afloat } from '../src/art/afloat.js';
 
-const S = { px: [[0, 0, '#ffffff'], [1, 0, '#ffffff'], [0, 1, '#808080'], [1, 1, '#808080'], [0, 2, '#000000'], [1, 2, '#000000']], h: 3 };
+const S = { px: [[0, 0, '#ffffff'], [1, 0, '#ffffff'], [0, 1, '#808080'], [1, 1, '#808080'], [0, 2, '#000000'], [1, 2, '#000000'], [0, 3, '#000000'], [1, 3, '#000000']] };
+const MET = { under: [false, false, false, false, true, true, true, true], line: new Map([[0, 2], [1, 2]]),
+  mirror: [[0, 4, '#808080'], [1, 4, '#808080'], [0, 5, '#ffffff'], [1, 5, '#ffffff']] };
 const dry = { wet: () => false, open: () => false };
 const pool = { wet: () => true, open: () => true };
-const thing = { w: 2, x0: 10, yw: waterline(S, 10), open: pool.open };
+const BARE = { ...REST, murk: 100, reflect: 0, contact: 0, glint: 0 };
 
 test('a thing over dry floor is drawn as it is', () => {
-  assert.deepEqual(afloat(S, 10, 10, waterline(S, 10), dry), S.px.map(([x, y, c]) => [10 + x, 10 + y, c]));
+  assert.deepEqual(afloat(S, 10, 10, MET, dry), S.px.map(([x, y, c]) => [10 + x, 10 + y, c]));
 });
 
-test('a thing afloat draws nothing of itself under its waterline where it is not water', () => {
-  const only = { wet: (x, y) => y <= 11, open: () => false };
-  const got = afloat(S, 10, 10, 11, only);
-  assert.deepEqual(got.filter(([, y]) => y === 10), [[10, 10, '#ffffff'], [11, 10, '#ffffff']]);
-  assert.deepEqual(got.filter(([, y]) => y > 11), []);
+test('a thing afloat draws nothing of itself under water where it is not water', () => {
+  const got = afloat(S, 10, 10, MET, { wet: (x, y) => y <= 12, open: () => false }, BARE);
+  assert.deepEqual(got.filter(([, y]) => y < 12), S.px.slice(0, 4).map(([x, y, c]) => [10 + x, 10 + y, c]));
+  assert.deepEqual(got.filter(([, y]) => y > 12), []);
 });
 
-test('a thing come down in the water starts at its rest and ends there with the water still', () => {
-  assert.equal(bobbing({ ...thing, f: 0 }).sink, 0);
-  assert.deepEqual(bobbing({ ...thing, f: bobEnd() }), { sink: 0, under: [], over: [] });
+test('a thing afloat draws its reflection on open water only', () => {
+  const shore = { wet: () => true, open: (x, y) => x !== 10 };
+  const got = afloat(S, 10, 10, MET, shore, { ...BARE, reflect: 100 }).filter(([, y]) => y > 13);
+  assert.deepEqual(got.map(([x, y]) => [x, y]), [[11, 14], [11, 15]]);
 });
 
-test('a thing come down in the water goes under its rest before it comes up', () => {
-  const sinks = Array.from({ length: bobEnd() }, (_, f) => bobbing({ ...thing, f }).sink);
-  assert.ok(sinks.indexOf(Math.max(...sinks)) < sinks.indexOf(Math.min(...sinks)));
-  assert.equal(Math.max(...sinks), FLOAT.plunge);
+test('the contact line runs along the first row under water and past each end', () => {
+  const got = afloat(S, 10, 10, MET, pool, { ...BARE, murk: 0, contact: 1, contactRows: 1, contactColour: '#ff0000' });
+  assert.deepEqual(got.filter(p => p[2] === '#ff0000').map(([x, y]) => [x, y]), [[9, 12], [10, 12], [11, 12], [12, 12]]);
 });

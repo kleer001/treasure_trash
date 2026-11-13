@@ -150,6 +150,9 @@ const SLICES = PAINTED.map(r => { const a = r.indexOf('k'), b = r.lastIndexOf('k
 const HANDLES = PAINTED.flatMap((r, k) => [...r].flatMap((ch, c) => (ch === '.' || (c >= SLICES[k].a && c <= SLICES[k].b) ? []
   : [{ x: c - PCX, h: PH - 1 - k, ch }])));
 const FOOT = SLICES[PH - 1].hw, FX = (CAN.W) / 2;
+/** The can's round body as `PAINTED` shows it, without its handles: the drawing its solid is turned from. */
+export const PROFILE = { w: PAINTED[0].length, h: PH,
+  px: SLICES.flatMap(({ a, b }, y) => Array.from({ length: b - a + 1 }, (_, i) => [a + i, y, ZINC.ink])) };
 // BASE_Y is the distance in px, down the upright drawing, to the foot's centre.
 const BASE_Y = CAN.H + FOOT * Math.sin(VIEW * Math.PI / 180);
 /** `h` is up the can and `z` toward the viewer. */
