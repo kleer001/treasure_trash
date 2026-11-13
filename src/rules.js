@@ -198,20 +198,19 @@ export const cloneState = s => ({
 export const inGrid = (s, x, y) => x >= 0 && y >= 0 && x < s.cols && y < s.rows;
 export const cell = (s, x, y) => s.cells[y][x];
 
-// Terrain — `wall`, `water`, `bridge` — is a lane of its own, not an occupant code, because
-// terrain and an occupant share a cell.
+// Terrain is a lane of its own, not an occupant code, because terrain and an occupant share a
+// cell.
 //
 // Only the terrain a move can CHANGE reaches `stateKey`. A static lane cannot differ between two
 // states of the same room, so encoding it would buy nothing.
 export const DRY = 0, WATER = 1, BRIDGE = 2, GREASE = 3, TAR = 4, GLASS = 5, COVERED = 6;
 
-// The width `stateKey` packs against. Raising it is the whole cost of a new mutable lane, and
-// it multiplies against the occupant count — see SPEC-SHEET, what this costs the port.
+// The terrain count, which is also the radix that `stateKey` packs terrain against.
 export const TERRAINS = 7;
 
-// `water` and `bridge` keep their own flags: the level format, the renderer and every pipeline
-// tool read them by name, and the lanes added since ride in `ter` beside them. One resolver, so
-// no caller has to know which of the two a lane happens to live in.
+// `water` and `bridge` keep their own flags, because the level format, the renderer and the
+// pipeline tools read them by name. Every other lane rides in `ter`. One resolver, so no caller
+// has to know which of the two a lane lives in.
 const terrainFrom = (water, bridge, ter) => (water ? WATER : bridge ? BRIDGE : ter ?? DRY);
 export const terrainOf = c => terrainFrom(c.water, c.bridge, c.ter);
 
@@ -264,7 +263,6 @@ export const isMetal = c => (isCart(c) ? isBarrow(cartKindOf(c)) : METAL.has(c.o
 const CUT = 0;
 const holds = c => c.grip !== undefined && c.grip !== CUT;
 
-/** The axis a holder's hold runs along: its facing, either way along it for a barrow. */
 export const gripAxis = (s, x, y) => {
   const c = cell(s, x, y);
   if (isMagnet(c.o)) return DIRS[magnetFace(c.o)];
@@ -272,7 +270,6 @@ export const gripAxis = (s, x, y) => {
   return undefined;
 };
 
-/** The cell a holder has hold of, or null when it has hold of nothing. */
 export const gripTarget = (s, x, y) => {
   const c = cell(s, x, y);
   if (!holds(c)) return null;
@@ -312,10 +309,8 @@ export const complexCells = (s, at) => {
   return out;
 };
 
-/** Whether anything at all has hold of this cell, either end of the edge. */
 export const inAHold = (s, x, y) =>
   holds(cell(s, x, y)) || holdersOf(s, x, y).length > 0;
-/** Whether this is the line it runs on at all — either way along its facing. */
 export const barrowRollsAlong = (k, dx) => {
   const f = DIRS[barrowFace(k)];
   return f !== undefined && (dx !== 0) === (f[0] !== 0);
@@ -421,8 +416,7 @@ export function fan(bx, by, dx, dy) {
   ];
 }
 
-// A grid has no cell for a diagonal. A chair that would flee diagonally takes the burst's own
-// direction.
+// A grid has no cell for a diagonal.
 export const fleeFrom = (bx, by, dx, dy, fx, fy) => {
   const rx = Math.sign(fx - bx), ry = Math.sign(fy - by);
   return rx !== 0 && ry !== 0 ? [dx, dy] : [rx, ry];
@@ -811,10 +805,8 @@ function handOff(next, from, dx, dy, step) {
   return { moved, bodies, gone };
 }
 
-/**
- * Returns every cell of the thing standing at `[x, y]`. Moving one cell of a multi-cell thing would
- * leave halves that the board cannot write down.
- */
+// A multi-cell thing moves with all its cells: one cell alone would leave halves that the board
+// cannot write down.
 export const bodyCells = (s, [x, y]) => {
   const c = cell(s, x, y);
   if (isMultiCell(c.o)) return pieceCells(s, c.pid);
@@ -822,16 +814,12 @@ export const bodyCells = (s, [x, y]) => {
   return [[x, y]];
 };
 
-/** Whether this cell is one half of a multi-cell piece or of a cart. */
 export const isHalfOfABody = (s, x, y) => {
   const c = cell(s, x, y);
   return isMultiCell(c.o) || isCart(c);
 };
 
-/**
- * Whether every cell of a body can move by (dx,dy). It tests against the cells the body is
- * vacating, and against the raccoon, which `isOccupiable` cannot see.
- */
+// The raccoon is checked by hand, because `isOccupiable` cannot see him.
 const bodyTravels = (s, own, dx, dy) => {
   const set = new Set(own.map(([x, y]) => `${x},${y}`));
   return own.every(([x, y]) => {
@@ -874,7 +862,6 @@ function slideBody(next, at, dx, dy, step) {
   nameMove(step, was, own, dx, dy);
 }
 
-/** How far a body may be drawn along (dx,dy), never more than `max`. */
 const drawIn = (next, at, dx, dy, max) => {
   const own = bodyCells(next, at);
   let k = 0;
@@ -907,9 +894,8 @@ function closeGap(next, m, at, max, step, mayWalk) {
 }
 
 /**
- * `magnetResolve` settles the magnet at `mx,my`. `dx,dy` is the shove that carried the magnet
- * here. With no direction, the call asks the same question of a magnet that did not move, which
- * `settleMagnets` asks of every magnet.
+ * `dx,dy` is the shove that carried the magnet at `mx,my` here. With no direction, the call asks
+ * the same question of a magnet that did not move, which `settleMagnets` asks of every magnet.
  *
  * Returns whether it changed anything — a link taken or dropped is board state the account never
  * mentions, so nothing downstream can see it by looking at the step.
@@ -968,10 +954,9 @@ function magnetResolve(next, mx, my, step, dx = 0, dy = 0) {
 }
 
 /**
- * `settleAtRest` settles the magnets of a board before anyone has moved. Every board enters the
- * game through `toState`, so it is asked once, there, and no caller has to remember it. Its steps
- * are thrown away: nothing has happened yet, and the stage is built from the board this leaves
- * rather than played into.
+ * `toState` calls `settleAtRest` once for every board it builds, so no caller has to remember it.
+ * The steps are thrown away: nothing has happened yet, and the stage is built from the board this
+ * leaves rather than played into.
  */
 export function settleAtRest(s) {
   settleMagnets(s, false);
@@ -1210,7 +1195,6 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
   const next = cloneState(s);
   const frames = trace ? [cloneState(s)] : null;
   const steps = trace ? [] : null;
-  // A slot holds a whole chain, so a loaded barrow moves as one thing.
   const loads = files.map(f => f.map(([x, y]) => ({ ch: chainOf(cell(s, x, y)) })));
   const repaint = (k, from) => files.forEach((f, i) => f.forEach((p, j) => {
     const c = cell(next, ...at(p, from));
@@ -1324,7 +1308,6 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
  * Explain what direction `dir` does from the current state — without applying it.
  * Returns { ok:true, kind, next } or { ok:false, reason, blame:[[x,y]...] }.
  * `blame` is the cell list the UI paints red.
- * Every caller goes through here.
  *
  * `opts.trace` adds `frames` and `steps`. Opt-in: it costs a clone per step, and the solver walks
  * the whole state graph wanting nothing but the last board.
@@ -1381,7 +1364,7 @@ function decide(s, dir, opts) {
 
   if (target.water && !isRoller(target)) return { ok: false, reason: 'water', blame: [[tx, ty]] };
 
-  // Three gates ahead of every branch, so none of them can forget one.
+  // These gates come ahead of every branch, so no branch can forget one.
   if (isGlass(target)) return { ok: false, reason: 'glass', blame: [[tx, ty]] };
   if (!mayEnter(s, tx, ty, dx, dy)) return { ok: false, reason: 'oneway', blame: [[tx, ty]] };
   if (target.o !== NONE || isCart(target)) {
