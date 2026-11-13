@@ -28,7 +28,7 @@ import { tighten, ttBlock } from './draft-room.mjs';
 import { measure } from './harvest.mjs';
 import { score, dedupe, REQUIRE, WEIGHTS } from './score.mjs';
 import { SET_TOP_MIN } from './sets.mjs';
-import { WALK_MAX, MAX_STATES } from './metrics.mjs';
+import { walksFit, MAX_STATES } from './metrics.mjs';
 
 export const ACT_WEIGHTS = { ...WEIGHTS, blindness: -0.3 };
 
@@ -67,6 +67,7 @@ export function choose(scored, { want, lo, hi, bands = 5, maxPieceShare = 0.5, p
     const b = bandOf(r.par);
     if (byBand[b] >= quota[b]) return false;
     if ((byGroup[r.group] ?? 0) >= perGroup) return false;
+    if (!walksFit(r)) return false;
     for (const p of new Set(r.group)) if ((byPiece[p] ?? 0) >= cap) return false;
     return true;
   };
@@ -118,7 +119,7 @@ export function chooseSets(sets, { want = 10, maxPieceShare = 0.5, maxPerRamp = 
     // set actually lands.
     if (s.rooms[s.rooms.length - 1].par < SET_TOP_MIN) continue;
     // A set the pack cannot accept is not a candidate, so the walk bound is checked here.
-    if (s.rooms.some(r => r.lead > WALK_MAX.lead || r.tail > WALK_MAX.tail)) continue;
+    if (!s.rooms.every(r => walksFit(r))) continue;
     // And re-siting and walling both change what a piece is doing, so a set that left the
     // search with every piece working can arrive here with one standing idle.
     if (s.rooms.some(r => r.inert)) continue;

@@ -73,6 +73,14 @@ test('a group with two of one piece yields each arrangement once', () => {
   assert.equal(new Set(keys).size, keys.length);
 });
 
+test('a room with a long walk in is refused, unless it declares that walk', () => {
+  const grid = ['-------', '@------', '-----$E', '-------'];
+  const d = draft({ id: 'far', grid });
+  assert.equal(d.ok, false);
+  assert.match(d.notes.join(' '), /walk to the first piece/);
+  assert.ok(draft({ id: 'far', grid, lead: d.lead }).ok);
+});
+
 test('a room past the state bound is refused, not enumerated', () => {
   const d = draft({ id: 'big', grid: ['------', '-cc---', '---cc-', '-c----', '--@--E'] });
   assert.equal(d.ok, false);

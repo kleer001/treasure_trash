@@ -8,7 +8,7 @@ const room = (over = {}) => ({
   group: 'xBBj', par: 20, solves: 1, traps: 4, firstTrap: 2, biteSteps: 4, blind: 3,
   onPath: 0.2, firstOnPath: 2, lines: 6, changes: 4, pushes: 10, pieces: 3,
   w: 8, h: 4, solve: 'RRUUlldd', grid: ['--------', '-@x----E', '--B-B---', '---j----'],
-  total: 1, ...over,
+  lead: 1, tail: 1, total: 1, ...over,
 });
 
 // --- selection ---------------------------------------------------------------
@@ -39,6 +39,12 @@ test('one room per piece group, so the act is not variations on a single mixture
     room({ group: 'xBBj', par: 14 + (i % 20), total: 100 - i }));
   const { picked } = choose(scored, { want: 8, lo: 14, hi: 35, bands: 5 });
   assert.equal(picked.length, 1, 'every candidate draws the same group');
+});
+
+test('a room whose walk passes the bound is never picked', () => {
+  const scored = [room({ group: 'g1', lead: 5 }), room({ group: 'g2', tail: 5 }), room({ group: 'g3' })];
+  const { picked } = choose(scored, { want: 3, lo: 14, hi: 35, bands: 1 });
+  assert.deepEqual(picked.map(r => r.group), ['g3']);
 });
 
 test('a band that cannot be filled is reported, never topped up from another', () => {

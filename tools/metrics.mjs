@@ -288,9 +288,15 @@ export function pathBite(a, onDag = shortestDag(a)) {
 /**
  * Walk bounds, in actions, for the lead and tail of `deadTravel`.
  *
- * One bound, read by the pack gate and the set picker, so they judge a room by the same limit.
+ * One bound, read by every tool that judges a room's walks, so they all judge by the same limit.
  */
 export const WALK_MAX = { lead: 4, tail: 4 };
+
+export const walkFits = (got, declared, max) => (declared === undefined ? got <= max : got === declared);
+
+/** `m` is a `deadTravel` result. `room` may declare `lead` and `tail`. */
+export const walksFit = (m, room = {}) =>
+  walkFits(m.lead, room.lead, WALK_MAX.lead) && walkFits(m.tail, room.tail, WALK_MAX.tail);
 
 /**
  * Measures the two stretches of the best line on which nothing happens.

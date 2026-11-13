@@ -15,7 +15,7 @@ import {
 import { analyze, replay } from '../src/solver.js';
 import { isWon, bagsLeft, isMagnet } from '../src/rules.js';
 import {
-  deadTravel, isOneRoom, inertPieces, shortestDag, WALK_MAX,
+  deadTravel, isOneRoom, inertPieces, shortestDag, WALK_MAX, walkFits,
   parseGate, coverGate, winnableWithoutKind,
 } from './metrics.mjs';
 import { actPacks, root } from './packs.mjs';
@@ -27,9 +27,9 @@ watchAccounts(true);
 
 // Neither end of a solve is free. The walk IN is the room withholding its first decision; the
 // walk OUT is worse, because it comes after the last one — the puzzle is over and the player is
-// still holding the controller. Par counts both walks, and `WALK_MAX` bounds them. A room can pass
-// everything above and still open with a march down a corridor and close with a march to a door in
-// the far corner.
+// still holding the controller. A room can pass every other check and still open with a march
+// down a corridor and close with a march to a door in the far corner. A room that declares a walk
+// says that the march is meant, so a declared walk is held to its own number, not to `WALK_MAX`.
 
 // Every act, unless a pair is named on the command line.
 const PACKS = process.argv[2]
@@ -143,7 +143,7 @@ for (const { levelPath, solPath } of PACKS) {
     const { lead, tail } = deadTravel(a, onDag);
     const walk = (what, got, declared, max) => check(
       declared === undefined ? `the ${what} is at most ${max}` : `the declared ${what} is exact`,
-      declared === undefined ? got <= max : got === declared,
+      walkFits(got, declared, max),
       `${got}${declared === undefined ? '' : ` declared ${declared}`}`);
     walk('walk to the first piece', lead, level.lead, WALK_MAX.lead);
     walk('walk to the exit', tail, level.tail, WALK_MAX.tail);

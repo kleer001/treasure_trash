@@ -111,7 +111,7 @@ test('an addition base is one piece short, and what goes back in carries a bag',
 
 const fakeSet = (over = {}) => ({
   ramp: 'par', shape: 'H 8x5 x', group: 'xBBj',
-  rooms: [16, 20, 24].map(par => ({ par, onPath: 0.1, group: 'xBBj', grid: ['--'], solve: 'r', traps: 2, solves: 1 })),
+  rooms: [16, 20, 24].map(par => ({ par, onPath: 0.1, group: 'xBBj', grid: ['--'], solve: 'r', traps: 2, solves: 1, lead: 0, tail: 0 })),
   ...over,
 });
 
@@ -122,7 +122,7 @@ test('one outline per set, so ten sets are ten different shapes', () => {
 test('the act climbs in the axis it was ranked on', () => {
   const mk = (on, i) => fakeSet({
     shape: `shape${i}`,
-    rooms: [16, 20, 24].map(par => ({ par, onPath: on, group: 'xBBj', grid: ['--'], solve: 'r', traps: 2, solves: 1 })),
+    rooms: [16, 20, 24].map(par => ({ par, onPath: on, group: 'xBBj', grid: ['--'], solve: 'r', traps: 2, solves: 1, lead: 0, tail: 0 })),
   });
   const { sets } = chooseSets([mk(0.3, 1), mk(0.05, 2), mk(0.2, 3)], { want: 3 });
   const on = sets.map(s => s.rooms[0].onPath);

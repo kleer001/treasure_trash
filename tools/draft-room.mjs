@@ -15,7 +15,7 @@ import { toState, toGrid, toWater, toCart } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import {
-  deadTravel, isOneRoom, inertPieces, shortestDag,
+  deadTravel, isOneRoom, inertPieces, shortestDag, WALK_MAX, walkFits,
   parseGate, coverGate, winnableWithoutKind, MAX_STATES,
 } from './metrics.mjs';
 
@@ -73,11 +73,12 @@ export function draft(room) {
     }
   }
 
-  // A room still being drafted has not been sited yet, and rejecting it here would throw away
-  // the candidate instead of moving its exit.
+  const travel = deadTravel(a, onDag);
+  if (!walkFits(travel.lead, room.lead, WALK_MAX.lead)) no(`the walk to the first piece is ${travel.lead}`);
+  if (!walkFits(travel.tail, room.tail, WALK_MAX.tail)) no(`the walk to the exit is ${travel.tail}`);
+
   Object.assign(out, { par: a.minMoves, solve: a.shortestLurd, solves: a.shortestCount,
-                       traps: a.traps.length, bags, exitRefusals: a.exitRefusals,
-                       ...deadTravel(a, onDag) });
+                       traps: a.traps.length, bags, exitRefusals: a.exitRefusals, ...travel });
   return out;
 }
 
