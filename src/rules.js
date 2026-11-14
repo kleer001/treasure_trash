@@ -770,9 +770,7 @@ function handOff(next, from, dx, dy, step) {
     }
     const multi = isMultiCell(c.o), pid = c.pid, code = c.o;
     const own = multi ? pieceCells(next, c.pid) : [[...p]];
-    const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
-    const blockedAt = j => own.map(([x, y]) => [x + j * dx, y + j * dy])
-      .filter(([x, y]) => !ownSet.has(`${x},${y}`) && !travelsInto(next, x, y, dx, dy)).length > 0;
+    const blockedAt = j => blockedCells(next, own, j * dx, j * dy, dx, dy, false).length > 0;
     let j = 0;
     while (!blockedAt(j + 1)) {
       j++;
@@ -819,15 +817,15 @@ export const isHalfOfABody = (s, x, y) => {
   return isMultiCell(c.o) || isCart(c);
 };
 
-// The raccoon is checked by hand, because `isOccupiable` cannot see him.
-const bodyTravels = (s, own, dx, dy) => {
+/**
+ * The cells that `own` would cover after a shift by (tx, ty) and that the body cannot enter, each
+ * entered in the direction (dx, dy). A cell `own` already covers is not blocked. `raccoon` says
+ * whether his cell counts: `isOccupiable` cannot see him, so only a caller that asks checks him.
+ */
+const blockedCells = (s, own, tx, ty, dx, dy, raccoon) => {
   const set = new Set(own.map(([x, y]) => `${x},${y}`));
-  return own.every(([x, y]) => {
-    const [nx, ny] = [x + dx, y + dy];
-    if (set.has(`${nx},${ny}`)) return true;
-    if (s.rac.x === nx && s.rac.y === ny) return false;
-    return travelsInto(s, nx, ny, dx, dy);
-  });
+  return own.map(([x, y]) => [x + tx, y + ty]).filter(([x, y]) => !set.has(`${x},${y}`)
+    && ((raccoon && s.rac.x === x && s.rac.y === y) || !travelsInto(s, x, y, dx, dy)));
 };
 
 /**
@@ -865,7 +863,11 @@ function slideBody(next, at, dx, dy, step) {
 const drawIn = (next, at, dx, dy, max) => {
   const own = bodyCells(next, at);
   let k = 0;
-  while (k < max && bodyTravels(next, own, dx * (k + 1), dy * (k + 1))) k++;
+  while (k < max) {
+    const [tx, ty] = [dx * (k + 1), dy * (k + 1)];
+    if (blockedCells(next, own, tx, ty, tx, ty, true).length) break;
+    k++;
+  }
   return k;
 };
 
@@ -1021,9 +1023,7 @@ function towOrBreak(s, at, dir, dx, dy, done, opts) {
 
 function towMove(s, at, dx, dy, done) {
   const own = complexCells(s, at);
-  const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
-  const blame = own.map(([x, y]) => [x + dx, y + dy])
-    .filter(([x, y]) => !ownSet.has(`${x},${y}`) && !travelsInto(s, x, y, dx, dy));
+  const blame = blockedCells(s, own, dx, dy, dx, dy, false);
   if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
   const next = cloneState(s);
   const was = own.map(([x, y]) => ({ ...cell(s, x, y) }));
@@ -1488,9 +1488,7 @@ function decide(s, dir, opts) {
 
   if (isMultiCell(o)) {
     const own = pieceCells(s, target.pid);
-    const ownSet = new Set(own.map(([x, y]) => `${x},${y}`));
-    const clearAt = k => own.map(([x, y]) => [x + k * dx, y + k * dy])
-      .filter(([x, y]) => !ownSet.has(`${x},${y}`) && !travelsInto(s, x, y, dx, dy));
+    const clearAt = k => blockedCells(s, own, k * dx, k * dy, dx, dy, false);
     const blame = clearAt(1);
     if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
 
