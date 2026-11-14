@@ -858,8 +858,7 @@ function moveBody(next, own, dx, dy) {
   return was;
 }
 
-/** `slideBody` is the one place a body's cells are carried across whole. Its caller has already
- *  established that the body fits. */
+/** Its caller has already established that the body fits. */
 function slideBody(next, at, dx, dy, step) {
   const own = bodyCells(next, at);
   nameMove(step, moveBody(next, own, dx, dy), own, dx, dy);
