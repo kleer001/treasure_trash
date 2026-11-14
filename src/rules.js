@@ -1345,17 +1345,6 @@ function decide(s, dir, opts) {
   const target = cell(s, tx, ty);
   if (target.wall) return { ok: false, reason: 'wall', blame: [[tx, ty]] };
 
-  // One board pair, one step. Anything with more to report builds its own.
-  const done = (next, kind, step) => opts.trace
-    ? (f => ({ ok: true, kind, next, frames: f, steps: [step] }))([cloneState(s), next])
-    : { ok: true, kind, next };
-
-  // The next board shares `cells` with the board it came from. That is sound only because each
-  // path that writes to a board clones it first. A copy here would allocate a board for every
-  // free direction of every state the solver expands.
-  const stepOnto = () =>
-    done({ cols: s.cols, rows: s.rows, cells: s.cells, rac: { x: tx, y: ty } }, MOVE, mkStep());
-
   if (target.water && !isRoller(target)) return { ok: false, reason: 'water', blame: [[tx, ty]] };
 
   // These gates come ahead of every branch, so no branch can forget one.
@@ -1365,413 +1354,447 @@ function decide(s, dir, opts) {
     if (stuckInTar(s, tx, ty)) return { ok: false, reason: 'tar', blame: [[tx, ty]] };
   }
 
-  // A cart cell carries its cargo in `o`, so cart-ness is read before the occupant is.
-  if (isCart(target)) {
-    const kind = cartKindOf(target);
-    if (isBarrow(kind) && !barrowRollsAlong(kind, dx)) {
-      const to = [tx + dx, ty + dy], out = [to[0] + dx, to[1] + dy];
-      const load = chainOf(target);
-      if (!travelsInto(s, ...to, dx, dy))
-        return { ok: false, reason: reasonFor(s, [to], 'canRoom'), blame: [to] };
-      if (load.length && !travelsInto(s, ...out, dx, dy))
-        return { ok: false, reason: reasonFor(s, [out], 'canRoom'), blame: [out] };
-      if (load.length && !tipFits(s, load[0], out, dx, dy))
-        return { ok: false, reason: reasonFor(s, [tipsInto(load[0], out, dx, dy)], 'canRoom'),
-                 blame: [tipsInto(load[0], out, dx, dy)] };
-      const next = cloneState(s);
-      const step = mkStep();
-      cell(next, tx, ty).grip = undefined;
-      cell(next, tx, ty).cart = undefined; cell(next, tx, ty).ck = undefined;
-      setChain(cell(next, tx, ty), []);
-      const landed = cell(next, ...to);
-      landed.cart = target.cart; landed.ck = kind; setChain(landed, []);
-      // Named in the CART lane: an occupant entry on this cell would name a sprite of code NONE,
-      // which the stage does not hold and cannot animate.
-      step.moved.push(moves({ cells: cartCells(s, target.cart), lane: CART_LANE,
-                              ref: target.cart, dx, dy }));
-      if (load.length) {
-        const m = moves({ o: load[0], from: [tx, ty], to: out, parent: null,
-                          becomes: landsAs(load[0]) });
-        step.moved.push(m);
-        tookIt(step, cell(next, ...out), m);
-        land(next, out, load, step, m);
-        tipOut(next, load[0], out, dx, dy, step);
-      }
-      next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
-      return done(next, PUSH, step);
-    }
-    if (inAHold(s, tx, ty)) return towOrBreak(s, [tx, ty], dir, dx, dy, done, opts);
+  // One board pair, one step. Anything with more to report builds its own.
+  const done = (next, kind, step) => opts.trace
+    ? (f => ({ ok: true, kind, next, frames: f, steps: [step] }))([cloneState(s), next])
+    : { ok: true, kind, next };
 
-    if (isBarrow(kind)) {
-      const ahead = [tx + dx, ty + dy];
-      if (inGrid(s, ...ahead) && isMultiCell(cell(s, ...ahead).o)
-          && !holdersOf(s, ...ahead).length) {
-        const next = cloneState(s);
-        const f = gripAxis(next, tx, ty);
-        if (f) {
-          cell(next, tx, ty).grip = dx * f[0] + dy * f[1];
-          return done(next, PUSH, mkStep());
-        }
-      }
-    }
+  const ctx = { s, dir, dx, dy, tx, ty, target, o: target.o, opts, done };
+  const r = pushCart(ctx) ?? pushStop(ctx) ?? pushBag(ctx) ?? pushPane(ctx) ?? pushHeld(ctx)
+    ?? pushOpenCabinet(ctx) ?? pushBody(ctx) ?? pushRollers(ctx) ?? pushClosedCabinet(ctx)
+    ?? pushBroom(ctx) ?? pushSlide(ctx);
+  if (r) return r;
+  throw new Error(`unknown occupant ${target.o} at ${tx},${ty}`);
+}
 
-    const res = shoveCart(s, target.cart, [tx, ty], dx, dy, opts.trace === true);
-    if (res.ok && isBarrow(kind)) {
-      hookTow(res.next, target.cart, dx, dy);
-      if (res.frames) hookTow(res.frames.at(-1), target.cart, dx, dy);
-    }
-    return res;
+// One function per thing a shove can push. Each answers with the result of the shove, or with
+// null when the target is not the thing it pushes. decide asks them in the order below, and
+// the first to answer decides. Two of them can match one target, so the order matters.
+// A cart cell carries its cargo in `o`, so cart-ness is read before the occupant is.
+function pushCart(ctx) {
+  const { s, dir, dx, dy, tx, ty, target, opts, done } = ctx;
+  if (!isCart(target)) return null;
+  const kind = cartKindOf(target);
+  if (isBarrow(kind) && !barrowRollsAlong(kind, dx)) return barrowSideways(ctx);
+  if (inAHold(s, tx, ty)) return towOrBreak(s, [tx, ty], dir, dx, dy, done, opts);
+  const hooked = isBarrow(kind) ? barrowHook(ctx) : null;
+  if (hooked) return hooked;
+  const res = shoveCart(s, target.cart, [tx, ty], dx, dy, opts.trace === true);
+  if (res.ok && isBarrow(kind)) {
+    hookTow(res.next, target.cart, dx, dy);
+    if (res.frames) hookTow(res.frames.at(-1), target.cart, dx, dy);
   }
+  return res;
+}
 
-  const o = target.o;
+function barrowSideways({ s, dx, dy, tx, ty, target, done }) {
+  const kind = cartKindOf(target);
+  const to = [tx + dx, ty + dy], out = [to[0] + dx, to[1] + dy];
+  const load = chainOf(target);
+  if (!travelsInto(s, ...to, dx, dy))
+    return { ok: false, reason: reasonFor(s, [to], 'canRoom'), blame: [to] };
+  if (load.length && !travelsInto(s, ...out, dx, dy))
+    return { ok: false, reason: reasonFor(s, [out], 'canRoom'), blame: [out] };
+  if (load.length && !tipFits(s, load[0], out, dx, dy))
+    return { ok: false, reason: reasonFor(s, [tipsInto(load[0], out, dx, dy)], 'canRoom'),
+             blame: [tipsInto(load[0], out, dx, dy)] };
+  const next = cloneState(s);
+  const step = mkStep();
+  cell(next, tx, ty).grip = undefined;
+  cell(next, tx, ty).cart = undefined; cell(next, tx, ty).ck = undefined;
+  setChain(cell(next, tx, ty), []);
+  const landed = cell(next, ...to);
+  landed.cart = target.cart; landed.ck = kind; setChain(landed, []);
+  // Named in the CART lane: an occupant entry on this cell would name a sprite of code NONE,
+  // which the stage does not hold and cannot animate.
+  step.moved.push(moves({ cells: cartCells(s, target.cart), lane: CART_LANE,
+                          ref: target.cart, dx, dy }));
+  if (load.length) {
+    const m = moves({ o: load[0], from: [tx, ty], to: out, parent: null,
+                      becomes: landsAs(load[0]) });
+    step.moved.push(m);
+    tookIt(step, cell(next, ...out), m);
+    land(next, out, load, step, m);
+    tipOut(next, load[0], out, dx, dy, step);
+  }
+  next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
+  return done(next, PUSH, step);
+}
 
-  if (o === NONE) return stepOnto();
+function barrowHook({ s, dx, dy, tx, ty, done }) {
+  const ahead = [tx + dx, ty + dy];
+  if (!inGrid(s, ...ahead) || !isMultiCell(cell(s, ...ahead).o) || holdersOf(s, ...ahead).length)
+    return null;
+  const next = cloneState(s);
+  const f = gripAxis(next, tx, ty);
+  if (!f) return null;
+  cell(next, tx, ty).grip = dx * f[0] + dy * f[1];
+  return done(next, PUSH, mkStep());
+}
 
+// The next board shares `cells` with the board it came from. That is sound only because each
+// path that writes to a board clones it first. A copy here would allocate a board for every
+// free direction of every state the solver expands.
+function pushStop({ s, tx, ty, o, done }) {
+  if (o === NONE) return done({ cols: s.cols, rows: s.rows, cells: s.cells, rac: { x: tx, y: ty } },
+    MOVE, mkStep());
   if (o === TRASH) return { ok: false, reason: 'trash', blame: [[tx, ty]] };
+  return null;
+}
 
-  if (o === BAG) {
-    const blockers = fanBlockers(s, tx, ty, dx, dy);
-    if (blockers.length) return { ok: false, reason: reasonFor(s, blockers, 'fan'), blame: blockers };
-    const next = cloneState(s);
-    const step = mkStep({ gone: [leaves({ o: BAG, cells: [[tx, ty]] })] });
-    for (const [fx, fy] of fan(tx, ty, dx, dy)) {
-      if (!inGrid(s, fx, fy) || cell(s, fx, fy).o !== CHAIR) continue;
-      const to = chairFlees(s, tx, ty, dx, dy, fx, fy);
-      cell(next, fx, fy).o = NONE;
-      const { taken } = drop(next, to, [CHAIR], 'fled');
-      step.moved.push(moves({ o: CHAIR, from: [fx, fy], to }));
-      if (taken[0]) step.gone.push(leaves({ o: CHAIR, cells: [[fx, fy]], ...taken[0] }));
-    }
-    for (const [fx, fy] of fan(tx, ty, dx, dy)) {
-      const c = cell(next, fx, fy);
-      const taken = takenBy(c, TRASH, 'torn open');
-      step.spawned.push(arrives({ o: TRASH, cells: [[fx, fy]], from: [tx, ty] }));
-      if (taken) step.gone.push(leaves({ o: TRASH, cells: [[fx, fy]], ...taken }));
-      layTrash(c);
-    }
-    cell(next, tx, ty).o = NONE;
-    next.rac = { x: tx, y: ty };
-    return done(next, TEAR, step);
+function pushBag({ s, dx, dy, tx, ty, o, done }) {
+  if (o !== BAG) return null;
+  const blockers = fanBlockers(s, tx, ty, dx, dy);
+  if (blockers.length) return { ok: false, reason: reasonFor(s, blockers, 'fan'), blame: blockers };
+  const next = cloneState(s);
+  const step = mkStep({ gone: [leaves({ o: BAG, cells: [[tx, ty]] })] });
+  for (const [fx, fy] of fan(tx, ty, dx, dy)) {
+    if (!inGrid(s, fx, fy) || cell(s, fx, fy).o !== CHAIR) continue;
+    const to = chairFlees(s, tx, ty, dx, dy, fx, fy);
+    cell(next, fx, fy).o = NONE;
+    const { taken } = drop(next, to, [CHAIR], 'fled');
+    step.moved.push(moves({ o: CHAIR, from: [fx, fy], to }));
+    if (taken[0]) step.gone.push(leaves({ o: CHAIR, cells: [[fx, fy]], ...taken[0] }));
+  }
+  for (const [fx, fy] of fan(tx, ty, dx, dy)) {
+    const c = cell(next, fx, fy);
+    const taken = takenBy(c, TRASH, 'torn open');
+    step.spawned.push(arrives({ o: TRASH, cells: [[fx, fy]], from: [tx, ty] }));
+    if (taken) step.gone.push(leaves({ o: TRASH, cells: [[fx, fy]], ...taken }));
+    layTrash(c);
+  }
+  cell(next, tx, ty).o = NONE;
+  next.rac = { x: tx, y: ty };
+  return done(next, TEAR, step);
+}
+
+function pushPane({ s, dx, dy, tx, ty, o, done }) {
+  if (o !== PANE) return null;
+  const c1 = [tx + dx, ty + dy];
+  if (!isOccupiable(s, ...c1) || !mayEnter(s, ...c1, dx, dy) || cell(s, ...c1).water)
+    return { ok: false, reason: reasonFor(s, [c1], 'canRoom'), blame: [c1] };
+  const next = cloneState(s);
+  cell(next, tx, ty).o = NONE;
+  const target1 = cell(next, ...c1);
+  if (!isGrate(target1)) target1.ter = GLASS;
+  next.rac = { x: tx, y: ty };
+  return done(next, PUSH, mkStep({
+    gone: [leaves({ o: PANE, cells: [[tx, ty]] })],
+    spawned: [arrives({ o: NONE, cells: [c1], from: [tx, ty] })],
+  }));
+}
+
+function pushHeld({ s, dir, dx, dy, tx, ty, o, opts, done }) {
+  if (!inAHold(s, tx, ty) || isMagnet(o)) return null;
+  return towOrBreak(s, [tx, ty], dir, dx, dy, done, opts);
+}
+
+function pushOpenCabinet({ s, dx, dy, tx, ty, target, o, done }) {
+  if (!isCabinetOpen(o)) return null;
+  const { own, body, draw, f } = cabinetEnds(s, target.pid);
+  const onDrawer = tx === draw[0] && ty === draw[1];
+  if (onDrawer && dx === -f[0] && dy === -f[1])
+    return shutCabinet(s, own, body, CAB_SHUTS[o], [0, 0], dx, dy, done);
+  if (dx === f[0] && dy === f[1] && !travelsInto(s, draw[0] + dx, draw[1] + dy, dx, dy))
+    return shutCabinet(s, own, draw, CAB_SHUTS[o], [dx, dy], dx, dy, done);
+  return null;
+}
+
+function pushBody({ s, dx, dy, tx, ty, target, o, done }) {
+  if (!isMultiCell(o)) return null;
+  const own = pieceCells(s, target.pid);
+  const clearAt = k => blockedCells(s, own, k * dx, k * dy, dx, dy, false);
+  const blame = clearAt(1);
+  if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
+
+  // The leading end is the cell furthest along the shove, so a body needs no field to say
+  // which end it is.
+  const lead = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
+
+  // The roll axis is not stored. `rollsBody` reads it off the footprint.
+  let k = 1;
+  const rolls = rollsBody(o, own, dx);
+  const travels = () => rolls || isGrease(cell(s, lead[0] + k * dx, lead[1] + k * dy));
+  while (travels() && !clearAt(k + 1).length) {
+    k++;
+    const front = own.map(([x, y]) => cell(s, x + k * dx, y + k * dy));
+    if (front.some(c => isTar(c) || isGrate(c))) break;
   }
 
-  if (o === PANE) {
-    const c1 = [tx + dx, ty + dy];
-    if (!isOccupiable(s, ...c1) || !mayEnter(s, ...c1, dx, dy) || cell(s, ...c1).water)
-      return { ok: false, reason: reasonFor(s, [c1], 'canRoom'), blame: [c1] };
-    const next = cloneState(s);
-    cell(next, tx, ty).o = NONE;
-    const target1 = cell(next, ...c1);
-    if (!isGrate(target1)) target1.ter = GLASS;
-    next.rac = { x: tx, y: ty };
-    return done(next, PUSH, mkStep({
-      gone: [leaves({ o: PANE, cells: [[tx, ty]] })],
-      spawned: [arrives({ o: NONE, cells: [c1], from: [tx, ty] })],
+  const next = cloneState(s);
+  const step = mkStep();
+  // `= undefined`, not `delete`: deleting a property drops the cell into dictionary mode and
+  // every clone and key of every state descended from this one pays for it.
+  for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; c.pid = undefined; }
+  const landed = own.map(([x, y]) => [x + k * dx, y + k * dy]);
+  const bodyTakes = landed.map(([x, y]) => takenBy(cell(next, x, y), o, 'rolled body'));
+  const swallowed = bodyTakes.every(Boolean);
+  if (!swallowed) for (const [x, y] of landed) {
+    const c = cell(next, x, y);
+    c.o = o; c.pid = target.pid;
+  }
+  const passed = ROLL_AXIS.has(o)
+    ? handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy, step)
+    : { moved: [], bodies: [], gone: [] };
+  next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
+  // `step.moved` lists the body first, then whatever it handed its motion on to, then the cells
+  // they disturbed. A reader taking the first entry gets the piece the shove was aimed at.
+  step.moved = [moves({ cells: own, lane: BODY_LANE, o, ref: target.pid,
+                        dx: k * dx, dy: k * dy }),
+                ...passed.bodies, ...step.moved, ...passed.moved];
+  if (swallowed)
+    step.gone.push(leaves({ cells: own, lane: BODY_LANE, o, ref: target.pid, ...bodyTakes[0] }));
+  step.gone.push(...passed.gone);
+  return done(next, PUSH, step);
+}
+
+function pushRollers({ s, dx, dy, tx, ty, target, opts }) {
+  if (!rollsAlong(target, dx, dy)) return null;
+  const train = [];
+  for (let p = [tx, ty]; inGrid(s, ...p) && rollsAlong(cell(s, ...p), dx, dy); p = [p[0] + dx, p[1] + dy])
+    train.push(p);
+  const lead = train[train.length - 1];
+
+  let k = 0;
+  while (travelsInto(s, lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy, dx, dy)) {
+    k++;
+    const c = cell(s, lead[0] + k * dx, lead[1] + k * dy);
+    if (isTar(c) || isGrate(c)) break;
+  }
+  if (k === 0) {
+    const ahead = [lead[0] + dx, lead[1] + dy];
+    if (inGrid(s, ...ahead) && isCart(cell(s, ...ahead))) {
+      // `train` runs rear-first; the cart wants it closest-first.
+      const r = shoveCart(s, cell(s, ...ahead).cart, ahead, dx, dy, opts.trace,
+                          [...train].reverse());
+      if (r.ok) return r;
+    }
+    const stop = [[lead[0] + dx, lead[1] + dy]];
+    return { ok: false, reason: reasonFor(s, stop, 'canRoom'), blame: stop };
+  }
+
+  const rear = train[0];
+  const backOf = ([x, y]) => [x + (k - 1) * dx, y + (k - 1) * dy];
+  const rearIsWheelie = cell(s, ...rear).o === WHEELIE;
+  const back = rearIsWheelie ? backOf(rear) : null;
+
+  const rolled = cloneState(s);
+  for (const [x, y] of train) cell(rolled, x, y).o = NONE;
+  const swallowed = [];
+  for (const [x, y] of train) {
+    const to = [x + k * dx, y + k * dy];
+    const cost = takenBy(cell(rolled, ...to), cell(s, x, y).o, 'train');
+    if (cost) { swallowed.push([[x, y], cell(s, x, y).o, cost]); continue; }
+    cell(rolled, ...to).o = cell(s, x, y).o;
+  }
+  if (back && !swallowed.length && !isOccupiable(rolled, back[0], back[1]))
+    return { ok: false, reason: reasonFor(s, [back], 'canRoom'), blame: [back] };
+
+  const next = opts.trace ? cloneState(rolled) : rolled;
+  const shedAt = back && !swallowed.length ? back : null;
+  let shedTaken = null;
+  if (shedAt) {
+    cell(next, rear[0] + k * dx, rear[1] + k * dy).o = WHEELIE_EMPTY;
+    shedTaken = drop(next, shedAt, [BAG], 'shed behind a bin').taken[0];
+  }
+
+  const strike = mkStep();
+  const passedTo = handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy, strike);
+
+  next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
+  if (!opts.trace) return { ok: true, kind: PUSH, next };
+
+  const frames = [cloneState(s), rolled];
+  const steps = [mkStep({
+    moved: train.map(([x, y]) =>
+      moves({ o: cell(s, x, y).o, from: [x, y], to: [x + k * dx, y + k * dy] })),
+    gone: swallowed.map(([[x, y], o, cost]) => leaves({ o, cells: [[x, y]], ...cost })),
+    impact: true,
+  })];
+  if (shedAt || passedTo.moved.length || passedTo.bodies.length || strike.moved.length
+      || strike.spawned.length || strike.gone.length || passedTo.gone.length) {
+    const rearTo = [rear[0] + k * dx, rear[1] + k * dy];
+    frames.push(next);
+    steps.push(mkStep({
+      spawned: strike.spawned,
+      gone: [...strike.gone, ...passedTo.gone],
+      moved: [
+        ...passedTo.bodies,
+        ...strike.moved,
+        ...(shedAt ? [moves({ o: WHEELIE, from: rearTo, to: rearTo,
+                              becomes: WHEELIE_EMPTY })] : []),
+        ...passedTo.moved,
+      ],
     }));
-  }
-
-  if (inAHold(s, tx, ty) && !isMagnet(o)) return towOrBreak(s, [tx, ty], dir, dx, dy, done, opts);
-
-  if (isCabinetOpen(o)) {
-    const { own, body, draw, f } = cabinetEnds(s, target.pid);
-    const onDrawer = tx === draw[0] && ty === draw[1];
-    if (onDrawer && dx === -f[0] && dy === -f[1])
-      return shutCabinet(s, own, body, CAB_SHUTS[o], [0, 0], dx, dy, done);
-    if (dx === f[0] && dy === f[1] && !travelsInto(s, draw[0] + dx, draw[1] + dy, dx, dy))
-      return shutCabinet(s, own, draw, CAB_SHUTS[o], [dx, dy], dx, dy, done);
-  }
-
-  if (isMultiCell(o)) {
-    const own = pieceCells(s, target.pid);
-    const clearAt = k => blockedCells(s, own, k * dx, k * dy, dx, dy, false);
-    const blame = clearAt(1);
-    if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
-
-    // The leading end is the cell furthest along the shove, so a body needs no field to say
-    // which end it is.
-    const lead = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
-
-    // The roll axis is not stored. `rollsBody` reads it off the footprint.
-    let k = 1;
-    const rolls = rollsBody(o, own, dx);
-    const travels = () => rolls || isGrease(cell(s, lead[0] + k * dx, lead[1] + k * dy));
-    while (travels() && !clearAt(k + 1).length) {
-      k++;
-      const front = own.map(([x, y]) => cell(s, x + k * dx, y + k * dy));
-      if (front.some(c => isTar(c) || isGrate(c))) break;
-    }
-
-    const next = cloneState(s);
-    const step = mkStep();
-    // `= undefined`, not `delete`: deleting a property drops the cell into dictionary mode and
-    // every clone and key of every state descended from this one pays for it.
-    for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; c.pid = undefined; }
-    const landed = own.map(([x, y]) => [x + k * dx, y + k * dy]);
-    const bodyTakes = landed.map(([x, y]) => takenBy(cell(next, x, y), o, 'rolled body'));
-    const swallowed = bodyTakes.every(Boolean);
-    if (!swallowed) for (const [x, y] of landed) {
-      const c = cell(next, x, y);
-      c.o = o; c.pid = target.pid;
-    }
-    const passed = ROLL_AXIS.has(o)
-      ? handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy, step)
-      : { moved: [], bodies: [], gone: [] };
-    next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
-    // `step.moved` lists the body first, then whatever it handed its motion on to, then the cells
-    // they disturbed. A reader taking the first entry gets the piece the shove was aimed at.
-    step.moved = [moves({ cells: own, lane: BODY_LANE, o, ref: target.pid,
-                          dx: k * dx, dy: k * dy }),
-                  ...passed.bodies, ...step.moved, ...passed.moved];
-    if (swallowed)
-      step.gone.push(leaves({ cells: own, lane: BODY_LANE, o, ref: target.pid, ...bodyTakes[0] }));
-    step.gone.push(...passed.gone);
-    return done(next, PUSH, step);
-  }
-
-  if (rollsAlong(target, dx, dy)) {
-    const train = [];
-    for (let p = [tx, ty]; inGrid(s, ...p) && rollsAlong(cell(s, ...p), dx, dy); p = [p[0] + dx, p[1] + dy])
-      train.push(p);
-    const lead = train[train.length - 1];
-
-    let k = 0;
-    while (travelsInto(s, lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy, dx, dy)) {
-      k++;
-      const c = cell(s, lead[0] + k * dx, lead[1] + k * dy);
-      if (isTar(c) || isGrate(c)) break;
-    }
-    if (k === 0) {
-      const ahead = [lead[0] + dx, lead[1] + dy];
-      if (inGrid(s, ...ahead) && isCart(cell(s, ...ahead))) {
-        // `train` runs rear-first; the cart wants it closest-first.
-        const r = shoveCart(s, cell(s, ...ahead).cart, ahead, dx, dy, opts.trace,
-                            [...train].reverse());
-        if (r.ok) return r;
-      }
-      const stop = [[lead[0] + dx, lead[1] + dy]];
-      return { ok: false, reason: reasonFor(s, stop, 'canRoom'), blame: stop };
-    }
-
-    const rear = train[0];
-    const backOf = ([x, y]) => [x + (k - 1) * dx, y + (k - 1) * dy];
-    const rearIsWheelie = cell(s, ...rear).o === WHEELIE;
-    const back = rearIsWheelie ? backOf(rear) : null;
-
-    const rolled = cloneState(s);
-    for (const [x, y] of train) cell(rolled, x, y).o = NONE;
-    const swallowed = [];
-    for (const [x, y] of train) {
-      const to = [x + k * dx, y + k * dy];
-      const cost = takenBy(cell(rolled, ...to), cell(s, x, y).o, 'train');
-      if (cost) { swallowed.push([[x, y], cell(s, x, y).o, cost]); continue; }
-      cell(rolled, ...to).o = cell(s, x, y).o;
-    }
-    if (back && !swallowed.length && !isOccupiable(rolled, back[0], back[1]))
-      return { ok: false, reason: reasonFor(s, [back], 'canRoom'), blame: [back] };
-
-    const next = opts.trace ? cloneState(rolled) : rolled;
-    const shedAt = back && !swallowed.length ? back : null;
-    let shedTaken = null;
     if (shedAt) {
-      cell(next, rear[0] + k * dx, rear[1] + k * dy).o = WHEELIE_EMPTY;
-      shedTaken = drop(next, shedAt, [BAG], 'shed behind a bin').taken[0];
+      steps.at(-1).spawned.push(arrives({ o: BAG, cells: [shedAt], from: rearTo }));
+      if (shedTaken) steps.at(-1).gone.push(leaves({ o: BAG, cells: [shedAt], ...shedTaken }));
     }
+  }
+  for (let i = 1; i < frames.length; i++) frames[i].rac = { ...next.rac };
+  return { ok: true, kind: PUSH, next, frames, steps };
+}
 
-    const strike = mkStep();
-    const passedTo = handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy, strike);
+function pushClosedCabinet({ s, dx, dy, tx, ty, o, done }) {
+  if (!isCabinetClosed(o)) return null;
+  const f = DIRS[cabinetFace(o)];
+  if (dx === f[0] && dy === f[1]) return openCabinet(s, [tx, ty], done);
+  return null;
+}
 
-    next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
-    if (!opts.trace) return { ok: true, kind: PUSH, next };
+function pushBroom({ s, dx, dy, tx, ty, o, done }) {
+  if (o !== BROOM) return null;
+  const line = [];
+  for (let p = [tx, ty]; inGrid(s, ...p) && cell(s, ...p).o !== NONE
+       && !isHalfOfABody(s, ...p) && !isCabinetClosed(cell(s, ...p).o); p = [p[0] + dx, p[1] + dy])
+    line.push(p);
+  const head = line[line.length - 1];
+  const beyond = [head[0] + dx, head[1] + dy];
+  if (!travelsInto(s, ...beyond, dx, dy)) {
+    const knocked = cloneState(s);
+    const step = mkStep();
+    strikeBack(knocked, beyond, dx, dy, step);
+    if (!step.spawned.length)
+      return { ok: false, reason: reasonFor(s, [beyond], 'canRoom'), blame: [beyond] };
+    return done(knocked, PUSH, step);
+  }
+  if (line.some(([x, y]) => stuckInTar(s, x, y)))
+    return { ok: false, reason: 'tar', blame: line.filter(([x, y]) => isTar(cell(s, x, y))) };
 
-    const frames = [cloneState(s), rolled];
-    const steps = [mkStep({
-      moved: train.map(([x, y]) =>
-        moves({ o: cell(s, x, y).o, from: [x, y], to: [x + k * dx, y + k * dy] })),
-      gone: swallowed.map(([[x, y], o, cost]) => leaves({ o, cells: [[x, y]], ...cost })),
-      impact: true,
-    })];
-    if (shedAt || passedTo.moved.length || passedTo.bodies.length || strike.moved.length
-        || strike.spawned.length || strike.gone.length || passedTo.gone.length) {
-      const rearTo = [rear[0] + k * dx, rear[1] + k * dy];
-      frames.push(next);
-      steps.push(mkStep({
-        spawned: strike.spawned,
-        gone: [...strike.gone, ...passedTo.gone],
-        moved: [
-          ...passedTo.bodies,
-          ...strike.moved,
-          ...(shedAt ? [moves({ o: WHEELIE, from: rearTo, to: rearTo,
-                                becomes: WHEELIE_EMPTY })] : []),
-          ...passedTo.moved,
-        ],
-      }));
-      if (shedAt) {
-        steps.at(-1).spawned.push(arrives({ o: BAG, cells: [shedAt], from: rearTo }));
-        if (shedTaken) steps.at(-1).gone.push(leaves({ o: BAG, cells: [shedAt], ...shedTaken }));
-      }
-    }
-    for (let i = 1; i < frames.length; i++) frames[i].rac = { ...next.rac };
-    return { ok: true, kind: PUSH, next, frames, steps };
+  let k = 1;
+  while (isGrease(cell(s, tx + k * dx, ty + k * dy))
+         && travelsInto(s, head[0] + (k + 1) * dx, head[1] + (k + 1) * dy, dx, dy)) {
+    k++;
+    const c = cell(s, head[0] + k * dx, head[1] + k * dy);
+    if (isTar(c) || isGrate(c)) break;
   }
 
-  if (isCabinetClosed(o)) {
-    const f = DIRS[cabinetFace(o)];
-    if (dx === f[0] && dy === f[1]) return openCabinet(s, [tx, ty], done);
+  for (let i = 0; i < line.length; i++) {
+    const [x, y] = line[i];
+    if (cell(s, x, y).o !== BAG || i === line.length - 1) continue;
+    const to = cell(s, x + k * dx, y + k * dy);
+    if (isGlass(to)) return { ok: false, reason: 'glass', blame: [[x + k * dx, y + k * dy]] };
   }
 
-  if (o === BROOM) {
-    const line = [];
-    for (let p = [tx, ty]; inGrid(s, ...p) && cell(s, ...p).o !== NONE
-         && !isHalfOfABody(s, ...p) && !isCabinetClosed(cell(s, ...p).o); p = [p[0] + dx, p[1] + dy])
-      line.push(p);
-    const head = line[line.length - 1];
-    const beyond = [head[0] + dx, head[1] + dy];
-    if (!travelsInto(s, ...beyond, dx, dy)) {
-      const knocked = cloneState(s);
-      const step = mkStep();
-      strikeBack(knocked, beyond, dx, dy, step);
-      if (!step.spawned.length)
-        return { ok: false, reason: reasonFor(s, [beyond], 'canRoom'), blame: [beyond] };
-      return done(knocked, PUSH, step);
-    }
-    if (line.some(([x, y]) => stuckInTar(s, x, y)))
-      return { ok: false, reason: 'tar', blame: line.filter(([x, y]) => isTar(cell(s, x, y))) };
-
-    let k = 1;
-    while (isGrease(cell(s, tx + k * dx, ty + k * dy))
-           && travelsInto(s, head[0] + (k + 1) * dx, head[1] + (k + 1) * dy, dx, dy)) {
-      k++;
-      const c = cell(s, head[0] + k * dx, head[1] + k * dy);
-      if (isTar(c) || isGrate(c)) break;
-    }
-
-    for (let i = 0; i < line.length; i++) {
-      const [x, y] = line[i];
-      if (cell(s, x, y).o !== BAG || i === line.length - 1) continue;
-      const to = cell(s, x + k * dx, y + k * dy);
-      if (isGlass(to)) return { ok: false, reason: 'glass', blame: [[x + k * dx, y + k * dy]] };
-    }
-
-    const next = cloneState(s);
-    const step = mkStep({ moved: [], gone: [] });
-    let headMoved = null;
-    for (const [x, y] of line) {
-      const c = cell(next, x, y); c.o = NONE; c.hold = undefined; c.grip = undefined;
-    }
-    for (const [x, y] of [...line].reverse()) {
-      const from = [x, y], to = [x + k * dx, y + k * dy];
-      const what = cell(s, x, y).o;
-      const cost = takenBy(cell(next, ...to), what, 'swept');
-      if (cost) {
-        drop(next, to, [what], 'swept');
-        step.moved.push(moves({ o: what, from, to }));
-        step.gone.push(leaves({ o: what, cells: [from], ...cost }));
-        continue;
-      }
-      if (what === PANE && isOccupiable(s, x + dx, y + dy) && !cell(s, ...to).water && !isTar(cell(s, ...to))) {
-        step.moved.push(moves({ o: PANE, from, to }));
-        step.gone.push(leaves({ o: PANE, cells: [from] }));
-        cell(next, ...to).ter = GLASS;
-        continue;
-      }
-      if (what === BAG && isGlass(cell(next, ...to))) {
-        step.gone.push(leaves({ o: BAG, cells: [from] }));
-        for (const [fx, fy] of fan(to[0], to[1], dx, dy)) {
-          if (!isOccupiable(next, fx, fy)) continue;
-          const taken = takenBy(cell(next, fx, fy), TRASH, 'burst by sweep');
-          step.spawned.push(arrives({ o: TRASH, cells: [[fx, fy]], from: to }));
-          if (taken) step.gone.push(leaves({ o: TRASH, cells: [[fx, fy]], ...taken }));
-          layTrash(cell(next, fx, fy));
-        }
-        continue;
-      }
-      // Everything the cell was carrying travels with it, not just the occupant code. A link
-      // left behind belongs to whatever is standing there now, which is a different board.
-      const c = cell(next, ...to);
-      c.o = what; c.hold = cell(s, x, y).hold; c.grip = cell(s, x, y).grip;
-      const m = moves({ o: what, from, to });
-      step.moved.push(m);
-      if (x === head[0] && y === head[1]) headMoved = m;
-    }
-    const headTo = [head[0] + k * dx, head[1] + k * dy];
-    const headWas = cell(s, ...head).o;
-    if (sheds(headWas) && cell(next, ...headTo).o === headWas
-        && tipFits(next, headWas, headTo, dx, dy)) {
-      tipOut(next, headWas, headTo, dx, dy, step);
-      // The head's sprite is already drawn, so its landing kind goes on its movement entry.
-      // Without it the sprite keeps its old kind.
-      if (headMoved) headMoved.becomes.o = landsAs(headWas);
-    }
-    next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
-    return done(next, PUSH, step);
+  const next = cloneState(s);
+  const step = mkStep({ moved: [], gone: [] });
+  let headMoved = null;
+  for (const [x, y] of line) {
+    const c = cell(next, x, y); c.o = NONE; c.hold = undefined; c.grip = undefined;
   }
-
-  // One shape of shove for everything in SLIDES, so the clearance test lives in one place.
-  if (SLIDES[o]) {
-    const { slides, drops, pours } = SLIDES[o];
-    const c1 = [tx + dx, ty + dy];
-    const into = cartAt(s, c1);
-    const blame = [];
-    if (!canRest(s, c1[0], c1[1]) || !mayEnter(s, c1[0], c1[1], dx, dy)) blame.push(c1);
-
-    let at = c1;
-    const setOff = at;
-    if (into === null && !blame.length && !SLIDES[o].soaks) {
-      while (isGrease(cell(s, ...at)) && travelsInto(s, at[0] + dx, at[1] + dy, dx, dy)) {
-        at = [at[0] + dx, at[1] + dy];
-        if (isTar(cell(s, ...at)) || isGrate(cell(s, ...at))) break;
+  for (const [x, y] of [...line].reverse()) {
+    const from = [x, y], to = [x + k * dx, y + k * dy];
+    const what = cell(s, x, y).o;
+    const cost = takenBy(cell(next, ...to), what, 'swept');
+    if (cost) {
+      drop(next, to, [what], 'swept');
+      step.moved.push(moves({ o: what, from, to }));
+      step.gone.push(leaves({ o: what, cells: [from], ...cost }));
+      continue;
+    }
+    if (what === PANE && isOccupiable(s, x + dx, y + dy) && !cell(s, ...to).water && !isTar(cell(s, ...to))) {
+      step.moved.push(moves({ o: PANE, from, to }));
+      step.gone.push(leaves({ o: PANE, cells: [from] }));
+      cell(next, ...to).ter = GLASS;
+      continue;
+    }
+    if (what === BAG && isGlass(cell(next, ...to))) {
+      step.gone.push(leaves({ o: BAG, cells: [from] }));
+      for (const [fx, fy] of fan(to[0], to[1], dx, dy)) {
+        if (!isOccupiable(next, fx, fy)) continue;
+        const taken = takenBy(cell(next, fx, fy), TRASH, 'burst by sweep');
+        step.spawned.push(arrives({ o: TRASH, cells: [[fx, fy]], from: to }));
+        if (taken) step.gone.push(leaves({ o: TRASH, cells: [[fx, fy]], ...taken }));
+        layTrash(cell(next, fx, fy));
       }
+      continue;
     }
-    const carried = at !== setOff;
-    const cost = into === null && !blame.length ? takenBy(cell(s, ...at), o, 'slid') : null;
-    const swallowed = cost !== null;
-    const c2 = [at[0] + dx, at[1] + dy];
-    const tips = into === null && !swallowed && (drops !== undefined || pours === true);
-
-    if (tips && !tipFits(s, o, at, dx, dy)) blame.push(c2);
-    let shove = null;
-    if (into !== null && !blame.length) {
-      shove = intoCart(s, into, c1, dx, dy);
-      if (shove.blame) blame.push(...shove.blame);
-    }
-    if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
-    const lands = tips ? slides : o;
-    const next = cloneState(s);
-    // The load leaves the piece, so it flies from the piece's own cell rather than appearing.
-    const step = mkStep({
-      moved: [moves({ o, from: [tx, ty], to: at, becomes: lands,
-                      ...(into !== null && { parent: into }) })],
-      ...(swallowed && { gone: [leaves({ o, cells: [[tx, ty]], ...cost })] }),
-    });
-    if (tips && pours) {
-      step.spawned.push(arrives({ o: NONE, cells: [c2], from: [tx, ty], effect: 'pours' }));
-      pour(cell(next, c2[0], c2[1]));
-    } else if (tips) {
-      const { taken } = drop(next, c2, [drops], 'tipped');
-      step.spawned.push(arrives({ o: drops, cells: [c2], from: [tx, ty] }));
-      if (taken[0]) step.gone.push(leaves({ o: drops, cells: [c2], ...taken[0] }));
-    }
-    if (shove) applyIntoCart(s, next, into, shove, lands, step);
-    else if (SLIDES[o].soaks) { soak(cell(next, ...at)); drop(next, at, [lands]); }
-    else if (SLIDES[o].covers && cover(cell(next, ...at)))
-      step.gone.push(leaves({ o, cells: [[tx, ty]] }));
-    else drop(next, at, [lands]);
-    if (carried && !swallowed && !shove) handOff(next, [at[0] + dx, at[1] + dy], dx, dy, step);
-
-    const grip = cell(next, tx, ty).grip;
-    cell(next, tx, ty).o = NONE;
-    cell(next, tx, ty).grip = undefined;
-    if (isMagnet(o)) {
-      const rest = shove ? shove.file[0] : at;
-      if (cell(next, ...rest).o === o) {
-        cell(next, ...rest).grip = grip;
-        magnetResolve(next, ...rest, step, dx, dy);
-      }
-    }
-    next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
-    return done(next, PUSH, step);
+    // Everything the cell was carrying travels with it, not just the occupant code. A link
+    // left behind belongs to whatever is standing there now, which is a different board.
+    const c = cell(next, ...to);
+    c.o = what; c.hold = cell(s, x, y).hold; c.grip = cell(s, x, y).grip;
+    const m = moves({ o: what, from, to });
+    step.moved.push(m);
+    if (x === head[0] && y === head[1]) headMoved = m;
   }
+  const headTo = [head[0] + k * dx, head[1] + k * dy];
+  const headWas = cell(s, ...head).o;
+  if (sheds(headWas) && cell(next, ...headTo).o === headWas
+      && tipFits(next, headWas, headTo, dx, dy)) {
+    tipOut(next, headWas, headTo, dx, dy, step);
+    // The head's sprite is already drawn, so its landing kind goes on its movement entry.
+    // Without it the sprite keeps its old kind.
+    if (headMoved) headMoved.becomes.o = landsAs(headWas);
+  }
+  next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
+  return done(next, PUSH, step);
+}
 
-  throw new Error(`unknown occupant ${o} at ${tx},${ty}`);
+// One shape of shove for everything in SLIDES, so the clearance test lives in one place.
+function pushSlide({ s, dx, dy, tx, ty, o, done }) {
+  if (!SLIDES[o]) return null;
+  const { slides, drops, pours } = SLIDES[o];
+  const c1 = [tx + dx, ty + dy];
+  const into = cartAt(s, c1);
+  const blame = [];
+  if (!canRest(s, c1[0], c1[1]) || !mayEnter(s, c1[0], c1[1], dx, dy)) blame.push(c1);
+
+  let at = c1;
+  const setOff = at;
+  if (into === null && !blame.length && !SLIDES[o].soaks) {
+    while (isGrease(cell(s, ...at)) && travelsInto(s, at[0] + dx, at[1] + dy, dx, dy)) {
+      at = [at[0] + dx, at[1] + dy];
+      if (isTar(cell(s, ...at)) || isGrate(cell(s, ...at))) break;
+    }
+  }
+  const carried = at !== setOff;
+  const cost = into === null && !blame.length ? takenBy(cell(s, ...at), o, 'slid') : null;
+  const swallowed = cost !== null;
+  const c2 = [at[0] + dx, at[1] + dy];
+  const tips = into === null && !swallowed && (drops !== undefined || pours === true);
+
+  if (tips && !tipFits(s, o, at, dx, dy)) blame.push(c2);
+  let shove = null;
+  if (into !== null && !blame.length) {
+    shove = intoCart(s, into, c1, dx, dy);
+    if (shove.blame) blame.push(...shove.blame);
+  }
+  if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
+  const lands = tips ? slides : o;
+  const next = cloneState(s);
+  // The load leaves the piece, so it flies from the piece's own cell rather than appearing.
+  const step = mkStep({
+    moved: [moves({ o, from: [tx, ty], to: at, becomes: lands,
+                    ...(into !== null && { parent: into }) })],
+    ...(swallowed && { gone: [leaves({ o, cells: [[tx, ty]], ...cost })] }),
+  });
+  if (tips && pours) {
+    step.spawned.push(arrives({ o: NONE, cells: [c2], from: [tx, ty], effect: 'pours' }));
+    pour(cell(next, c2[0], c2[1]));
+  } else if (tips) {
+    const { taken } = drop(next, c2, [drops], 'tipped');
+    step.spawned.push(arrives({ o: drops, cells: [c2], from: [tx, ty] }));
+    if (taken[0]) step.gone.push(leaves({ o: drops, cells: [c2], ...taken[0] }));
+  }
+  if (shove) applyIntoCart(s, next, into, shove, lands, step);
+  else if (SLIDES[o].soaks) { soak(cell(next, ...at)); drop(next, at, [lands]); }
+  else if (SLIDES[o].covers && cover(cell(next, ...at)))
+    step.gone.push(leaves({ o, cells: [[tx, ty]] }));
+  else drop(next, at, [lands]);
+  if (carried && !swallowed && !shove) handOff(next, [at[0] + dx, at[1] + dy], dx, dy, step);
+
+  const grip = cell(next, tx, ty).grip;
+  cell(next, tx, ty).o = NONE;
+  cell(next, tx, ty).grip = undefined;
+  if (isMagnet(o)) {
+    const rest = shove ? shove.file[0] : at;
+    if (cell(next, ...rest).o === o) {
+      cell(next, ...rest).grip = grip;
+      magnetResolve(next, ...rest, step, dx, dy);
+    }
+  }
+  next.rac = isClearFloor(next, tx, ty) ? { x: tx, y: ty } : { ...s.rac };
+  return done(next, PUSH, step);
 }
 
 export function step(s, dir) {
