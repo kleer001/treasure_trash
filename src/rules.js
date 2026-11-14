@@ -842,10 +842,11 @@ const nameMove = (step, was, cells, dx, dy) => {
   else cells.forEach(([x, y], i) => step.moved.push(moves({ o: was[i].o, from: [x, y], dx, dy })));
 };
 
-/** `slideBody` is the one place a body's cells are carried across whole. Its caller has already
- *  established that the body fits. */
-function slideBody(next, at, dx, dy, step) {
-  const own = bodyCells(next, at);
+/**
+ * Carries the cells of a body by (dx, dy) and leaves its old cells empty. Returns what each cell
+ * held, for the step to name.
+ */
+function moveBody(next, own, dx, dy) {
   const was = own.map(([x, y]) => ({ ...cell(next, x, y) }));
   for (const [x, y] of own) {
     const c = cell(next, x, y);
@@ -857,7 +858,14 @@ function slideBody(next, at, dx, dy, step) {
     c.o = was[i].o; c.hold = was[i].hold; c.pid = was[i].pid;
     c.cart = was[i].cart; c.ck = was[i].ck; c.grip = was[i].grip;
   });
-  nameMove(step, was, own, dx, dy);
+  return was;
+}
+
+/** `slideBody` is the one place a body's cells are carried across whole. Its caller has already
+ *  established that the body fits. */
+function slideBody(next, at, dx, dy, step) {
+  const own = bodyCells(next, at);
+  nameMove(step, moveBody(next, own, dx, dy), own, dx, dy);
 }
 
 const drawIn = (next, at, dx, dy, max) => {
@@ -1026,17 +1034,7 @@ function towMove(s, at, dx, dy, done) {
   const blame = blockedCells(s, own, dx, dy, dx, dy, false);
   if (blame.length) return { ok: false, reason: reasonFor(s, blame, 'canRoom'), blame };
   const next = cloneState(s);
-  const was = own.map(([x, y]) => ({ ...cell(s, x, y) }));
-  for (const [x, y] of own) {
-    const c = cell(next, x, y);
-    c.o = NONE; c.hold = undefined; c.pid = undefined;
-    c.cart = undefined; c.ck = undefined; c.grip = undefined;
-  }
-  own.forEach(([x, y], i) => {
-    const c = cell(next, x + dx, y + dy);
-    c.o = was[i].o; c.hold = was[i].hold; c.pid = was[i].pid;
-    c.cart = was[i].cart; c.ck = was[i].ck; c.grip = was[i].grip;
-  });
+  moveBody(next, own, dx, dy);
   next.rac = { x: s.rac.x + dx, y: s.rac.y + dy };
   const bodies = [], moved = [], named = new Set();
   const body = (lane, ref, o, cells) => {
