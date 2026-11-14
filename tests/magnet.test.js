@@ -228,3 +228,10 @@ test('a hold that CAN travel still travels, and is not broken by the chance to b
   assert.equal(toGrid(after)[2], '#c@-#', 'above what it holds');
   assert.equal(held(after), 2, 'still one group');
 });
+
+test('a pull over an arrow that points its way goes the whole way in one beat', () => {
+  const r = explain(S(['q---c@', '-----E'], ['-<----', '------']), 'l', { trace: true });
+  assert.ok(r.ok, `refused: ${r.reason}`);
+  assert.equal(r.frames.length, 3, 'the shove, then one pull');
+  assert.equal(toGrid(r.frames[2])[0], 'qc--@-');
+});

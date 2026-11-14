@@ -869,7 +869,7 @@ const drawIn = (next, at, dx, dy, max) => {
   let k = 0;
   while (k < max) {
     const [tx, ty] = [dx * (k + 1), dy * (k + 1)];
-    if (blockedCells(next, own, tx, ty, tx, ty, true).length) break;
+    if (blockedCells(next, own, tx, ty, dx, dy, true).length) break;
     k++;
   }
   return k;
