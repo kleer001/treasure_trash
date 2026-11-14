@@ -759,6 +759,7 @@ function handOff(next, from, dx, dy, step) {
         }
         break;
       }
+      letGo(next, own);
       translateCart(next, cid, j, dx, dy);
       bodies.push(moves({ cells: own, lane: CART_LANE, ref: cid, dx: j * dx, dy: j * dy }));
       const head = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
@@ -775,6 +776,7 @@ function handOff(next, from, dx, dy, step) {
                             || isGrate(cell(next, x + j * dx, y + j * dy)))) break;
     }
     if (j === 0) break;
+    letGo(next, own);
     const was = own.map(([x, y]) => ({ o: cell(next, x, y).o, pid: cell(next, x, y).pid }));
     for (const [x, y] of own) { const t = cell(next, x, y); t.o = NONE; t.pid = undefined; }
     const landed = own.map(([x, y]) => [x + j * dx, y + j * dy]);
@@ -857,6 +859,12 @@ function moveBody(next, own, dx, dy) {
   });
   return was;
 }
+
+/** Ends every hold that `own` is part of: its own, and each that a holder outside it has on it. */
+const letGo = (next, own) => {
+  for (const [x, y] of [...own, ...holdersOf(next, ...own[0])])
+    if (holds(cell(next, x, y))) cell(next, x, y).grip = undefined;
+};
 
 /** Its caller has already established that the body fits. */
 function slideBody(next, at, dx, dy, step) {

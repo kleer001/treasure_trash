@@ -182,3 +182,25 @@ test('a hooked barrow is spoken for, and cannot be picked up', () => {
   assert.ok(r.ok, `refused: ${r.reason}`);
   assert.equal(toCart(r.next)[0], '--rs----', 'it stopped against it rather than taking it');
 });
+
+const HOOKED = (wall = '-') => S(
+  ['-------', '----O--', '-------', `-o@-Y${wall}-`, '----Y--', '-------', '-------', 'E------'],
+  ['-------', '-------', '-------', '---r---', '-------', '-------', '-------', '-------']);
+const walk = (s, keys) => [...keys].reduce(push, s);
+
+test('a barrow lets go of what it hooked when that rolls away', () => {
+  const hooked = push(HOOKED(), 'r');
+  assert.ok(inAHold(hooked, 3, 3), 'hooked');
+  const rolled = walk(hooked, 'uuurrd');
+  assert.equal(toGrid(rolled)[7], 'E---Y--', 'the bicycle rolled away');
+  assert.ok(!inAHold(rolled, 3, 3), 'and the barrow let go');
+  assert.equal(toCart(walk(rolled, 'lldd' + 'r'))[3], '------r', 'so a shove rolls it to the edge');
+});
+
+test('a barrow knocked on by a roll leaves no hook on the floor', () => {
+  const knocked = walk(HOOKED('#'), 'ruuurrd' + 'lllldd' + 'rr');
+  assert.equal(toCart(knocked)[3], '----r--', 'knocked one cell on');
+  assert.equal(toGrid(knocked)[3], '--@o-#-', 'and the tyre stands where it stood');
+  assert.ok(!inAHold(knocked, 3, 3), 'that cell is not held');
+  assert.equal(toGrid(walk(knocked, 'urrd' + 'l'))[3], 'o--@-#-', 'so the tyre rolls to the wall');
+});
