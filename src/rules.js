@@ -691,22 +691,8 @@ export const isScoopable = (s, x, y) => {
     && cartCells(s, c.cart).length === 1;
 };
 
-/**
- * Every cell is cleared before any is written, so a cart never overwrites its own tail.
- *
- * `shoveCart` does this same move fused with the slot bookkeeping a swallow needs; this is the
- * bare translation.
- */
 const vacateCart = c => { setChain(c, []); c.cart = undefined; c.ck = undefined; };
 const occupyCart = (c, cid, kind, ch) => { c.cart = cid; c.ck = kind; setChain(c, ch); };
-
-const translateCart = (s, cid, k, dx, dy) => {
-  const own = cartCells(s, cid);
-  const kind = cartKindOf(cell(s, ...own[0]));
-  const held = own.map(([x, y]) => chainOf(cell(s, x, y)));
-  for (const [x, y] of own) vacateCart(cell(s, x, y));
-  own.forEach(([x, y], i) => occupyCart(cell(s, x + k * dx, y + k * dy), cid, kind, held[i]));
-};
 
 export const isHeavyCart = (s, cid) =>
   cartCells(s, cid).some(([x, y]) => chainOf(cell(s, x, y)).length > 0);
@@ -760,7 +746,7 @@ function handOff(next, from, dx, dy, step) {
         break;
       }
       letGo(next, own);
-      translateCart(next, cid, j, dx, dy);
+      moveBody(next, own, j * dx, j * dy);
       bodies.push(moves({ cells: own, lane: CART_LANE, ref: cid, dx: j * dx, dy: j * dy }));
       const head = own.reduce((a, b) => (a[0] * dx + a[1] * dy >= b[0] * dx + b[1] * dy ? a : b));
       p = [head[0] + (j + 1) * dx, head[1] + (j + 1) * dy];
@@ -777,15 +763,7 @@ function handOff(next, from, dx, dy, step) {
     }
     if (j === 0) break;
     letGo(next, own);
-    const was = own.map(([x, y]) => ({ o: cell(next, x, y).o, pid: cell(next, x, y).pid }));
-    for (const [x, y] of own) { const t = cell(next, x, y); t.o = NONE; t.pid = undefined; }
-    const landed = own.map(([x, y]) => [x + j * dx, y + j * dy]);
-    const takes = landed.map(([x, y], i) => takenBy(cell(next, x, y), was[i].o, 'rolled'));
-    const swallowed = takes.every(Boolean);
-    if (!swallowed) landed.forEach(([x, y], i) => {
-      const to = cell(next, x, y);
-      to.o = was[i].o; to.pid = was[i].pid;
-    });
+    const { was, landed, takes, swallowed } = rollBy(next, own, j * dx, j * dy, 'rolled');
     if (multi) {
       bodies.push(moves({ cells: own, lane: BODY_LANE, o: code, ref: pid,
                           dx: j * dx, dy: j * dy }));
@@ -842,22 +820,54 @@ const nameMove = (step, was, cells, dx, dy) => {
 };
 
 /**
- * Carries the cells of a body by (dx, dy) and leaves its old cells empty. Returns what each cell
- * held, for the step to name.
+ * Empties the cells `own` of a body or a cart, and returns what each cell held, for `put`.
+ * `= undefined`, not `delete`: deleting a property drops the cell into dictionary mode and every
+ * clone and key of every state descended from this one pays for it.
  */
-function moveBody(next, own, dx, dy) {
-  const was = own.map(([x, y]) => ({ ...cell(next, x, y) }));
+function lift(next, own) {
+  const was = own.map(([x, y]) => {
+    const c = cell(next, x, y);
+    return { o: c.o, hold: c.hold, pid: c.pid, cart: c.cart, ck: c.ck, grip: c.grip };
+  });
   for (const [x, y] of own) {
     const c = cell(next, x, y);
     c.o = NONE; c.hold = undefined; c.pid = undefined;
     c.cart = undefined; c.ck = undefined; c.grip = undefined;
   }
+  return was;
+}
+
+/** Writes what `lift` took from the cells `own` onto the cells (dx, dy) on from them. */
+function put(next, own, was, dx, dy) {
   own.forEach(([x, y], i) => {
     const c = cell(next, x + dx, y + dy);
     c.o = was[i].o; c.hold = was[i].hold; c.pid = was[i].pid;
     c.cart = was[i].cart; c.ck = was[i].ck; c.grip = was[i].grip;
   });
+}
+
+/**
+ * Carries the cells of a body or a cart by (dx, dy) and leaves its old cells empty. Every cell is
+ * cleared before any is written, so a body never overwrites its own tail. Returns what each cell
+ * held, for the step to name.
+ */
+function moveBody(next, own, dx, dy) {
+  const was = lift(next, own);
+  put(next, own, was, dx, dy);
   return was;
+}
+
+/**
+ * `moveBody` for a roll, which asks each cell it lands on before it writes any. Returns what each
+ * cell held, where each landed, what `takenBy` answered for each, and whether every one took it.
+ */
+function rollBy(next, own, dx, dy, site) {
+  const was = lift(next, own);
+  const landed = own.map(([x, y]) => [x + dx, y + dy]);
+  const takes = landed.map(([x, y], i) => takenBy(cell(next, x, y), was[i].o, site));
+  const swallowed = takes.every(Boolean);
+  if (!swallowed) put(next, own, was, dx, dy);
+  return { was, landed, takes, swallowed };
 }
 
 /** Ends every hold that `own` is part of: its own, and each that a holder outside it has on it. */
@@ -1530,16 +1540,7 @@ function pushBody({ s, dx, dy, tx, ty, target, o, done }) {
 
   const next = cloneState(s);
   const step = mkStep();
-  // `= undefined`, not `delete`: deleting a property drops the cell into dictionary mode and
-  // every clone and key of every state descended from this one pays for it.
-  for (const [x, y] of own) { const c = cell(next, x, y); c.o = NONE; c.pid = undefined; }
-  const landed = own.map(([x, y]) => [x + k * dx, y + k * dy]);
-  const bodyTakes = landed.map(([x, y]) => takenBy(cell(next, x, y), o, 'rolled body'));
-  const swallowed = bodyTakes.every(Boolean);
-  if (!swallowed) for (const [x, y] of landed) {
-    const c = cell(next, x, y);
-    c.o = o; c.pid = target.pid;
-  }
+  const { takes: bodyTakes, swallowed } = rollBy(next, own, k * dx, k * dy, 'rolled body');
   const passed = ROLL_AXIS.has(o)
     ? handOff(next, [lead[0] + (k + 1) * dx, lead[1] + (k + 1) * dy], dx, dy, step)
     : { moved: [], bodies: [], gone: [] };
