@@ -2,168 +2,150 @@ fresh
 
 ## Summary
 
-**The build is green, the anchor rule is in, and holds are drawn.** Every gate passes.
+**`main` is at `47f394e`, pushed, and every gate is green.** The working tree is clean except the
+deleted `.claude/skills/` copies, which stay out of commits.
 
-The hold rework (`grip`) is done as planned: the edge on the holder, sharing, the anchor rule,
-the scrape, and the drawing. **The scrape is built, green and played, but NOT committed** — it
-sits in the working tree (`src/rules.js`, `tests/magnet.test.js`) awaiting the owner's okay.
+The whole-codebase review (`tmp/review/codebase-review.md`) is worked through sections R, B, T, C
+and D1. The last three commits answer the owner's rule questions: a magnet's pull over an arrow
+goes the whole way in one beat; a roll that carries a thing off ends the holds it is part of; one
+move function (`lift`/`put` in `src/rules.js`) carries every body and cart. A thing may still
+take the cell the raccoon leaves (owner: keep as is).
 
 ## Todos
 
 ### Parallel
 
+- [ ] #81 **The single-thing moves still copy their own cell fields:** the train in `pushRollers`,
+      the sweep in `pushBroom`, and the run of things ahead in `shoveCart`. Move them onto
+      `lift`/`put`. A rules-file refactor: ask the owner first, then prove it with the golden
+      master (see Context).
+
+- [ ] #82 **Design refactors D2–D8** in `tmp/review/codebase-review.md` § D, one at a time, each
+      after the owner's yes: D2 split `main.js`; D3 one direction table and one frame length;
+      D4 `src/art` copies; D5 pack gates and room measure into `metrics.mjs`; D6 container shed
+      handling; D7 dead code; D8 `wipeTune.js:56` explanation line.
+
+- [ ] #83 **Propose a skill that codifies the whole-codebase review and refactor.** The process
+      record is `tmp/review/HOW.md` (lint setup, anti-slop rules, measurements). Propose; do not
+      write it without a yes.
+
+- [ ] #84 **Remove the session scratch.** `git worktree list` still names four worktrees `wt-a` to
+      `wt-d` in an old session scratchpad, detached at `8085875`, each with uncommitted changes.
+      Check that their work is in `main`, then `git worktree remove --force` each (or
+      `git worktree prune` if the directories are gone). `tmp/d1/runs/base500.jsonl` (1.7 GB) is
+      the golden master at `21491cc`, before the last three commits, and is obsolete.
+
 - [ ] #79 **The owner has notes on the Afloat, Skateboard and Raccoon benches** (`art/bench/float.html`,
       `skate.html`, `raccoon.html`). Ask for them; the owner gives them when ready.
 
-- [ ] #80 **A notes feature on those bench pages.** The owner writes a note on a page, and the note
-      is saved together with the page's settings at that moment, so each note is tied to the
-      settings it is about.
+- [ ] #80 **A notes feature on those three bench pages.** The owner writes a note on a page, and
+      the note is saved together with the page's settings at that moment. Other bench pages
+      (`bike-v`, `barrow`, `bag-rip`, `can-handles`, `couch-wear`) already have notes; these three
+      do not.
 
-- [ ] #75 **Commit and push the scrape once the owner says so.** Working tree only: `src/rules.js`
-      and `tests/magnet.test.js`. Proposed message: `feat(rules): a magnet that cannot follow is
-      scraped off, and stays off for the beat`. Commit path-scoped; leave the deleted
-      `.claude/skills/` copies out.
-
-- [ ] #51 **The crow is the coach, and never a piece** (owner, 2026-10-23): a guardian angel with a
-      chip on his shoulder, coaching a raccoon through raccoon limbo. A voice and a portrait; he
-      never touches the board. Character, dialogue and art references are in `CROW.md`. Act 1's
-      pack name still reads "(raccoon only, crow pinned)".
-
-- [ ] #74 **`stateKey` is where the solver's time goes, not the graph.** The integer-id idea over
-      flat edge arrays is dropped. The untested lever: `stateKey` builds its key a character at a
-      time. It lives in `src/rules.js`, so any change to it is a rules-file change and gets every
-      gate. GC is mostly board clones: `explain` returns many repeat boards, which are thrown away.
+- [ ] #51 **The crow is built as the coach** (`CROW.md`, `dialogue/crow.json`, the director). Open:
+      Act 1's pack line still reads "(raccoon only, crow pinned)".
 
 - [ ] #66 **Act 3 gets searched with the piece cap off.** `--maxpiece` is the last constraint in the
-      chooser nobody has measured. On the evidence so far the cap only ever costs sets. Run Act 3 at
-      `--maxpiece 1` and judge the two acts on ramp mix, outline count, par band and `onPath`
-      spread. If the unbounded pool wins, delete the flag rather than picking a new number.
+      chooser nobody has measured. Run Act 3 at `--maxpiece 1` and judge the two acts on ramp mix,
+      outline count, par band and `onPath` spread. If the unbounded pool wins, delete the flag.
 
-- [ ] #73 **L57 carries stranding traps.** That is the price of tightening set 9: fewer right
-      answers means more wrong ones. Undo is free and unbounded so it was left as is. Soften it only
-      if the owner wants it softened.
+- [ ] #73 **L57 carries stranding traps.** Undo is free and unbounded, so it was left as is. Soften
+      it only if the owner wants it softened.
 
-- [ ] #76 **Every animation gets animated by hand.** Owner's call: none of the AI video clips
-      (MiniMax H3, every keyframe set and seed) is usable. Each animation is to be animated
-      painstakingly, frame by frame, in code, cell-perfect against the rules. Done that way so
-      far: the bag rip and the recycling box tip, in `art/bench/`. Still to animate:
-      - the raccoon: sitting, crawling, pushing a thing. Not a walk cycle.
-      - the can tip.
-      - the jug pour. The jug stands free, not on a cooler.
-      - the pane shatter.
+- [ ] #76 **Every animation gets animated by hand**, frame by frame, in code, cell-perfect against
+      the rules. No AI video clip is usable. Still to animate: the raccoon (sitting, crawling,
+      pushing a thing; not a walk cycle), the can tip, the jug pour (the jug stands free), the
+      pane shatter. Bench pages exist for `can-tip`, `jug-tip`, `pane` and
+      `raccoon_cartoon_v1`–`v3`; their state is the owner's call.
 
-- [ ] #77 **The empty recycling box must record which way it fell.** The renderer draws from the
-      board alone. Proposed: four occupant codes for an empty box, one per facing, as the filing
-      cabinet has, with its moves unchanged. A rules-file change, so it waits for the owner's okay.
+- [ ] #78 **Object art is straight side views.** The stills in `tmp/pixelart/out/` were rendered
+      and none was chosen. Standing objects are side elevations with no skew; only the floor and
+      loose trash are top-down.
 
-- [ ] #78 **Object art is straight side views.** The object stills in `tmp/pixelart/out/` were
-      rendered, and none was chosen. Standing objects are side elevations with no skew; only the
-      floor and loose trash are top-down.
-
-- [ ] #67 **Parked idea, not approved work: the roller skate.** It is the slot the barrow already
-      occupies structurally but not fictionally. On the record before the vocabulary settles; nobody
-      is asking for it yet.
+- [ ] #67 **Parked idea, not approved work: the roller skate.** The slot the barrow occupies
+      structurally but not fictionally.
 
 ## Context
 
 ### The gates
 
-- `npm test`
-- `node tools/verify.mjs`
-- `node tools/conform.mjs`
-- `node tools/matrix.mjs`
-- `npm run test_rules`
+`npm test`, `node tools/verify.mjs`, `node tools/conform.mjs`, `node tools/matrix.mjs`.
+A rules change is also played in the browser (headless) before it is called done.
 
-### The skateboard rule, and where it lives
+### Golden master, for any refactor of `src/rules.js`
 
-`skateRollsAlong(s, cid, dx)` in `src/rules.js`.
+- `bash tmp/d1/golden.sh <tree root> <label> 24 500` walks every pack room and matrix case to
+  500 states and hashes every `explain` answer. About 7 minutes on 24 cores. It writes
+  `tmp/d1/runs/<label>.jsonl` (about 1.7 GB; delete it after) plus `.digests` (one line per room)
+  and `.totals`.
+- `tmp/d1/runs/fix23.jsonl.digests` is the baseline for the current `src/rules.js`.
+- Old tree for a comparison: `git archive <ref> src levels tools package.json | tar -x -C <dir>`.
+- `node tmp/rq/gmdiff.mjs <old tree> <new tree> <old digests> <new digests> 500 [per-family sample]`
+  asks both engines every state and direction of each changed room and sorts the first
+  difference by kind. Shard it with env `SN=24 SK=<k>`.
+- **Trap:** `gm.mjs` hashes a key whose value is `undefined` as `"~u"`. A change that writes
+  `undefined` to new keys changes every digest and no answer. `gmdiff.mjs` ignores such keys;
+  trust it, not a raw digest count.
+- Speed: `node tmp/d1/bench.mjs <tree root> 5 3000`, four interleaved old/new pairs. The median
+  is about 1,020–1,050 ms. A slowdown above about 3% is a defect.
 
-The owner's three rulings are written up in `tmp/skateboard-catalogue.md`.
+### Headless play
 
-### Authoring machinery in `tmp/` (gitignored)
-
-- `tmp/author.mjs` — `judge(level)` runs every check `tools/verify.mjs` makes, against a level held
-  in memory, so a candidate room can be judged before it is written into a pack. Also
-  `teachesTheDeck(level)`.
-- `tmp/write-room.mjs` — replaces one room's grid, cart mask, declared numbers and note across
-  the `.tt`, the `.sol` and `levels.md` together, from a small JSON file.
-- `tmp/remeasure.mjs` — measures every room against the engine and says which declared numbers
-  moved, which rooms went unsolvable, and which fail a check no number can fix.
-
-**Sharding these searches across node processes is what makes them finish.**
-
-### How a room gets redone, and what is held fixed
-
-A room in a SET shares its outline, its door, its raccoon and its constant furniture with its two
-siblings, and each rung adds one piece. So a redo holds the set's identity fixed and enumerates
-only what is free to move, then requires all three rooms sound with pars strictly ascending. The
-levers, in the order they were worth trying: the pieces each rung adds, then the decks, then the
-door and the raccoon. For set 9 only the last two TOGETHER moved the number.
-
-`tools/resite.mjs` is the tool for the door-and-raccoon lever; the searches here were written ad hoc
-because they also had to hold a rung's added piece.
-
-### Governance
-
-- **`CLAUDE.md` § NO PROSE IS EVER A RULE** — no comment, doc, test name, `:teach` line or commit
-  message decides what a piece does. A red test is the expected result of a rules change, not a
-  veto. But CHECK each red test before updating it: read the new behaviour off the engine board by
-  board and confirm it follows the ruling, rather than writing down whatever the code does.
-- **NOTHING IS SHIPPED.** Never cite authored levels as the cost of a rules change.
-- **Rules before levels.** While the ruleset moves, do not solve levels or compute pars.
-- **Do not mention `engine/` at all** — not in a summary, not as a caveat, not as a one-line note.
-- **The dead-board indicator stays a bare state.** Owner's call.
-- **A blocked barrow hook keeps re-taking.** Owner's call.
-- **Copy work uses the global `copy:` skills**, which live in their own plugin repo. The
-  project-local copies under `.claude/skills/` were deleted deliberately; those deletions are
-  uncommitted, and the owner said not to worry about them.
+`tmp/rq/play.mjs` is a working example: Playwright Firefox from
+`/home/menser/.npm/_npx/e41f203b7505f1fb/node_modules/playwright/index.js` via `createRequire`;
+`index.html?acts=../tmp/rq/pack.tt&debug&pixel`; press Escape four times first; then
+`__tt.goto(id)`, `__tt.walk(keys)`, `__tt.grid()`.
 
 ### Driving the page, and its traps
 
-`?debug` gives a play-by-play panel and `window.__tt`. Screenshots are the artifact for a human to
-look at once something has failed, not the check.
+- **A room with `:arm on` needs two presses per shove.** Wrap each press in a retry that fires
+  again when the move count did not advance.
+- **Close the picker dialog after choosing a room**, or it swallows every arrow key.
+- **The page holds the level data it fetched at load.** Navigate again after rewriting a pack.
+- **A bench pack can live in `tmp/`** (`index.html?acts=../tmp/x.tt&debug`). It needs `:par` and
+  `:solve` lines to parse; placeholders are fine.
+- **A beat is too fast for a mid-beat screenshot.** Freeze `performance.now` after a press.
+- **Agent worktrees under `.claude/worktrees/` double the `npm test` count.**
 
-Things that cost time:
+### Authoring machinery in `tmp/` (gitignored)
 
-- **A room with `:arm on` needs two presses per shove** — one to aim, one to commit. A declared
-  solve is one key per action, so replaying it raw reports false refusals. Wrap each press in a
-  retry that fires again when the move count did not advance.
-- **Close the picker dialog after choosing a room.** Left open it swallows every arrow key, and
-  the room silently never advances.
-- **The page holds the level data it fetched at load.** After rewriting a pack, navigate again
-  before replaying, or the browser plays the old rooms. The same goes for `__tt.sweep(plan)`: the
-  page must have the plan's pack loaded, or every room reports "no such room in this pack".
-- **A bench pack can live in `tmp/`**: `index.html?acts=../tmp/anchor.tt&debug`. It needs `:par`
-  and `:solve` lines to parse (placeholders are fine; nothing verifies it). `tmp/anchor.tt` holds
-  the magnet bench rooms A1–A4 (anchor, walk, closure, held-magnet) and S1–S2 (scrape, cut beat).
-- **A beat (`CELL_MS`) is too fast for a screenshot to land mid-beat.** Freeze the page clock
-  (`performance.now = () => t`) after a press, screenshot, then restore it.
-- **Agent worktrees under `.claude/worktrees/` double the `npm test` count**, because
-  `node --test` finds their specs too.
+- `tmp/author.mjs` — `judge(level)` runs every `verify.mjs` check against a level in memory.
+- `tmp/write-room.mjs` — replaces one room across the `.tt`, the `.sol` and `levels.md` together.
+- `tmp/remeasure.mjs` — says which declared numbers moved and which rooms went unsolvable.
+- A room in a SET shares outline, door, raccoon and constant furniture with its siblings. A redo
+  holds those fixed; the levers are the added pieces, then the decks, then door and raccoon
+  (`tools/resite.mjs`). Shard searches across node processes.
+
+### Governance
+
+- **Commits and pushes are the owner's call.** Ask first, every time.
+- **`CLAUDE.md` § NO PROSE IS EVER A RULE.** Check each red test against the ruling before
+  updating it.
+- **NOTHING IS SHIPPED. Rules before levels.**
+- **Do not mention `engine/` at all.**
+- **The dead-board indicator stays a bare state. A blocked barrow hook keeps re-taking.** Owner's
+  calls.
+- **Copy work uses the global `copy:` skills.** The deleted `.claude/skills/` copies stay
+  uncommitted; the owner said not to worry about them.
+
+### The hold, as built
+
+- `grip` is an edge on the holder. `CUT = 0` is the scrape's mark for the beat; `holds()`
+  excludes it, and `letGo` does not clear it.
+- `letGo` (in `src/rules.js`) ends every hold that a rolled thing is part of. `lift`/`put` carry
+  `grip` with a moving cart.
+- Drawn by the `holds` and `grips` layers in `src/main.js`, read off the beat's board.
+
+### The pixel art
+
+- Target look: `art/reference/alley-gold.png`. Benches: `art/bench/` (see its README); tuned
+  values are the defaults in `art/bench/trash/look.json`.
+- The AI work is in `tmp/pixelart/`, gitignored. The GPU is used only from 23:00 to 05:00.
 
 ## Next Step
 
-**#75** — ask whether to commit the scrape, then commit it. After that, #74 is the one item that
-needs no decision from the owner; the rest are the owner's calls.
-
-## Context: the pixel art
-
-- **The target look** is `art/reference/alley-gold.png`. Its README says how it was made.
-- **The benches** are in `art/bench/` (see its README): the trash catalog, the layout of trash
-  over TRASH cells (layout B is the chosen one), the landing flight, the flying shadow, and the
-  recycling box. Each imports `src/` and checks its first and last frames against stills of the
-  board. The owner's tuned values are the defaults in `art/bench/trash/look.json`.
-- **The recycling box** is a side view: upright with trash heaped over the rim. In the game the
-  trash over the rim keeps its look through the stage's draw seed, not the rules.
-- **The AI work** (ComfyUI stills, H3 clips, `anim.html`, `seeds.html`) is in `tmp/pixelart/`,
-  gitignored. The GPU is used only from 23:00 to 05:00.
-
-## Context: the hold, as built
-
-- `closeGap` and `settleMagnets` in `src/rules.js`.
-- Latent, older than this work and not fixed: a magnet shoved across its field slides its load
-  across and can then pull it in on the same step, which names the load twice.
-- The hold is drawn by the `holds` and `grips` layers in `src/main.js`, read off the beat's board
-  the way the terrain layer is. The account does not carry `grip`.
+**#81** — ask the owner for a yes, then move the three single-thing moves onto `lift`/`put` and
+prove it with the golden master against `fix23.jsonl.digests`.
 
 /home/menser/Dropbox/ai/code/treasure_trash
