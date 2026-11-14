@@ -697,18 +697,15 @@ export const isScoopable = (s, x, y) => {
  * `shoveCart` does this same move fused with the slot bookkeeping a swallow needs; this is the
  * bare translation.
  */
+const vacateCart = c => { setChain(c, []); c.cart = undefined; c.ck = undefined; };
+const occupyCart = (c, cid, kind, ch) => { c.cart = cid; c.ck = kind; setChain(c, ch); };
+
 const translateCart = (s, cid, k, dx, dy) => {
   const own = cartCells(s, cid);
   const kind = cartKindOf(cell(s, ...own[0]));
   const held = own.map(([x, y]) => chainOf(cell(s, x, y)));
-  for (const [x, y] of own) {
-    const c = cell(s, x, y);
-    setChain(c, []); c.cart = undefined; c.ck = undefined;
-  }
-  own.forEach(([x, y], i) => {
-    const d = cell(s, x + k * dx, y + k * dy);
-    d.cart = cid; d.ck = kind; setChain(d, held[i]);
-  });
+  for (const [x, y] of own) vacateCart(cell(s, x, y));
+  own.forEach(([x, y], i) => occupyCart(cell(s, x + k * dx, y + k * dy), cid, kind, held[i]));
 };
 
 export const isHeavyCart = (s, cid) =>
@@ -1195,9 +1192,8 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
   const steps = trace ? [] : null;
   const loads = files.map(f => f.map(([x, y]) => ({ ch: chainOf(cell(s, x, y)) })));
   const repaint = (k, from) => files.forEach((f, i) => f.forEach((p, j) => {
-    const c = cell(next, ...at(p, from));
-    setChain(c, []); c.cart = undefined; c.ck = undefined;
-    const d = cell(next, ...at(p, k)); d.cart = cid; d.ck = kind; setChain(d, loads[i][j].ch);
+    vacateCart(cell(next, ...at(p, from)));
+    occupyCart(cell(next, ...at(p, k)), cid, kind, loads[i][j].ch);
   }));
 
   let n = 0, lastRoll = -1, stoppedAt = null, shed = false;
