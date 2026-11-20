@@ -29,7 +29,7 @@ import { engineFor, connect, measureMany, measureHere, TOO_BIG } from './engine.
 import { staticallyDead } from './survey.mjs';
 import { placeOn, measure } from './harvest.mjs';
 import { hFamily } from './shapes.mjs';
-import { MAX_STATES, packRefuses } from './metrics.mjs';
+import { MAX_STATES, packRefuses, hasTrap, hasInertPiece } from './metrics.mjs';
 
 // The empty containers an UPGRADE rung swaps for full ones. Upgrading one adds work without adding
 // a body.
@@ -48,7 +48,7 @@ function keep(s, r, parMin) {
   const bags = bagsLeft(s);
   if (bags < 1) return false;
   if (packRefuses(bags, r.silentTraps, r.exitRefusals)) return false;
-  return r.traps >= 1;
+  return hasTrap(r.traps);
 }
 
 /**
@@ -64,7 +64,7 @@ async function look(engine, room, group, w, h, parMin = PAR_MIN) {
   if (r === TOO_BIG) return null;
   if (!keep(s, r, parMin)) return null;
   const row = measure(group, room, s, analyze(s, { maxStates: MAX_STATES }), w, h);
-  if (row.inert) return null;
+  if (hasInertPiece(row.inert)) return null;
   return row;
 }
 

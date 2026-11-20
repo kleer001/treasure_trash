@@ -18,7 +18,7 @@ import { engineFor, connect, measureMany, measureHere, TOO_BIG } from './engine.
 import { toState, occupantOf } from '../src/format.js';
 import { bagsLeft, BAGS_IN, BAG, DIRS, DIR_ORDER, fan } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
-import { MAX_STATES, packRefuses } from './metrics.mjs';
+import { MAX_STATES, packRefuses, hasTrap } from './metrics.mjs';
 
 // ---------------------------------------------------------------- the alphabet
 const POINTS = ['$', 'C', 'c', 'x', 'W', 'w', 'B', 'j'];
@@ -138,7 +138,7 @@ export function staticallyDead(s) {
 
 // Deliberately loose: this pass ranks GROUPS against each other, so a group that yields only short
 // rooms is a finding, not a failure.
-const isInteresting = d => d.par >= 12 && d.solves <= 2 && d.traps >= 1;
+const isInteresting = d => d.par >= 12 && d.solves <= 2 && hasTrap(d.traps);
 
 /**
  * `engine` is the sanctioned port, or null to enumerate here.

@@ -517,6 +517,12 @@ export const exitForbidsNothing = (bags, exitRefusals) => bags > 0 && exitRefusa
 export const packRefuses = (bags, silentTraps, exitRefusals) =>
   hasSilentTrap(silentTraps) || exitForbidsNothing(bags, exitRefusals);
 
+/** Takes the count `inertPieces` returns. Kept out of `packRefuses`: that count costs a solve per piece. */
+export const hasInertPiece = inert => inert > 0;
+
+/** The floor a found room must clear. A bench pack is not held to it. */
+export const hasTrap = traps => traps >= 1;
+
 // ---------------------------------------------------------------- room structure
 // Structural rejects, after the Sokoban deadlock literature cited in `solver.js`, applied to the
 // EMPTY room before anything is placed on it. The open-floor rule is the load-bearing one: a room

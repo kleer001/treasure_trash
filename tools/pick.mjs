@@ -25,7 +25,7 @@ import { tighten, ttBlock } from './draft-room.mjs';
 import { measure } from './harvest.mjs';
 import { score, dedupe, REQUIRE, WEIGHTS } from './score.mjs';
 import { SET_TOP_MIN } from './sets.mjs';
-import { walksFit, MAX_STATES } from './metrics.mjs';
+import { walksFit, hasInertPiece, MAX_STATES } from './metrics.mjs';
 
 export const ACT_WEIGHTS = { ...WEIGHTS, blindness: -0.3 };
 
@@ -117,7 +117,7 @@ export function chooseSets(sets, { want = 10, maxPieceShare = 0.5, maxPerRamp = 
     if (!s.rooms.every(r => walksFit(r))) continue;
     // Re-siting and walling both change what a piece does, so a set that left the search with
     // every piece working can arrive here with one standing idle.
-    if (s.rooms.some(r => r.inert)) continue;
+    if (s.rooms.some(r => hasInertPiece(r.inert))) continue;
     if (byShape.has(s.shape)) continue;
     if ((byRamp[s.ramp] ?? 0) >= maxPerRamp) continue;
     let over = false;

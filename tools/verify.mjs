@@ -16,7 +16,7 @@ import { analyze, replay } from '../src/solver.js';
 import { isWon, bagsLeft, isMagnet } from '../src/rules.js';
 import {
   deadTravel, isOneRoom, inertPieces, shortestDag, WALK_MAX, walkFits,
-  parseGate, coverGate, winnableWithoutKind, hasSilentTrap, exitForbidsNothing,
+  parseGate, coverGate, winnableWithoutKind, hasSilentTrap, exitForbidsNothing, hasInertPiece,
 } from './metrics.mjs';
 import { actPacks, root } from './packs.mjs';
 import { watchAccounts } from '../src/audit.js';
@@ -137,7 +137,7 @@ for (const { levelPath, solPath } of PACKS) {
 
     const onDag = shortestDag(a);
     const inert = inertPieces(level, a, { onDag });
-    check('every piece is handled or binding', inert.length === 0,
+    check('every piece is handled or binding', !hasInertPiece(inert.length),
       inert.map(p => `${p.what} at (${p.cells.map(([x, y]) => `${x + 1},${y + 1}`).join(') (')})`).join(', '));
 
     const { lead, tail } = deadTravel(a, onDag);

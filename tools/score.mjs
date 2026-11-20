@@ -22,7 +22,7 @@
 import { readFileSync } from 'node:fs';
 import { toState } from '../src/format.js';
 import { analyze } from '../src/solver.js';
-import { pathBite, MAX_STATES } from './metrics.mjs';
+import { pathBite, hasTrap, MAX_STATES } from './metrics.mjs';
 import { clamp } from '../src/art/timing.js';
 
 /**
@@ -82,7 +82,7 @@ export const WEIGHTS = {
   density: 0.7,
 };
 
-export const REQUIRE = r => r.traps >= 1 && r.par >= 12;
+export const REQUIRE = r => hasTrap(r.traps) && r.par >= 12;
 
 export function score(room, weights = WEIGHTS) {
   let total = 0;

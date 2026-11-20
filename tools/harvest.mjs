@@ -26,7 +26,7 @@ import { staticallyDead } from './survey.mjs';
 import { bridgeSeats, bankOf, isBarrier, canals, FAMILIES, isBigOpenBlock } from './shapes.mjs';
 import {
   solveShape, largestOpenBlock, floorIsConnected, hasNiche, lineMeasure, postMortem, trapDepths,
-  inertPieces, shortestDag, packRefuses, MAX_STATES,
+  inertPieces, shortestDag, packRefuses, hasInertPiece, MAX_STATES,
 } from './metrics.mjs';
 import { parseLurd } from '../src/format.js';
 
@@ -234,7 +234,7 @@ async function harvestGroup(group, samples, seed, engine = null, plans = null) {
     if (shape) row.shape = shape;
     // A room with an inert piece is rejected here, not carried and filtered later, because
     // everything downstream would score it on a roster it does not really have.
-    if (row.inert) { stat.inert++; continue; }
+    if (hasInertPiece(row.inert)) { stat.inert++; continue; }
     stat.solvable++;
     keep.push(row);
   }
