@@ -57,7 +57,6 @@ const crowPanel = createCrowPanel({ pixel: PIXEL, clock: clockMs, since, present
 const now = crowPanel.now;
 let beat = false;      // this run set a new record for the room, and the win screen says so
 let blocked = null;   // { cells, reason, dir }
-
 let raf = 0;
 
 let wipeSet = WIPE;
@@ -84,7 +83,7 @@ function tick(){
   clips.prune();
   render();
   if(!animating()) rewind.still();
-  if(animating({ shimmer: true })) raf ||= requestAnimationFrame(tick);
+  if(animating({ shimmer: true })) kick();
 }
 /** Whether anything drawn is still changing. `shimmer` also counts the lit door, which never stops. */
 const animating = ({ shimmer = false } = {}) =>
@@ -99,9 +98,6 @@ function handOver(keep = false){
     render(); kick();
   }
 }
-// Cutting an action short still has to LAND it: the board was committed the moment the shove
-// was legal, so the stage has to be walked through whatever steps are left or it would keep
-// drawing pieces on cells they have already left.
 const cancelAnim = () => {
   if(raf) cancelAnimationFrame(raf); raf = 0;
   motion.cancel(); winWipe.cancel(); rewind.end();
@@ -222,7 +218,6 @@ function present(){
     wall: winWipe.live ? (c, w, h) => winWipe.drawWall(c, { w, h }) : null });
 }
 
-
 // ---- wire up ----
 const KEY={ArrowUp:'u',ArrowDown:'d',ArrowLeft:'l',ArrowRight:'r',
   w:'u',s:'d',a:'l',d:'r',W:'u',S:'d',A:'l',D:'r'};
@@ -315,7 +310,7 @@ if(dbg) window.__tt = createProbe({
   armed: () => play.armed,
   mute: v => sound.mute(v),
   hold: () => { heldMs = performance.now(); },
-  run: () => { heldMs = null; raf ||= requestAnimationFrame(tick); },
+  run: () => { heldMs = null; kick(); },
   step: (n = 1) => { heldMs += n * 1000 / FRAME_RATE; cancelAnimationFrame(raf); tick(); },
 });
 load(0);

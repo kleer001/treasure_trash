@@ -36,7 +36,7 @@ import { root, actPacks } from './packs.mjs';
 import { cases } from './matrix.mjs';
 
 const CROW = JSON.parse(readFileSync(resolve(root, 'dialogue/crow.json'), 'utf8'));
-export const WIN_MS = 1400;          // the win blast before the next room, as `src/main.js` plays it
+export const WIN_MS = 1400;          // the win before the next room; the game times its own in `src/winWipe.js`
 const TICK = 50;
 const ARM_MS = 150;           // the second tap that commits an aimed tear
 

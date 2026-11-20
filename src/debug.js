@@ -86,8 +86,8 @@ export function createDebugLog(el, cap = 240) {
  * the page, and is where a step that names nothing goes unnoticed and a step naming a piece that
  * was never built throws.
  *
- * `read` is how it reaches the game: main.js owns the state and hands over the questions rather
- * than the variables, so the probe cannot build a stage the game would not have built.
+ * `read` is how it reaches the game: the game hands over questions rather than its variables, so
+ * the probe cannot build a stage the game would not have built.
  */
 export function createProbe(read) {
   const errors = [];
