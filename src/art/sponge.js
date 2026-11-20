@@ -1,5 +1,6 @@
 // The sponge is drawn by hand, seen from the side.
 import { stretch } from './stretch.js';
+import { pixelsOf } from './pile.js';
 
 const PALETTE = { k: '#19152b', a: '#6f5a2e', b: '#b8913a', c: '#e3c35a', d: '#f1eccb' };
 const ROWS = [
@@ -32,6 +33,6 @@ export const spongeRows = ({ w, h }) => stretch(ROWS, h, 3, 2).map(r => stretch(
 export function spongeSprite(look) {
   const rows = spongeRows(look);
   return { w: look.w, h: look.h, dx: look.dx, dy: look.dy,
-    px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]]))) };
+    px: pixelsOf(rows, PALETTE) };
 }
 export const SPONGE = spongeSprite(SPONGE_LOOK);

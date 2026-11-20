@@ -2,7 +2,7 @@
 import { mulberry32 } from '../rng.js';
 import { SHADOW } from './pile.js';
 import { WATER } from './water.js';
-import { arc, evenEnd } from './timing.js';
+import { arc, evenEnd, radians } from './timing.js';
 
 /** Frames: `hit`, `calm`, `every` and `life`. Px: `rise`, `reach`, `firstRise`, `firstReach`, `size` and `ring`.
  *  `wide` is in degrees either side of the pour's way. `colour` is a key of `WATER`.
@@ -15,7 +15,7 @@ export const SPLASH = { hit: 0, calm: 0, every: 4, first: 5, firstRise: 5, first
  *  `end` is the frame with nothing left to draw, rounded up to an even frame. */
 export function pourSplash({ at: [ax, ay], dir: [ux, uy], pour, dry, k = SPLASH }) {
   const start = pour + k.hit, stop = Math.max(start, dry + k.calm);
-  const base = Math.atan2(uy, ux), half = k.wide * Math.PI / 180, drops = [];
+  const base = Math.atan2(uy, ux), half = radians(k.wide), drops = [];
   for (let b = start, i = 0; b <= stop; b += Math.max(1, k.every), i++) {
     const r = mulberry32((Math.imul(k.seed, 2654435761) ^ Math.imul(i + 1, 40503)) >>> 0);
     const [n, rise, reach] = i ? [k.drops, k.rise, k.reach] : [k.first, k.firstRise, k.firstReach];

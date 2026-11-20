@@ -3,6 +3,7 @@ import { mulberry32 } from '../rng.js';
 import { hash, noise, BAYER, N4 } from './spread.js';
 import { chooser } from './pile.js';
 import { slickShape, slickCell } from './slick.js';
+import { clamp } from './timing.js';
 
 const EDGE = '#2b2d55', DEEP = '#244287', MID = '#3169b0', LIGHT = '#7dafb3', SHINE = '#f1eccb';
 /** The water's colours: its rim, its shaded edge, its body, its ripples and its brightest glint. */
@@ -72,7 +73,7 @@ export function canal(T, N, C, kind, look) {
     }
   const width = look.inside + look.outside;
   /** How surely a pixel `d` px inside a crossing (outside it when negative) is packed. */
-  const reach = d => (width ? Math.max(0, Math.min(1, (d + look.outside) / width)) : d > 0 ? 1 : 0) ** (look.curve / 10);
+  const reach = d => (width ? clamp((d + look.outside) / width, 0, 1) : d > 0 ? 1 : 0) ** (look.curve / 10);
   const px = new Map();
   for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < N; cx++) {
     if (!wet(cx, cy)) continue;

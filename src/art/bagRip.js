@@ -9,13 +9,11 @@ import { stretch } from './stretch.js';
 import { INK } from './tip.js';
 import { createToPile } from './toPile.js';
 import { N4 } from './spread.js';
-import { arc, evenEnd, quadOut } from './timing.js';
+import { arc, clamp, evenEnd, quadOut } from './timing.js';
 
 /** The keys are frames, except `squash`, `bulge`, `scatter` and the arcs (px), `flat` and `spin` (%), `turns` (eighths of a turn), and `fewest`, `most` and `tumbles` (counts). */
 export const RIP = { push: 7, rip: 3, press: 5, first: 6, spread: 10, sfirst: 4, sspread: 8, squash: 0, bulge: 2,
   fewest: 4, most: 10, sarc: 11, tumbles: 2, flat: 65, scatter: 5, ink: true, arc: 9, spin: 50, turns: 4 };
-
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 /** Returns his push toward `dir` as drawing frames `{ f, t0, t1 }`, with `t0` and `t1` in 60 Hz frames from the start of the push. */
 export function tearPress(dir, push = RIP.push) {

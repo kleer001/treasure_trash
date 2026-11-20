@@ -8,6 +8,7 @@
 
 import { DIRS } from './rules.js';
 import { pileLook, PILE_SHAPES } from './stage.js';
+import { radians } from './art/timing.js';
 
 /** Every colour the alley is made of. Override any of it; the bench swaps for light/dark. */
 export const PALETTE = {
@@ -368,7 +369,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       // The bow is strands crossing at a few degrees, not an X. Its angle is taken in PIXELS and
       // converted back, so a long footprint does not shear it flat.
       const lean = (u, deg) => {
-        const s = Math.tan((deg * Math.PI) / 180) * ((BOT - TOP) * W) / L / 2;
+        const s = Math.tan(radians(deg)) * ((BOT - TOP) * W) / L / 2;
         line(u - s, TOP - 0.02, u + s, BOT + 0.02);
       };
       ctx.strokeStyle = P.rugTie; ctx.lineWidth = Math.max(1.5, W * 0.045);

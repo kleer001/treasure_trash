@@ -13,7 +13,7 @@ import { NONE, cell, cartCells, pieceCells, isCart, isMultiCell,
 import { handleAt, anchorOf, depthLane, laneDepth, laneOf,
          CART_LANE, BODY_LANE, RAC_LANE, isBodyLane } from './handles.js';
 import { mulberry32 } from './rng.js';
-import { FRAME_RATE } from './art/timing.js';
+import { FRAME_RATE, clamp } from './art/timing.js';
 
 export const CART = 'cart', COUCH = 'couch', RACCOON = 'raccoon', SPLASH = 'splash';
 
@@ -341,14 +341,14 @@ export function advance(stage, u, cells = 0) {
       sp.x = sp.ax + (sp.tx - sp.ax) * fly;
       sp.y = sp.ay + (sp.ty - sp.ay) * fly;
       sp.soak = fly;
-      sp.fill = Math.max(0, Math.min(1, (u - FILL_AT) / (1 - FILL_AT)));
+      sp.fill = clamp((u - FILL_AT) / (1 - FILL_AT), 0, 1);
     }
     // A falling sprite keeps its full size on the way, or it would read as vanishing.
     if (sp.falls) {
       const fly = Math.min(1, u / FALL_AT);
       sp.x = sp.ax + (sp.tx - sp.ax) * fly;
       sp.y = sp.ay + (sp.ty - sp.ay) * fly;
-      sp.deflate = Math.max(0, Math.min(1, (1 - u) / (1 - FALL_AT)));
+      sp.deflate = clamp((1 - u) / (1 - FALL_AT), 0, 1);
     }
   }
 }

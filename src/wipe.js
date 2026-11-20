@@ -4,6 +4,7 @@
 import { mulberry32 } from './rng.js';
 import { easeOut } from './stage.js';
 import { PALETTE } from './sprites.js';
+import { clamp } from './art/timing.js';
 
 export const P = 4;
 export const PATTERNS = ['right', 'left', 'down', 'up', 'downRight', 'downLeft', 'upRight', 'upLeft', 'spiralCw', 'spiralCcw'];
@@ -59,7 +60,7 @@ export function rankWall(wall, pattern) {
         const m = Math.min(top, right, bottom, left), across = x1 - x0, down = y1 - y0;
         const pos = m === top ? x - x0 : m === right ? across + (y - y0) : m === bottom ? across + down + (x1 - x)
           : 2 * across + down + (y1 - y);
-        const along = Math.max(0, Math.min(1, pos / (2 * (across + down))));
+        const along = clamp(pos / (2 * (across + down)), 0, 1);
         return k + (pattern === 'spiralCw' ? along : (1 - along) % 1);
       }
       default: throw new Error(`wipe: no pattern "${pattern}"`);
@@ -69,13 +70,11 @@ export function rankWall(wall, pattern) {
   return (wall.ranks[pattern] = raw.map(r => (r - lo) / (hi - lo)));
 }
 
-const clamp = v => Math.max(0, Math.min(1, v));
-
 /** How far down (`laid`) and how far gone (`gone`) a brick of rank `r` is, `f` frames into the cover. */
 export function brickPhase(r, f, t) {
-  const laid = clamp((f - r * (t.cover - t.lay)) / t.lay);
+  const laid = clamp((f - r * (t.cover - t.lay)) / t.lay, 0, 1);
   const out = t.order === 'same' ? r : 1 - r;
-  const gone = clamp((f - t.cover - t.hold - out * (t.reveal - t.lay)) / t.lay);
+  const gone = clamp((f - t.cover - t.hold - out * (t.reveal - t.lay)) / t.lay, 0, 1);
   return { laid, gone };
 }
 
@@ -87,9 +86,8 @@ export const wallFrom = t => t.exit + t.empty;
  * frames still to run.
  */
 export function roomBeats(left, t) {
-  const within = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  const hold = within(left - t.tail - t.reveal, t.roomHold, t.roomHoldMax);
-  return { hold, reveal: within(left - t.tail - hold, t.reveal, t.revealMax) };
+  const hold = clamp(left - t.tail - t.reveal, t.roomHold, t.roomHoldMax);
+  return { hold, reveal: clamp(left - t.tail - hold, t.reveal, t.revealMax) };
 }
 
 /** The wall `f` frames into the cover. */

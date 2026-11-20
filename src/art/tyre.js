@@ -1,6 +1,7 @@
 // The tyre stands on its tread and is drawn from a Blender model at camera tilt 0.
 //   k ink, a rubber shade, b rubber, c rubber lit, t tread block, T tread block lit,
 //   r rim shade, R rim, S rim shine, g hole
+import { drawingOf } from './pile.js';
 const PALETTE = { k: '#141218', a: '#25232b', b: '#36333d', c: '#4b4753', t: '#5d5966', T: '#77727f',
   r: '#6d727b', R: '#a2a7af', S: '#d6d9dd', g: '#0c0b10' };
 const ROWS = {
@@ -59,5 +60,4 @@ const ROWS = {
 };
 
 /** { H, V }: each { w, h, px: [x, y, colour] }. */
-export const TYRE = Object.fromEntries(Object.entries(ROWS).map(([k, rows]) => [k, { w: rows[0].length, h: rows.length,
-  px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]]))) }]));
+export const TYRE = Object.fromEntries(Object.entries(ROWS).map(([k, rows]) => [k, drawingOf(rows, PALETTE)]));

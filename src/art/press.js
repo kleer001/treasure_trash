@@ -3,6 +3,7 @@
 import { DIRS } from '../rules.js';
 import { ACTIONS, RECOVERIES, draw, mirror } from './cartoon.js';
 import { C } from './flight.js';
+import { clamp } from './timing.js';
 
 export const VIEW = { l: 'side', r: 'side', d: 'front', u: 'back' };
 
@@ -28,7 +29,7 @@ export const segAt = (segs, g) => segs.find(s => g < s.t1) ?? segs[segs.length -
 /** Returns how far through its cell the thing he pushes is, `g` frames into the press, from 0 to 1. */
 export const travelAt = (segs, g) => {
   const f = segAt(segs, g).f;
-  return Math.min(1, Math.max(0, (f.thing ?? f.dx) / C));
+  return clamp((f.thing ?? f.dx) / C, 0, 1);
 };
 
 /** Returns the press on cell (cx, cy) as `{ px, over, x, y, w, h }`: `over` is the parts that go in front of the thing he pushes, and `x, y` is the top-left. */

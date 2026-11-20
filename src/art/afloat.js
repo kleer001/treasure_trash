@@ -1,7 +1,7 @@
 // `afloat.js` draws things afloat in the water. Positions are px on the room.
-import { BAYER } from './spread.js';
+import { BAYER, mixHex } from './spread.js';
 import { soaked, waterColour } from './water.js';
-import { mix } from './soaked.js';
+import { clamp } from './timing.js';
 
 /**
  * How a thing at rest in the water looks. Lengths are px. `murk`, `murkMix`, `reflect` and
@@ -26,8 +26,8 @@ const dithered = (pct, x, y) => pct / 100 * 16 > BAYER[(y & 3) * 4 + (x & 3)] + 
  */
 export function afloat(s, x0, y0, met, { wet, open }, k = REST) {
   const murk = k.murk / 100 * 16, out = [];
-  const tint = k.murkColour === 'soak' ? col => mix(col, soaked(col), k.murkMix / 100)
-    : col => mix(col, waterColour(k.murkColour), k.murkMix / 100);
+  const tint = k.murkColour === 'soak' ? col => mixHex(col, soaked(col), k.murkMix / 100)
+    : col => mixHex(col, waterColour(k.murkColour), k.murkMix / 100);
   s.px.forEach(([px, py, col], i) => {
     const x = x0 + px, y = y0 + py, w = met.line.get(px);
     if (!met.under[i] || w === undefined || !wet(x, y0 + w)) out.push([x, y, col]);
@@ -37,12 +37,12 @@ export function afloat(s, x0, y0, met, { wet, open }, k = REST) {
   if (!xs.length) return out;
   const a = Math.min(...xs), b = Math.max(...xs), under = [];
   // The first row under water at column `x` of the sprite, in px on the room.
-  const at = x => { const w = met.line.get(Math.min(b, Math.max(a, x))); return w === undefined ? null : y0 + w; };
+  const at = x => { const w = met.line.get(clamp(x, a, b)); return w === undefined ? null : y0 + w; };
   if (k.reflect > 0) {
     const toward = waterColour(k.reflectColour);
     for (const [px, py, col] of met.mirror) {
       const x = x0 + px, y = y0 + py + k.reflectGap;
-      if (open(x, y) && dithered(k.reflect, x, y)) under.push([x, y, mix(col, toward, k.reflectMix / 100)]);
+      if (open(x, y) && dithered(k.reflect, x, y)) under.push([x, y, mixHex(col, toward, k.reflectMix / 100)]);
     }
   }
   if (k.contact > 0) {

@@ -3,7 +3,7 @@ import { C } from './flight.js';
 import { frame, restAt } from './pane.js';
 import { glassShards } from './glass.js';
 import { moved } from './stills.js';
-import { arc, onTwos, quadOut } from './timing.js';
+import { arc, degAt, onTwos, quadOut } from './timing.js';
 
 /** The keys are frames, except `burst`, a fraction from 0 to 1, and `hop`, which is px. */
 export const SHATTER = { tip: 8, flash: 2, scatter: 16, burst: 0.3, hop: 5 };
@@ -28,7 +28,7 @@ export function paneShatter({ dir, from, to, has, look, k = SHATTER }) {
 
   function layers(f) {
     if (f < down) {
-      const fr = frame(dir, Math.min(90, Math.round(90 * (onTwos(f) / k.tip) ** 2))), gx = O[0] + fr.ox, gy = O[1] + fr.oy;
+      const fr = frame(dir, degAt({ tip: 0, flat: k.tip }, onTwos(f))), gx = O[0] + fr.ox, gy = O[1] + fr.oy;
       const px = moved(fr.s.px, gx, gy);
       return [{ kind: 'pane', foot: gy + fr.s.h, px: f >= k.tip ? px.map(([x, y]) => [x, y, look.glare]) : px }];
     }

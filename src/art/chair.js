@@ -1,5 +1,6 @@
 // The office chair is drawn in side view with its back to the left.
 //   Palette: k ink, a base, m metal, M metal lit, b back, c seat, d seat lit, e shine.
+import { drawingOf } from './pile.js';
 const PALETTE = { k: '#19152b', a: '#262440', m: '#67819e', M: '#9aa2a9', b: '#244287', c: '#3169b0', d: '#7dafb3', e: '#f1eccb' };
 const TOP = [
   '..kkkk................',
@@ -37,7 +38,6 @@ export const STEM_ROWS = 3;
 /** Returns the chair with its stem `stem` rows long, as `{ w, h, px: [x, y, colour] }`. */
 export function chair(stem = STEM_ROWS) {
   const rows = [...TOP, ...Array(stem).fill(STEM), ...BASE];
-  return { w: rows[0].length, h: rows.length,
-    px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]]))) };
+  return drawingOf(rows, PALETTE);
 }
 export const CHAIR = chair();

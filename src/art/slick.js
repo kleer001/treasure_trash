@@ -2,6 +2,7 @@
 // Each cell draws only its own pixels. The field is in floor pixels, so the pieces meet without a seam.
 import { mulberry32 } from '../rng.js';
 import { C } from './flight.js';
+import { hash3 } from './spread.js';
 
 export const LOOKS = {
   grease: { seed: 94902, lobes: 5, size: 5.5, lump: 0.6, fill: 1.6, shine: 0.55, sheen: 0.32, band: 4.5,
@@ -10,22 +11,17 @@ export const LOOKS = {
     body: '#1d1a22', edge: '#0d0b10', glint: '#b9c6d6', hues: ['#2f2638', '#22302c', '#232b3c'] },
 };
 
-const hash = (a, b, c) => {
-  let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b ^ 0xc2b2ae35, 0x27d4eb2f) ^ Math.imul(c, 0x165667b1);
-  h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12;
-  return (h >>> 0) / 4294967296;
-};
 // The noise is value noise, so the outline wobbles in lumps rather than in single pixels.
 const noise = (x, y, seed) => {
   const ix = Math.floor(x / 4), iy = Math.floor(y / 4), fx = x / 4 - ix, fy = y / 4 - iy;
-  const n = (a, b) => hash(ix + a, iy + b, seed);
+  const n = (a, b) => hash3(ix + a, iy + b, seed) / 4294967296;
   const top = n(0, 0) + (n(1, 0) - n(0, 0)) * fx, bot = n(0, 1) + (n(1, 1) - n(0, 1)) * fx;
   return top + (bot - top) * fy;
 };
 
 /** The lobes of cell (cx, cy): [x, y, r] in floor pixels. */
 function lobes(cx, cy, has, look) {
-  const rnd = mulberry32(hash(cx, cy, look.seed) * 4294967296);
+  const rnd = mulberry32(hash3(cx, cy, look.seed));
   const out = [], m = Math.min(look.size, C / 2 - 1);
   for (let k = 0; k < look.lobes; k++)
     out.push([cx * C + m + rnd() * (C - 2 * m), cy * C + m + rnd() * (C - 2 * m), look.size * (0.6 + rnd() * 0.6)]);

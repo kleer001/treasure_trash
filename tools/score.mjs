@@ -23,6 +23,7 @@ import { readFileSync } from 'node:fs';
 import { toState } from '../src/format.js';
 import { analyze } from '../src/solver.js';
 import { pathBite, MAX_STATES } from './metrics.mjs';
+import { clamp } from '../src/art/timing.js';
 
 /**
  * Re-solve one room to measure what the harvest could not store cheaply: the share of the solve
@@ -38,7 +39,7 @@ export function refine(room) {
 // ---------------------------------------------------------------- the terms
 // Each returns 0..1. Kept separate from the weights so a reading can be argued with without
 // touching the arithmetic.
-const clamp01 = v => Math.max(0, Math.min(1, v));
+const clamp01 = v => clamp(v, 0, 1);
 
 export const TERMS = {
   // `lines` is Sokoban's best-attested difficulty signal.

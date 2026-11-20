@@ -1,7 +1,8 @@
 // The couch is drawn from a 3D model.
 //   k ink, and the leather from deepest to highlight: d e f g h i
 import { mulberry32 } from '../rng.js';
-import { N4 } from './spread.js';
+import { mixHex, N4 } from './spread.js';
+import { clamp } from './timing.js';
 
 const RAMP = 'defghi';
 export const COUCH_LOOK = {
@@ -180,7 +181,7 @@ const ROWS = {
   ],
 };
 const hex = (h, sat, l) => {
-  const S = sat / 100, L = Math.min(100, Math.max(0, l)) / 100, a = S * Math.min(L, 1 - L);
+  const S = sat / 100, L = clamp(l, 0, 100) / 100, a = S * Math.min(L, 1 - L);
   const f = n => { const k = (n + h / 30) % 12, c = L - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return Math.round(255 * c).toString(16).padStart(2, '0'); };
   return `#${f(0)}${f(8)}${f(4)}`;
 };
@@ -279,15 +280,13 @@ function wear(rows, L, salt) {
   return { rows: g.map(r => r.join('')), stain, mould };
 }
 
-const mix = (a, b, t) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t)
-  .toString(16).padStart(2, '0')).join('');
 const sprite = ({ rows, stain, mould }, pal, L) => ({ w: rows[0].length, h: rows.length,
   px: rows.flatMap((r, y) => [...r].flatMap((c, x) => {
     if (c === '.') return [];
     let col = pal[c];
     if (RAMP.includes(c)) {
-      if (stain[y][x]) col = mix(col, pal[stain[y][x]], L.stainOpacity);
-      if (mould[y][x]) col = mix(col, pal[mould[y][x]], L.mouldOpacity);
+      if (stain[y][x]) col = mixHex(col, pal[stain[y][x]], L.stainOpacity);
+      if (mould[y][x]) col = mixHex(col, pal[mould[y][x]], L.mouldOpacity);
     }
     return [[x, y, col]];
   })) });

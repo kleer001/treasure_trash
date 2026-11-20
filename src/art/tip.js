@@ -1,5 +1,5 @@
 // `tip.js` draws things that stand on a cell and fall over. Upright, each is seen straight from the side.
-import { DIRS } from '../rules.js';
+import { cosSin } from './timing.js';
 export const INK = '#19152b';
 
 /** Returns a w×h drawing of the pixels `inMask` holds. */
@@ -12,7 +12,6 @@ export function paint(w, h, inMask, colour) {
   return { w, h, px };
 }
 
-const trig = deg => deg === 0 ? DIRS.r : deg === 90 ? DIRS.d : [Math.cos(deg * Math.PI / 180), Math.sin(deg * Math.PI / 180)];
 const at = spr => { const m = new Map(spr.px.map(([x, y, col]) => [`${x},${y}`, col])); return (x, y) => m.get(`${x},${y}`); };
 
 /** A drawing from `px` in px from the upright thing's top-left: `s`, and `ox, oy`, where it goes. */
@@ -44,7 +43,7 @@ export function tipper(front, toward, away, fold, fall = null, opens = () => fal
   }
 
   function turned(dir, deg) {
-    const [cos, sin] = trig(deg), sg = dir === 'r' ? 1 : -1, pv = [dir === 'r' ? W : 0, H];
+    const [cos, sin] = cosSin(deg), sg = dir === 'r' ? 1 : -1, pv = [dir === 'r' ? W : 0, H];
     const fwd = (u, v) => [u * cos - sg * v * sin, sg * u * sin + v * cos];
     const back = (u, v) => [u * cos + sg * v * sin, -sg * u * sin + v * cos];
     const upright = (x, y) => { const [u, v] = back(x + 0.5 - pv[0], y + 0.5 - pv[1]); return [u + pv[0], v + pv[1]]; };
@@ -63,7 +62,7 @@ export function tipper(front, toward, away, fold, fall = null, opens = () => fal
 
   /** Returns a fall toward the viewer ('d') or away ('u'), `deg` degrees over. */
   function folded(dir, deg) {
-    const [cos, sin] = trig(deg), towardViewer = dir === 'd';
+    const [cos, sin] = cosSin(deg), towardViewer = dir === 'd';
     const bottom = H + Math.round((towardViewer ? 1 : -1) * fold * (1 - cos));
     const faces = towardViewer ? [[FRONT, H, H * cos], [TOWARD, D, D * sin]] : [[AWAY, D, D * sin], [FRONT, H, H * cos]];
     const rim = faces[0][2] + (towardViewer ? 0 : faces[1][2]);

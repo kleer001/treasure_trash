@@ -1,3 +1,4 @@
+import { radians } from './timing.js';
 // `solid.js` makes a solid from a drawing and says how it meets the water. A solid is 1 px voxels
 // [x, h, z]: px right, px up from its lowest point, and px toward the viewer. The eye looks down at it
 // `EYE.eye` degrees with heights kept 1:1.
@@ -161,7 +162,7 @@ export function meets(s, parts, { deep, rows }) {
     hash(s.px), EYE.eye, deep, rows]);
   if (!MET.has(id)) {
     if (MET.size > 400) MET.clear();
-    const k = Math.tan(EYE.eye * Math.PI / 180), under = s.px.map(() => false), line = new Map(), mirror = new Map();
+    const k = Math.tan(radians(EYE.eye)), under = s.px.map(() => false), line = new Map(), mirror = new Map();
     for (const p of parts.map(q => part(s, q, k, deep, rows))) {
       p.idx.forEach((i, j) => { under[i] = p.under[j]; });
       for (const [x, y] of p.line) line.set(x, Math.min(y, line.get(x) ?? Infinity));

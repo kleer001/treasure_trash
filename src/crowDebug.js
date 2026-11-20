@@ -1,6 +1,7 @@
 // The crow's inner workings, in a panel under his own, on `?debug`. It hears the director's log
 // and reads the director and the watcher through their `peek`s; it decides nothing.
 import { TALK } from './crow.js';
+import { clamp } from './art/timing.js';
 
 /**
  * `el` is the empty panel. `events` is `dialogue/crow.json`; `tuning` is the crow's `TUNING`.
@@ -69,7 +70,7 @@ export function createCrowDebug(el, { events, tuning, snap, send }) {
 
   const sec = ms => (ms / 1000).toFixed(1);
   const esc = s => String(s).replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[ch]);
-  const bar = (frac, w, ticks = []) => `<span class="bar" style="width:${w}px"><span style="width:${Math.max(0, Math.min(1, frac)) * 100}%"></span>${ticks.map(x => `<i style="left:${x * 100}%"></i>`).join('')}</span>`;
+  const bar = (frac, w, ticks = []) => `<span class="bar" style="width:${w}px"><span style="width:${clamp(frac, 0, 1) * 100}%"></span>${ticks.map(x => `<i style="left:${x * 100}%"></i>`).join('')}</span>`;
 
   /** Returns the detail text of log row `r`, worked out the first frame the row is drawn. */
   function detail(r, c) {

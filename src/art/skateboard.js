@@ -1,6 +1,7 @@
 // The skateboard is drawn by hand over a 3D render of the board.
 //   T teal, G grain, L light grain, r red, R the dot's rim, y yellow, Y its lit top, k extrude,
 //   b bolt, 1 2 the edge's upper and lower lines, W V U the wheels, lit to dark
+import { drawingOf } from './pile.js';
 const PALETTE = { T: '#2e8c99', G: '#236f7b', L: '#4aa6b0', r: '#ff4b3e', R: '#c7302a', y: '#ffcf00', Y: '#fff27a', k: '#1a1a1a', b: '#333a44', '1': '#241f31', '2': '#5e4a33', W: '#e9e3d3', V: '#a9a498', U: '#8d8578' };
 const ACROSS = [
   '.....GGGGYYYTTYYYRRRrYYrrrRYYYTTYTTYLLLLT.....',
@@ -68,7 +69,6 @@ const UP = [
   '....GTTTTTTTTGTT....',
   '......TTTTTTTT......',
 ];
-const sprite = rows => ({ w: rows[0].length, h: rows.length,
-  px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]]))) });
+const sprite = rows => drawingOf(rows, PALETTE);
 /** `SKATEBOARD.x` and `SKATEBOARD.y` are `{ w, h, px: [x, y, colour] }` for the board lying across the screen and up it. */
 export const SKATEBOARD = { x: sprite(ACROSS), y: sprite(UP) };

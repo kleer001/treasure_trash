@@ -25,7 +25,7 @@ import { createPixelSprites, loadPixelArt, PIXEL_CELL } from './pixel.js';
 import { createScreen, loadScreenArt, SCREEN } from './screen.js';
 import { createClips } from './clips.js';
 import { press, moveStart, moveStop, segAt, travelAt } from './art/press.js';
-import { FRAME_MS, FRAME_RATE } from './art/timing.js';
+import { FRAME_MS, FRAME_RATE, radians } from './art/timing.js';
 import { RECOVERIES } from './art/cartoon.js';
 import { tracings } from './art/canTip.js';
 import { tearPress } from './art/bagRip.js';
@@ -611,7 +611,7 @@ function paintSprite(sp, f){
     const [pvx, pvy] = sp.pivot ?? [sp.x + 0.5, sp.y + 1];
     const px = pvx * CS, py = pvy * CS;
     ctx.save();
-    ctx.translate(px, py); ctx.rotate((sp.tilt * Math.PI) / 180); ctx.translate(-px, -py);
+    ctx.translate(px, py); ctx.rotate(radians(sp.tilt)); ctx.translate(-px, -py);
     const t = sp.tilt; sp.tilt = 0;
     paintSprite(sp, f);
     sp.tilt = t;

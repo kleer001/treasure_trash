@@ -3,7 +3,7 @@
 import { mulberry32 } from '../rng.js';
 import { CARDBOARD_ROWS, CARDBOARD_PALETTE } from './cardboard.js';
 import { SPONGE_LOOK, SPONGE_PALETTE, spongeRows } from './sponge.js';
-import { N4 } from './spread.js';
+import { cellKey, mixHex, soakMarks } from './spread.js';
 
 const MARKS = { soak: 1, edge: '#000000', edgeAmt: 0, count: 0, rmin: 1, rmax: 2, blot: '#000000', blotAmt: 0, ring: 0, specks: 0, speck: '#ffffff' };
 export const SOAKED_LOOK = {
@@ -25,49 +25,34 @@ export const SOAKED_LOOK = {
   },
 };
 
-export const mix = (a, b, t) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t)
-  .toString(16).padStart(2, '0')).join('');
-
 /** Returns `rows` marked to look `L`, as { w, h, px: [x, y, colour] }. `ooze` and `coat` say which of the
  *  outside marks this thing takes. */
 function marked(rows, palette, L, { ooze = false, coat = false }) {
   const h = rows.length, w = rows[0].length, rand = mulberry32(L.seed);
   const body = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !'.k'.includes(rows[y][x]);
-  const cells = [];
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (body(x, y)) cells.push([x, y]);
-  const pick = () => cells[Math.floor(rand() * cells.length)];
-  const depth = new Map(), key = (x, y) => x * 1000 + y;
-  let ring = cells.filter(([x, y]) => N4.some(([dx, dy]) => !body(x + dx, y + dy)));
-  for (let d = 1; d <= L.soak && ring.length; d++) {
-    ring.forEach(([x, y]) => depth.set(key(x, y), d));
-    ring = cells.filter(([x, y]) => !depth.has(key(x, y)) && N4.some(([dx, dy]) => depth.get(key(x + dx, y + dy)) === d));
-  }
-  const blots = Array.from({ length: Math.round(L.count) }, () => {
-    const [cx, cy] = pick();
-    return [cx + 0.5, cy + 0.5, L.rmin + rand() * Math.max(0, L.rmax - L.rmin)];
-  });
-  const specks = new Set(Array.from({ length: Math.round(L.specks) }, () => key(...pick())));
+  const { pick, dots: blots, nearEdge } = soakMarks(rand, w, h, body, L);
+  const specks = new Set(Array.from({ length: Math.round(L.specks) }, () => cellKey(...pick())));
   const rise = (n, jag) => Array.from({ length: w }, () => (n > 0 ? n + Math.round((rand() - 0.5) * 2 * jag) : 0));
   const low = coat ? rise(L.lowH, L.lowJag) : [], tar = coat ? rise(L.coat, L.coatJag) : [];
   const out = new Map();
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const ch = rows[y][x];
     if (ch === '.') continue;
-    if (ch === 'k') { out.set(key(x, y), [x, y, palette.k]); continue; }
-    let c = mix(palette[ch], L.tint, L.tintAmt);
-    if (depth.has(key(x, y))) c = mix(c, L.edge, L.edgeAmt);
+    if (ch === 'k') { out.set(cellKey(x, y), [x, y, palette.k]); continue; }
+    let c = mixHex(palette[ch], L.tint, L.tintAmt);
+    if (nearEdge(x, y)) c = mixHex(c, L.edge, L.edgeAmt);
     const up = h - 1 - y;
-    if (coat && up < low[x]) c = mix(c, L.low, L.lowAmt);
+    if (coat && up < low[x]) c = mixHex(c, L.low, L.lowAmt);
     for (const [bx, by, r] of blots) {
       const d = Math.hypot(x + 0.5 - bx, y + 0.5 - by);
-      if (d <= r) c = mix(c, L.blot, Math.min(1, L.blotAmt + (d > r - 1 ? L.ring : 0)));
+      if (d <= r) c = mixHex(c, L.blot, Math.min(1, L.blotAmt + (d > r - 1 ? L.ring : 0)));
     }
-    if (specks.has(key(x, y))) c = L.speck;
-    out.set(key(x, y), [x, y, c]);
+    if (specks.has(cellKey(x, y))) c = L.speck;
+    out.set(cellKey(x, y), [x, y, c]);
   }
   if (coat) for (let x = 0; x < w; x++) for (let up = 0; up < tar[x]; up++) {
     const y = h - 1 - up;
-    if (out.has(key(x, y))) out.set(key(x, y), [x, y, up === tar[x] - 1 ? L.coatLit : L.coatColour]);
+    if (out.has(cellKey(x, y))) out.set(cellKey(x, y), [x, y, up === tar[x] - 1 ? L.coatLit : L.coatColour]);
   }
   if (ooze) for (let k = 0; k < Math.round(L.ooze); k++) {
     const edge = [...out.values()].filter(([x, y]) => rows[y][x] === 'k');
@@ -75,8 +60,8 @@ function marked(rows, palette, L, { ooze = false, coat = false }) {
     const blob = [];
     for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++)
       if (x >= 0 && y >= 0 && x < w && y < h && Math.hypot(x - cx, y - cy) <= r) blob.push([x, y]);
-    const inBlob = new Set(blob.map(([x, y]) => key(x, y)));
-    for (const [x, y] of blob) out.set(key(x, y), [x, y, inBlob.has(key(x, y - 1)) ? L.oozeColour : L.oozeLit]);
+    const inBlob = new Set(blob.map(([x, y]) => cellKey(x, y)));
+    for (const [x, y] of blob) out.set(cellKey(x, y), [x, y, inBlob.has(cellKey(x, y - 1)) ? L.oozeColour : L.oozeLit]);
   }
   return { w, h, px: [...out.values()] };
 }

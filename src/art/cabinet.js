@@ -1,6 +1,7 @@
 // The filing cabinet is cleaned by hand from the Blender model's views.
 //   k ink, B top, b top's near edge, S carcase, F drawer front, f its lit top, g gap,
 //   i inside of the drawer, E drawer rim, Q rail lit, q rail, P pull lit, p pull
+import { drawingOf } from './pile.js';
 const PALETTE = { k: '#19152b', B: '#473f53', b: '#5a5068', S: '#352e3e', F: '#50657c', f: '#6984a1', g: '#262440', i: '#211d33', E: '#80b3b7', Q: '#9da6ad', q: '#797f85', P: '#dbd8b4', p: '#a9a78b' };
 // `front` and `side` are the body's width in px facing down/up and facing left/right; `outD` is how far in px the top
 // drawer comes out toward you, and `depthD` how long its box looks from the rim to the front;
@@ -206,8 +207,7 @@ export function cabinetViews(look) {
 }
 
 // `ax` is the column of the body's centre.
-const sprite = ({ mid, foot, rows }) => ({ ax: Math.ceil(mid), foot, w: rows[0].length, h: rows.length,
-  px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]]))) });
+const sprite = ({ mid, foot, rows }) => ({ ax: Math.ceil(mid), foot, ...drawingOf(rows, PALETTE) });
 /** The indices of the px of open sprite `o` that closed sprite `c` does not cover when their feet and centres meet. */
 const outside = (o, c) => {
   const body = new Set(c.px.map(([x, y]) => `${x - c.ax},${y - c.foot}`));

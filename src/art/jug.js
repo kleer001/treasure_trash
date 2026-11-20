@@ -1,6 +1,7 @@
 // The water jug is drawn straight from the side.
 import { paint, tipper, INK } from './tip.js';
 import { N4 } from './spread.js';
+import { clamp, cosSin } from './timing.js';
 
 export const JUG = { W: 16, H: 22, D: 16 };   // px: width, height, diameter seen end on
 const LEVELS = 8;                             // water levels drawn between full and empty
@@ -48,8 +49,8 @@ const between = (a, b, lo, hi) => Math.abs(a) < 1e-9 ? (b >= lo && b <= hi ? [-I
 
 /** Returns the jug `deg` degrees into a fall toward the viewer ('d') or away ('u'), holding water up to `level`. */
 function rolled(dir, deg, level) {
-  const s = dir === 'u' ? 1 : -1, pv = s * R, t = deg * Math.PI / 180;
-  const cos = deg === 90 ? 0 : Math.cos(t), sin = deg === 90 ? 1 : Math.sin(t);
+  const s = dir === 'u' ? 1 : -1, pv = s * R;
+  const [cos, sin] = cosSin(deg);
   const k = sin, scale = 1 / Math.hypot(1, k), lift = k * (pv + R);
   // A point `v` px behind the axis and `h` px up it, as px up the picture from the foot.
   const seen = (v, h) => scale * (-s * (v - pv) * sin + h * cos + k * ((v - pv) * cos + s * h * sin) + lift);
@@ -87,7 +88,7 @@ const JUGS = Array.from({ length: LEVELS + 1 }, (_, i) => {
   const level = i / LEVELS;
   return tipper(front(level), end(level, true), end(level, false), null, (dir, deg) => rolled(dir, deg, level));
 });
-const at = level => JUGS[Math.round(Math.max(0, Math.min(1, level)) * LEVELS)];
+const at = level => JUGS[Math.round(clamp(level, 0, 1) * LEVELS)];
 
 export const rest = dir => JUGS[0].rest(dir);
 /** Returns the top-left of the jug in cell (cx, cy). */

@@ -1,10 +1,11 @@
 // The methods lay trash over a board's TRASH cells: `mound`, `flat`, `edges` and `field`. `mound` is pileLayout, one mound per cell.
 // Each method returns a Map 'x,y' -> pile { cx, cy, pieces } with cell-local pieces, as pileLayout does, so settle() and drawPile() take them unchanged.
-// The pixel helpers the art shares, `hash`, `noise`, `BAYER` and `N4`, are defined in this file.
+// The pixel helpers the art shares, `hash`, `hash3`, `noise`, `BAYER`, `N4`, `cellKey`, `soakMarks` and `mixHex`, are defined in this file.
 import { DIRS } from '../rules.js';
 import { mulberry32 } from '../rng.js';
 import { cellSeed } from '../stage.js';
 import { ORDER, sizes, pileLayout, chooser } from './pile.js';
+import { clamp } from './timing.js';
 
 /** The piles `method` ('mound' | 'flat' | 'edges' | 'field') lays over a board's TRASH `cells`,
  *  from `o` as the Trash Spread page saves it. With `hues` 'cell', each cell draws one set of
@@ -64,7 +65,41 @@ export function noise(seed, x, y, scale = 6) {
   return a + (b - a) * fy;
 }
 
-const fringe = (d, reach, gamma) => d <= 0 ? 1 : d >= reach ? 0 : (1 - d / reach) ** gamma;
+/** The seed mix of the slick and glass looks. It does not reproduce `hash`. */
+export function hash3(a, b, c) {
+  let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b ^ 0xc2b2ae35, 0x27d4eb2f) ^ Math.imul(c, 0x165667b1);
+  h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12;
+  return h >>> 0;
+}
+
+/** The key of cell (x, y) in a Map. Unique for every cell of a board under 1000 rows. */
+export const cellKey = (x, y) => x * 1000 + y;
+
+/** `t` of the way from hex colour `a` to hex colour `b`, as `#rrggbb`. */
+export const mixHex = (a, b, t) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t)
+  .toString(16).padStart(2, '0')).join('');
+
+/** The marks a soaked drawing of `w`×`h` takes, drawn from `rand`. `body(x, y)` says which cells it covers.
+ *  `count` dots, of radius `rmin` to `rmax`, sit on random cells, as `[x, y, r]`. `nearEdge(x, y)` says whether
+ *  a cell lies within `soak` steps of the drawing's edge. `pick()` is a random cell. */
+export function soakMarks(rand, w, h, body, { count, rmin, rmax, soak }) {
+  const cells = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (body(x, y)) cells.push([x, y]);
+  const pick = () => cells[Math.floor(rand() * cells.length)];
+  const depth = new Map();
+  let ring = cells.filter(([x, y]) => N4.some(([dx, dy]) => !body(x + dx, y + dy)));
+  for (let d = 1; d <= soak && ring.length; d++) {
+    ring.forEach(([x, y]) => depth.set(cellKey(x, y), d));
+    ring = cells.filter(([x, y]) => !depth.has(cellKey(x, y)) && N4.some(([dx, dy]) => depth.get(cellKey(x + dx, y + dy)) === d));
+  }
+  const dots = Array.from({ length: Math.round(count) }, () => {
+    const [cx, cy] = pick();
+    return [cx + 0.5, cy + 0.5, rmin + rand() * Math.max(0, rmax - rmin)];
+  });
+  return { pick, dots, nearEdge: (x, y) => depth.has(cellKey(x, y)) };
+}
+
+const fringe =(d, reach, gamma) => d <= 0 ? 1 : d >= reach ? 0 : (1 - d / reach) ** gamma;
 
 const byLayer = pieces => pieces.sort((a, b) => ORDER[a.layer] - ORDER[b.layer]);
 
@@ -87,7 +122,7 @@ export function flatLayout(T, cells, chooseOf, rndOf, { C, min, max, spill, jitt
       const px = -over + (slots[i] % k + 0.5 + jitter * (rnd() - 0.5)) * step;
       const py = -over + (Math.floor(slots[i] / k) + 0.5 + jitter * (rnd() - 0.5)) * step;
       const c = centred(T, p, px, py);
-      return { ...c, x: Math.max(-over, Math.min(C + over - s.w, c.x)), y: Math.max(-over, Math.min(C + over - s.h, c.y)) };
+      return { ...c, x: clamp(c.x, -over, C + over - s.w), y: clamp(c.y, -over, C + over - s.h) };
     });
     out.set(`${x},${y}`, { cx: C / 2, cy: C / 2, pieces: byLayer(pieces) });
   }
@@ -99,7 +134,7 @@ function edgeTest(T, x, y, isTrash, { C, spill, knit, falloff, rough, seed }) {
   const over = spill * C;
   const toTrash = [isTrash(x - 1, y), isTrash(x + 1, y), isTrash(x, y - 1), isTrash(x, y + 1)];
   const side = (k, centre, pixel, bite) => toTrash[k]
-    ? (knit ? Math.max(0, Math.min(1, 0.5 - centre / (2 * knit))) : centre < 0 ? 1 : 0)
+    ? (knit ? clamp(0.5 - centre / (2 * knit), 0, 1) : centre < 0 ? 1 : 0)
     : fringe(pixel + bite, over, falloff);
   function weigh(piece, px, py) {
     const s = T.sprite(piece.name, piece.alt, piece.turn);

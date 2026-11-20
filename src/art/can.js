@@ -1,7 +1,8 @@
 // The galvanized can is drawn as seen from the side and a little above.
-import { DIRS } from '../rules.js';
 import { tipper } from './tip.js';
 import { N4 } from './spread.js';
+import { drawingOf } from './pile.js';
+import { clamp, cosSin, radians } from './timing.js';
 
 export const CAN = { W: 22, H: 26, R: 10 };   // Units are px. W is the width with the handles, H the height, R the rim's radius.
 
@@ -63,8 +64,7 @@ const ROWS = [
 const LETTERS = { k: ZINC.ink, D: ZINC.deep, d: ZINC.dark, m: ZINC.mid, l: ZINC.light, s: ZINC.shine };
 const INSIDE = x => Math.max(2, ...ROWS.slice(0, 8).flatMap((r, y) => ('dD'.includes(r[x]) ? [y] : [])));
 const OPEN = new Set(ROWS[0].split('').flatMap((_, x) => Array.from({ length: INSIDE(x) + 1 }, (_, y) => `${x},${y}`)));
-const drawn = rows => ({ w: rows[0].length, h: rows.length,
-  px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, LETTERS[c]]]))) });
+const drawn = rows => drawingOf(rows, LETTERS);
 const mouth = drawn([
   "........kkkkkk........",
   "......kklDDDDmkk......",
@@ -155,9 +155,9 @@ const FOOT = SLICES[PH - 1].hw, FX = (CAN.W) / 2;
 export const PROFILE = { w: PAINTED[0].length, h: PH,
   px: SLICES.flatMap(({ a, b }, y) => Array.from({ length: b - a + 1 }, (_, i) => [a + i, y, ZINC.ink])) };
 // BASE_Y is the distance in px, down the upright drawing, to the foot's centre.
-const BASE_Y = CAN.H + FOOT * Math.sin(VIEW * Math.PI / 180);
+const BASE_Y = CAN.H + FOOT * Math.sin(radians(VIEW));
 /** `h` is up the can and `z` toward the viewer. */
-const turnX = (h, z, deg) => { const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a); return [h * c - z * s, h * s + z * c]; };
+const turnX = (h, z, deg) => { const a = radians(deg), c = Math.cos(a), s = Math.sin(a); return [h * c - z * s, h * s + z * c]; };
 
 /** Returns the can `deg` degrees into a fall toward the viewer ('d') or away ('u'). In px from the upright drawing's top-left. */
 function fall(dir, deg) {
@@ -165,7 +165,7 @@ function fall(dir, deg) {
   // Where a point of the can, `x` across, `h` up and `z` toward the viewer, shows: px from the top-left.
   const seen = (x, h, z) => { const [u, w] = turnX(h, z - zp, sg * deg), [up] = turnX(u, w + zp, VIEW); return [x + FX, BASE_Y - up]; };
   const place = (bx, by, d) => {
-    const z = CAN.R - d, h = (BASE_Y - by + z * Math.sin(VIEW * Math.PI / 180)) / Math.cos(VIEW * Math.PI / 180);
+    const z = CAN.R - d, h = (BASE_Y - by + z * Math.sin(radians(VIEW))) / Math.cos(radians(VIEW));
     return seen(bx - FX, h, z);
   };
   if (deg === 0) return { px: front.px, place, shows: (x, y) => OPEN.has(`${x},${y}`) || y < 0 && x >= 1 && x < CAN.W - 1 };
@@ -211,7 +211,7 @@ function traced(seen, sg, zp, deg) {
             const [, , dz] = back(x + 0.5, y + 0.5, depth - 1), dx = 0;
             const inward = (px_ * dx + z * (dz - z)) < 0;
             if (prev && prev[1] >= PH) hit = 'is';
-            else if (inward) { const u = Math.max(-1, Math.min(1, px_ / hw)); hit = PAINTED[row][a + Math.min(b - a, Math.floor((u + 1) / 2 * (b - a + 1)))]; }
+            else if (inward) { const u = clamp(px_ / hw, -1, 1); hit =PAINTED[row][a + Math.min(b - a, Math.floor((u + 1) / 2 * (b - a + 1)))]; }
             else hit = PH - h < 1.5 ? 'id' : PH - h < 6 ? 'iD' : 'ik';
           }
         }
@@ -227,11 +227,6 @@ export const { rest, restAt, frame } = tipper(front, mouth, base, null, fall, (x
 /** Returns where the bag stands in the upright can: its top-left, in px from the can's. */
 export const bagIn = bag => [Math.floor((CAN.W - bag.w) / 2), -5];
 
-const trig = deg => {
-  const d = ((deg % 360) + 360) % 360;
-  return d === 0 ? DIRS.r : d === 90 ? DIRS.d : d === 180 ? DIRS.l : d === 270 ? DIRS.u
-    : [Math.cos(d * Math.PI / 180), Math.sin(d * Math.PI / 180)];
-};
 const SPUN = new WeakMap();
 /** Sprite `spr` turned `deg` degrees clockwise about the centre of its w×h box: its pixels in px
  *  from that box's top-left, some of them outside it. */
@@ -239,7 +234,7 @@ export function spun(spr, deg) {
   if (!SPUN.has(spr)) SPUN.set(spr, new Map());
   const turns = SPUN.get(spr);
   if (turns.has(deg)) return turns.get(deg);
-  const [cos, sin] = trig(deg), cx = spr.w / 2, cy = spr.h / 2, m = new Map(spr.px.map(([x, y, col]) => [`${x},${y}`, col]));
+  const [cos, sin] = cosSin(deg), cx = spr.w / 2, cy = spr.h / 2, m = new Map(spr.px.map(([x, y, col]) => [`${x},${y}`, col]));
   const reach = Math.ceil(Math.hypot(spr.w, spr.h) / 2) + 1, px = [];
   for (let y = Math.floor(cy) - reach; y <= Math.ceil(cy) + reach; y++)
     for (let x = Math.floor(cx) - reach; x <= Math.ceil(cx) + reach; x++) {

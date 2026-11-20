@@ -1,5 +1,6 @@
 // `bicycle()` returns `side`, a side profile across the screen, and `up`, a Blender render cleaned by hand, seen from above.
 //   k ink, a tyre, f frame, F frame lit, m metal, M metal lit, s saddle and grips, p spoke
+import { drawingOf } from './pile.js';
 const BASE = { k: '#06050e', a: '#262440', m: '#9aa2a9', M: '#d6d3b0', s: '#34192b', p: '#67819e' };
 export const FRAMES = {
   blue: { f: '#244287', F: '#3169b0' },
@@ -93,7 +94,6 @@ const UP = [
 /** The bicycle in one frame colour, `side` and `up`: each { w, h, px: [x, y, colour] }. */
 export const bicycle = (frame = 'blue') => {
   const pal = { ...BASE, ...FRAMES[frame] };
-  const sprite = rows => ({ w: rows[0].length, h: rows.length,
-    px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, pal[c]]]))) });
+  const sprite = rows => drawingOf(rows, pal);
   return { side: sprite(SIDE), up: sprite(UP) };
 };

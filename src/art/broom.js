@@ -1,5 +1,6 @@
 // The broom is a hand broom standing upright, seen from the side.
 //   Palette: k ink, M cap lit, m cap, n cap shade, w wire, t straw lit, s straw, S straw shade, r red, b blue.
+import { drawingOf } from './pile.js';
 const PALETTE = { k: '#19152b', M: '#d6d3b0', m: '#9aa2a9', n: '#67819e', w: '#453d51', t: '#f1eccb', s: '#e3c35a',
   S: '#b8913a', r: '#c8453f', b: '#3169b0' };
 const ROWS = [
@@ -31,5 +32,4 @@ const ROWS = [
 ];
 
 /** { w, h, px: [x, y, colour] }, standing on its tips. */
-export const BROOM = { w: ROWS[0].length, h: ROWS.length,
-  px: ROWS.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]]))) };
+export const BROOM = drawingOf(ROWS, PALETTE);

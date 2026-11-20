@@ -5,13 +5,12 @@ import { PUDDLE, WATER } from './water.js';
 import { slickCell } from './slick.js';
 import { pourSplash, SPLASH } from './splash.js';
 import { N4 } from './spread.js';
-import { arc, evenEnd, fallKeys, onTwos, quadOut } from './timing.js';
+import { hexPixels } from './pile.js';
+import { arc, clamp, degAt, evenEnd, fallKeys, onTwos, quadOut } from './timing.js';
 
 /** Keys are in frames, except `ldy` (px), `bounce` (degrees), `glide` (%) and `flow` (px a frame). `ease` is the fall's power, and `sheen0` is the sheen the water has while it runs. */
 export const JUG_TIP = { tip: -3, fall: 7, settle: 6, pour: 7, drain: 17, reach: 4, still: 4, ease: 2, bounce: 0, glide: 0,
   ldy: -1, sheen0: 0.4, flow: 1 };
-
-const clamp01 = u => Math.min(1, Math.max(0, u));
 
 /** The clip's keys are in frames from the start of a move that takes `moveFrames`. */
 export function jugKeys(moveFrames, k) {
@@ -33,8 +32,7 @@ export function bakedJug(J) {
     if (!memo.has(key)) {
       const d = J.drawings[key];
       if (!d) throw new Error(`jug.json has no drawing ${key}`);
-      memo.set(key, { ...d, px: d.rows.flatMap((r, y) => Array.from({ length: d.w }, (_, x) => r.slice(2 * x, 2 * x + 2))
-        .flatMap((h, x) => (h === '..' ? [] : [[x, y, J.palette[parseInt(h, 16)]]]))) });
+      memo.set(key, { ...d, px: hexPixels(d.rows, d.w, J.palette) });
     }
     return memo.get(key);
   };
@@ -65,8 +63,8 @@ export function createJugTip({ drawing, full, dy }) {
     const spray = pourSplash({ at: lands, dir: [ux, uy], pour: keys.pour, dry: keys.dry, k: splash });
 
     function jug(f, along) {
-      const u = clamp01((f - keys.tip) / (keys.flat - keys.tip));
-      const deg = f <= keys.tip ? 0 : f < keys.flat ? Math.round(90 * u ** k.ease)
+      const u = clamp((f - keys.tip) / (keys.flat - keys.tip), 0, 1);
+      const deg = f < keys.flat ? degAt(keys, f, k.ease)
         : f < keys.settle ? Math.round(90 - k.bounce * Math.sin(Math.PI * (f - keys.flat) / (keys.settle - keys.flat))) : 90;
       const F = f <= keys.pour ? full : f >= keys.dry ? 0 : full * (1 - (f - keys.pour) / (keys.dry - keys.pour));
       const d = deg ? drawing(dir, deg, F) : stand, q = k.glide / 100, s = (1 - q) * (f >= moveFrames ? 1 : along) + q * u;
@@ -85,7 +83,7 @@ export function createJugTip({ drawing, full, dy }) {
       return px;
     }
 
-    const slowed = f => clamp01((f - keys.grown) / (keys.still - keys.grown));
+    const slowed = f => clamp((f - keys.grown) / (keys.still - keys.grown), 0, 1);
     /** Returns how far the ripples have flowed by frame `f`, in frames at full speed. `flow` px a frame turns that into px. */
     const flowed = f => { const u = slowed(f); return Math.max(0, Math.min(f, keys.grown) - keys.wet) + (keys.still - keys.grown) * (u - u * u / 2); };
 

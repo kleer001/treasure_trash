@@ -2,19 +2,14 @@
 // Pixels here are floor pixels. Each cell draws only the pixels inside its own bounds.
 import { mulberry32 } from '../rng.js';
 import { C } from './flight.js';
+import { hash3 } from './spread.js';
 
 export const GLASS_LOOK = { seed: 97637, area: 452, big: 7, bigMin: 8, bigMax: 15.5, smallMax: 4, width: 0.5, spread: 7.5, visible: 276,
   glint: 0.35, edge: '#7dafb3', fill: '#97908f', glare: '#f1eccb', dark: '#5f7f88' };
 
-const hash = (a, b, c) => {
-  let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b ^ 0xc2b2ae35, 0x27d4eb2f) ^ Math.imul(c, 0x165667b1);
-  h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12;
-  return h >>> 0;
-};
-
 /** The shards of cell (cx, cy), each a list of its pixels in floor pixels, back to front. */
 function pile(cx, cy, look) {
-  const rnd = mulberry32(hash(cx, cy, look.seed));
+  const rnd = mulberry32(hash3(cx, cy, look.seed));
   const gauss = () => (rnd() + rnd() + rnd() - 1.5) * 1.4;
   const out = [], x0 = cx * C, y0 = cy * C, seen = new Set();
   let left = look.area;
@@ -50,7 +45,7 @@ const inside = (poly, x, y) => {
 /** The shards of the pile cell (cx, cy) drops, back to front, each a list of [x, y, colour] in floor
  *  pixels. `has(x, y)` says whether a cell is glass. */
 export function glassShards(cx, cy, has, look) {
-  const rnd = mulberry32(hash(cx, cy, look.seed + 1));
+  const rnd = mulberry32(hash3(cx, cy, look.seed + 1));
   return pile(cx, cy, look).map(shard => {
     const own = new Set(shard.map(([x, y]) => x * 100003 + y));
     const at = (x, y) => own.has(x * 100003 + y);

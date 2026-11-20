@@ -2,9 +2,18 @@
 // alone, so a board still and the last frame of a spill can draw the same pixels.
 import { DIRS } from '../rules.js';
 import { mulberry32 } from '../rng.js';
+import { clamp } from './timing.js';
 
 const SLOT_KEYS = { A: '1234', B: 'abcd', C: 'wxyz' };
 export const SHADOW = '#765c62';
+
+/** The pixels of a palette-index grid, one character a pixel: `palette[c]` is each one's colour. */
+export const pixelsOf = (grid, palette) => grid.flatMap((row, y) => [...row].flatMap((c, x) => (c === '.' ? [] : [[x, y, palette[c]]])));
+/** `{ w, h, px }` of a palette-index grid. */
+export const drawingOf = (grid, palette) => ({ w: grid[0].length, h: grid.length, px: pixelsOf(grid, palette) });
+/** The pixels of a grid `w` pixels wide, two characters a pixel: `palette[parseInt(pair, radix)]`, '..' for none. */
+export const hexPixels = (rows, w, palette, radix = 16) => rows.flatMap((r, y) => Array.from({ length: w }, (_, x) => r.slice(2 * x, 2 * x + 2))
+  .flatMap((h, x) => (h === '..' ? [] : [[x, y, palette[parseInt(h, radix)]]])));
 
 /** A palette-index grid is an array of equal-length strings, '.' for empty. */
 function dihedral(grid, o) {
@@ -96,9 +105,7 @@ export function createTrash(D, { accents = true, diagonals = true } = {}) {
   function sprite(name, alt = 0, turn = 0) {
     const key = `${name}/${alt}/${turn}`;
     if (cache.has(key)) return cache.get(key);
-    const grid = turnsOf(name)[turn], m = colours(D.items[name], alt), px = [];
-    grid.forEach((row, y) => [...row].forEach((ch, x) => { if (ch !== '.') px.push([x, y, m[ch]]); }));
-    const s = { w: grid[0].length, h: grid.length, px };
+    const s = drawingOf(turnsOf(name)[turn], colours(D.items[name], alt));
     cache.set(key, s);
     return s;
   }
@@ -175,8 +182,8 @@ export function pileLayout(T, seed, { min = 9, max = 25, C = 24, spill = 0 } = {
     let best = null;
     for (let t = 0; t < 6; t++) {
       const a = rnd() * Math.PI * 2, r = REACH[size] * grow * Math.sqrt(rnd());
-      const x = Math.max(lo, Math.min(hi + 1 - s.w, Math.round(cx + Math.cos(a) * r - s.w / 2)));
-      const y = Math.max(lo, Math.min(hi + 1 - s.h, Math.round(cy + Math.sin(a) * r - s.h / 2)));
+      const x = clamp(Math.round(cx + Math.cos(a) * r - s.w / 2), lo, hi + 1 - s.w);
+      const y = clamp(Math.round(cy + Math.sin(a) * r - s.h / 2), lo, hi + 1 - s.h);
       let cost = 0;
       for (const [px, py] of s.px) {
         const o = owner[at(x + px, y + py)];

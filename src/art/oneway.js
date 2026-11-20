@@ -1,5 +1,6 @@
 // The one-way is a double chevron painted on the floor, seen from above.
 //   p paint, s worn paint
+import { pixelsOf } from './pile.js';
 const PALETTE = { p: '#e3c35a', s: '#b8913a' };
 const ROWS = [
   '........................',
@@ -28,7 +29,7 @@ const ROWS = [
   '........................',
 ];
 const N = ROWS.length;
-const R = ROWS.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]])));
+const R = pixelsOf(ROWS, PALETTE);
 const turned = f => ({ w: N, h: N, px: R.map(([x, y, c]) => [...f(x, y), c]) });
 
 /** Each facing, `{ w, h, px: [x, y, colour] }`, one cell from its top-left corner. */

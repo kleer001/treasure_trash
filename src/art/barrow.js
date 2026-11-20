@@ -1,5 +1,6 @@
 // The barrow is drawn by hand over orthographic renders of a model. Facing `u` is away from us, and facing `d` is toward us.
 // Each view is a grid of palette characters, its bottom row on the ground.
+import { drawingOf } from './pile.js';
 const PALETTE = {
   k: '#19152b', R: '#d6d3b0', T: '#453d51', t: '#262440', M: '#67819e', w: '#ca8b68', W: '#d9ac87', g: '#06050e', m: '#9aa2a9', n: '#67819e', o: '#262440', O: '#453d51', h: '#7dafb3',
 };
@@ -95,8 +96,7 @@ const ROWS = {
   ],
 };
 
-const sprite = rows => ({ w: rows[0].length, h: rows.length,
-  px: rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === '.' ? [] : [[x, y, PALETTE[c]]]))) });
+const sprite = rows => drawingOf(rows, PALETTE);
 
 /** Each facing as { w, h, px: [x, y, colour] }. */
 export const BARROW = Object.fromEntries(Object.entries(ROWS).map(([face, rows]) => [face, sprite(rows)]));

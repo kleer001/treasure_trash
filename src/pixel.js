@@ -2,7 +2,7 @@
 // cell with every pixel whole. A position comes in cells and may be part way through a move; it
 // is rounded to the pixel.
 import { C, FLOOR, SEAM } from './art/flight.js';
-import { createTrash, pileLayout, drawPile } from './art/pile.js';
+import { createTrash, pileLayout, drawPile, hexPixels } from './art/pile.js';
 import { wallTile } from './art/room.js';
 import { createStills } from './art/stills.js';
 import { createCanTip } from './art/canTip.js';
@@ -127,8 +127,7 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
   // palette, '..' for none.
   const decoded = new Map();
   const wheelieFrame = f => {
-    if (!decoded.has(f)) decoded.set(f, f.rows.flatMap((r, y) => Array.from({ length: f.w }, (_, x) => r.slice(2 * x, 2 * x + 2))
-      .flatMap((h, x) => (h === '..' ? [] : [[f.x + x, f.y + y, W.palette[parseInt(h, 16)]]]))));
+    if (!decoded.has(f)) decoded.set(f, hexPixels(f.rows, f.w, W.palette).map(([x, y, c]) => [f.x + x, f.y + y, c]));
     return decoded.get(f);
   };
   const drawLayers = (layers, f, along) => { for (const [, px] of layers(f, along).sort((a, b) => a[0] - b[0])) put(px, 0, 0); };
