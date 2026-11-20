@@ -148,12 +148,9 @@ for (const hex of ['#7dafb3', '#ffffff', '#101010', '#f1eccb']) safe(`water.soak
 const CB = await u('src/art/cardboard.js');
 const SO = await u('src/art/soaked.js');
 const SPG = await u('src/art/sponge.js');
-for (let seed = 0; seed < 60; seed++) safe(`cardboard.wet.${seed}`, () => CB.wetCardboard(seed));
-for (let x = 0; x < 8; x++) for (let y = 0; y < 5; y++) safe(`cardboard.covered.${x}.${y}`, () => CB.wetCardboard(Math.imul(x + 1, 73856093) ^ Math.imul(y + 1, 19349663)));
-const WET_VARIANTS = [{ count: 0 }, { count: 1, rmin: 1, rmax: 1 }, { count: 6, rmin: 0.5, rmax: 5 }, { soak: 0 }, { soak: 3, count: 2 }];
-WET_VARIANTS.forEach((v, i) => { for (let seed = 0; seed < 8; seed++) safe(`cardboard.wet.look${i}.${seed}`, () => CB.wetCardboard(seed, { ...CB.WET_LOOK, ...v })); });
-rec('cardboard.exports', { CARDBOARD: CB.CARDBOARD, ROWS: CB.CARDBOARD_ROWS, PAL: CB.CARDBOARD_PALETTE, WET_LOOK: CB.WET_LOOK });
+rec('cardboard.exports', { CARDBOARD: CB.CARDBOARD, ROWS: CB.CARDBOARD_ROWS, PAL: CB.CARDBOARD_PALETTE });
 for (const kind of Object.keys(SO.SOAKED_LOOK.cardboard)) safe(`soaked.cardboard.${kind}`, () => SO.soakedCardboard(kind));
+for (const kind of Object.keys(SO.SOAKED_LOOK.cardboard)) for (const k of [0, 0.25, 0.5, 0.75]) safe(`soaked.cardboard.${kind}.k${k}`, () => SO.soakedCardboard(kind, undefined, k));
 for (const kind of Object.keys(SO.SOAKED_LOOK.sponge)) safe(`soaked.sponge.${kind}`, () => SO.soakedSponge(kind));
 const SOAK_VARIANTS = [{ soak: 0 }, { soak: 3, count: 0 }, { soak: 2, rmin: 0.5, rmax: 3 }, { ooze: 4, oozeSize: 3 }, { coat: 3 }];
 for (const kind of Object.keys(SO.SOAKED_LOOK.cardboard)) SOAK_VARIANTS.forEach((v, i) =>

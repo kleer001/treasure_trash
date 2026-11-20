@@ -18,7 +18,7 @@ import { SKATEBOARD } from './art/skateboard.js';
 import { door } from './art/door.js';
 import { BARROW } from './art/barrow.js';
 import { SPONGE } from './art/sponge.js';
-import { CARDBOARD, wetCardboard } from './art/cardboard.js';
+import { CARDBOARD } from './art/cardboard.js';
 import { SOAKED_LOOK, soakedSponge, soakedCardboard } from './art/soaked.js';
 import { liquidOf, SPLASH, kindIn } from './stage.js';
 import { GRATE } from './art/grate.js';
@@ -108,6 +108,13 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
   /** The drawings `look(kind)` makes for each kind of soaking that `SOAKED_LOOK[of]` has, by kind. */
   const soakedLooks = (of, look) => Object.fromEntries(Object.keys(SOAKED_LOOK[of]).map(k => [k, look(k)]));
   const SPONGE_LOOKS = soakedLooks('sponge', soakedSponge), CARDBOARD_LOOKS = soakedLooks('cardboard', soakedCardboard);
+  // A sheet soaks in steps, so a beat draws a handful of drawings, each made once.
+  const SOAK_STEPS = 8, partSoaked = new Map();
+  const soakingCardboard = (kind, soak) => {
+    const n = Math.round(soak * SOAK_STEPS), key = `${kind}/${n}`;
+    if (!partSoaked.has(key)) partSoaked.set(key, soakedCardboard(kind, SOAKED_LOOK.cardboard[kind], n / SOAK_STEPS));
+    return partSoaked.get(key);
+  };
   /** What the cell nearest (x, y) holds that a thing on it soaks up, as `liquidOf` in stage.js says. */
   const liquidAt = (x, y) => { const cx = Math.round(x), cy = Math.round(y); return inGrid(board, cx, cy) ? liquidOf(cell(board, cx, cy)) : null; };
   /** Draws `px` as the solid `name`, its top-left `dx, dy` px into cell (x, y), `a` of the way into the water. */
@@ -191,7 +198,8 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
     grease(x, y) { this.floor(x, y); put(slickCell(x, y, lane(GREASE), LOOKS.grease), P(x), P(y)); },
     tar(x, y) { this.floor(x, y); put(slickCell(x, y, lane(TAR), LOOKS.tar), P(x), P(y)); },
     glass(x, y) { this.floor(x, y); put(glassCell(x, y, lane(GLASS), GLASS_LOOK), P(x), P(y)); },
-    covered(x, y) { this.floor(x, y); put(wetCardboard(Math.imul(x + 1, 73856093) ^ Math.imul(y + 1, 19349663)).px, P(x), P(y)); },
+    /** `soaked` is what the sheet covering the cell soaked up: a key of `SOAKED_LOOK.cardboard`, or null. */
+    covered(x, y, soaked) { this.floor(x, y); put((CARDBOARD_LOOKS[soaked] ?? CARDBOARD).px, P(x), P(y)); },
     grate(x, y) { this.floor(x, y); put(GRATE.px, P(x), P(y)); },
     oneway(x, y, dir) { this.floor(x, y); put(ONEWAY[dir].px, P(x), P(y)); },
     /** `roll` is how far the shutter is up and the shimmer's frame. */
@@ -270,7 +278,11 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
       const s = SPONGE_LOOKS[liquidAt(x, y) ?? soaked] ?? SPONGE;
       put(s.px, P(x) + Math.floor((C - s.w) / 2) + s.dx, P(y) + C - s.h - 1 + s.dy);
     },
-    cardboard(x, y, soaked = null) { put((CARDBOARD_LOOKS[liquidAt(x, y) ?? soaked] ?? CARDBOARD).px, P(x), P(y)); },
+    /** `soak` is how far a sheet that is soaking has gone, 0 to 1. */
+    cardboard(x, y, soaked = null, soak = 1) {
+      const kind = liquidAt(x, y) ?? soaked;
+      put((kind && soak < 1 ? soakingCardboard(kind, soak) : CARDBOARD_LOOKS[kind] ?? CARDBOARD).px, P(x), P(y));
+    },
     tyre(x, y, horizontal) { upright(horizontal ? 'tyreH' : 'tyreV', TYRE[horizontal ? 'H' : 'V'], x, y); },
     chair(x, y) { upright('chair', CHAIR, x, y); },
     broom(x, y) { upright('broom', BROOM, x, y); },

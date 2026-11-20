@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explain, BIN_EMPTY, CAN_EMPTY, SPONGE } from '../src/rules.js';
+import { explain, BIN_EMPTY, CAN_EMPTY, SPONGE, COVERED } from '../src/rules.js';
 import { toState } from '../src/format.js';
-import { stageFrom, applyStep, settle, face, census, decorAfter, RACCOON } from '../src/stage.js';
+import { stageFrom, applyStep, settle, face, census, decorAfter, coverOf, RACCOON } from '../src/stage.js';
 
 const S = (grid, cart, water) => toState({ id: 't', grid, cart, water });
 /** Press each of `keys` from `s`, a refused press included. The board and the decoration after. */
@@ -76,6 +76,16 @@ test('a sponge wears the last thing it soaked up or stood in', () => {
 
 test('a sponge the room sets in water is soaked from the start', () => {
   assert.equal(worn({ s: S(['@-s--E'], null, ['--~---']) }, SPONGE).soaked, 'water');
+});
+
+test('a covered cell keeps what its sheet soaked up, and keeps it through later presses', () => {
+  for (const [lay, kind] of [['--~---', 'water'], ['--T---', 'tar'], ['--*---', null]]) {
+    const covered = press(S(['@d---E'], null, [lay]), ['r']);
+    assert.equal(covered.s.cells[0][2].ter, COVERED, lay);
+    assert.equal(coverOf(stageFrom(covered.s, 1, covered.decor), 2, 0), kind, lay);
+    const on = press(covered.s, ['r'], covered.decor);
+    assert.equal(coverOf(stageFrom(on.s, 1, on.decor), 2, 0), kind, lay);
+  }
 });
 
 /** Presses `keys` from `s`, landing each step on a live stage, and checks it against a rebuild after each press. */

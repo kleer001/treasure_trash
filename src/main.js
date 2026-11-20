@@ -195,7 +195,7 @@ function render(){
   if(PIXEL) motion.syncDoor();
   cv.width=s.cols*CS; cv.height=s.rows*CS;
   painter.paint({
-    state:s, board:motion.board, sprites:motion.stage.sprites,
+    state:s, board:motion.board, stage:motion.stage, sprites:motion.stage.sprites,
     ...motion.view(), moving: motion.moving,
     armed: play.armed, blocked,
     w:cv.width, h:cv.height, cs:CS,

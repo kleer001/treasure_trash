@@ -1786,7 +1786,7 @@ function pushSlide({ s, dx, dy, tx, ty, o, done }) {
   if (shove) applyIntoCart(s, next, into, shove, lands, step);
   else if (SLIDES[o].soaks) { soak(cell(next, ...at)); drop(next, at, [lands]); }
   else if (SLIDES[o].covers && cover(cell(next, ...at)))
-    step.gone.push(leaves({ o, cells: [[tx, ty]] }));
+    step.gone.push(leaves({ o, cells: [[tx, ty]], effect: 'covers' }));
   else drop(next, at, [lands]);
   if (carried && !swallowed && !shove) handOff(next, [at[0] + dx, at[1] + dy], dx, dy, step);
 

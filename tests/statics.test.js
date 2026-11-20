@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { BARROW } from '../src/art/barrow.js';
 import { SPONGE } from '../src/art/sponge.js';
-import { CARDBOARD, wetCardboard } from '../src/art/cardboard.js';
+import { CARDBOARD } from '../src/art/cardboard.js';
+import { soakedCardboard } from '../src/art/soaked.js';
 import { GRATE } from '../src/art/grate.js';
 import { ONEWAY } from '../src/art/oneway.js';
 import { TYRE } from '../src/art/tyre.js';
@@ -43,11 +44,15 @@ for (const [name, v] of Object.entries(STATICS))
     for (const [path, s] of views) drawn(path, s);
   });
 
-test('wet cardboard is drawn, the same for the same seed', () => {
-  for (const seed of [0, 1, 7, 99]) {
-    drawn(`wet cardboard ${seed}`, wetCardboard(seed));
-    assert.deepEqual(wetCardboard(seed), wetCardboard(seed));
-    assert.deepEqual([wetCardboard(seed).w, wetCardboard(seed).h], [CARDBOARD.w, CARDBOARD.h]);
+test('a sheet soaked 0 is the dry sheet, and it darkens as it soaks', () => {
+  const key = d => d.px.map(p => p.join()).sort();
+  const lum = h => { const n = parseInt(h.slice(1), 16); return (n >> 16) + ((n >> 8) & 255) + (n & 255); };
+  const mean = d => d.px.reduce((a, p) => a + lum(p[2]), 0) / d.px.length;
+  for (const kind of ['water', 'tar']) {
+    assert.deepEqual(key(soakedCardboard(kind, undefined, 0)), key(CARDBOARD), `${kind} at 0`);
+    const means = [0, 0.25, 0.5, 0.75, 1].map(k => mean(soakedCardboard(kind, undefined, k)));
+    means.slice(1).forEach((m, i) => assert.ok(m < means[i], `${kind}: ${means.join(' ')}`));
+    assert.deepEqual(soakedCardboard(kind), soakedCardboard(kind, undefined, 1));
   }
 });
 

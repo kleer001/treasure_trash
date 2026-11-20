@@ -915,7 +915,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
  * this file free of any dependency on the rules.
  */
 export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
-  const { k = 1, seed = 0, src = null, wet = 0, lie = null, scraps = null, soaked = null } = opts;
+  const { k = 1, seed = 0, src = null, wet = 0, lie = null, scraps = null, soaked = null, soak = 1 } = opts;
   if (o === codes.TRASH) sprites.trash(x, y, { seed, k, src, wet, scraps });
   else if (o === codes.BAG) sprites.bag(x, y, k);
   else if (o === codes.CAN_FULL) sprites.can(x, y, true);
@@ -927,7 +927,7 @@ export function drawOccupant(sprites, codes, o, x, y, opts = {}) {
   else if (o === codes.JUG) sprites.jug(x, y, true);
   else if (o === codes.JUG_EMPTY) sprites.jug(x, y, false, lie);
   else if (o === codes.SPONGE) sprites.sponge(x, y, soaked);
-  else if (o === codes.CARDBOARD) sprites.cardboard(x, y, soaked);
+  else if (o === codes.CARDBOARD) sprites.cardboard(x, y, soaked, soak);
   else if (o === codes.PANE) sprites.pane(x, y);
   else if (o === codes.TIRE_H) sprites.tyre(x, y, true);
   else if (o === codes.TIRE_V) sprites.tyre(x, y, false);

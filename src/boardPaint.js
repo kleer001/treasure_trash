@@ -9,7 +9,7 @@ import { radians } from './art/timing.js';
 import { BAYER } from './art/spread.js';
 import { createCompositor } from './compositor.js';
 import { P } from './wipe.js';
-import { CART, COUCH, RACCOON, SPLASH, cellSeed } from './stage.js';
+import { CART, COUCH, RACCOON, SPLASH, cellSeed, coverOf } from './stage.js';
 
 const BANDS = ['couch','cart','loose','carried','raccoon'];
 const bandOf = sp => sp.kind === COUCH ? 0 : sp.kind === CART ? 1
@@ -112,7 +112,8 @@ export function createBoardPaint({ ctx, art: SP, clips, cs: CS, pad: PAD, pixel:
     }
     else {
       const own = () => drawOccupant(SP, CODES, sp.kind, sp.x, sp.y, {
-        seed: sp.seed, lie: sp.lie, wet: sp.soaks ? (sp.soak ?? 1) : 0, scraps: sp.scraps, soaked: sp.soaked,
+        seed: sp.seed, lie: sp.lie, wet: sp.soaks ? (sp.soak ?? 1) : 0, scraps: sp.scraps,
+        soaked: sp.covers ? sp.covering : sp.soaked, soak: sp.covers ? sp.soak : 1,
         k: sp.dying ? (sp.deflate ?? 1)
           : ph && fx.bx===Math.round(sp.x) && fx.by===Math.round(sp.y) ? 1-ph.burst : 1,
       });
@@ -225,7 +226,7 @@ export function createBoardPaint({ ctx, art: SP, clips, cs: CS, pad: PAD, pixel:
         else if(c.ter===GREASE)       SP.grease(x,y);
         else if(c.ter===TAR)          SP.tar(x,y);
         else if(c.ter===GLASS)        SP.glass(x,y);
-        else if(c.ter===COVERED)      SP.covered(x,y);
+        else if(c.ter===COVERED)      SP.covered(x,y,coverOf(f.stage,x,y));
         else                          SP.floor(x,y);
         if(c.exit) SP.exit(x,y, exitLit(s), exitArrowDir(s.cols,s.rows,x,y), f.door);
       }

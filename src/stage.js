@@ -65,7 +65,8 @@ export const kindIn = (lane, o, effect) => (lane === CART_LANE ? CART : lane ===
  */
 export function stageFrom(state, seed = 1, decor = null) {
   const rnd = mulberry32(seed);
-  const stage = { sprites: [], nextId: 0 };
+  const stage = { sprites: [], nextId: 0,
+                  covered: new Map([...(decor ?? [])].filter(([h]) => laneOf(h) === COVER).map(([h, d]) => [h, d.soaked])) };
   const mint = (kind, x, y, extra = {}) => {
     const sp = { id: stage.nextId++, kind, x, y, ax: x, ay: y, tx: x, ty: y, depth: 0,
                  seed: (rnd() * 0x100000000) >>> 0, parent: null, dying: false, ...extra };
@@ -120,6 +121,10 @@ const offsets = (cells, ox, oy) => cells.map(([x, y]) => [x - ox, y - oy]);
 
 export const LIES = new Set([CAN_EMPTY, BIN_EMPTY, JUG_EMPTY]);
 const SOAKERS = new Set([SPONGE, CARDBOARD]);
+// A covered cell is no sprite, so what its sheet soaked up is kept under a handle on a lane of its own.
+const COVER = 'cover';
+/** What the sheet covering cell (x, y) on `stage` soaked up: a key of `SOAKED_LOOK.cardboard`, or null. */
+export const coverOf = (stage, x, y) => stage.covered.get(handleAt([x, y], COVER)) ?? null;
 /** What a thing on cell `c` soaks up or stands in: a key of `SOAKED_LOOK` in art/soaked.js, or null. */
 export const liquidOf = c => (c.water ? 'water' : c.ter === GREASE ? 'grease' : c.ter === TAR ? 'tar' : null);
 /** The way a move of (dx, dy) went. */
@@ -157,6 +162,7 @@ function decorOf(stage) {
   const out = new Map();
   for (const sp of stage.sprites)
     if (!sp.dying && !sp.spent && (sp.heading || sp.lie || sp.soaked)) out.set(sp.handle, { heading: sp.heading, lie: sp.lie, soaked: sp.soaked });
+  for (const [h, soaked] of stage.covered) out.set(h, { soaked });
   return out;
 }
 
@@ -267,6 +273,7 @@ export function applyStep(stage, step, racTo = null, board = null) {
     if (!sp) return;
     sp.spent = true;
     if (g.effect === 'falls') sp.falls = true;
+    else if (g.effect === 'covers') { sp.covers = true; sp.covering = liquidOf(cell(board, sp.tx, sp.ty)); }
     else if (g.effect === 'fills') {
       sp.soaks = true;
       // Taking the cell's seed now is what makes the swap invisible.
@@ -334,6 +341,7 @@ export function advance(stage, u, cells = 0) {
     if (sp.nudge) { sp.x += sp.nudge[0] * NUDGE * bump(u); sp.y += sp.nudge[1] * NUDGE * bump(u); }
     if (sp.rattle) sp.tilt = wobble(u) * (sp.rattle[0] || sp.rattle[1]);
     if (sp.dying) sp.deflate = 1 - u;
+    if (sp.covers) sp.soak = u;
     if (sp.soaks) {
       const fly = Math.min(1, u / FILL_AT);
       sp.x = sp.ax + (sp.tx - sp.ax) * fly;
@@ -367,6 +375,7 @@ export const bump = u => (u < HIT ? u / HIT : Math.pow(1 - (u - HIT) / (1 - HIT)
 
 export function settle(stage) {
   advance(stage, 1);
+  for (const sp of stage.sprites) if (sp.covers && sp.covering) stage.covered.set(handleAt([sp.tx, sp.ty], COVER), sp.covering);
   stage.sprites = stage.sprites.filter(sp => !sp.dying && !sp.spent);
   for (const sp of stage.sprites) {
     sp.nudge = null;                       // it landed; the next beat starts from the board
