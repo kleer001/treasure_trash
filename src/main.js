@@ -7,11 +7,10 @@ import {
   MAG_U, MAG_D, MAG_L, MAG_R,
   FURNITURE,
   DIRS,
-  exitLit, fan, inGrid, cell, isMultiCell, stateKey,
+  exitLit, fan, inGrid, cell, isMultiCell,
   GREASE, TAR, GLASS, COVERED, isBarrow, barrowFace, gripTarget, OCCUPANTS as CODES,
 } from './rules.js';
 import { parseLevelPack, toGrid } from './format.js';
-import { deadScan } from './solver.js';
 import { createProgress } from './progress.js';
 import { installFocusReclaim } from './focus.js';
 import { createDebugLog, createProbe } from './debug.js';
@@ -36,6 +35,7 @@ import { reverseStep } from './tape.js';
 import { P, PATTERNS, KINDS, layWall, drawWipe, wallFrom, roomBeats } from './wipe.js';
 import { createWipeTune } from './wipeTune.js';
 import { createSound } from './sound.js';
+import { createLostScan } from './lostScan.js';
 // The stage owns the objects, their motion and their envelopes.
 import {
   CART, COUCH, RACCOON, SPLASH, advance, applyStep, cellSeed, easeOut, rollEase, settle,
@@ -113,8 +113,6 @@ const now = () => { const p = performance.now(); crowT += Math.min(p - crowLast,
 let beat = false;      // this run set a new record for the room, and the win screen says so
 let blocked = null;   // { cells, reason, dir }
 let busy = false;
-// `deadKeys` holds the state keys of this room that cannot be won.
-let deadKeys = null, scan = null, scanRaf = 0, lost = false;
 
 // ---- the rejection animation ---------------------------------------------------------
 // The state never changes here: the sequence plays out and rewinds itself, so the invalid
@@ -451,17 +449,11 @@ function load(i, again = false){
   cancelAnim(); busy = false; door = null; fxSeen = new Set(); tapes = []; rec = null; clips.reset();
   const res = play.load(i, again);
   blocked=null; beat=false;
-  startScan();
+  lostScan.start(play.state);
   dbg?.note(`-- ${pad(LEVELS[play.cur].id)} ${LEVELS[play.cur].name ?? ''} --`);
   rest(); render();
   tell(watch, now(), res);
 }
-
-// ---- the solvability indicator ----
-function readLost(){ lost = !!deadKeys && !play.won && deadKeys.has(stateKey(play.state)); }
-
-const SCAN_BUDGET_MS = 1200;
-let scanSpent = 0;
 
 // The verdict is wanted once per room, and every move after it is a lookup, so it runs on idle
 // time rather than competing with the arrow key. `requestIdleCallback` reports the idle time left.
@@ -472,35 +464,11 @@ const askIdle = window.requestIdleCallback
 const dropIdle = window.cancelIdleCallback
   ? h => cancelIdleCallback(h)
   : h => cancelAnimationFrame(h);
-
-function startScan(){
-  if(scanRaf) dropIdle(scanRaf);
-  deadKeys = null; lost = false; scanSpent = 0;
-  scan = deadScan(play.state);
-  scanRaf = askIdle(pumpScan);
-}
-
-// The player is owed a responsive first move more than an instant verdict.
-function pumpScan(deadline){
-  scanRaf = 0;
-  const t0 = performance.now();
-  const slice = Math.min(12, Math.max(3, deadline?.timeRemaining?.() ?? 6));
-  while(performance.now() - t0 < slice){
-    const r = scan.next();
-    if(!r.done) continue;
-    // Null is the scan giving up on a room too big to enumerate.
-    deadKeys = r.value; scan = null;
-    if(deadKeys){                            // the room may already have been lost while it thought
-      const dead = deadKeys;
-      readLost(); render();
-      watch.scanned(now(), k => dead.has(k));
-    }
-    return;
-  }
-  scanSpent += performance.now() - t0;
-  if(scanSpent >= SCAN_BUDGET_MS){ scan = null; return; }
-  scanRaf = askIdle(pumpScan);
-}
+const lostScan = createLostScan({ askIdle, dropIdle, onVerdict: dead => {
+  readLost(); render();
+  watch.scanned(now(), dead);
+} });
+const readLost = () => lostScan.check(play.state, play.won);
 function rest(){ anim = null; board = play.state; stage = stageFrom(play.state, play.cur + 1, play.decor); }
 
 // ---- render ----
@@ -768,8 +736,8 @@ function paintHud(){
   // The notice is short enough to sit on the moves row. A standing notice that pushes the board
   // down the page is a bigger interruption than the thing it reports. It still names the way back,
   // because saying it helps only if you can act on it.
-  lo.innerHTML = lost ? '<b>✕</b> unwinnable — undo or restart' : '';
-  lo.className = 'lost'+(lost?' show':'');
+  lo.innerHTML = lostScan.lost ? '<b>✕</b> unwinnable — undo or restart' : '';
+  lo.className = 'lost'+(lostScan.lost?' show':'');
   document.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(i===play.cur?' on':''));
 }
 
