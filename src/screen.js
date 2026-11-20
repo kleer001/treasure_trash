@@ -8,6 +8,8 @@ import { FRAME_MS, FRAME_RATE, onTwos } from './art/timing.js';
  *  device px per screen px. `SETTLE` is how many frames his panel takes to drop to its dock after a
  *  speech, and `VEIL` is the share of that drop over which the veil lifts. */
 export const SCREEN = { W: 480, H: 270, STRIP: 16, DOCK: 48, PORTRAIT: 40, GAP: 4, BOARD: 1.5, ZOOM: 2, SETTLE: 40, VEIL: 0.6 };
+/** His panel's drop to the dock, between its start and its rest: `[k, up, sx, sy]`, `k` of the way through. */
+export const DROP = [[0.55, 0, 1.06, 0.88], [0.75, 14, 0.98, 1.04], [0.9, 0, 1.03, 0.96]];
 const INK = '#f2ead8', STRIP_INK = '#e8dcc8', STRIP_BG = '#120d14', DOCK_BG = '#0f171c', BOX_BG = '#1c2b33';
 
 /** The baked font, `src/art/font.json`, and the crow's portraits: `src/art/crow.json` and the
@@ -85,7 +87,7 @@ export function createScreen({ canvas, art: { font, crow, atlas }, C }) {
 
   // His panel `k` of the way through its drop to the dock: `up` is px above the dock's middle, and `sx`, `sy` are its squash.
   const MIDDLE = H - DOCK / 2 - H / 2;
-  const KEYS = [[0, MIDDLE, 1, 1], [0.55, 0, 1.06, 0.88], [0.75, 14, 0.98, 1.04], [0.9, 0, 1.03, 0.96], [1, 0, 1, 1]];
+  const KEYS = [[0, MIDDLE, 1, 1], ...DROP, [1, 0, 1, 1]];
   const EASE = [u => u * u, u => 1 - (1 - u) ** 2, u => u * u, u => u];
   function drop(k) {
     const i = Math.max(0, KEYS.findIndex(([at]) => at >= k) - 1);

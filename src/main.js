@@ -17,7 +17,7 @@ import { createPlay, tell } from './play.js';
 import { mulberry32 } from './rng.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
 import { createPixelSprites, loadPixelArt, PIXEL_CELL } from './pixel.js';
-import { createScreen, loadScreenArt, SCREEN } from './screen.js';
+import { createScreen, loadScreenArt } from './screen.js';
 import { createClips } from './clips.js';
 import { press, moveStart, moveStop, segAt, travelAt } from './art/press.js';
 import { FRAME_MS, FRAME_RATE, radians } from './art/timing.js';
@@ -34,6 +34,7 @@ import { createSound } from './sound.js';
 import { createLostScan } from './lostScan.js';
 import { createHud, pad } from './hud.js';
 import { createPicker } from './picker.js';
+import { createCrowPanel } from './crowPanel.js';
 // The stage owns the objects, their motion and their envelopes.
 import {
   CART, COUCH, RACCOON, SPLASH, advance, applyStep, cellSeed, easeOut, rollEase, settle,
@@ -65,10 +66,10 @@ if(dbg){ document.getElementById('dbg').hidden = false; document.body.classList.
 // once the packs have loaded, since what he notices depends on the running order.
 let crow = null, watch = null, play = null;
 let crowDbg = null;
-// His clock advances in capped steps. A hidden tab stops the frames but not `performance.now()`,
-// and a clock that jumped the whole absence would land every line due in it unseen.
-let crowT = 0, crowLast = performance.now();
-const now = () => { const p = performance.now(); crowT += Math.min(p - crowLast, 100); crowLast = p; return crowT; };
+const crowPanel = createCrowPanel({ pixel: PIXEL, clock: clockMs, since, present: () => present(),
+  els: { box: document.getElementById('crow'), veil: document.getElementById('veil'),
+    face: document.getElementById('crowface'), line: document.getElementById('crowline') } });
+const now = crowPanel.now;
 let beat = false;      // this run set a new record for the room, and the win screen says so
 let blocked = null;   // { cells, reason, dir }
 let busy = false;
@@ -676,47 +677,12 @@ function paintHud(){
     busy, blocked, beat, lost: lostScan.lost });
 }
 
-// His panel is DOM, like the HUD.
-const crowBox = document.getElementById('crow'), veil = document.getElementById('veil');
-const crowFace = document.getElementById('crowface'), crowLine = document.getElementById('crowline');
-const SETTLE_MS = SCREEN.SETTLE * 1000 / FRAME_RATE;
-let speaking = false, shownFace = '', shownText = '';
-let crowView = { talking: false, speech: false, face: 'closed', text: '' }, faceUp = { id: '', t0: 0 }, settleT0 = -Infinity;
-function paintCrow(v){
-  if(PIXEL){
-    if(v.speech !== speaking){ speaking = v.speech; if(!speaking) settleT0 = clockMs(); }
-    const id = `${v.key ?? ''} ${v.face}`;
-    if(id !== faceUp.id) faceUp = { id, t0: clockMs() };
-    crowView = v; present();
-    return;
-  }
-  if(v.speech !== speaking){ if(v.speech) toSpeech(); else toDock(); }
-  const face = v.talking || v.face !== 'closed' ? v.face : '';
-  if(face !== shownFace) crowFace.textContent = shownFace = face;
-  if(v.text !== shownText) crowLine.textContent = shownText = v.text;
-}
 function present(){
   const L = LEVELS[play.cur];
   screen.paint({ room: cv, cols: play.state.cols, rows: play.state.rows, left: `${pad(L.id)}  ${L.name ?? ''}`, right: `Moves ${play.moves}  Par ${L.par}`,
-    crow: crowView, faceMs: since(faceUp.t0), settle: speaking ? null : since(settleT0) / FRAME_MS,
+    ...crowPanel.screenView(),
     wall: wipe ? (c, w, h) => drawWall(c, { w, h }) : null });
 }
-function toSpeech(){ speaking = true; document.body.classList.add('speech'); }
-function toDock(){
-  const a = crowBox.getBoundingClientRect();
-  speaking = false; document.body.classList.remove('speech');
-  const b = crowBox.getBoundingClientRect();
-  const dx = a.left + a.width / 2 - (b.left + b.width / 2), dy = a.top + a.height / 2 - (b.top + b.height / 2);
-  crowBox.animate([
-    { transform: `translate(${dx}px,${dy}px) scale(${a.width / b.width},${a.height / b.height})`, easing: 'cubic-bezier(.5,0,.9,.5)' },
-    { transform: 'translate(0,0) scale(1.06,.88)', offset: .55, easing: 'cubic-bezier(.2,.6,.4,1)' },
-    { transform: 'translate(0,-14px) scale(.98,1.04)', offset: .75, easing: 'cubic-bezier(.6,0,.8,.4)' },
-    { transform: 'translate(0,0) scale(1.03,.96)', offset: .9 },
-    { transform: 'none' },
-  ], { duration: SETTLE_MS });
-  veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SETTLE_MS * SCREEN.VEIL, easing: 'ease-out' });
-}
-
 function drawLanding(x,y){
   if(!inGrid(play.state,x,y)) return;
   ctx.save();
@@ -784,7 +750,7 @@ addEventListener('keydown',e=>{
     return;
   }
   const skipKey = e.key==='Escape'||e.key===' '||e.key==='Enter';
-  if(speaking){ if(skipKey || e.key in KEY) e.preventDefault(); if(skipKey) crow.press(now()); return; }
+  if(crowPanel.speaking){ if(skipKey || e.key in KEY) e.preventDefault(); if(skipKey) crow.press(now()); return; }
   if(e.key in KEY){ e.preventDefault(); act(KEY[e.key]); }
   else if(skipKey){ e.preventDefault(); watch.key(now()); crow.press(now()); }
   else if(e.key==='u'||e.key==='U'){ undo(); }
@@ -795,7 +761,7 @@ addEventListener('keydown',e=>{
 // One delegated listener for every button under the board, so the layout is markup-only.
 const MOVEACT={up:'u',down:'d',left:'l',right:'r'};
 document.getElementById('controls').addEventListener('click',e=>{
-  const btn=e.target.closest('[data-act]'); if(!play || !btn || speaking) return;
+  const btn=e.target.closest('[data-act]'); if(!play || !btn || crowPanel.speaking) return;
   const a=btn.dataset.act;
   if(a in MOVEACT){ act(MOVEACT[a]); }
   else if(a==='undo')undo(); else if(a==='restart')restart();
@@ -864,11 +830,4 @@ if(dbg) window.__tt = createProbe({
   step: (n = 1) => { heldMs += n * 1000 / FRAME_RATE; cancelAnimationFrame(raf); tick(); },
 });
 load(0);
-requestAnimationFrame(function crowFrame(){
-  const t = now();
-  // A speech is not the player idling.
-  if(speaking) watch.key(t); else watch.tick(t, play.state);
-  paintCrow(crow.view(t));
-  crowDbg?.paint(crow.peek(), watch.peek(t));
-  requestAnimationFrame(crowFrame);
-});
+crowPanel.start({ crow, watch, debug: crowDbg, state: () => play.state });
