@@ -25,6 +25,7 @@ import { createPixelSprites, loadPixelArt, PIXEL_CELL } from './pixel.js';
 import { createScreen, loadScreenArt, SCREEN } from './screen.js';
 import { createClips } from './clips.js';
 import { press, moveStart, moveStop, segAt, travelAt } from './art/press.js';
+import { FRAME_MS, FRAME_RATE } from './art/timing.js';
 import { RECOVERIES } from './art/cartoon.js';
 import { tracings } from './art/canTip.js';
 import { tearPress } from './art/bagRip.js';
@@ -50,7 +51,7 @@ const CS = PIXEL ? PIXEL_CELL : 76, PAD=9;
 // The animation clock, in ms. `?debug` can hold it and step it a frame at a time.
 let heldMs = null;
 const clockMs = () => heldMs ?? performance.now();
-const TWOS = 2 * 1000 / 60;
+const TWOS = 2 * 1000 / FRAME_RATE;
 const since = t0 => Math.floor((clockMs() - t0) / TWOS) * TWOS;
 
 const WHY = {
@@ -118,7 +119,7 @@ if(dbg){
     mute: v => { muted = v; },
     hold: () => { heldMs = performance.now(); },
     run: () => { heldMs = null; raf ||= requestAnimationFrame(tick); },
-    step: (n = 1) => { heldMs += n * 1000 / 60; cancelAnimationFrame(raf); tick(); },
+    step: (n = 1) => { heldMs += n * 1000 / FRAME_RATE; cancelAnimationFrame(raf); tick(); },
   });
 }
 // The crow: `crow` says the lines, `watch` notices what he would say them about. Both are built
@@ -147,7 +148,7 @@ const FX = {
 let fx = null, fxSeen = new Set(), raf = 0;
 
 function startFx(dir, r){
-  const [dx,dy] = ({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
+  const [dx,dy] = DIRS[dir];
   const tx = state.rac.x+dx, ty = state.rac.y+dy;
   const o = inGrid(state,tx,ty) ? cell(state,tx,ty).o : NONE;
   let kind = o===BAG ? 'tear' : (o===CANF||o===CANE||isMultiCell(o)) ? 'push' : 'bump';
@@ -305,7 +306,6 @@ function endRewind(){
 // Frames at 60 Hz. `lay` is one brick's drop into its course.
 const WIPE = { exit: 12, empty: 30, cover: 40, roomHold: 60, roomHoldMax: 120, reveal: 30, revealMax: 90, tail: 60,
   lay: 8, order: 'same', leave: 'hop', pattern: 'room', kind: 'room' };
-const FRAME_MS = 1000 / 60;
 let wipe = null, wipeSet = WIPE, lastWipe = null;
 let wall = null;      // laid once per board size and kind, since laying one is costly
 
@@ -756,7 +756,7 @@ const comp = createCompositor([
     const s=f.state, cs=f.cs;
     const red = new Set((f.blocked?.cells ?? []).map(([x,y])=>`${x},${y}`));
     for(const dir of (f.ph || f.moving ? [] : f.armed ? [f.armed] : ['u','d','l','r'])){
-      const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
+      const [dx,dy]=DIRS[dir];
       const bx=s.rac.x+dx, by=s.rac.y+dy;
       if(!inGrid(s,bx,by) || cell(s,bx,by).o!==BAG) continue;
       for(const [fx,fy] of fan(bx,by,dx,dy)){
@@ -772,7 +772,7 @@ const comp = createCompositor([
   { name:'armed', draw:(ctx,f)=>{
     if(!f.armed) return;
     const s=f.state;
-    const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[f.armed];
+    const [dx,dy]=DIRS[f.armed];
     const ax=s.rac.x+dx, ay=s.rac.y+dy, o=cell(s,ax,ay).o;
     // A pending push shows its landing cells. A pending tear shows its fan.
     if(o===CANE||o===CANF){
@@ -840,7 +840,7 @@ function paintHud(){
 // His panel is DOM, like the HUD.
 const crowBox = document.getElementById('crow'), veil = document.getElementById('veil');
 const crowFace = document.getElementById('crowface'), crowLine = document.getElementById('crowline');
-const SETTLE_MS = SCREEN.SETTLE * 1000 / 60;
+const SETTLE_MS = SCREEN.SETTLE * 1000 / FRAME_RATE;
 let speaking = false, shownFace = '', shownText = '';
 let crowView = { talking: false, speech: false, face: 'closed', text: '' }, faceUp = { id: '', t0: 0 }, settleT0 = -Infinity;
 function paintCrow(v){
@@ -887,7 +887,7 @@ function drawLanding(x,y){
   ctx.restore();
 }
 function armedVerb(){
-  const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[armed];
+  const [dx,dy]=DIRS[armed];
   const c = cell(state, state.rac.x+dx, state.rac.y+dy);
   return c.o===BAG ? 'tear' : 'shove';
 }
@@ -921,7 +921,7 @@ function drawBlocked(x,y){
 }
 // Off the grid there is no cell to paint, so the wall of the alley itself is marked.
 function drawEdgeBar(x,y,dir){
-  const [dx,dy]=({u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]})[dir];
+  const [dx,dy]=DIRS[dir];
   const x0=px(x), y0=px(y), T=9;
   ctx.save(); ctx.fillStyle=C.red;
   if(dy<0) ctx.fillRect(x0+2,y0+1,CS-4,T);

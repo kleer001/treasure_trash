@@ -1,4 +1,5 @@
 // The galvanized can is drawn as seen from the side and a little above.
+import { DIRS } from '../rules.js';
 import { tipper } from './tip.js';
 import { N4 } from './spread.js';
 
@@ -228,7 +229,7 @@ export const bagIn = bag => [Math.floor((CAN.W - bag.w) / 2), -5];
 
 const trig = deg => {
   const d = ((deg % 360) + 360) % 360;
-  return d === 0 ? [1, 0] : d === 90 ? [0, 1] : d === 180 ? [-1, 0] : d === 270 ? [0, -1]
+  return d === 0 ? DIRS.r : d === 90 ? DIRS.d : d === 180 ? DIRS.l : d === 270 ? DIRS.u
     : [Math.cos(d * Math.PI / 180), Math.sin(d * Math.PI / 180)];
 };
 const SPUN = new WeakMap();

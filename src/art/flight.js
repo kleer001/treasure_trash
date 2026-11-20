@@ -1,5 +1,5 @@
 // `flight.js` draws the bag rip frame by frame. `explain` in `src/rules.js` decides the tear.
-import { explain, TRASH, cell } from '../rules.js';
+import { explain, TRASH, cell, DIRS } from '../rules.js';
 import { toState } from '../format.js';
 import { cellSeed } from '../stage.js';
 import { mulberry32 } from '../rng.js';
@@ -9,7 +9,6 @@ import { arc } from './timing.js';
 import { wallTile } from './room.js';
 
 export const C = 24, FLOOR = '#896e6e', SEAM = '#584c62';
-const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
 // Each key is in ms from the push. `body` is the bag's sprite. `nudge` moves the bag, and `lunge` moves the raccoon toward it, both in px.
 export const KEYS = [
   { t: 0, body: 'bag', lunge: 0 },
@@ -38,7 +37,7 @@ const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
 const DARKEN = rgb(SHADOW).map((c, i) => c / rgb(FLOOR)[i]);
 // Each pile shadow style gives the shadow of a landed piece. `r` is its reach past the piece in px. `dx, dy` is its offset in px.
 const LANDED = { base: { r: 1.5, dx: 0, dy: 0 }, drop: { r: 0.5, dx: 1, dy: 1 }, none: { r: 0.5, dx: 0, dy: 0 } };
-const DRIFT = { s: [0, 1], se: [Math.SQRT1_2, Math.SQRT1_2], e: [1, 0] };
+const DRIFT = { s: DIRS.d, se: [Math.SQRT1_2, Math.SQRT1_2], e: DIRS.r };
 
 /** Returns the drawing and flight for one trash set `T`, with sprites `A`, pile look `STYLE` and `OBJ`, the sprite of each occupant code. */
 export function createFlight({ T, A, STYLE, OBJ }) {

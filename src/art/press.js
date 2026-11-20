@@ -1,10 +1,10 @@
 // `press.js` is one press by the cartoon raccoon.
 // Times are in 60 Hz frames, from the action's rest.
+import { DIRS } from '../rules.js';
 import { ACTIONS, RECOVERIES, draw, mirror } from './cartoon.js';
 import { C } from './flight.js';
 
 export const VIEW = { l: 'side', r: 'side', d: 'front', u: 'back' };
-const STEP = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
 
 /** Returns the drawings of `act` toward `dir`, as `{ f, t0, t1 }`. `holds` replaces each frame's authored hold. `lead` false drops every rest frame. `lead` true keeps only the opening rest. */
 export function press(act, dir, { recovery = RECOVERIES[0], holds = null, lead = true } = {}) {
@@ -35,7 +35,7 @@ export const travelAt = (segs, g) => {
 export function place(seg, dir, cx, cy) {
   const flip = s => (dir === 'l' ? mirror(s) : s);
   const spr = flip(draw(seg.f)), over = seg.f.over?.length ? flip(draw(seg.f, { layer: 'over' })).px : [];
-  const [vx, vy] = STEP[dir], d = seg.f.dx;
+  const [vx, vy] = DIRS[dir], d = seg.f.dx;
   const x = cx * C + Math.floor((C - spr.w) / 2) + vx * d, y = cy * C + C - spr.h - 1 + vy * d;
   return { px: spr.px, over, x, y, w: spr.w, h: spr.h };
 }

@@ -1,4 +1,6 @@
-// Timing and curve helpers that the clips share. Frames are 60 Hz. Positions are px.
+// Timing and curve helpers that the clips share. Positions are px.
+export const FRAME_RATE = 60;
+export const FRAME_MS = 1000 / FRAME_RATE;
 export const onTwos = f => f - (f % 2);
 export const evenEnd = end => end + (end % 2);
 export const quadOut = u => 1 - (1 - u) ** 2;

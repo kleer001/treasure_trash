@@ -2,14 +2,13 @@
 // what it is handed and keeps no game state.
 import { wallTile } from './art/room.js';
 import { BAYER } from './art/spread.js';
-import { onTwos } from './art/timing.js';
+import { FRAME_MS, FRAME_RATE, onTwos } from './art/timing.js';
 
 /** Sizes in screen px. The room is drawn at `BOARD` screen px per art px, and the screen at `ZOOM`
  *  device px per screen px. `SETTLE` is how many frames his panel takes to drop to its dock after a
  *  speech, and `VEIL` is the share of that drop over which the veil lifts. */
 export const SCREEN = { W: 480, H: 270, STRIP: 16, DOCK: 48, PORTRAIT: 40, GAP: 4, BOARD: 1.5, ZOOM: 2, SETTLE: 40, VEIL: 0.6 };
 const INK = '#f2ead8', STRIP_INK = '#e8dcc8', STRIP_BG = '#120d14', DOCK_BG = '#0f171c', BOX_BG = '#1c2b33';
-const FRAME_MS = 1000 / 60;
 
 /** The baked font, `src/art/font.json`, and the crow's portraits: `src/art/crow.json` and the
  *  atlas `src/art/crow.png`, one 40 px frame a cell, his stills on the first row. */
@@ -59,7 +58,7 @@ export function createScreen({ canvas, art: { font, crow, atlas }, C }) {
     const still = crow.stills.indexOf(face), clip = crow.clips[face];
     if (still < 0 && !clip) throw new Error(`the crow has no face ${face}`);
     const on2 = onTwos(Math.floor(ms / FRAME_MS));
-    const [col, row] = clip ? [Math.min(clip.frames - 1, Math.floor(on2 * crow.fps / 60)), clip.row] : [still, 0];
+    const [col, row] = clip ? [Math.min(clip.frames - 1, Math.floor(on2 * crow.fps / FRAME_RATE)), clip.row] : [still, 0];
     ctx.drawImage(atlas, col * crow.size, row * crow.size, crow.size, crow.size, x, y, PORTRAIT, PORTRAIT);
   }
 

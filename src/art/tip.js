@@ -1,4 +1,5 @@
 // `tip.js` draws things that stand on a cell and fall over. Upright, each is seen straight from the side.
+import { DIRS } from '../rules.js';
 export const INK = '#19152b';
 
 /** Returns a w×h drawing of the pixels `inMask` holds. */
@@ -11,7 +12,7 @@ export function paint(w, h, inMask, colour) {
   return { w, h, px };
 }
 
-const trig = deg => deg === 0 ? [1, 0] : deg === 90 ? [0, 1] : [Math.cos(deg * Math.PI / 180), Math.sin(deg * Math.PI / 180)];
+const trig = deg => deg === 0 ? DIRS.r : deg === 90 ? DIRS.d : [Math.cos(deg * Math.PI / 180), Math.sin(deg * Math.PI / 180)];
 const at = spr => { const m = new Map(spr.px.map(([x, y, col]) => [`${x},${y}`, col])); return (x, y) => m.get(`${x},${y}`); };
 
 /** A drawing from `px` in px from the upright thing's top-left: `s`, and `ox, oy`, where it goes. */

@@ -1,6 +1,7 @@
 // The raccoon is drawn by hand from its parts.
 // The front view is the `raccoon` sprite in `src/art/assets.json`, cut into those parts.
 // The side and back views are drawn here, in the same colours.
+import { DIRS } from '../rules.js';
 import { quadOut } from './timing.js';
 
 const PAL = { a: '#020106', b: '#06050e', c: '#19152b', d: '#3a2a40', e: '#453d51', f: '#584c62', g: '#765c62',
@@ -147,7 +148,6 @@ const BACK_CUT = [
 
 export const ART = { PAL, FRONT_CUT, SIDE_ART, SIDE_CUT, BACK_ART, BACK_CUT, BACK_TAIL, parts };
 
-const DIRS = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
 export const ACTIONS = ['sit', 'crawl', 'push', 'stuck'];
 /** Each action's phases, in order, each timed by the `ui` setting of its name, except `idle`. */
 const PHASES = {

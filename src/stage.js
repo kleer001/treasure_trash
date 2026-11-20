@@ -13,6 +13,7 @@ import { NONE, cell, cartCells, pieceCells, isCart, isMultiCell,
 import { handleAt, anchorOf, depthLane, laneDepth, laneOf,
          CART_LANE, BODY_LANE, RAC_LANE, isBodyLane } from './handles.js';
 import { mulberry32 } from './rng.js';
+import { FRAME_RATE } from './art/timing.js';
 
 export const CART = 'cart', COUCH = 'couch', RACCOON = 'raccoon', SPLASH = 'splash';
 
@@ -436,7 +437,7 @@ const rolls = st => st.moved.some(m =>
 /** A drop gets beats of its own, since crammed into one it reads as cut rather than as falling. */
 const drops = st => st.gone.some(g => g.effect === 'falls');
 
-export const CELL_MS = 7 * 1000 / 60;
+export const CELL_MS = 7 * 1000 / FRAME_RATE;
 
 /**
  * Returns the traced action `r` cut into the segments a clock can play.

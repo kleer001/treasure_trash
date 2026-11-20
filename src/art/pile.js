@@ -1,5 +1,6 @@
 // Trash piles from palette-indexed item sprites. A pile's layout is a function of its seed
 // alone, so a board still and the last frame of a spill can draw the same pixels.
+import { DIRS } from '../rules.js';
 import { mulberry32 } from '../rng.js';
 
 const SLOT_KEYS = { A: '1234', B: 'abcd', C: 'wxyz' };
@@ -214,7 +215,7 @@ export function drawPile(ctx, T, pile, ox, oy, { outline = 'pile', shadow = 'bas
   const xs = sprites.flatMap(([s, x0]) => [x0, x0 + s.w]), ys = sprites.flatMap(([s, , y0]) => [y0, y0 + s.h]);
   const [x0b, x1b, y0b, y1b] = [Math.min(...xs) - 1, Math.max(...xs), Math.min(...ys) - 1, Math.max(...ys)];
   const dot = (x, y, col) => { ctx.fillStyle = col; ctx.fillRect(ox + x, oy + y, 1, 1); };
-  const ring = (has, x, y, diag) => [[1, 0], [-1, 0], [0, 1], [0, -1], ...(diag ? [[1, 1], [-1, -1], [1, -1], [-1, 1]] : [])]
+  const ring = (has, x, y, diag) => [DIRS.r, DIRS.l, DIRS.d, DIRS.u, ...(diag ? [[1, 1], [-1, -1], [1, -1], [-1, 1]] : [])]
     .some(([dx, dy]) => has(x + dx, y + dy));
   const inMask = (x, y) => mask.has(`${x},${y}`);
   const around = fn => { for (let y = y0b; y <= y1b; y++) for (let x = x0b; x <= x1b; x++) if (!inMask(x, y)) fn(x, y); };

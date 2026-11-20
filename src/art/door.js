@@ -1,3 +1,4 @@
+import { FRAME_RATE } from './timing.js';
 // The exit is a roller shutter under an EXIT sign.
 // Pixels are [x, y, colour] from the cell's top-left.
 export const RISE = 9;
@@ -44,7 +45,7 @@ export function door(open, frame = 0, look = LOOK) {
   const rows = BOTTOM - OPEN_TOP + 1, hang = Math.round((1 - Math.min(1, open)) * rows), lift = rows - hang;
   for (let y = OPEN_TOP; y < OPEN_TOP + hang; y++) fill(LEFT, y, 18, 1, (y + lift) % 2 ? SLAT : SLAT_LIT);
   if (hang) fill(LEFT, OPEN_TOP + hang - 1, 18, 1, FRAME);
-  const n = look.light.length, t = frame / 60;
+  const n = look.light.length, t = frame / FRAME_RATE;
   for (let y = OPEN_TOP + hang; y <= BOTTOM; y++) for (let x = LEFT; x <= RIGHT; x++) {
     const along = (x - LEFT - look.speedX * t) / look.wave + (y - OPEN_TOP + look.speedY * t) / look.waveY;
     const bent = y - OPEN_TOP + look.amp * Math.sin(2 * Math.PI * along);

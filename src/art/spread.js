@@ -1,6 +1,7 @@
 // The methods lay trash over a board's TRASH cells: `mound`, `flat`, `edges` and `field`. `mound` is pileLayout, one mound per cell.
 // Each method returns a Map 'x,y' -> pile { cx, cy, pieces } with cell-local pieces, as pileLayout does, so settle() and drawPile() take them unchanged.
 // The pixel helpers the art shares, `hash`, `noise`, `BAYER` and `N4`, are defined in this file.
+import { DIRS } from '../rules.js';
 import { mulberry32 } from '../rng.js';
 import { cellSeed } from '../stage.js';
 import { ORDER, sizes, pileLayout, chooser } from './pile.js';
@@ -46,7 +47,7 @@ export const pourPile = (T, o, { C, cell: [x, y], given, isTrash, seed, key }) =
 /** `BAYER` is a 4×4 ordered-dither matrix. Index it by `(y & 3) * 4 + (x & 3)`. */
 export const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 /** `N4` lists the four neighbours that share an edge, as `[dx, dy]` steps. */
-export const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+export const N4 = [DIRS.r, DIRS.l, DIRS.d, DIRS.u];
 
 export function hash(...v) {
   let h = 0x811c9dc5;

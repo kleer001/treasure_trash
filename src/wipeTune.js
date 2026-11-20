@@ -1,6 +1,7 @@
 // The wipe's tuning panel, on `?wipe`: the settings the curtain between rooms runs on, kept in
 // this browser, a replay on the room in front of you, and notes saved with the settings.
 import { PATTERNS, KINDS, wallFrom } from './wipe.js';
+import { FRAME_RATE } from './art/timing.js';
 
 const WIPE_KEY = 'tt-wipe';
 const ARROW = { right: '→', left: '←', down: '↓', up: '↑', downRight: '↘', downLeft: '↙', upRight: '↗', upLeft: '↖',
@@ -43,7 +44,7 @@ export function createWipeTune(el, defaults, { replay, snap, send, key = WIPE_KE
 ].map(([k, name]) =>
       `<div class="wrow">${name}: ${C[k].map(v =>
         `<button data-k="${k}" data-v="${v}">${LABEL[v] ?? v}</button>`).join('')}</div>`).join('')}
-    <div class="wrow">Frames at 60 Hz: ${FRAMES.map(([k, name]) =>
+    <div class="wrow">Frames at ${FRAME_RATE} Hz: ${FRAMES.map(([k, name]) =>
       `<span class="wnum">${name} <button data-n="${k}" data-d="-1">−</button><input data-show="${k}" inputmode="numeric"><button data-n="${k}" data-d="1">+</button></span>`).join('')}</div>
     <div class="wrow"><textarea data-note rows="2" placeholder="A note on these settings"></textarea>
       <button data-do="note">Save note</button> <span class="wsay" data-say="note"></span></div>`;
@@ -53,8 +54,7 @@ export function createWipeTune(el, defaults, { replay, snap, send, key = WIPE_KE
     for (const b of el.querySelectorAll('[data-k]')) b.setAttribute('aria-pressed', String(set[b.dataset.k] === b.dataset.v));
     for (const [k] of FRAMES) q(`[data-show="${k}"]`).value = set[k];
     const quiet = wallFrom(set) + set.cover + set.roomHold + set.reveal;
-    q('[data-say="sum"]').textContent = `${quiet} frames, ${(quiet / 60).toFixed(2)} s, when he is quiet. `
-      + 'While he talks, the wall waits for his win line, then fits his line about the new room.';
+    q('[data-say="sum"]').textContent = `${quiet} frames, ${(quiet / FRAME_RATE).toFixed(2)} s, when he is quiet.`;
   }
   const setFrames = (k, n) => {
     const lo = PAIRS.find(p => p[1] === k)?.[0];

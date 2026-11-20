@@ -3,9 +3,10 @@
 // `createSprites` takes the surface — ctx, cell size, palette — at the boundary, so these are
 // reachable from anything that draws rather than welded to one module's scope.
 //
-// Nothing here knows about the rules or the board. It is handed coordinates — which may be
+// Nothing here knows about the board. It is handed coordinates — which may be
 // fractional, mid-slide — and it draws.
 
+import { DIRS } from './rules.js';
 import { pileLook, PILE_SHAPES } from './stage.js';
 
 /** Every colour the alley is made of. Override any of it; the bench swaps for light/dark. */
@@ -53,7 +54,7 @@ export const PALETTE = {
 
 /** The way the exit's arrow points: out of the room, at the nearest board edge. */
 export const exitArrowDir = (cols, rows, x, y) =>
-  [[y, [0, -1]], [rows - 1 - y, [0, 1]], [x, [-1, 0]], [cols - 1 - x, [1, 0]]]
+  [[y, DIRS.u], [rows - 1 - y, DIRS.d], [x, DIRS.l], [cols - 1 - x, DIRS.r]]
     .reduce((a, b) => (b[0] < a[0] ? b : a))[1];
 
 export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0.118)), palette = {} }) {
@@ -182,7 +183,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
     oneway(x, y, dir) {
       api.floor(x, y);
       const cx = px(x) + CS / 2, cy = px(y) + CS / 2, r = CS * 0.24;
-      const [dx, dy] = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }[dir];
+      const [dx, dy] = DIRS[dir];
       const px_ = -dy, py_ = dx;
       ctx.strokeStyle = P.oneway; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       for (const back of [0.55, -0.15]) {
@@ -326,7 +327,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       const mid = (TOP + BOT) / 2, capU = 0.05 + rr / L;
       // The two axes as pixel vectors, so the far cap can be walked as a true semicircle. Swept
       // in (u, v) it would come out an ellipse wherever the footprint is longer than it is wide.
-      const LONG = along ? [1, 0] : [0, 1], CROSS = along ? [0, 1] : [1, 0];
+      const LONG = along ? DIRS.r : DIRS.d, CROSS = along ? DIRS.d : DIRS.r;
       const [ccx, ccy] = pt(capU, mid);
 
       ctx.save();
@@ -409,7 +410,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
       const x0 = px(x) + PAD, y0 = px(y) + PAD, w = CS - 2 * PAD, h = CS - 2 * PAD;
       ctx.fillStyle = P.cab; ctx.strokeStyle = P.cabEdge; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.roundRect(x0, y0, w, h, 3); ctx.fill(); ctx.stroke();
-      const [fx, fy] = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }[face];
+      const [fx, fy] = DIRS[face];
       ctx.fillStyle = P.cabPull;
       const cx = px(x) + CS / 2 + fx * CS * 0.30, cy = px(y) + CS / 2 + fy * CS * 0.30;
       const pw = fx ? CS * 0.08 : CS * 0.34, ph = fx ? CS * 0.34 : CS * 0.08;
@@ -465,7 +466,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
      */
     barrow(x, y, face) {
       const cx = px(x) + CS / 2, cy = px(y) + CS / 2;
-      const [ax, ay] = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }[face];
+      const [ax, ay] = DIRS[face];
       const [bx, by] = [-ay, ax];                          // across the line it runs on
 
       // The handles first, so the tub sits over the ends of them and they read as bolted under.
@@ -541,7 +542,7 @@ export function createSprites({ ctx, cell, pad = Math.max(3, Math.round(cell * 0
     // The way out, drawn as what it is: an emergency exit sign. White-on-green is the ISO 3864
     // "safe condition" coding (ISO 7010 E001 and E002). The caller decides whether it is `lit`.
     // `dir` points at the board edge he is actually leaving by — see `exitArrowDir`.
-    exit(x, y, lit, dir = [0, -1]) {
+    exit(x, y, lit, dir = DIRS.u) {
       const [dx, dy] = dir;
       const x0 = px(x), y0 = px(y), m = CS * 0.105, w = CS - 2 * m;
       const cx = x0 + CS / 2, cy = y0 + CS / 2;
