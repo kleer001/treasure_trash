@@ -1,0 +1,7 @@
+.group { display: flex; align-items: center; gap: 10px; color: #6b6b66; font-size: 13px; margin-top: 6px; }
+.group::before, .group::after { content: ''; flex: 1; border-top: 1px solid #d6d3cc; }
+textarea { font: inherit; width: 100%; box-sizing: border-box; min-height: 5em; }
+.status { color: #6b6b66; font-size: 13px; }
+.status.bad { color: #b3261e; font-weight: 600; }
+.r { padding: 0 6px; font-size: 12px; line-height: 1.5; }
+.r:disabled { opacity: .3; cursor: default; }

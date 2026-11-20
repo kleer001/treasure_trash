@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Raccoon Bench</title>
+<link rel="stylesheet" href="trash/controls.css">
 <style>
   :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --ok: #1d7a3a; --bad: #b3261e; }
   body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
@@ -15,10 +16,10 @@
   button[aria-pressed="true"] { background: var(--ink); color: #fff; }
   canvas { display: block; image-rendering: pixelated; border: 1px solid var(--line); }
   .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
-  .ctl { display: grid; grid-template-columns: auto 200px auto; gap: 4px 8px; align-items: center; font-size: 13px; }
+  .ctl { display: grid; grid-template-columns: auto 200px auto auto; gap: 4px 8px; align-items: center; font-size: 13px; }
   .ctl input { width: 100%; }
   .ctl .read { min-width: 120px; color: var(--muted); }
-  .ctl .head { grid-column: 1 / -1; font-weight: 600; margin-top: 6px; }
+  .ctl .group { grid-column: 1 / -1; }
   .check { font-weight: 600; font-size: 13px; } .check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
   .muted { color: var(--muted); font-size: 12px; max-width: 640px; }
   #strip-wrap { overflow-x: auto; max-width: 100%; }
@@ -28,7 +29,7 @@
 </style>
 </head>
 <body>
-<h1>Raccoon — sitting, crawling one cell, and shoving a thing, drawn by hand from its parts</h1>
+<h1>Raccoon</h1>
 <div class="bar">
   <span class="grp">Action: <button data-act="sit">sit</button><button data-act="crawl">crawl one cell</button>
     <button data-act="push">push</button><button data-act="stuck">push, held fast</button></span>
@@ -49,6 +50,7 @@
     <div class="check" id="check-cell"></div>
     <p class="muted" id="rules-read"></p>
     <div class="ctl" id="ctl"></div>
+    <div id="side"></div>
   </div>
 </div>
 <h2>Every frame</h2>
@@ -64,6 +66,7 @@ import { front as CAN } from '../../src/art/can.js';
 import { decorAfter, stageFrom, RACCOON } from '../../src/stage.js';
 import { createRaccoon, ACTIONS } from '../../src/art/raccoon.js';
 import { load, save as store } from './trash/settings.js';
+import { bind, resetOf, resetAll, autosaver } from './trash/knobs.js';
 
 const KEY = 'trash-raccoon';
 // Sliders: label, least, most, step, readout, and the actions that use it.
@@ -98,10 +101,12 @@ const N = 5, MID = 2;
 
 const A = await fetch('../../src/art/assets.json').then(r => r.json());
 const R = createRaccoon(A.raccoon);
-const ui = load(KEY, { act: 'crawl', before: 'd', dir: 'r', playing: true, speed: 100, zoom: 4, fps: 30, onion: false,
+const DEF = { act: 'crawl', before: 'd', dir: 'r', playing: true, speed: 100, zoom: 4, fps: 30, onion: false,
   turn: 160, breath: 900, breaths: 3, blink: 140, crouch: 140, pull: 260, brace: 160, shove: 120, follow: 300,
-  strain: 600, giveUp: 300, settle: 160, hold: 600, breathPx: 1, sway: 1, swings: 2, crouchPx: 2, reach: 3, trail: 2, bracePx: 2, lunge: 1 });
-const save = () => store(KEY, ui);
+  strain: 600, giveUp: 300, settle: 160, hold: 600, breathPx: 1, sway: 1, swings: 2, crouchPx: 2, reach: 3, trail: 2, bracePx: 2, lunge: 1 };
+const ui = load(KEY, DEF);
+const save = () => { store(KEY, ui); autosave(); };
+const bound = bind(ui, DEF, () => { save(); build(); });
 
 const canvasOf = (w, h = w) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 const pixels = (c, w, h = w) => c.getContext('2d').getImageData(0, 0, w, h).data;
@@ -266,9 +271,17 @@ function drawViews() {
 }
 
 const ctl = document.getElementById('ctl');
-ctl.innerHTML = SLIDERS.map(([k, label, lo, hi, step]) => label === undefined ? `<div class="head">${k}</div>`
+ctl.innerHTML = SLIDERS.map(([k, label, lo, hi, step]) => label === undefined ? `<div class="group">${k}</div>`
   : `<label for="f-${k}" data-row="${k}">${label}</label><input type="range" id="f-${k}" data-row="${k}" min="${lo}" max="${hi}" step="${step}"><span class="read" id="f-${k}-read" data-row="${k}"></span>`).join('');
-for (const [k, label] of SLIDERS) if (label !== undefined) document.getElementById(`f-${k}`).oninput = e => { ui[k] = Number(e.target.value); save(); build(); };
+const side = document.getElementById('side');
+for (const [k, label] of SLIDERS) if (label !== undefined) {
+  document.getElementById(`f-${k}`).oninput = e => { ui[k] = Number(e.target.value); bound.change(); };
+  const r = resetOf(bound, k, bar);
+  r.dataset.row = k;
+  document.getElementById(`f-${k}-read`).after(r);
+}
+resetAll(side, bound);
+const autosave = autosaver(side, 'raccoon', () => ui);
 
 function bar() {
   document.querySelectorAll('[data-act]').forEach(b => b.setAttribute('aria-pressed', b.dataset.act === ui.act));
@@ -290,10 +303,10 @@ function bar() {
   }
 }
 const step = j => { ui.playing = false; clock = (Math.max(0, Math.min(FRAMES - 1, j)) + 0.5) * 1000 / ui.fps; save(); bar(); show(); };
-document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { ui.act = b.dataset.act; save(); build(); });
-document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => { ui.dir = b.dataset.dir; save(); build(); });
-document.querySelectorAll('[data-before]').forEach(b => b.onclick = () => { ui.before = b.dataset.before; save(); build(); });
-document.querySelectorAll('[data-fps]').forEach(b => b.onclick = () => { ui.fps = Number(b.dataset.fps); save(); build(); });
+document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { ui.act = b.dataset.act; bound.change(); });
+document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => { ui.dir = b.dataset.dir; bound.change(); });
+document.querySelectorAll('[data-before]').forEach(b => b.onclick = () => { ui.before = b.dataset.before; bound.change(); });
+document.querySelectorAll('[data-fps]').forEach(b => b.onclick = () => { ui.fps = Number(b.dataset.fps); bound.change(); });
 document.getElementById('play').onclick = () => { ui.playing = !ui.playing; save(); bar(); };
 document.getElementById('onion').onclick = () => { ui.onion = !ui.onion; save(); bar(); shown = -1; show(); };
 document.getElementById('prev').onclick = () => step(shown - 1);
@@ -305,6 +318,7 @@ document.getElementById('zoom-out').onclick = () => { ui.zoom = Math.max(1, ui.z
 document.getElementById('zoom-in').onclick = () => { ui.zoom = Math.min(8, ui.zoom + 1); save(); bar(); shown = -1; show(); };
 if (!ACTIONS.includes(ui.act)) ui.act = 'crawl';
 drawViews(); build(); requestAnimationFrame(tick);
+autosave();
 </script>
 </body>
 </html>

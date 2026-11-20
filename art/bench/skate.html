@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Skateboard Bench</title>
+<link rel="stylesheet" href="trash/controls.css">
 <style>
   :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --ok: #1d7a3a; --bad: #b3261e; }
   body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
@@ -15,7 +16,7 @@
   button[aria-pressed="true"] { background: var(--ink); color: #fff; }
   canvas { display: block; image-rendering: pixelated; border: 1px solid var(--line); }
   .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
-  .ctl { display: grid; grid-template-columns: auto 220px auto; gap: 4px 8px; align-items: center; font-size: 13px; }
+  .ctl { display: grid; grid-template-columns: auto 220px auto auto; gap: 4px 8px; align-items: center; font-size: 13px; }
   .ctl input { width: 100%; }
   .ctl .read { min-width: 130px; color: var(--muted); }
   .check { font-weight: 600; font-size: 13px; } .check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
@@ -24,7 +25,7 @@
 </style>
 </head>
 <body>
-<h1>Skateboard — a deck two cells long: it rolls along itself until something stops it, and goes one cell across</h1>
+<h1>Skateboard</h1>
 <div class="bar">
   <span class="grp">Push direction:
     <button data-dir="u">↑</button><button data-dir="d">↓</button><button data-dir="l">←</button><button data-dir="r">→</button></span>
@@ -50,13 +51,13 @@
 <div class="row">
   <div><canvas id="view"></canvas><div class="muted" id="frame-read"></div></div>
   <div>
-    <h2>Motion</h2>
+    <div class="group">Motion</div>
     <div class="ctl" id="ctl"></div>
+    <div id="side"></div>
     <p class="muted" id="stats"></p>
     <div class="check" id="check-start"></div>
     <div class="check" id="check-end"></div>
     <div class="check" id="check-cells"></div>
-    <p class="muted">Which way an emptied can or box lies is not on the board. The page takes it, after the shove, from the stage's decoration (<code>decorAfter</code> in <code>src/stage.js</code>), and the still of the board after the shove wears that decoration too.</p>
   </div>
 </div>
 <script type="module">
@@ -70,6 +71,7 @@ import * as CAN from '../../src/art/can.js';
 import * as BOX from '../../src/art/box.js';
 import { deck, standRow, VIEWS } from '../../src/art/skate.js';
 import { load, save as store } from './trash/settings.js';
+import { bind, resetOf, resetAll, autosaver } from './trash/knobs.js';
 
 const KEY = 'trash-skate';
 const SLIDERS = {
@@ -89,9 +91,11 @@ const REACH = 5;                                   // px
 const SEED = 7;                                    // every pile and every box's heap on this page is laid from it
 
 const [D, A, LOOK] = await Promise.all(['../../src/art/items.json', '../../src/art/assets.json', '../../src/art/look.json'].map(f => fetch(f).then(r => r.json())));
-const ui = load(KEY, { dir: 'r', shove: 'roll', room: 'walled', stopper: 'none', view: 'end', near: 'none', far: 'bag', path: 'trash',
-  playing: true, speed: 100, zoom: 4, fps: 30, cell: 120, ease: 1, bump: 2, bumpMs: 160, spin: 2, scoot: 260, slop: 320, contact: 100, hold: 700 });
-const save = () => store(KEY, ui);
+const DEF = { dir: 'r', shove: 'roll', room: 'walled', stopper: 'none', view: 'end', near: 'none', far: 'bag', path: 'trash',
+  playing: true, speed: 100, zoom: 4, fps: 30, cell: 120, ease: 1, bump: 2, bumpMs: 160, spin: 2, scoot: 260, slop: 320, contact: 100, hold: 700 };
+const ui = load(KEY, DEF);
+const save = () => { store(KEY, ui); autosave(); };
+const bound = bind(ui, DEF, () => { save(); build(); });
 const T = createTrash(D, { accents: LOOK.accents, diagonals: LOOK.diagonals });
 const F = createFlight({ T, A, STYLE: { outline: LOOK.outline, shadow: LOOK.shadow }, OBJ: {} });
 const STYLE = { outline: LOOK.outline, shadow: LOOK.shadow };
@@ -367,7 +371,13 @@ function tick(now) {
 const ctl = document.getElementById('ctl');
 ctl.innerHTML = Object.entries(SLIDERS).map(([k, [label, lo, hi, step]]) =>
   `<label for="f-${k}">${label}</label><input type="range" id="f-${k}" min="${lo}" max="${hi}" step="${step}"><span class="read" id="f-${k}-read"></span>`).join('');
-for (const k in SLIDERS) document.getElementById(`f-${k}`).oninput = e => { ui[k] = Number(e.target.value); save(); build(); };
+const side = document.getElementById('side');
+for (const k in SLIDERS) {
+  document.getElementById(`f-${k}`).oninput = e => { ui[k] = Number(e.target.value); bound.change(); };
+  document.getElementById(`f-${k}-read`).after(resetOf(bound, k, bar));
+}
+resetAll(side, bound);
+const autosave = autosaver(side, 'skate', () => ui);
 document.getElementById('views').innerHTML = Object.entries(VIEWS).map(([k, label]) => `<button data-view="${k}">${label}</button>`).join('');
 for (const p of ['near', 'far', 'path'])
   document.getElementById(`pick-${p}`).innerHTML = Object.keys(LOADS).map(k => `<button data-${p}="${k}">${k}</button>`).join('');
@@ -382,8 +392,8 @@ function bar() {
   for (const k in SLIDERS) { document.getElementById(`f-${k}`).value = ui[k]; document.getElementById(`f-${k}-read`).textContent = SLIDERS[k][4](ui[k]); }
 }
 const step = j => { ui.playing = false; clock = (Math.max(0, Math.min(FRAMES - 1, j)) + 0.5) * 1000 / ui.fps; save(); bar(); show(); };
-for (const g of GROUPS) document.querySelectorAll(`[data-${g}]`).forEach(b => b.onclick = () => { ui[g] = b.dataset[g]; save(); build(); });
-document.querySelectorAll('[data-fps]').forEach(b => b.onclick = () => { ui.fps = Number(b.dataset.fps); save(); build(); });
+for (const g of GROUPS) document.querySelectorAll(`[data-${g}]`).forEach(b => b.onclick = () => { ui[g] = b.dataset[g]; bound.change(); });
+document.querySelectorAll('[data-fps]').forEach(b => b.onclick = () => { ui.fps = Number(b.dataset.fps); bound.change(); });
 document.getElementById('play').onclick = () => { ui.playing = !ui.playing; save(); bar(); };
 document.getElementById('prev').onclick = () => step(shown - 1);
 document.getElementById('next').onclick = () => step(shown + 1);
@@ -404,6 +414,7 @@ embed(view, {
   },
 });
 build(); requestAnimationFrame(tick);
+autosave();
 </script>
 </body>
 </html>

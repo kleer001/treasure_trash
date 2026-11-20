@@ -29,7 +29,7 @@ export function resetButton(back, now, then) {
 }
 
 /** Returns the `r` button of the control bound by `b` to `s[key]`. `show()` puts the value on the control. */
-function resetOf(b, key, show) {
+export function resetOf(b, key, show) {
   const back = () => { b.s[key] = structuredClone(b.d[key]); show(); };
   const r = resetButton(() => { back(); b.change(); }, () => b.s[key], b.d[key]);
   b.resets.push(back);

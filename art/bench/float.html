@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Afloat Bench</title>
+<link rel="stylesheet" href="trash/controls.css">
 <style>
   :root { --ink: #1a1a1a; --bg: #fafafa; --line: #d8d8d4; --muted: #6b6b66; --ok: #1d7a3a; --bad: #b3261e; }
   body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
@@ -15,7 +16,7 @@
   button[aria-pressed="true"] { background: var(--ink); color: #fff; }
   canvas { display: block; image-rendering: pixelated; border: 1px solid var(--line); }
   .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
-  .ctl { display: grid; grid-template-columns: auto 200px auto; gap: 4px 8px; align-items: center; font-size: 13px; }
+  .ctl { display: grid; grid-template-columns: auto 200px auto auto; gap: 4px 8px; align-items: center; font-size: 13px; }
   .ctl input { width: 100%; }
   .ctl .read { min-width: 140px; color: var(--muted); }
   .check { font-weight: 600; font-size: 13px; } .check.ok { color: var(--ok); } .check.bad { color: var(--bad); }
@@ -26,8 +27,7 @@
 </style>
 </head>
 <body>
-<h1>Afloat bench — what the canal keeps: a thing shoved or tipped into the water sinks in, bobs a little and lies still</h1>
-<div class="muted" id="source-read"></div>
+<h1>Afloat bench</h1>
 <div class="bar">
   <span class="grp">Scene:
     <button data-scene="box">empty box shoved in</button><button data-scene="can">empty can shoved in</button>
@@ -40,9 +40,8 @@
   <span class="grp">Room: <button data-room="walled">walled</button><button data-room="open">open</button></span>
   <span class="grp" id="before-grp">What came before: the empty thing
     <button data-before="stand">stands where the room put it</button>
-    <button data-before="l">lies ←</button><button data-before="u">lies ↑</button><button data-before="r">lies →</button><button data-before="d">lies ↓</button>
-    <span class="muted">(tipped by an earlier shove)</span></span>
-  <span class="grp">Under the waterline: <button data-under="tint">seen through the water</button><button data-under="hide">hidden</button></span>
+    <button data-before="l">lies ←</button><button data-before="u">lies ↑</button><button data-before="r">lies →</button><button data-before="d">lies ↓</button></span>
+  <span class="grp" id="under-grp">Under the waterline: <button data-under="tint">seen through the water</button><button data-under="hide">hidden</button></span>
 </div>
 <div class="bar">
   <span class="grp"><button id="play">pause</button><button id="prev">◀ frame</button><button id="next">frame ▶</button>
@@ -54,8 +53,9 @@
 <div class="row">
   <div><canvas id="view"></canvas><div class="muted" id="frame-read"></div></div>
   <div style="max-width: 640px">
-    <h2>Afloat</h2>
+    <div class="group">Afloat</div>
     <div class="ctl" id="ctl"></div>
+    <div id="side"></div>
     <p class="muted" id="stats"></p>
     <div class="check" id="check-rules"></div>
     <div class="check" id="check-start"></div>
@@ -80,6 +80,7 @@ import * as Box from '../../src/art/box.js';
 import * as Jug from '../../src/art/jug.js';
 import { canal, soaked, WATER } from '../../src/art/water.js';
 import { load, save as store, CROSSING, crossingDefaults, SHADE, shadowDefaults } from './trash/settings.js';
+import { bind, resetOf, resetAll, autosaver } from './trash/knobs.js';
 
 const KEY = 'trash-float', CAN_KEY = 'trash-can';
 const SLIDERS = {
@@ -114,9 +115,11 @@ const ARROW = { l: '←', u: '↑', r: '→', d: '↓' };
 const NAMES = { [BIN_EMPTY]: 'the box', [CAN_EMPTY]: 'the can', [JUG_EMPTY]: 'the jug', [BAG_CODE]: 'the bag', [CAN_FULL]: 'the full can' };
 
 const [A, D, LOOK] = await Promise.all(['../../src/art/assets.json', '../../src/art/items.json', '../../src/art/look.json'].map(f => fetch(f).then(r => r.json())));
-const ui = load(KEY, { scene: 'box', dir: 'r', room: 'walled', before: 'stand', under: 'tint', playing: true, speed: 100, zoom: 4, fps: 30,
-  drop: 3, depth: 5, murk: 50, glint: 2, slide: 220, plunge: 3, amp: 1, bobs: 2, decay: 50, settle: 1000, splash: 420, ripple: 5, squash: 45, hold: 700, poke: 5 });
-const save = () => store(KEY, ui);
+const DEF = { scene: 'box', dir: 'r', room: 'walled', before: 'stand', under: 'tint', playing: true, speed: 100, zoom: 4, fps: 30,
+  drop: 3, depth: 5, murk: 50, glint: 2, slide: 220, plunge: 3, amp: 1, bobs: 2, decay: 50, settle: 1000, splash: 420, ripple: 5, squash: 45, hold: 700, poke: 5 };
+const ui = load(KEY, DEF);
+const save = () => { store(KEY, ui); autosave(); };
+const bound = bind(ui, DEF, () => { save(); build(); });
 const CAN_DEFAULTS = { slide: 140, tip: 260, pour: 45, out: 320, hop: 6 };
 let CS = load(CAN_KEY, CAN_DEFAULTS);                       // the Trash Can Bench's tip
 let CAST = load(SHADE, shadowDefaults(LOOK)).cast;          // the Shadow Bench's shadow
@@ -462,7 +465,14 @@ function tick(now) {
 
 document.getElementById('ctl').innerHTML = Object.entries(SLIDERS).map(([k, [label, lo, hi, step]]) =>
   `<label for="f-${k}">${label}</label><input type="range" id="f-${k}" min="${lo}" max="${hi}" step="${step}"><span class="read" id="f-${k}-read"></span>`).join('');
-for (const k in SLIDERS) document.getElementById(`f-${k}`).oninput = e => { ui[k] = Number(e.target.value); save(); build(); };
+const side = document.getElementById('side');
+for (const k in SLIDERS) {
+  document.getElementById(`f-${k}`).oninput = e => { ui[k] = Number(e.target.value); bound.change(); };
+  document.getElementById(`f-${k}-read`).after(resetOf(bound, k, bar));
+}
+document.getElementById('under-grp').append(resetOf(bound, 'under', bar));
+resetAll(side, bound);
+const autosave = autosaver(side, 'float', () => ui);
 
 function bar() {
   for (const k of ['scene', 'dir', 'room', 'before', 'under']) document.querySelectorAll(`[data-${k}]`).forEach(b => b.setAttribute('aria-pressed', b.dataset[k] === ui[k]));
@@ -474,14 +484,12 @@ function bar() {
   document.getElementById('f-murk').disabled = ui.under === 'hide';
   document.getElementById('f-poke').disabled = ui.scene !== 'poke';
   document.getElementById('f-slide').disabled = ui.scene === 'near' || ui.scene === 'far';
-  document.getElementById('source-read').textContent = 'The full can tips as the Trash Can Bench tips it. Shadows: the Shadow Bench. ' +
-    'The canal: the Crossing Edge page. Which way a thing lies is history, not board: the stage derives it (decorAfter in src/stage.js).';
   document.querySelectorAll('[data-before]').forEach(b => { b.disabled = B.sc.glyph === 'C'; });
 }
 const step = j => { ui.playing = false; clock = (Math.max(0, Math.min(FRAMES - 1, j)) + 0.5) * 1000 / ui.fps; save(); bar(); show(); };
 for (const k of ['scene', 'dir', 'room', 'before', 'under'])
-  document.querySelectorAll(`[data-${k}]`).forEach(b => b.onclick = () => { ui[k] = b.dataset[k]; save(); build(); });
-document.querySelectorAll('[data-fps]').forEach(b => b.onclick = () => { ui.fps = Number(b.dataset.fps); save(); build(); });
+  document.querySelectorAll(`[data-${k}]`).forEach(b => b.onclick = () => { ui[k] = b.dataset[k]; bound.change(); });
+document.querySelectorAll('[data-fps]').forEach(b => b.onclick = () => { ui.fps = Number(b.dataset.fps); bound.change(); });
 document.getElementById('play').onclick = () => { ui.playing = !ui.playing; save(); bar(); };
 document.getElementById('prev').onclick = () => step(shown - 1);
 document.getElementById('next').onclick = () => step(shown + 1);
@@ -502,6 +510,7 @@ embed(view, {
   show: g => { const c = canvasOf(W); frameAt(c.getContext('2d'), Math.min(B.END, sceneMs(g))); blit(view, c, ui.zoom); },
 });
 build(); requestAnimationFrame(tick);
+autosave();
 </script>
 </body>
 </html>
