@@ -1,11 +1,7 @@
 // Presentation and input only — the rules live in src/rules.js.
 // ES modules need http://, so run ./run.sh rather than opening the file.
 import {
-  NONE, BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMPTY, JUG,
-  JUG_EMPTY, SPONGE, CARDBOARD, PANE, TIRE_H, TIRE_V, BICYCLE, RUG, CHAIR, BROOM,
-  CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R,
-  MAG_U, MAG_D, MAG_L, MAG_R,
-  FURNITURE,
+  NONE, BAG, CAN_FULL, CAN_EMPTY, BICYCLE, RUG,
   DIRS,
   exitLit, fan, inGrid, cell, isMultiCell,
   GREASE, TAR, GLASS, COVERED, isBarrow, barrowFace, gripTarget, OCCUPANTS as CODES,
@@ -16,7 +12,7 @@ import { installFocusReclaim } from './focus.js';
 import { createDebugLog, createProbe } from './debug.js';
 import { createCrow, createCrowMemory, TUNING } from './crow.js';
 import { createCrowDebug } from './crowDebug.js';
-import { createWatch, refusal } from './crowWatch.js';
+import { createWatch } from './crowWatch.js';
 import { createPlay, tell } from './play.js';
 import { mulberry32 } from './rng.js';
 import { createSprites, drawOccupant, exitArrowDir, PALETTE as C } from './sprites.js';
@@ -36,6 +32,7 @@ import { P, PATTERNS, KINDS, layWall, drawWipe, wallFrom, roomBeats } from './wi
 import { createWipeTune } from './wipeTune.js';
 import { createSound } from './sound.js';
 import { createLostScan } from './lostScan.js';
+import { createHud, pad } from './hud.js';
 // The stage owns the objects, their motion and their envelopes.
 import {
   CART, COUCH, RACCOON, SPLASH, advance, applyStep, cellSeed, easeOut, rollEase, settle,
@@ -43,9 +40,6 @@ import {
 } from './stage.js';
 
 const CANF = CAN_FULL, CANE = CAN_EMPTY;
-// A room is shown by its own id, zero-padded, so the picker, the pack and levels.md all call
-// it the same thing. Three digits because the pack is meant to grow: L0 -> 000, L18 -> 018.
-const pad = id => String(id).replace(/\D+/g,'').padStart(3,'0');
 // `?pixel` draws the board in the pixel art, one canvas pixel to an art pixel, scaled up whole.
 const PIXEL = new URLSearchParams(location.search).has('pixel');
 const CS = PIXEL ? PIXEL_CELL : 76, PAD=9;
@@ -55,48 +49,12 @@ const clockMs = () => heldMs ?? performance.now();
 const TWOS = 2 * 1000 / FRAME_RATE;
 const since = t0 => Math.floor((clockMs() - t0) / TWOS) * TWOS;
 
-const WHY = {
-  edge:    "that's the edge of the alley",
-  wall:    "wall",
-  trash:   "your own trash — permanent",
-  fan:     "no room to burst",
-  canRoom: "no room to shove it",
-  exit:    "that's your way out — you can't dump on it",
-  water:   "he's not wetting his paws — fill it in first",
-  afloat:  "that's out in the canal — he's not wading in after it",
-  pour:    "it only pours on dry ground",
-  glass:   "broken glass — he's not standing in that",
-  tar:     "stuck in the tar for good",
-  oneway:  "that only goes one way, and it isn't this one",
-};
-// Name the thing in the way rather than saying "blocked": the red cell already carries that.
-const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"your own trash",
-  [BIN]:"a full recycle bin", [BIN_EMPTY]:"an empty recycle bin",
-  [WHEELIE]:"a wheelie bin",
-  [WHEELIE_EMPTY]:"an empty wheelie bin", [JUG]:"the water jug", [JUG_EMPTY]:"the empty jug",
-  [SPONGE]:"the sponge", [CARDBOARD]:"the cardboard", [PANE]:"the pane of glass",
-  [TIRE_H]:"the tyre", [TIRE_V]:"the tyre", [BICYCLE]:"the bicycle", [RUG]:"the rolled rug", [CHAIR]:"the office chair", [BROOM]:"the broom",
-  [CABC_U]:"the filing cabinet", [CABC_D]:"the filing cabinet",
-  [CABC_L]:"the filing cabinet", [CABC_R]:"the filing cabinet",
-  [CABO_U]:"the open cabinet", [CABO_D]:"the open cabinet",
-  [CABO_L]:"the open cabinet", [CABO_R]:"the open cabinet",
-  [MAG_U]:"the magnet", [MAG_D]:"the magnet", [MAG_L]:"the magnet", [MAG_R]:"the magnet",
-  [FURNITURE]:"the couch" };
-function whyText(b){
-  const base = WHY[refusal(play.state, b)];
-  if(b.reason !== 'fan' && b.reason !== 'canRoom') return base;
-  const [x,y] = b.cells[0] ?? [];
-  if(x === undefined || !inGrid(play.state,x,y)) return `${base} — the wall's in the way`;
-  const c = cell(play.state,x,y);
-  const what = c.wall ? "the wall" : (OBSTACLE[c.o] ?? "something");
-  return `${base} — ${what} is in the way`;
-}
-
 const LEVELS = [];
 // One entry per act: { label, from, to } as indices into LEVELS. The picker folds on it.
 const ACT_OF = [], CELLS = [];
 const progress = createProgress(window.localStorage);
 const sound = createSound(window.AudioContext || window.webkitAudioContext);
+const hud = createHud(id => document.getElementById(id), progress);
 // The play-by-play is null without `?debug`, and every call site is optional: the log is
 // downstream of the game and may not be there at all.
 const dbg = new URLSearchParams(location.search).has('debug')
@@ -712,33 +670,9 @@ function render(){
   if(PIXEL) present();
 }
 
-// The HUD is DOM, not canvas, so it is not a layer.
 function paintHud(){
-  document.getElementById('moves').textContent=play.moves;
-  document.getElementById('par').textContent=LEVELS[play.cur].par;
-  document.getElementById('lvlname').textContent=LEVELS[play.cur].name;
-  document.getElementById('picknum').textContent=pad(LEVELS[play.cur].id);
-  const w=document.getElementById('warn');
-  // The busy notice outranks a stale refusal: it is about right now, and it is about to go.
-  w.textContent = busy ? '⏳ one thing at a time — he only has the two paws'
-    : blocked ? `✕ ${whyText(blocked)}` : '';
-  w.className = 'warn'+(busy?' show busy':blocked?' show':'');
-  const am=document.getElementById('arm');
-  am.textContent = play.armed ? `${({u:'↑',d:'↓',l:'←',r:'→'})[play.armed]} again to ${armedVerb()}` : '';
-  am.className = 'arm'+(play.armed?' show':'');
-  const sc=document.getElementById('score');
-  const st=progress.stars(LEVELS[play.cur].id, LEVELS[play.cur].par), bestMoves=progress.best(LEVELS[play.cur].id);
-  // Par is the proven minimum, so "over par" is an exact number rather than a designer's guess.
-  sc.textContent = play.won ? `${'★'.repeat(st)}${'☆'.repeat(3-st)}${beat?' new best!':''}`
-    : bestMoves !== null ? `${'★'.repeat(st)}${'☆'.repeat(3-st)} best ${bestMoves}` : '';
-  sc.className = 'score'+(bestMoves!==null||play.won?' show':'')+(beat?' beat':'');
-  const lo=document.getElementById('lost');
-  // The notice is short enough to sit on the moves row. A standing notice that pushes the board
-  // down the page is a bigger interruption than the thing it reports. It still names the way back,
-  // because saying it helps only if you can act on it.
-  lo.innerHTML = lostScan.lost ? '<b>✕</b> unwinnable — undo or restart' : '';
-  lo.className = 'lost'+(lostScan.lost?' show':'');
-  document.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(i===play.cur?' on':''));
+  hud.paint({ level: LEVELS[play.cur], state: play.state, moves: play.moves, won: play.won, armed: play.armed,
+    busy, blocked, beat, lost: lostScan.lost });
 }
 
 // His panel is DOM, like the HUD.
@@ -789,11 +723,6 @@ function drawLanding(x,y){
   ctx.strokeStyle="rgba(224,170,0,.9)"; ctx.lineWidth=3; ctx.setLineDash([6,4]);
   ctx.strokeRect(x*CS+3,y*CS+3,CS-6,CS-6); ctx.setLineDash([]);
   ctx.restore();
-}
-function armedVerb(){
-  const [dx,dy]=DIRS[play.armed];
-  const c = cell(play.state, play.state.rac.x+dx, play.state.rac.y+dy);
-  return c.o===BAG ? 'tear' : 'shove';
 }
 function drawAim(x,y,dx,dy){
   const x0=px(x), y0=px(y), cx=x0+CS/2, cy=y0+CS/2;
