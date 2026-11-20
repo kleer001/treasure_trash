@@ -1,7 +1,7 @@
 // Compositor — ordered draw passes over one canvas.
 //
 // Layer contract:
-//   { name: string, draw(ctx, frame): void, enabled?: boolean }
+//   { name: string, draw(ctx, frame): void }
 //
 // draw() receives the 2D context and a plain `frame` data object (dims, seed, tick —
 // whatever the game threads through). Each layer is wrapped in save()/restore() so one
@@ -15,14 +15,11 @@ export function createCompositor(layers = []) {
       stack.push(layer);
       return api;
     },
-    layers() {
-      return stack.slice();
-    },
     render(ctx, frame = {}) {
       if (!ctx || typeof ctx.save !== 'function' || typeof ctx.restore !== 'function') {
         throw new Error('compositor.render() requires a 2D canvas context');
       }
-      for (const layer of activeLayers(stack)) {
+      for (const layer of stack) {
         ctx.save();
         layer.draw(ctx, frame);
         ctx.restore();
@@ -31,11 +28,6 @@ export function createCompositor(layers = []) {
   };
   layers.forEach(api.add);
   return api;
-}
-
-/** The layers that will draw, in order. Split out so ordering is testable without a canvas. */
-export function activeLayers(layers) {
-  return layers.filter((layer) => layer.enabled !== false);
 }
 
 function assertLayer(layer) {

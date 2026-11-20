@@ -2,7 +2,7 @@
 import { INK } from './tip.js';
 import { N4 } from './spread.js';
 
-export const LIFT = 10;                        // The top of the deck stands this many px above the floor.
+const LIFT = 10;                        // The top of the deck stands this many px above the floor.
 export const VIEWS = { end: 'end on, from straight in front', tilt: 'from 45° above', top: 'top at the floor’s scale' };
 const LEN = 44, HALF = 6;                      // px: the deck's length, and half its width
 const TRUCKS = [10, 33];                       // Each value is where a truck sits, in px along the deck.

@@ -16,10 +16,10 @@ import { root } from './packs.mjs';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { shapeOf, measureOf } from './conform-ref.mjs';
 
-export const ENGINE_BIN = 'engine/target/release/tt-engine';
-export const BUILD_IT = 'cargo build --release --manifest-path engine/Cargo.toml';
+const ENGINE_BIN = 'engine/target/release/tt-engine';
+const BUILD_IT = 'cargo build --release --manifest-path engine/Cargo.toml';
 
-export const engineBuilt = () => existsSync(resolve(root, ENGINE_BIN));
+const engineBuilt = () => existsSync(resolve(root, ENGINE_BIN));
 
 /**
  * A child process that speaks the protocol. Replies are matched by id rather than by arrival,

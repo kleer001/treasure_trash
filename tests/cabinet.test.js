@@ -6,7 +6,7 @@ import { explain, isMultiCell, CABC_R, CABO_R, cell, isCart } from '../src/rules
 import { BODY_LANE } from '../src/handles.js';
 
 const bodies = born => born.filter(e => e.lane === BODY_LANE);
-import { toState, toGrid, toCart } from '../src/format.js';
+import { toState, toGrid } from '../src/format.js';
 
 const S = (grid, water, cart) => toState({ id: 't', grid, water, cart });
 const push = (s, dir) => { const r = explain(s, dir); assert.ok(r.ok, `refused: ${r.reason}`); return r.next; };

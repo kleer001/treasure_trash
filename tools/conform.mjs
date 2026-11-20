@@ -118,7 +118,7 @@ export function generatedRooms(count, seed) {
  * corpus happened to try. These start on the boards that lane exists for, and the sampler then
  * takes them apart a direction at a time like any other room.
  */
-export function nestedRooms() {
+function nestedRooms() {
   const rooms = [
     // Along its facing, at a wall, at a can, and at another barrow.
     { grid: ['#########', '#-@->---#', '#------E#', '#########'], cart: ['---------', '----r----', '---------', '---------'], hold: ['4,1 C'] },

@@ -110,7 +110,7 @@ function centred(T, p, x, y) {
 }
 
 /** The `flat` method lays each cell on its own. */
-export function flatLayout(T, cells, chooseOf, rndOf, { C, min, max, spill, jitter }) {
+function flatLayout(T, cells, chooseOf, rndOf, { C, min, max, spill, jitter }) {
   const out = new Map(), over = Math.round(spill * C), span = C + 2 * over;
   for (const [x, y] of cells) {
     const rnd = rndOf(x, y), choose = chooseOf(x, y);
@@ -159,7 +159,7 @@ function edgeTest(T, x, y, isTrash, { C, spill, knit, falloff, rough, seed }) {
 }
 
 /** The `edges` method lays each cell on its own. Its four edges read the cells beyond. */
-export function edgeLayout(T, cells, isTrash, chooseOf, rndOf, o) {
+function edgeLayout(T, cells, isTrash, chooseOf, rndOf, o) {
   const { C, min, max, jitter, seed } = o, out = new Map();
   for (const [x, y] of cells) {
     const rnd = rndOf(x, y), choose = chooseOf(x, y);
@@ -180,7 +180,7 @@ export function edgeLayout(T, cells, isTrash, chooseOf, rndOf, o) {
   return out;
 }
 
-export function pourLayout(T, x, y, given, isTrash, o, key) {
+function pourLayout(T, x, y, given, isTrash, o, key) {
   const { C, jitter, seed } = o, step = C / Math.sqrt(given.length);
   const { ext, weigh } = edgeTest(T, x, y, isTrash, o);
   const nx = Math.ceil((C + ext[0] + ext[1]) / step), ny = Math.ceil((C + ext[2] + ext[3]) / step);
@@ -201,7 +201,7 @@ export function pourLayout(T, x, y, given, isTrash, o, key) {
 }
 
 /** The `field` method lays one field of points over the whole board. Each point goes to the TRASH cell it is in, or nearest to. */
-export function fieldLayout(T, board, chooseOf, { C, n, spill, falloff, rough, jitter, seed }) {
+function fieldLayout(T, board, chooseOf, { C, n, spill, falloff, rough, jitter, seed }) {
   const { W, H, isTrash } = board, over = spill * C, out = new Map();
   const R = Math.ceil((over + rough) / C) + 1;
   const toSquare = (px, py, x, y) => Math.hypot(Math.max(x * C - px, 0, px - x * C - C), Math.max(y * C - py, 0, py - y * C - C));

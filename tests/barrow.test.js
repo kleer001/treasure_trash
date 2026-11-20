@@ -92,7 +92,6 @@ test('a blocked tow refuses; a barrow shoved again would only take the same hold
 });
 
 test('pushing the load drags the barrow along', () => {
-  let s = push(S(['------', '@-FF--', '------', 'E-----'], ['------', '-r----', '------', '------']), 'r');
   const from = S(['------', '--FF@-', '------', 'E-----'], ['------', '-r----', '------', '------']);
   from.cells[1][1].grip = 1;
   const after = push(from, 'l');

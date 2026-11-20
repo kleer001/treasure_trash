@@ -289,7 +289,7 @@ const NOT_HERE = {
 for (const n of [3, 4, 5, 6]) NOT_HERE[`room.actFirst.act${n}`] = `Act ${n} is not in these packs`;
 NOT_HERE['room.actFirst'] = 'every act in these packs has an act-start line of its own';
 
-function plan(opt) {
+function plan() {
   const main = loadPacks(actPacks().map(p => p.name));
   const { levels } = main;
   const fast = 400;
@@ -358,7 +358,7 @@ function plan(opt) {
     g.quiet();
   });
 
-  const shove = find(levels, ({ r, s }) => r.ok && r.kind !== MOVE && DIR_ORDER.some(d => {
+  const shove = find(levels, ({ r }) => r.ok && r.kind !== MOVE && DIR_ORDER.some(d => {
     const n = explain(r.next, d); return !n.ok || n.kind !== MOVE;
   }));
   add(`A press while a shove still plays (${levels[shove.i].id})`, ['refuse.busy'], main, g => {
@@ -471,10 +471,9 @@ function plan(opt) {
     });
   } else NOT_HERE['walk.exitDarkCart'] = 'no solution path leaves trash on a cart with nothing full and a walk to the exit';
 
-  const door = find(levels, ({ s, dir, b }) => exitLit(s) && exitsOf(s).some(e => Math.abs(e[0] - s.rac.x) + Math.abs(e[1] - s.rac.y) === 1)
+  const door = find(levels, ({ s, dir }) => exitLit(s) && exitsOf(s).some(e => Math.abs(e[0] - s.rac.x) + Math.abs(e[1] - s.rac.y) === 1)
     && (() => { const n = walkable(s, dir); return n && exitsOf(s).every(e => Math.abs(e[0] - n.rac.x) + Math.abs(e[1] - n.rac.y) > 1); })());
   if (door) add(`Walk up to the lit exit, then away (${levels[door.i].id})`, ['walk.exitThenAway'], main, g => {
-    const L = levels[door.i];
     g.load(door.i); g.quiet(); g.play(door.prefix, fast); g.quiet(); g.step(door.dir); g.quiet();
   });
   else NOT_HERE['walk.exitThenAway'] = 'no solution path stops beside the lit exit with somewhere to walk away to';
@@ -560,7 +559,7 @@ function plan(opt) {
 
 function cover(opt) {
   // A scenario that plays on from another's sitting brings that one along.
-  const all = plan(opt);
+  const all = plan();
   const want = new Set(all.filter(sc => !opt.only || sc.name.includes(opt.only)).map(sc => sc.name));
   for (const sc of [...all].reverse()) if (want.has(sc.name) && sc.after) want.add(sc.after);
   const S = all.filter(sc => want.has(sc.name));

@@ -34,7 +34,7 @@ import { MAX_STATES, packRefuses, hasTrap, hasInertPiece } from './metrics.mjs';
 // The empty containers an UPGRADE rung swaps for full ones. Upgrading one adds work without adding
 // a body.
 export const UPGRADE = { c: 'C', w: 'W', b: 'B' };
-export const DOWNGRADE = { C: 'c', W: 'w', B: 'b' };
+const DOWNGRADE = { C: 'c', W: 'w', B: 'b' };
 
 // Par bounds for one room. The top rung of a set has a higher floor, `SET_TOP_MIN`.
 export const PAR_MIN = 8;
@@ -106,7 +106,7 @@ export async function upgradeSet(engine, plan, group, rnd) {
   return { ramp: 'upgrade', shape: plan.label, group, rooms: rungs };
 }
 
-export async function additionSet(engine, plan, group, extras, rnd) {
+async function additionSet(engine, plan, group, extras, rnd) {
   const room = placeOn(group, plan, plan.w, plan.h, rnd);
   if (!room) return null;
   const rungs = [];
@@ -135,7 +135,7 @@ export async function additionSet(engine, plan, group, extras, rnd) {
  * Fixing the mixture is what makes a PAR set rather than three rooms that happen to share a
  * silhouette: the player meets the same cast three times, arranged three ways.
  */
-export async function parSet(engine, plan, groups, rnd, tries = 40, gap = 3) {
+async function parSet(engine, plan, groups, rnd, tries = 40, gap = 3) {
   const g = groups[Math.floor(rnd() * groups.length)];
   const found = [];
   for (let i = 0; i < tries && found.length < 24; i++) {

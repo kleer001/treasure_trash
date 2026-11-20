@@ -187,7 +187,7 @@ export function* rooms({ w, h, pieces = ['$'], exitAt = null, walled = false, pl
     }
 }
 
-export function hunt(shape, want, limit = 12) {
+function hunt(shape, want, limit = 12) {
   const hits = [];
   let seen = 0;
   for (const room of rooms(shape)) {

@@ -19,7 +19,7 @@ import { isMainThread, workerData } from 'node:worker_threads';
 import { defaultWorkers, run, serve } from './pool.mjs';
 import { engineFor, connect, measureMany, measureHere, TOO_BIG } from './engine.mjs';
 import { toState, WET } from '../src/format.js';
-import { analyze, TooManyStates } from '../src/solver.js';
+import { analyze } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
 import { staticallyDead } from './survey.mjs';

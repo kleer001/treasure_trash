@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createCompositor, activeLayers } from '../src/compositor.js';
+import { createCompositor } from '../src/compositor.js';
 
 const recordingCtx = (events) => ({
   save: () => events.push('save'),
@@ -15,16 +15,6 @@ test('layers draw in insertion order', () => {
     .add({ name: 'c', draw: () => calls.push('c') })
     .render(recordingCtx([]), {});
   assert.deepEqual(calls, ['a', 'b', 'c']);
-});
-
-test('disabled layers are skipped, order preserved', () => {
-  const calls = [];
-  createCompositor()
-    .add({ name: 'a', draw: () => calls.push('a') })
-    .add({ name: 'b', enabled: false, draw: () => calls.push('b') })
-    .add({ name: 'c', draw: () => calls.push('c') })
-    .render(recordingCtx([]), {});
-  assert.deepEqual(calls, ['a', 'c']);
 });
 
 test('each layer draws inside its own save/restore', () => {
@@ -47,18 +37,6 @@ test('the frame object is threaded to every layer', () => {
     .add({ name: 'a', draw: (_ctx, f) => seen.push(f) })
     .render(recordingCtx([]), frame);
   assert.equal(seen[0], frame);
-});
-
-test('activeLayers is pure and filters disabled, preserving order', () => {
-  const layers = [
-    { name: 'a', draw() {} },
-    { name: 'b', enabled: false, draw() {} },
-    { name: 'c', draw() {} },
-  ];
-  assert.deepEqual(
-    activeLayers(layers).map((l) => l.name),
-    ['a', 'c'],
-  );
 });
 
 test('add() rejects a malformed layer', () => {

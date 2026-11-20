@@ -16,7 +16,7 @@
 //   node tools/landings.mjs --asked    the combinations that DID come up
 //   node tools/landings.mjs --rooms N  how many generated rooms to add (default 40)
 
-import { explain, watchLandings, OCCUPANTS, TERRAINS, DIR_ORDER, NONE,
+import { explain, watchLandings, OCCUPANTS, TERRAINS, DIR_ORDER,
          LANDING_SITES } from '../src/rules.js';
 import { toState } from '../src/format.js';
 import { reachable, run as matrixRun, LANES } from './matrix.mjs';

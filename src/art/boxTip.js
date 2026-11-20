@@ -8,7 +8,7 @@ import { createToPile } from './toPile.js';
 import { degAt, evenEnd, fallKeys, onTwos } from './timing.js';
 
 /** The keys are frames, except `arc` (px), `spin` (the % of pieces that turn) and `turns` (eighths of a turn). */
-export const BOX_TIP = { tip: -3, fall: 8, pour: 4, first: 6, spread: 10, arc: 9, spin: 50, turns: 4 };
+const BOX_TIP = { tip: -3, fall: 8, pour: 4, first: 6, spread: 10, arc: 9, spin: 50, turns: 4 };
 
 function boxKeys(moveFrames, k) {
   const { tip, flat } = fallKeys(moveFrames, k), pour = tip + Math.max(0, k.pour);

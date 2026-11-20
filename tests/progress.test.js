@@ -115,15 +115,6 @@ test('an act is complete on finishing every room, however well', () => {
   assert.equal(t.earned, 3, 'one star each');
 });
 
-test('clearing forgets everything, including on disk', () => {
-  const store = fakeStore();
-  const p = createProgress(store);
-  p.record('L1', 5);
-  p.clear();
-  assert.equal(p.done('L1'), false);
-  assert.equal(createProgress(store).done('L1'), false);
-});
-
 test('a store that holds something other than a record is never written over', () => {
   for (const junk of ['not json', '[]', 'null', '"a string"']) {
     const s = fakeStore({ [STORE_KEY]: junk });

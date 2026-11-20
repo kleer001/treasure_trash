@@ -67,6 +67,5 @@ export function createProgress(store) {
       return { done, total: levels.length, earned, possible, complete: done === levels.length };
     },
 
-    clear() { best = {}; write(); },
   };
 }

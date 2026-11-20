@@ -151,7 +151,7 @@ test('a lake passes the open-block rule on its DRY floor', () => {
 });
 
 test('a bag beside a pool tears into it, and the same bag beside a block cannot', async () => {
-  const { explain, BAG } = await import('../src/rules.js');
+  const { explain } = await import('../src/rules.js');
   const lake = LAKE.find(v => v.label === 'lake 7x6 pool3x2@2,2');
   const ring = RING.find(v => v.label === 'ring 7x6 block3x2@2,2');
   assert.ok(lake && ring, 'the paired silhouette is missing');

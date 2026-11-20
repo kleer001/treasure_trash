@@ -208,8 +208,8 @@ function traced(seen, sg, zp, deg) {
           const row = PH - 1 - Math.floor(h), { a, b, hw } = SLICES[row], r = Math.hypot(px_, z);
           if (h < 1 && r <= hw) hit = prev && prev[1] < 0 ? (Math.abs(r - (hw - 3)) < 0.7 ? 'l' : r < 2.5 ? 'd' : 'm') : 'ik';
           else if (r <= hw && r >= hw - 1.2) {
-            const [, , dz] = back(x + 0.5, y + 0.5, depth - 1), dx = 0;
-            const inward = (px_ * dx + z * (dz - z)) < 0;
+            const [, , dz] = back(x + 0.5, y + 0.5, depth - 1);
+            const inward = z * (dz - z) < 0;
             if (prev && prev[1] >= PH) hit = 'is';
             else if (inward) { const u = clamp(px_ / hw, -1, 1); hit =PAINTED[row][a + Math.min(b - a, Math.floor((u + 1) / 2 * (b - a + 1)))]; }
             else hit = PH - h < 1.5 ? 'id' : PH - h < 6 ? 'iD' : 'ik';

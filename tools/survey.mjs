@@ -26,7 +26,7 @@ const DOMINOES = ['F', 'P'];                       // couch (occupant grid), car
 const ALPHABET = [...POINTS, ...DOMINOES];
 
 // Read from the rules, so the bag band cannot drift from what the rules count.
-export const BAGS = Object.fromEntries(POINTS.map(g => [g, BAGS_IN[occupantOf(g)] ?? 0]));
+const BAGS = Object.fromEntries(POINTS.map(g => [g, BAGS_IN[occupantOf(g)] ?? 0]));
 const CARRIERS = new Set(POINTS.filter(g => BAGS[g] > 0));
 
 const POOL_CAP = { F: 6, P: 3 };

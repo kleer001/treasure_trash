@@ -1,7 +1,7 @@
 import { clamp, FRAME_RATE } from './timing.js';
 // The exit is a roller shutter under an EXIT sign.
 // Pixels are [x, y, colour] from the cell's top-left.
-export const RISE = 9;
+const RISE = 9;
 // The look of the door, in pixels, 60 Hz frames and pixels a second. `light` runs from the top
 // of the opening to the bottom. A sine `amp` pixels high bends its bands; `wave` and `waveY` are
 // its lengths across and down, and it travels `speedX` to the right and `speedY` up.

@@ -34,7 +34,7 @@ export const isCabinetClosed = o => o >= CABC_U && o <= CABC_R;
 export const isCabinetOpen = o => o >= CABO_U && o <= CABO_R;
 /** The codes for a barrow riding as cargo. Each code also gives the way the barrow faces. */
 export const isCarriedBarrow = o => o >= BAR_U && o <= BAR_R;
-export const carriedAs = k => BAR_U + (k - BARROW_U);
+const carriedAs = k => BAR_U + (k - BARROW_U);
 export const carriedKind = o => BARROW_U + (o - BAR_U);
 export const carriedFace = o => (isCarriedBarrow(o) ? barrowFace(carriedKind(o)) : undefined);
 
@@ -84,7 +84,7 @@ const CAB_SHUTS = { [CABO_U]: CABC_U, [CABO_D]: CABC_D, [CABO_L]: CABC_L, [CABO_
 
 // A cabinet's pair needs no field of its own and no lookup: its piece id already says which cells
 // are one thing, as it does for a couch.
-export const cabinetEnds = (s, pid) => {
+const cabinetEnds = (s, pid) => {
   const own = pieceCells(s, pid);
   const f = DIRS[cabinetFace(cell(s, ...own[0]).o)];
   const body = own.find(([x, y]) => own.some(([bx, by]) => bx === x + f[0] && by === y + f[1]));
@@ -94,7 +94,7 @@ export const cabinetEnds = (s, pid) => {
 
 /** An id no piece on this board is using. A count is not safe: a piece minted with an id that
  *  another piece holds is welded to it. */
-export const freePid = s => {
+const freePid = s => {
   let top = -1;
   for (const row of s.cells) for (const c of row) if (c.pid !== undefined && c.pid > top) top = c.pid;
   return top + 1;
@@ -120,7 +120,7 @@ export const rollsHere = (s, x, y, dx, dy) => {
   return rollsAlong(c, dx, dy);
 };
 
-export function longAxis(cells) {
+function longAxis(cells) {
   let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
   for (const [x, y] of cells) {
     if (x < minx) minx = x; if (x > maxx) maxx = x;
@@ -155,7 +155,7 @@ export const isRoller = c =>
                  || c.o === CHAIR);
 
 // Asked per shove rather than per kind, because the answer decides which branch is taken.
-export const rollsAlong = (c, dx, dy) =>
+const rollsAlong = (c, dx, dy) =>
   isRoller(c) && (c.o === TIRE_H ? dx !== 0 : c.o === TIRE_V ? dy !== 0 : true);
 
 // One shove table for the single-cell pushables. Read the entries, not a paraphrase.
@@ -222,7 +222,7 @@ export const isGlass = c => c.ter === GLASS;
 
 export const isGrate = c => c.grate === true;
 
-export const mayEnter = (s, x, y, dx, dy) => {
+const mayEnter = (s, x, y, dx, dy) => {
   if (!inGrid(s, x, y)) return false;
   const w = cell(s, x, y).oneway;
   return w === undefined || (DIRS[w][0] === dx && DIRS[w][1] === dy);
@@ -249,7 +249,7 @@ const METAL = new Set([CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMP
                        TIRE_H, TIRE_V, BICYCLE, CHAIR,
                        CABC_U, CABC_D, CABC_L, CABC_R, CABO_U, CABO_D, CABO_L, CABO_R,
                        MAG_U, MAG_D, MAG_L, MAG_R]);
-export const isMetal = c => (isCart(c) ? isBarrow(cartKindOf(c)) : METAL.has(c.o));
+const isMetal = c => (isCart(c) ? isBarrow(cartKindOf(c)) : METAL.has(c.o));
 
 // --- holds ---------------------------------------------------------------------------------
 // A hold is an EDGE, and it is written on the HOLDER: `grip` is the signed offset along the
@@ -263,7 +263,7 @@ export const isMetal = c => (isCart(c) ? isBarrow(cartKindOf(c)) : METAL.has(c.o
 const CUT = 0;
 const holds = c => c.grip !== undefined && c.grip !== CUT;
 
-export const gripAxis = (s, x, y) => {
+const gripAxis = (s, x, y) => {
   const c = cell(s, x, y);
   if (isMagnet(c.o)) return DIRS[magnetFace(c.o)];
   if (isCart(c) && isBarrow(cartKindOf(c))) return DIRS[barrowFace(cartKindOf(c))];
@@ -279,7 +279,7 @@ export const gripTarget = (s, x, y) => {
   return inGrid(s, ...p) ? p : null;
 };
 
-export const holdersOf = (s, x, y) => {
+const holdersOf = (s, x, y) => {
   const body = new Set(bodyCells(s, [x, y]).map(([bx, by]) => `${bx},${by}`));
   const out = [];
   for (let yy = 0; yy < s.rows; yy++) for (let xx = 0; xx < s.cols; xx++) {
@@ -293,7 +293,7 @@ export const holdersOf = (s, x, y) => {
  * `complexCells` is derived rather than stored, the way `bodyCells`, `pieceCells` and `cartCells`
  * are, so a hold shared by two holders needs no field to say so.
  */
-export const complexCells = (s, at) => {
+const complexCells = (s, at) => {
   const seen = new Set(), out = [];
   const walk = (x, y) => {
     for (const [bx, by] of bodyCells(s, [x, y])) {
@@ -311,7 +311,7 @@ export const complexCells = (s, at) => {
 
 export const inAHold = (s, x, y) =>
   holds(cell(s, x, y)) || holdersOf(s, x, y).length > 0;
-export const barrowRollsAlong = (k, dx) => {
+const barrowRollsAlong = (k, dx) => {
   const f = DIRS[barrowFace(k)];
   return f !== undefined && (dx !== 0) === (f[0] !== 0);
 };
@@ -320,10 +320,10 @@ export const barrowRollsAlong = (k, dx) => {
  * A skateboard's axis comes off its footprint, the way a rug's and a bicycle's do, so there is no
  * second field to keep in step.
  */
-export const skateRollsAlong = (s, cid, dx) =>
+const skateRollsAlong = (s, cid, dx) =>
   longAxis(cartCells(s, cid)) === (dx !== 0 ? 'x' : 'y');
 
-export const isClearFloor = (s, x, y) =>
+const isClearFloor = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).water && !isGlass(cell(s, x, y))
   && cell(s, x, y).o === NONE && !isCart(cell(s, x, y));
 
@@ -343,7 +343,7 @@ export function soak(c) {
 }
 
 /** The one place a hazard is covered over. */
-export const coversOver = c => c.water || c.ter === TAR || c.ter === GLASS;
+const coversOver = c => c.water || c.ter === TAR || c.ter === GLASS;
 export function cover(c) {
   if (!coversOver(c)) return false;
   c.water = false; c.ter = COVERED;
@@ -361,7 +361,7 @@ export const isOccupiable = (s, x, y) =>
   inGrid(s, x, y) && !cell(s, x, y).wall && !cell(s, x, y).exit
   && cell(s, x, y).o === NONE && !isCart(cell(s, x, y));
 
-export const travelsInto = (s, x, y, dx, dy) =>
+const travelsInto = (s, x, y, dx, dy) =>
   isOccupiable(s, x, y) && mayEnter(s, x, y, dx, dy);
 
 const stuckInTar = (s, tx, ty) => {
@@ -371,7 +371,7 @@ const stuckInTar = (s, tx, ty) => {
   return bodyCells(s, [tx, ty]).some(([x, y]) => isTar(cell(s, x, y)));
 };
 
-export const canRest = (s, x, y) => isOccupiable(s, x, y) || cartAt(s, [x, y]) !== null;
+const canRest = (s, x, y) => isOccupiable(s, x, y) || cartAt(s, [x, y]) !== null;
 
 const cartAt = (s, [x, y]) => (inGrid(s, x, y) && isCart(cell(s, x, y)) ? cell(s, x, y).cart : null);
 
@@ -405,7 +405,7 @@ function applyIntoCart(s, next, cid, { file, beyond, out, dx, dy }, o, step) {
   }
 }
 
-export const canPour = (s, x, y) =>
+const canPour = (s, x, y) =>
   isOccupiable(s, x, y) && !cell(s, x, y).water && !cell(s, x, y).bridge;
 
 export function fan(bx, by, dx, dy) {
@@ -417,7 +417,7 @@ export function fan(bx, by, dx, dy) {
 }
 
 // A grid has no cell for a diagonal.
-export const fleeFrom = (bx, by, dx, dy, fx, fy) => {
+const fleeFrom = (bx, by, dx, dy, fx, fy) => {
   const rx = Math.sign(fx - bx), ry = Math.sign(fy - by);
   return rx !== 0 && ry !== 0 ? [dx, dy] : [rx, ry];
 };
@@ -428,7 +428,7 @@ const chairFlees = (s, bx, by, dx, dy, fx, fy) => {
     ? [fx + ax, fy + ay] : null;
 };
 
-export const fanBlockers = (s, bx, by, dx, dy) => {
+const fanBlockers = (s, bx, by, dx, dy) => {
   const blame = [];
   for (const [x, y] of fan(bx, by, dx, dy)) {
     if (isOccupiable(s, x, y)) continue;
@@ -455,7 +455,7 @@ const reasonFor = (s, blockers, fallback) => {
   return fallback;
 };
 
-export const freeCart = s => {
+const freeCart = s => {
   let top = -1;
   for (const row of s.cells) for (const c of row) if (c.cart !== undefined && c.cart > top) top = c.cart;
   return top + 1;
@@ -645,7 +645,7 @@ const sheds = o => {
 const tipCell = ([x, y], dx, dy) => [x + dx, y + dy];
 
 /** `at` is where the container lands, (dx,dy) the direction it was travelling. */
-export const tipFits = (s, o, at, dx, dy) => {
+const tipFits = (s, o, at, dx, dy) => {
   const t = sheds(o);
   if (!t) return true;
   const [x, y] = tipCell(at, dx, dy);
@@ -654,7 +654,7 @@ export const tipFits = (s, o, at, dx, dy) => {
   return (t.pours ? canPour : isOccupiable)(s, x, y);
 };
 
-export const tipsInto = (o, at, dx, dy) => (sheds(o) ? tipCell(at, dx, dy) : null);
+const tipsInto = (o, at, dx, dy) => (sheds(o) ? tipCell(at, dx, dy) : null);
 
 /** The one place a container sheds. `at` already holds it; this is the bill for landing. */
 function tipOut(s, o, at, dx, dy, step) {
@@ -685,7 +685,7 @@ const landsAs = o => (sheds(o) ? SLIDES[o].slides : o);
  * A barrow in a hold is already spoken for, and a hold that outlived the thing holding it would be a
  * link pointing at nothing.
  */
-export const isScoopable = (s, x, y) => {
+const isScoopable = (s, x, y) => {
   const c = cell(s, x, y);
   return isCart(c) && isBarrow(cartKindOf(c)) && !inAHold(s, x, y)
     && cartCells(s, c.cart).length === 1;
@@ -694,10 +694,10 @@ export const isScoopable = (s, x, y) => {
 const vacateCart = c => { setChain(c, []); c.cart = undefined; c.ck = undefined; };
 const occupyCart = (c, cid, kind, ch) => { c.cart = cid; c.ck = kind; setChain(c, ch); };
 
-export const isHeavyCart = (s, cid) =>
+const isHeavyCart = (s, cid) =>
   cartCells(s, cid).some(([x, y]) => chainOf(cell(s, x, y)).length > 0);
 
-export const cargoAt = (s, x, y) => {
+const cargoAt = (s, x, y) => {
   const c = cell(s, x, y);
   return isScoopable(s, x, y) ? [carriedAs(cartKindOf(c)), ...chainOf(c)] : chainOf(c);
 };
@@ -782,14 +782,14 @@ function handOff(next, from, dx, dy, step) {
 
 // A multi-cell thing moves with all its cells: one cell alone would leave halves that the board
 // cannot write down.
-export const bodyCells = (s, [x, y]) => {
+const bodyCells = (s, [x, y]) => {
   const c = cell(s, x, y);
   if (isMultiCell(c.o)) return pieceCells(s, c.pid);
   if (isCart(c)) return cartCells(s, c.cart);
   return [[x, y]];
 };
 
-export const isHalfOfABody = (s, x, y) => {
+const isHalfOfABody = (s, x, y) => {
   const c = cell(s, x, y);
   return isMultiCell(c.o) || isCart(c);
 };
@@ -1832,7 +1832,7 @@ export function trashHeld(s) {
   return k;
 }
 
-export const atExit = s => cell(s, s.rac.x, s.rac.y).exit;
+const atExit = s => cell(s, s.rac.x, s.rac.y).exit;
 export const exitLit = s => bagsLeft(s) === 0 && trashHeld(s) === 0;
 export const isWon = s => exitLit(s) && atExit(s);
 

@@ -20,7 +20,7 @@ test('a thing afloat draws nothing of itself under water where it is not water',
 });
 
 test('a thing afloat draws its reflection on open water only', () => {
-  const shore = { wet: () => true, open: (x, y) => x !== 10 };
+  const shore = { wet: () => true, open: x => x !== 10 };
   const got = afloat(S, 10, 10, MET, shore, { ...BARE, reflect: 100 }).filter(([, y]) => y > 13);
   assert.deepEqual(got.map(([x, y]) => [x, y]), [[11, 14], [11, 15]]);
 });

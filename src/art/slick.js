@@ -54,10 +54,9 @@ export function slickShape(cx, cy, has, look) {
  *  whether a cell holds the same slick. `[ox, oy]` moves the sheen's pattern, in floor pixels. */
 export function slickCell(cx, cy, has, look, [ox, oy] = [0, 0]) {
   const on = slickShape(cx, cy, has, look), x0 = cx * C, y0 = cy * C;
-  const inCell = (x, y) => x >= x0 && x < x0 + C && y >= y0 && y < y0 + C;
   const px = [];
   for (let y = y0; y < y0 + C; y++) for (let x = x0; x < x0 + C; x++) {
-    if (!inCell(x, y) || !on(x, y)) continue;
+    if (!on(x, y)) continue;
     let c = look.body;
     if (!on(x - 1, y) || !on(x + 1, y) || !on(x, y - 1) || !on(x, y + 1)) c = look.edge;
     else if ((!on(x - 2, y) || !on(x, y - 2)) && noise(x * 2, y * 2, look.seed + 7) < look.shine) c = look.glint;

@@ -9,7 +9,7 @@ import { generatedRooms } from '../tools/conform.mjs';
 import { actLevels } from '../tools/packs.mjs';
 import { toState } from '../src/format.js';
 import { handlesOf, laneOf, CART_LANE } from '../src/handles.js';
-import { arrives, cell, pieceCells, isCabinetOpen, cabinetFace,
+import { cell, pieceCells, isCabinetOpen, cabinetFace,
          carriedKind, DIRS, chainOf, terrainOf, OCCUPANTS, NONE, TERRAINS } from '../src/rules.js';
 
 /** What the boards of every case hold, read off the parsed boards rather than the tables. */

@@ -167,7 +167,7 @@ function route(a, rootKey, byKey) {
 
 // ---------------------------------------------------------------- per room
 
-export function sweepRoom(level, { maxStates = MAX_STATES } = {}) {
+function sweepRoom(level, { maxStates = MAX_STATES } = {}) {
   const s = toState(level);
   let a;
   try { a = analyze(s, { maxStates }); }

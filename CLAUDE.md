@@ -286,7 +286,7 @@ form nothing checks, and it goes stale on the next edit.** Do not write one. Del
   the shared logic lives in `src/` and `tools/` imports up into it.
 - **Layered rendering.** The canvas is composited in ordered passes
   (`src/compositor.js`): the character grid is layer 0, and everything else — a
-  scanline/CRT overlay, sprites, HUD, the studio logo — is another layer on top of or
+  scanline/CRT overlay, sprites, HUD — is another layer on top of or
   under it. Each layer honors one contract, `{ name, draw(ctx, frame) }`, added with
   `compositor.add(...)`.
 - **SOLID, pragmatically** (this is a small game): one job per module — `rules` decides,

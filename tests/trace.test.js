@@ -5,13 +5,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  explain, cell, cartCells, pieceCells, bagsLeft, restsOn, moves, arrives, leaves, NONE,
+  explain, cell, pieceCells, bagsLeft, restsOn, moves, arrives, leaves, NONE,
   BAG, CAN_FULL, CAN_EMPTY, TRASH, BIN, BIN_EMPTY, WHEELIE, WHEELIE_EMPTY, JUG, JUG_EMPTY,
   FURNITURE, RUG, LANDS_ON, TERRAINS, terrainOf, BRIDGE,
 } from '../src/rules.js';
 import { toState } from '../src/format.js';
 import { unnamedCells, UNACCOUNTED } from '../src/audit.js';
-import { anchorOf, laneOf, isBodyLane, CART_LANE, BODY_LANE } from '../src/handles.js';
+import { anchorOf, laneOf, isBodyLane, BODY_LANE } from '../src/handles.js';
 
 const S = (grid, cart, water) => toState({ id: 't', grid, cart, water });
 const key = ([x, y]) => `${x},${y}`;

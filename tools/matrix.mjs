@@ -99,7 +99,7 @@ export const LANES = {
 //   CONTINUOUS  every entry a traced step lists names a thing the board holds either side of it.
 
 /** TOTAL and INJECTIVE, of a settled stage against the board it should be holding. */
-export function unresolvedSprites(stage, state, roll = handlesOf(state)) {
+function unresolvedSprites(stage, state, roll = handlesOf(state)) {
   const bad = [], seen = new Map();
   for (const sp of stage.sprites) {
     const h = spriteHandle(sp);
@@ -135,7 +135,7 @@ const anchorFault = e => (e.handle === handleAt(anchorOf(e.cells), e.lane) ? nul
     + ` ${handleAt(anchorOf(e.cells), e.lane)}`);
 
 /** CONTINUOUS, of a traced action. */
-export function handleFaults(r) {
+function handleFaults(r) {
   const bad = [];
   r.steps.forEach((step, i) => {
     const before = handlesOf(r.frames[i]), after = handlesOf(r.frames[i + 1]);
@@ -269,8 +269,6 @@ export function meeting(room, at, dir = 'r') {
   const terrainDelta = (from, to) =>
     at.map(([x, y]) =>
       same(terrainOf(cell(from, x, y)), terrainOf(cell(to, x, y))) ? 'kept' : 'changed').join(',');
-  const usedUp = a.ok && at.some(([x, y]) =>
-    !same(terrainOf(cell(s, x, y)), terrainOf(cell(a.next, x, y))));
 
   // The `mattered` question is asked the way `inertPieces` asks whether a piece earns its cell.
   // It ignores the cells the thing occupied, since those necessarily differ once it is gone. The

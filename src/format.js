@@ -16,7 +16,7 @@ import {
 // Canonical writer emits exactly one glyph per cell state. The reader also accepts
 // the floor aliases, because ' ' loses to trailing-whitespace stripping and '.' reads
 // better inside a markdown doc. Everything else is strict — unknown glyph = throw.
-export const FLOOR_ALIASES = new Set([' ', '-', '.']);
+const FLOOR_ALIASES = new Set([' ', '-', '.']);
 const READ = {
   '#': { wall: true },
   '-': {}, ' ': {}, '.': {},
@@ -82,12 +82,12 @@ const ONEWAY_WRITE = { u: '^', d: 'v', l: '<', r: '>' };
 // The pool of letters furniture pieces are written with. The writer hands them out in raster
 // order of each piece's first cell, so a board's lettering is canonical and the grid
 // round-trips. Past the end of the pool, throw rather than wrap.
-export const FURN_POOL = [...'FGHKMN'];
+const FURN_POOL = [...'FGHKMN'];
 // Each multi-cell KIND needs a pool of its own, for the reason furniture does: a blob of one
 // letter is one piece, so two flush bicycles need two letters between them.
-export const BIKE_POOL = [...'YZ'];
-export const RUG_POOL = [...'UV'];
-export const CAB_POOLS = { [CABO_U]: [...'AL'], [CABO_D]: [...'DT'],
+const BIKE_POOL = [...'YZ'];
+const RUG_POOL = [...'UV'];
+const CAB_POOLS = { [CABO_U]: [...'AL'], [CABO_D]: [...'DT'],
                            [CABO_L]: [...'IP'], [CABO_R]: [...'JQ'] };
 // An open cabinet is two cells lying along its facing, and only the count is free: a vertical
 // blob written with a left-facing letter parses as a piece and is then read wrong by everything
@@ -110,7 +110,7 @@ export const MULTI_POOLS = [
 // Carts are written in their own aligned `:cart` block rather than the occupant grid, for the
 // same reason water is: a cart cell holds cargo, and one character cannot say "empty cart
 // cell", "cart holding a can" and "cart Q holding trash" at once. Same blob rule, own pool.
-export const SKATE_POOL = [...'PQR'];
+const SKATE_POOL = [...'PQR'];
 
 // A barrow's facing is in the glyph because nothing else carries it.
 const CART_KINDS_IN_MASK = [

@@ -27,7 +27,7 @@ import { score, dedupe, REQUIRE, WEIGHTS } from './score.mjs';
 import { SET_TOP_MIN } from './sets.mjs';
 import { walksFit, hasInertPiece, MAX_STATES } from './metrics.mjs';
 
-export const ACT_WEIGHTS = { ...WEIGHTS, blindness: -0.3 };
+const ACT_WEIGHTS = { ...WEIGHTS, blindness: -0.3 };
 
 /** The re-measured room, or null if it will not hold. */
 export function refit(row) {

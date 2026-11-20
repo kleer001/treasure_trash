@@ -18,7 +18,7 @@ export const KEYS = [
   { t: 480, lunge: 10 }, { t: 540, lunge: 15 }, { t: 600, lunge: 20 }, { t: 660, lunge: C },
 ];
 export const TEAR = KEYS.find(k => k.body === 'burst').t;
-export const MIN_FLIGHT = 60;                          // ms, the shortest flight a piece makes
+const MIN_FLIGHT = 60;                          // ms, the shortest flight a piece makes
 // The settings plan() reads, as sliders: label, least, most, step, readout.
 export const FLIGHT_SLIDERS = {
   launch: ['Pieces leave over', 0, 300, 10, v => `${v} ms`],
@@ -63,7 +63,7 @@ export function createFlight({ T, A, STYLE, OBJ }) {
     };
     const piles = lay(cells, isTrash);
     for (const [k, pile] of piles) { const [x, y] = k.split(',').map(Number); piles.set(k, settle(T, pile, blockedOn(x, y))); }
-    const pieces = cells.flatMap(([x, y]) => (piles.get(`${x},${y}`)?.pieces ?? []).map((p, i) => ({ cx: x, cy: y, i, p })));
+    const pieces = cells.flatMap(([x, y]) => piles.get(`${x},${y}`).pieces.map((p, i) => ({ cx: x, cy: y, i, p })));
     return { cells, pieces };
   }
 

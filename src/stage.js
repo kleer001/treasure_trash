@@ -119,7 +119,7 @@ const offsets = (cells, ox, oy) => cells.map(([x, y]) => [x - ox, y - oy]);
 // --- which way things face ----------------------------------------------------------------
 
 export const LIES = new Set([CAN_EMPTY, BIN_EMPTY, JUG_EMPTY]);
-export const SOAKERS = new Set([SPONGE, CARDBOARD]);
+const SOAKERS = new Set([SPONGE, CARDBOARD]);
 /** What a thing on cell `c` soaks up or stands in: a key of `SOAKED_LOOK` in art/soaked.js, or null. */
 export const liquidOf = c => (c.water ? 'water' : c.ter === GREASE ? 'grease' : c.ter === TAR ? 'tar' : null);
 /** The way a move of (dx, dy) went. */
@@ -153,7 +153,7 @@ export function face(stage, dir) {
 }
 
 /** Which way everything on a settled stage faces, by handle: what `stageFrom` takes back. */
-export function decorOf(stage) {
+function decorOf(stage) {
   const out = new Map();
   for (const sp of stage.sprites)
     if (!sp.dying && !sp.spent && (sp.heading || sp.lie || sp.soaked)) out.set(sp.handle, { heading: sp.heading, lie: sp.lie, soaked: sp.soaked });
@@ -289,8 +289,6 @@ export function applyStep(stage, step, racTo = null, board = null) {
     stage.sprites.push({
       id: stage.nextId++, kind: kindIn(e.lane, e.o, e.effect),
       x: ax, y: ay, ax, ay, tx: x, ty: y,
-      // Where it came FROM is where a drawer's body still is.
-      face: [Math.sign(x - ax), Math.sign(y - ay)],
       heading: wayOf(x - ax, y - ay), lie: null,
       depth: laneDepth(e.lane), handle: e.handle,
       seed: (stage.nextId * 2654435761) >>> 0, parent: e.parent ?? null, dying: false,
@@ -356,7 +354,7 @@ export function advance(stage, u, cells = 0) {
 /**
  * Returns the wobble in degrees of a thing too heavy to shift. `u` runs from 0 to 1 over one beat.
  */
-export const wobble = u =>
+const wobble = u =>
   (u < 0.35 ? 10 * (u / 0.35)
     : u < 0.7 ? 10 - 15 * ((u - 0.35) / 0.35)
       : -5 * (1 - (u - 0.7) / 0.3));
@@ -397,7 +395,7 @@ export function dressPiles(stage, handles, piles) {
 
 /** Silhouettes a scrap of rubbish can take. Indices, so a renderer picks its own drawing. */
 export const PILE_SHAPES = ['ball', 'box', 'wedge', 'tube'];
-export const PILE_TONES = 5;
+const PILE_TONES = 5;
 
 export const cellSeed = (x, y) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
 
