@@ -1,6 +1,5 @@
 // Presentation and input only — the rules live in src/rules.js.
 // ES modules need http://, so run ./run.sh rather than opening the file.
-import { NONE, BAG, CAN_FULL, CAN_EMPTY, DIRS, exitLit, fan, inGrid, cell, isMultiCell } from './rules.js';
 import { parseLevelPack, toGrid } from './format.js';
 import { createProgress } from './progress.js';
 import { installFocusReclaim } from './focus.js';
@@ -14,12 +13,8 @@ import { createSprites } from './sprites.js';
 import { createPixelSprites, loadPixelArt, PIXEL_CELL } from './pixel.js';
 import { createScreen, loadScreenArt } from './screen.js';
 import { createClips } from './clips.js';
-import { press, moveStart, moveStop, travelAt } from './art/press.js';
 import { FRAME_MS, FRAME_RATE } from './art/timing.js';
-import { RECOVERIES } from './art/cartoon.js';
 import { tracings } from './art/canTip.js';
-import { tearPress } from './art/bagRip.js';
-import { LOOK as DOOR } from './art/door.js';
 import { createWipeTune } from './wipeTune.js';
 import { createSound } from './sound.js';
 import { createLostScan } from './lostScan.js';
@@ -29,10 +24,9 @@ import { createCrowPanel } from './crowPanel.js';
 import { createBoardPaint } from './boardPaint.js';
 import { createRewind } from './rewind.js';
 import { createWinWipe, WIPE } from './winWipe.js';
-// The stage owns the objects, their motion and their envelopes.
-import { advance, applyStep, easeOut, rollEase, settle, stageFrom, timeline, face, CELL_MS } from './stage.js';
+import { createMotion } from './motion.js';
+import { stageFrom } from './stage.js';
 
-const CANF = CAN_FULL, CANE = CAN_EMPTY;
 // `?pixel` draws the board in the pixel art, one canvas pixel to an art pixel, scaled up whole.
 const PIXEL = new URLSearchParams(location.search).has('pixel');
 const CS = PIXEL ? PIXEL_CELL : 76, PAD=9;
@@ -63,131 +57,8 @@ const crowPanel = createCrowPanel({ pixel: PIXEL, clock: clockMs, since, present
 const now = crowPanel.now;
 let beat = false;      // this run set a new record for the room, and the win screen says so
 let blocked = null;   // { cells, reason, dir }
-let busy = false;
 
-// ---- the rejection animation ---------------------------------------------------------
-// The state never changes here: the sequence plays out and rewinds itself, so the invalid
-// overlap is a frame in an animation and never a board state.
-const FX = {
-  tear: { lunge:150, burst:190, hold:260, rewind:240 },
-  push: { lunge:130, burst:0,   hold:170, rewind:140 },
-  bump: { lunge:70,  burst:0,   hold:110, rewind:80  },
-};
-let fx = null, fxSeen = new Set(), raf = 0;
-
-function startFx(dir, r){
-  const [dx,dy] = DIRS[dir];
-  const tx = play.state.rac.x+dx, ty = play.state.rac.y+dy;
-  const o = inGrid(play.state,tx,ty) ? cell(play.state,tx,ty).o : NONE;
-  let kind = o===BAG ? 'tear' : (o===CANF||o===CANE||isMultiCell(o)) ? 'push' : 'bump';
-  const key = `${kind}:${r.reason}`;
-  if(fxSeen.has(key)) kind = 'bump';          // you've seen it; don't make you sit through it
-  fxSeen.add(key);
-  fx = { kind, dx, dy, bx:tx, by:ty, showBurst: kind==='tear',
-         cells: kind==='tear' ? fan(tx,ty,dx,dy) : [], blame:r.blame, t0:clockMs(), beeped:false };
-  if(!raf) raf = requestAnimationFrame(tick);
-}
-function fxPhase(){
-  const d = FX[fx.kind], e = since(fx.t0);
-  const t1=d.lunge, t2=t1+d.burst, t3=t2+d.hold, t4=t3+d.rewind;
-  if(e < t1)  return { lunge:e/t1, burst:0, flash:0 };
-  if(e < t2)  return { lunge:1, burst:d.burst ? (e-t1)/d.burst : 1, flash:0 };
-  if(e < t3)  return { lunge:1, burst:1, flash:1 };
-  if(e < t4){ const k = 1-(e-t3)/d.rewind; return { lunge:k, burst:k, flash:0 }; }
-  return null;                                 // done
-}
-// ---- the move animation --------------------------------------------------------------
-// Driven by what the rules REPORT moved, not by diffing two boards. A diff cannot tell a piece
-// that moved from one that appeared in its place. `stage` owns the
-// objects and their fractional positions, `timeline` cuts the traced action into segments, and
-// this only keeps the clock.
-let stage = null, board = null, anim = null;
-
-// In the pixel art he is drawn press by press: the drawings of one action, played from the cell he
-// pressed from.
-let pose = null, refusals = 0;
-function startPose(act, dir, from, stay){
-  if(!PIXEL) return;
-  const segs = act === 'tear' ? tearPress(dir)
-    : press(act, dir, { lead: false, recovery: act === 'stuck' ? RECOVERIES[refusals++ % RECOVERIES.length] : undefined });
-  pose = { act, segs, dir, x: from.x, y: from.y, stay, t0: clockMs() };
-}
-const poseAt = () => since(pose.t0) / FRAME_MS;
-let door = null;
-function syncDoor(){
-  const lit = exitLit(play.state);
-  if(!door) door = { lit, t0: -Infinity };
-  else if(lit !== door.lit && !anim) door = { lit, t0: clockMs() };
-  if(doorLive()) raf ||= requestAnimationFrame(tick);
-}
-function doorRoll(){
-  const k = Math.min(1, since(door.t0) / (DOOR.roll * FRAME_MS));
-  return { open: door.lit ? k : 1 - k, frame: Math.floor(clockMs() / FRAME_MS) };
-}
-const doorRolling = () => !!door && since(door.t0) < DOOR.roll * FRAME_MS;
-const doorLive = () => PIXEL && !!door && (door.lit || doorRolling());
-
-const slow = matchMedia('(prefers-reduced-motion: reduce)');
-
-// The stage is NOT rebuilt per action. It stands on `prev`: `rest()` builds it when the room
-// loads, and each action takes it forward. A rebuild would re-seed every sprite, so a pile of
-// trash would change its look when the board around it shifts.
-function startMv(prev, r){
-  board = prev;
-  const segs = timeline(r, CELL_MS), wind = pose ? moveStart(pose.segs) * FRAME_MS : 0;
-  anim = { segs, si: 0, k: -1, t0: clockMs() + wind,
-           drawn: !!pose && segs[0].items.length === 1 && !segs[0].roll };
-  if(!raf) raf = requestAnimationFrame(tick);
-}
-
-function applyItem(it, frames){
-  applyStep(stage, it.step, it.racTo, it.board);
-  clips.note(it.step, it.next, frames);
-}
-/** Returns false once the whole action has played out. */
-function stepMv(){
-  const seg = anim.segs[anim.si], e = since(anim.t0);
-  if(e < 0) return true;
-  const t = Math.min(1, e / seg.dur);
-  const d = (drawnBeat(seg) ? travelAt(pose.segs, poseAt())
-    : seg.roll ? rollEase(t, seg.cells) : easeOut(t)) * seg.items.length;
-  const k = Math.min(seg.items.length - 1, Math.floor(d));
-  while(anim.k < k){
-    if(anim.k >= 0) settle(stage);
-    anim.k++;
-    const it = seg.items[anim.k];
-    board = it.board;
-    applyItem(it, moveFrames(seg));
-  }
-  advance(stage, slow.matches ? 0 : d - k, seg.pace);
-  if(t < 1) return true;
-  settle(stage);
-  if(++anim.si >= anim.segs.length){ board = play.state; return false; }
-  board = seg.items.at(-1).next;
-  anim.k = -1; anim.t0 = clockMs();
-  return true;
-}
-
-const drawnBeat = seg => anim.drawn && seg === anim.segs[0];
-/** How many screen frames a beat of `seg` moves things for. */
-function moveFrames(seg){
-  if(drawnBeat(seg)) return moveStop(pose.segs) - moveStart(pose.segs);
-  return Math.round(seg.dur / seg.items.length / FRAME_MS);
-}
-
-function landMv(){
-  // The step in flight must land first: `applyStep` finds a sprite by its ANCHOR, so a step left
-  // part-way through a beat makes every later step fail to find what it names.
-  if(anim.k >= 0) settle(stage);
-  for(let s = anim.si; s < anim.segs.length; s++){
-    const items = anim.segs[s].items;
-    for(let i = (s === anim.si ? anim.k + 1 : 0); i < items.length; i++){
-      applyItem(items[i], 0);
-      settle(stage);
-    }
-  }
-  anim = null; board = play.state;
-}
+let raf = 0;
 
 let wipeSet = WIPE;
 const winWipe = createWinWipe({ pixel: PIXEL, settings: () => wipeSet, room: () => play.cur, crow: () => crow, now,
@@ -197,7 +68,7 @@ const sendNote = note => fetch('/notes', { method: 'POST', headers: { 'Content-T
   body: JSON.stringify(note) }).then(r => { if(!r.ok) throw new Error(`HTTP ${r.status}`); });
 if(new URLSearchParams(location.search).has('wipe'))
   wipeSet = createWipeTune(document.getElementById('wtune'), WIPE, {
-    replay: () => { if(!play.won && !anim && !winWipe.live) winWipe.start(true); },
+    replay: () => { if(!play.won && !motion.moving && !winWipe.live) winWipe.start(true); },
     snap: () => ({ level: LEVELS[play.cur].id, room: play.cur, last: winWipe.last }),
     send: sendNote,
   });
@@ -208,14 +79,8 @@ const kick = () => { raf ||= requestAnimationFrame(tick); };
 function tick(){
   raf = 0;
   if(rewind.playing) rewind.step();
-  if(fx){
-    const ph = fxPhase();
-    if(ph && ph.flash && !fx.beeped){ fx.beeped = true; sound.beep(false); }
-    if(!ph) fx = null;
-  }
-  if(anim && !stepMv()){ anim = null; busy = false; }
-  if(pose && poseAt() >= pose.segs.at(-1).t1) pose = null;
-  if(winWipe.step(!!anim) === 'handover'){ handOver(true); return; }
+  motion.step();
+  if(winWipe.step(motion.moving) === 'handover'){ handOver(true); return; }
   clips.prune();
   render();
   if(!animating()) rewind.still();
@@ -223,7 +88,7 @@ function tick(){
 }
 /** Whether anything drawn is still changing. `shimmer` also counts the lit door, which never stops. */
 const animating = ({ shimmer = false } = {}) =>
-  !!(anim || pose || fx || winWipe.live || rewind.playing || clips.anyLive() || (shimmer ? doorLive() : doorRolling()));
+  motion.live({ shimmer }) || winWipe.live || rewind.playing || clips.anyLive();
 
 function handOver(keep = false){
   const w = winWipe.detach();
@@ -238,9 +103,8 @@ function handOver(keep = false){
 // was legal, so the stage has to be walked through whatever steps are left or it would keep
 // drawing pieces on cells they have already left.
 const cancelAnim = () => {
-  if(raf) cancelAnimationFrame(raf); raf = 0; fx = null; winWipe.cancel(); pose = null;
-  if(anim) landMv();
-  rewind.end();
+  if(raf) cancelAnimationFrame(raf); raf = 0;
+  motion.cancel(); winWipe.cancel(); rewind.end();
 };
 
 // ---- input ----
@@ -249,31 +113,26 @@ function act(dir){
   if(play.won){ handOver(); return; }
   rewind.end();
   if(winWipe.live){ winWipe.cancel(); render(); }
-  if(fx){ cancelAnim(); render(); }
-  const res = play.press(dir, !!anim);
+  if(motion.refusing){ cancelAnim(); render(); }
+  const res = play.press(dir, motion.moving);
   const r = res.r;
-  if(res.kind === 'busy'){ busy = true; render(); }
+  if(res.kind === 'busy'){ motion.markBusy(); render(); }
   else if(res.kind === 'refused'){
-    face(stage, dir);
+    motion.refuse(dir, r);
     dbg?.refused(dir, r);
     dbg?.decor(play.decor);
     blocked = { cells:r.blame, reason:r.reason, dir };
-    startPose('stuck', dir, play.state.rac, true);
-    startFx(dir, r); render();
+    render();
   }
   else if(res.kind === 'armed'){ blocked = null; sound.beep(true); render(); }
   else {
     // A cut move ends its tape on the landed drawing, so its rewind jumps where this play did.
-    if(anim){ landMv(); busy = false; pose = null; render(); }
-    const kept = structuredClone(stage);
-    face(stage, dir);
+    if(motion.moving){ motion.land(); render(); }
+    const kept = structuredClone(motion.stage);
+    motion.play(dir, res);
     dbg?.action(play.moves, dir, res.prev.rac, r);
     dbg?.decor(play.decor);
     blocked = null;
-    const stay = play.state.rac.x === res.prev.rac.x && play.state.rac.y === res.prev.rac.y;
-    startPose(r.kind === 'tear' ? 'tear' : r.steps[0].moved.length || stay ? 'push' : 'crawl', dir, res.prev.rac, stay);
-    startMv(res.prev, r);
-    if(r.kind === 'tear') clips.startRip(dir, r.steps[0], pose);
     rewind.start(kept);
     if(play.won){ beat = res.beat; winWipe.start(); dbg?.note(`won in ${play.moves}`); }
     readLost();
@@ -282,23 +141,23 @@ function act(dir){
   tell(watch, now(), res);
 }
 function undo(){
-  cancelAnim(); busy = false;
+  cancelAnim();
   const res = play.undo();
   if(res.kind === 'none') return;
   const tape = rewind.pop();
-  blocked=null; anim = null; board = play.state; stage = tape.stage; clips.reset();
-  if(tape.steps.length){ door = { lit: exitLit(play.state), t0: -Infinity }; rewind.play(tape); }
+  blocked=null; motion.restore(tape.stage); clips.reset();
+  if(tape.steps.length){ motion.snapDoor(); rewind.play(tape); }
   readLost(); render(); dbg?.note(`undo -> ${play.moves}`);
   tell(watch, now(), res);
 }
 function restart(){ load(play.cur, true); }
 function load(i, again = false){
-  cancelAnim(); busy = false; door = null; fxSeen = new Set(); rewind.reset(); clips.reset();
+  cancelAnim(); motion.newRoom(); rewind.reset(); clips.reset();
   const res = play.load(i, again);
   blocked=null; beat=false;
   lostScan.start(play.state);
   dbg?.note(`-- ${pad(LEVELS[play.cur].id)} ${LEVELS[play.cur].name ?? ''} --`);
-  rest(); render();
+  motion.rest(play.cur + 1, play.decor); render();
   tell(watch, now(), res);
 }
 
@@ -316,13 +175,14 @@ const lostScan = createLostScan({ askIdle, dropIdle, onVerdict: dead => {
   watch.scanned(now(), dead);
 } });
 const readLost = () => lostScan.check(play.state, play.won);
-function rest(){ anim = null; board = play.state; stage = stageFrom(play.state, play.cur + 1, play.decor); }
 
 // ---- render ----
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 const SP = PIXEL ? createPixelSprites({ ctx, art: await loadPixelArt(new URL('./art/', import.meta.url)) })
   : createSprites({ ctx, cell: CS, pad: PAD });
-const clips = createClips({ pixel: PIXEL, art: SP, stage: () => stage, clock: clockMs, since, frame: FRAME_MS });
+const clips = createClips({ pixel: PIXEL, art: SP, stage: () => motion.stage, clock: clockMs, since, frame: FRAME_MS });
+const motion = createMotion({ clips, pixel: PIXEL, state: () => play.state, clock: clockMs, since, kick: () => kick(),
+  onFlash: () => sound.beep(false) });
 // In the pixel art the room is drawn off screen, and the screen frames it.
 const screenCv = document.getElementById('screen');
 const screen = PIXEL ? createScreen({ canvas: screenCv, art: await loadScreenArt(new URL('./art/', import.meta.url)), C: CS }) : null;
@@ -336,14 +196,13 @@ const painter = createBoardPaint({ ctx, art: SP, clips, cs: CS, pad: PAD, pixel:
 function render(){
   if(rewind.playing){ paintHud(); return; }
   const s=play.state;
-  if(PIXEL) syncDoor();
+  if(PIXEL) motion.syncDoor();
   cv.width=s.cols*CS; cv.height=s.rows*CS;
   painter.paint({
-    state:s, board:board ?? play.state, sprites:stage.sprites,
-    fx, ph: fx ? fxPhase() : null, moving: !!anim,
+    state:s, board:motion.board, sprites:motion.stage.sprites,
+    ...motion.view(), moving: motion.moving,
     armed: play.armed, blocked,
     w:cv.width, h:cv.height, cs:CS,
-    pose: pose && { ...pose, at: poseAt() }, door: PIXEL ? doorRoll() : null,
     leaving: winWipe.leaving(), leave: winWipe.live ? winWipe.style : null, wall: winWipe.live ? winWipe.drawWall : null,
   });
   if(rewind.recording) rewind.record(winWipe.started);
@@ -353,7 +212,7 @@ function render(){
 
 function paintHud(){
   hud.paint({ level: LEVELS[play.cur], state: play.state, moves: play.moves, won: play.won, armed: play.armed,
-    busy, blocked, beat, lost: lostScan.lost });
+    busy: motion.busy, blocked, beat, lost: lostScan.lost });
 }
 
 function present(){
@@ -445,7 +304,7 @@ const picker = createPicker({
 // reference stage on a seed the game did not use, or read a board mid-animation and call the
 // difference a fault. It is built after boot, since `idle` reads the clips.
 if(dbg) window.__tt = createProbe({
-  stage: () => stage,
+  stage: () => motion.stage,
   refStage: () => stageFrom(play.state, play.cur + 1, play.decor),
   decor: () => play.decor,
   grid: () => toGrid(play.state),
