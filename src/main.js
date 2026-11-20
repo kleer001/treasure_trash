@@ -33,6 +33,7 @@ import { createWipeTune } from './wipeTune.js';
 import { createSound } from './sound.js';
 import { createLostScan } from './lostScan.js';
 import { createHud, pad } from './hud.js';
+import { createPicker } from './picker.js';
 // The stage owns the objects, their motion and their envelopes.
 import {
   CART, COUCH, RACCOON, SPLASH, advance, applyStep, cellSeed, easeOut, rollEase, settle,
@@ -51,7 +52,7 @@ const since = t0 => Math.floor((clockMs() - t0) / TWOS) * TWOS;
 
 const LEVELS = [];
 // One entry per act: { label, from, to } as indices into LEVELS. The picker folds on it.
-const ACT_OF = [], CELLS = [];
+const ACT_OF = [];
 const progress = createProgress(window.localStorage);
 const sound = createSound(window.AudioContext || window.webkitAudioContext);
 const hud = createHud(id => document.getElementById(id), progress);
@@ -778,8 +779,8 @@ installFocusReclaim(window);
 // The listeners go on before the art and the crow have loaded; until then a key has nothing to act on.
 addEventListener('keydown',e=>{
   if(!play || e.ctrlKey || e.altKey || e.metaKey || e.target.closest?.('input,textarea')) return;
-  if(!document.getElementById('sheet').hidden){
-    if(e.key==='Escape'){ e.preventDefault(); closePicker(); }
+  if(picker.isOpen()){
+    if(e.key==='Escape'){ e.preventDefault(); picker.close(); }
     return;
   }
   const skipKey = e.key==='Escape'||e.key===' '||e.key==='Enter';
@@ -838,76 +839,11 @@ sound.setChime(await loadAsset('sfx/win-chime.mp3', 'bytes'));
   watch = createWatch({ crow, levels: LEVELS, acts: ACT_OF, progress, memory, rng });
   play = createPlay({ levels: LEVELS, progress });
 }
-// The folds are `<details>` rather than a hand-rolled accordion, so the
-// keyboard and the screen reader get the behaviour for free.
-const grid=document.getElementById('lvlgrid'), sheet=document.getElementById('sheet');
-for(const a of ACT_OF){
-  const fold=document.createElement('details'); fold.className='act-group';
-  const head=document.createElement('summary');
-  head.append(a.label);
-  const range=document.createElement('span'); range.className='range';
-  range.textContent=`${pad(LEVELS[a.from].id)}–${pad(LEVELS[a.to].id)}`;
-  const tag=document.createElement('span'); tag.className='tally';
-  head.append(range,tag);
-  fold.append(head);
-  const g=document.createElement('div'); g.className='grid';
-  for(let i=a.from;i<=a.to;i++){
-    const b=document.createElement('button');
-    b.className='cell';
-    const n=document.createElement('span'); n.className='no'; n.textContent=pad(LEVELS[i].id);
-    const s=document.createElement('span'); s.className='stars';
-    b.append(n,s);
-    b.onclick=()=>{ closePicker(); load(i); };
-    g.append(b); CELLS[i]=b;
-  }
-  fold.append(g);
-  grid.append(fold);
-  a.fold=fold; a.tag=tag;
-}
-
-/** Called on open, so the picker is never stale. */
-function paintProgress(){
-  LEVELS.forEach((L,i)=>{
-    const b=CELLS[i]; if(!b) return;
-    const n=progress.stars(L.id, L.par), done=progress.done(L.id);
-    b.className='cell'+(done?' done':'');
-    b.setAttribute('aria-current',String(i===play.cur));
-    // Only filled stars are written: at this size a hollow star reads as a filled one, so the count
-    // is legible by LENGTH rather than by shape.
-    b.querySelector('.stars').textContent = '★'.repeat(n);
-    const bestMoves=progress.best(L.id);
-    b.title = `${L.name ?? L.id} — par ${L.par}`
-      + (done ? ` · best ${bestMoves} (${n}/3)` : ' · not finished');
-  });
-  for(const a of ACT_OF){
-    const t=progress.tally(LEVELS.slice(a.from,a.to+1));
-    a.done=t.complete;
-    a.tag.textContent = t.complete
-      ? `✓ ${t.earned}/${t.possible}★`
-      : `${t.done}/${t.total} · ${t.earned}★`;
-    a.fold.classList.toggle('finished', t.complete);
-  }
-}
-
-function openPicker(){
-  paintProgress();
-  const here = ACT_OF.findIndex(a => play.cur>=a.from && play.cur<=a.to);
-  const next = ACT_OF.findIndex(a => !a.done);
-  const show = (ACT_OF[here]?.done && next !== -1) ? next : here;
-  ACT_OF.forEach((a,k)=>{ a.fold.open = k===show; });
-  sheet.hidden=false;
-  document.getElementById('picker').setAttribute('aria-expanded','true');
-  CELLS[play.cur]?.scrollIntoView({block:'nearest'});
-  CELLS[play.cur]?.focus();
-}
-function closePicker(){
-  sheet.hidden=true;
-  const p=document.getElementById('picker');
-  p.setAttribute('aria-expanded','false'); p.focus();
-}
-document.getElementById('picker').onclick=openPicker;
-document.getElementById('pickclose').onclick=closePicker;
-sheet.addEventListener('click',e=>{ if(e.target===sheet) closePicker(); });
+const $ = id => document.getElementById(id);
+const picker = createPicker({
+  els: { grid: $('lvlgrid'), sheet: $('sheet'), button: $('picker'), close: $('pickclose') },
+  levels: LEVELS, acts: ACT_OF, progress, current: () => play.cur, choose: i => load(i),
+});
 
 // The probe reaches the game through questions, not variables: it must not be able to build a
 // reference stage on a seed the game did not use, or read a board mid-animation and call the
