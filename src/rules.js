@@ -820,9 +820,9 @@ const nameMove = (step, was, cells, dx, dy) => {
 };
 
 /**
- * Empties the cells `own` of a body or a cart, and returns what each cell held, for `put`.
- * `= undefined`, not `delete`: deleting a property drops the cell into dictionary mode and every
- * clone and key of every state descended from this one pays for it.
+ * Empties the cells `own` and returns what each held, for `put`. `= undefined`, not `delete`:
+ * deleting a property drops the cell into dictionary mode and every clone and key of every state
+ * descended from this one pays for it.
  */
 function lift(next, own) {
   const was = own.map(([x, y]) => {
@@ -837,19 +837,24 @@ function lift(next, own) {
   return was;
 }
 
-/** Writes what `lift` took from the cells `own` onto the cells (dx, dy) on from them. */
-function put(next, own, was, dx, dy) {
+const writeCell = (c, w) => {
+  c.o = w.o; c.hold = w.hold; c.pid = w.pid; c.cart = w.cart; c.ck = w.ck; c.grip = w.grip;
+};
+
+/**
+ * Writes what `lift` took from the cells `own` onto the cells (dx, dy) on from them. A cell whose
+ * `swallowed` entry is truthy writes nothing: its thing was taken where it landed.
+ */
+function put(next, own, was, dx, dy, swallowed = null) {
   own.forEach(([x, y], i) => {
-    const c = cell(next, x + dx, y + dy);
-    c.o = was[i].o; c.hold = was[i].hold; c.pid = was[i].pid;
-    c.cart = was[i].cart; c.ck = was[i].ck; c.grip = was[i].grip;
+    if (!swallowed?.[i]) writeCell(cell(next, x + dx, y + dy), was[i]);
   });
 }
 
 /**
- * Carries the cells of a body or a cart by (dx, dy) and leaves its old cells empty. Every cell is
- * cleared before any is written, so a body never overwrites its own tail. Returns what each cell
- * held, for the step to name.
+ * Carries the cells `own` by (dx, dy) and leaves the old cells empty. Every cell is cleared before
+ * any is written, so a body, or a run, never overwrites its own tail. Returns what each cell held,
+ * for the step to name.
  */
 function moveBody(next, own, dx, dy) {
   const was = lift(next, own);
@@ -1274,13 +1279,9 @@ function shoveCart(s, cid, entry, dx, dy, trace, tail = []) {
     });
 
     repaint(end, n);
-    // Front of the run first, so each one moves into the cell the thing ahead of it just left.
-    if (rolling) for (const c of tail) {
-      const from = at(c, n), to = at(c, end);
-      const o = cell(next, ...from).o;
-      cell(next, ...from).o = NONE;
-      cell(next, ...to).o = o;
-      if (step) step.moved.push(moves({ o, from, to }));
+    if (rolling && tail.length) {
+      const run = tail.map(c => at(c, n));
+      nameMove(step, moveBody(next, run, dx, dy), run, dx, dy);
     }
     n = end;
     shed ||= spill.length > 0;
@@ -1587,14 +1588,14 @@ function pushRollers({ s, dx, dy, tx, ty, target, opts }) {
   const back = rearIsWheelie ? backOf(rear) : null;
 
   const rolled = cloneState(s);
-  for (const [x, y] of train) cell(rolled, x, y).o = NONE;
+  const was = lift(rolled, train);
   const swallowed = [];
-  for (const [x, y] of train) {
-    const to = [x + k * dx, y + k * dy];
-    const cost = takenBy(cell(rolled, ...to), cell(s, x, y).o, 'train');
-    if (cost) { swallowed.push([[x, y], cell(s, x, y).o, cost]); continue; }
-    cell(rolled, ...to).o = cell(s, x, y).o;
-  }
+  const costs = train.map(([x, y], i) => {
+    const cost = takenBy(cell(rolled, x + k * dx, y + k * dy), was[i].o, 'train');
+    if (cost) swallowed.push([[x, y], was[i].o, cost]);
+    return cost;
+  });
+  put(rolled, train, was, k * dx, k * dy, costs);
   if (back && !swallowed.length && !isOccupiable(rolled, back[0], back[1]))
     return { ok: false, reason: reasonFor(s, [back], 'canRoom'), blame: [back] };
 
@@ -1687,12 +1688,11 @@ function pushBroom({ s, dx, dy, tx, ty, o, done }) {
   const next = cloneState(s);
   const step = mkStep({ moved: [], gone: [] });
   let headMoved = null;
-  for (const [x, y] of line) {
-    const c = cell(next, x, y); c.o = NONE; c.hold = undefined; c.grip = undefined;
-  }
-  for (const [x, y] of [...line].reverse()) {
+  const was = lift(next, line);
+  for (let i = line.length - 1; i >= 0; i--) {
+    const [x, y] = line[i];
     const from = [x, y], to = [x + k * dx, y + k * dy];
-    const what = cell(s, x, y).o;
+    const what = was[i].o;
     const cost = takenBy(cell(next, ...to), what, 'swept');
     if (cost) {
       drop(next, to, [what], 'swept');
@@ -1719,8 +1719,7 @@ function pushBroom({ s, dx, dy, tx, ty, o, done }) {
     }
     // Everything the cell was carrying travels with it, not just the occupant code. A link
     // left behind belongs to whatever is standing there now, which is a different board.
-    const c = cell(next, ...to);
-    c.o = what; c.hold = cell(s, x, y).hold; c.grip = cell(s, x, y).grip;
+    writeCell(cell(next, ...to), was[i]);
     const m = moves({ o: what, from, to });
     step.moved.push(m);
     if (x === head[0] && y === head[1]) headMoved = m;

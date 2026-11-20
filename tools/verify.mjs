@@ -262,7 +262,7 @@ const ASKS_THE_LANE = {
   "if (t.slides !== o && !takenBy(cell(s, ...at), t.slides, 'emptied where it landed'))": 'lands on the cell it is already on',
   'const takes = landed.map(([x, y], i) => takenBy(cell(next, x, y), was[i].o, site));': '`rollBy` — a whole roll, before any of it is written',
   "const taken = takenBy(c, TRASH, 'torn open');": 'about a thing that does not exist yet',
-  "const cost = takenBy(cell(rolled, ...to), cell(s, x, y).o, 'train');": 'on a board cloned to ask whether it may',
+  "const cost = takenBy(cell(rolled, x + k * dx, y + k * dy), was[i].o, 'train');": 'on a board cloned to ask whether it may',
   "const cost = takenBy(cell(next, ...to), what, 'swept');": 'not known to be a landing until answered',
   "const taken = takenBy(cell(next, fx, fy), TRASH, 'burst by sweep');": 'about a thing that does not exist yet',
   "const cost = into === null && !blame.length ? takenBy(cell(s, ...at), o, 'slid') : null;": 'a question about the move, not the landing',
@@ -272,12 +272,9 @@ const PLACES_BY_HAND = {
   'c.o = ch.length ? ch[0] : NONE;': 'setChain — the one write',
   'else c.o = TRASH;': 'layTrash — the other one',
   'cell(s, ...at).o = t.slides;': 'what a container turns into where it landed',
-  'c.o = was[i].o; c.hold = was[i].hold; c.pid = was[i].pid;': '`put` — a body or a cart carried along',
+  'c.o = w.o; c.hold = w.hold; c.pid = w.pid; c.cart = w.cart; c.ck = w.ck; c.grip = w.grip;': '`writeCell` — a lifted cell put down, by `put` or by a swept line',
   'for (const p of [at, draw]) { const c = cell(next, ...p); c.o = open; c.pid = pid; }': 'a cabinet opening — a birth, not a landing',
-  'cell(next, ...to).o = o;': 'a towed complex, decided for the whole of it',
-  'cell(rolled, ...to).o = cell(s, x, y).o;': 'on a board cloned to ask whether it may',
   'cell(next, rear[0] + k * dx, rear[1] + k * dy).o = WHEELIE_EMPTY;': 'a bin becoming empty where it stands',
-  'c.o = what; c.hold = cell(s, x, y).hold; c.grip = cell(s, x, y).grip;': 'a swept line, with what it holds',
 };
 
 const onlyAsListed = (lines, what, hits, listed) => {
