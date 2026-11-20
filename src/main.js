@@ -82,18 +82,16 @@ const OBSTACLE = { [BAG]:"a bag", [CANF]:"a full can", [CANE]:"a can", [TRASH]:"
   [MAG_U]:"the magnet", [MAG_D]:"the magnet", [MAG_L]:"the magnet", [MAG_R]:"the magnet",
   [FURNITURE]:"the couch" };
 function whyText(b){
-  const base = WHY[refusal(state, b)];
+  const base = WHY[refusal(play.state, b)];
   if(b.reason !== 'fan' && b.reason !== 'canRoom') return base;
   const [x,y] = b.cells[0] ?? [];
-  if(x === undefined || !inGrid(state,x,y)) return `${base} — the wall's in the way`;
-  const c = cell(state,x,y);
+  if(x === undefined || !inGrid(play.state,x,y)) return `${base} — the wall's in the way`;
+  const c = cell(play.state,x,y);
   const what = c.wall ? "the wall" : (OBSTACLE[c.o] ?? "something");
   return `${base} — ${what} is in the way`;
 }
 
-let LEVELS = [], cur=0, state=null, moves=0, won=false;
-// Which way things face: decoration the board does not hold. Null is the room as its file lays it out.
-let decor=null;
+const LEVELS = [];
 // One entry per act: { label, from, to } as indices into LEVELS. The picker folds on it.
 const ACT_OF = [], CELLS = [];
 const progress = createProgress(window.localStorage);
@@ -115,7 +113,6 @@ let blocked = null;   // { cells, reason, dir }
 let busy = false;
 // `deadKeys` holds the state keys of this room that cannot be won.
 let deadKeys = null, scan = null, scanRaf = 0, lost = false;
-let armed = null;     // direction of a push or tear that is aimed but not yet committed
 
 // ---- the rejection animation ---------------------------------------------------------
 // The state never changes here: the sequence plays out and rewinds itself, so the invalid
@@ -129,8 +126,8 @@ let fx = null, fxSeen = new Set(), raf = 0;
 
 function startFx(dir, r){
   const [dx,dy] = DIRS[dir];
-  const tx = state.rac.x+dx, ty = state.rac.y+dy;
-  const o = inGrid(state,tx,ty) ? cell(state,tx,ty).o : NONE;
+  const tx = play.state.rac.x+dx, ty = play.state.rac.y+dy;
+  const o = inGrid(play.state,tx,ty) ? cell(play.state,tx,ty).o : NONE;
   let kind = o===BAG ? 'tear' : (o===CANF||o===CANE||isMultiCell(o)) ? 'push' : 'bump';
   const key = `${kind}:${r.reason}`;
   if(fxSeen.has(key)) kind = 'bump';          // you've seen it; don't make you sit through it
@@ -168,7 +165,7 @@ const poseAt = () => since(pose.t0) / FRAME_MS;
 const poseSeg = () => segAt(pose.segs, poseAt());
 let door = null;
 function syncDoor(){
-  const lit = exitLit(state);
+  const lit = exitLit(play.state);
   if(!door) door = { lit, t0: -Infinity };
   else if(lit !== door.lit && !anim) door = { lit, t0: clockMs() };
   if(doorLive()) raf ||= requestAnimationFrame(tick);
@@ -215,7 +212,7 @@ function stepMv(){
   advance(stage, slow.matches ? 0 : d - k, seg.pace);
   if(t < 1) return true;
   settle(stage);
-  if(++anim.si >= anim.segs.length){ board = state; return false; }
+  if(++anim.si >= anim.segs.length){ board = play.state; return false; }
   board = seg.items.at(-1).next;
   anim.k = -1; anim.t0 = clockMs();
   return true;
@@ -239,7 +236,7 @@ function landMv(){
       settle(stage);
     }
   }
-  anim = null; board = state;
+  anim = null; board = play.state;
 }
 
 // ---- the undo rewind ----
@@ -265,7 +262,7 @@ function startRewind(tape){
   // A wipe or the shimmer may have drawn over the screen since the tape stopped.
   if(rec?.tape === tape) ctx.putImageData(rec.prev, 0, 0);
   rec = null;
-  door = { lit: exitLit(state), t0: -Infinity };
+  door = { lit: exitLit(play.state), t0: -Infinity };
   rewind = { steps: tape.steps, i: tape.steps.length - 1, end: tape.steps.at(-1).t, t0: clockMs() };
   raf ||= requestAnimationFrame(tick);
 }
@@ -290,7 +287,7 @@ let wall = null;      // laid once per board size and kind, since laying one is 
 
 function startWipe(replay = false){
   if(!replay) playWinChime();
-  const h = ((cur + 1) * 2654435761) >>> 0, s = wipeSet, kinds = Object.keys(KINDS);
+  const h = ((play.cur + 1) * 2654435761) >>> 0, s = wipeSet, kinds = Object.keys(KINDS);
   wipe = { t0: null, replay, loaded: false, set: s, t: { ...s, hold: Infinity },
     pattern: s.pattern === 'room' ? PATTERNS[h % PATTERNS.length] : s.pattern,
     kind: s.kind === 'room' ? kinds[(h >>> 8) % kinds.length] : s.kind };
@@ -345,8 +342,8 @@ const sendNote = note => fetch('/notes', { method: 'POST', headers: { 'Content-T
   body: JSON.stringify(note) }).then(r => { if(!r.ok) throw new Error(`HTTP ${r.status}`); });
 if(new URLSearchParams(location.search).has('wipe'))
   wipeSet = createWipeTune(document.getElementById('wtune'), WIPE, {
-    replay: () => { if(!won && !anim && !wipe) startWipe(true); },
-    snap: () => ({ level: LEVELS[cur].id, room: cur, last: lastWipe }),
+    replay: () => { if(!play.won && !anim && !wipe) startWipe(true); },
+    snap: () => ({ level: LEVELS[play.cur].id, room: play.cur, last: lastWipe }),
     send: sendNote,
   });
 
@@ -383,7 +380,7 @@ const animating = ({ shimmer = false } = {}) =>
 function handOver(keep = false){
   const w = keep ? wipe : null;
   wipe = null;
-  if(cur < LEVELS.length - 1) load(cur + 1); else render();
+  if(play.cur < LEVELS.length - 1) load(play.cur + 1); else render();
   // Drawn again before the frame is shown: the load drew the new room with no wall over it.
   if(w){
     wipe = w; roomIn(w);
@@ -445,19 +442,19 @@ function playWinChime(){
 // ---- input ----
 function act(dir){
   audio(); primeWinChime();              // first input is the gesture that unlocks audio
-  if(won){ handOver(); return; }
+  if(play.won){ handOver(); return; }
   if(rewind) endRewind();
   if(wipe){ wipe = null; render(); }
   if(fx){ cancelAnim(); render(); }
-  const res = play.press(dir, !!anim); sync();
+  const res = play.press(dir, !!anim);
   const r = res.r;
   if(res.kind === 'busy'){ busy = true; render(); }
   else if(res.kind === 'refused'){
     face(stage, dir);
     dbg?.refused(dir, r);
-    dbg?.decor(decor);
+    dbg?.decor(play.decor);
     blocked = { cells:r.blame, reason:r.reason, dir };
-    startPose('stuck', dir, state.rac, true);
+    startPose('stuck', dir, play.state.rac, true);
     startFx(dir, r); render();
   }
   else if(res.kind === 'armed'){ blocked = null; beep(true); render(); }
@@ -466,15 +463,15 @@ function act(dir){
     if(anim){ landMv(); busy = false; pose = null; render(); }
     const kept = structuredClone(stage);
     face(stage, dir);
-    dbg?.action(moves, dir, res.prev.rac, r);
-    dbg?.decor(decor);
+    dbg?.action(play.moves, dir, res.prev.rac, r);
+    dbg?.decor(play.decor);
     blocked = null;
-    const stay = state.rac.x === res.prev.rac.x && state.rac.y === res.prev.rac.y;
+    const stay = play.state.rac.x === res.prev.rac.x && play.state.rac.y === res.prev.rac.y;
     startPose(r.kind === 'tear' ? 'tear' : r.steps[0].moved.length || stay ? 'push' : 'crawl', dir, res.prev.rac, stay);
     startMv(res.prev, r);
     if(r.kind === 'tear') clips.startRip(dir, r.steps[0], pose);
     startTape(kept);
-    if(won){ beat = res.beat; startWipe(); dbg?.note(`won in ${moves}`); }
+    if(play.won){ beat = res.beat; startWipe(); dbg?.note(`won in ${play.moves}`); }
     readLost();
     render();
   }
@@ -482,29 +479,27 @@ function act(dir){
 }
 function undo(){
   cancelAnim(); busy = false;
-  const res = play.undo(); sync();
+  const res = play.undo();
   if(res.kind === 'none') return;
   const tape = tapes.pop();
-  blocked=null; anim = null; board = state; stage = tape.stage; clips.reset();
+  blocked=null; anim = null; board = play.state; stage = tape.stage; clips.reset();
   if(tape.steps.length) startRewind(tape);
-  readLost(); render(); dbg?.note(`undo -> ${moves}`);
+  readLost(); render(); dbg?.note(`undo -> ${play.moves}`);
   tell(watch, now(), res);
 }
-function restart(){ load(cur, true); }
+function restart(){ load(play.cur, true); }
 function load(i, again = false){
   cancelAnim(); busy = false; door = null; fxSeen = new Set(); tapes = []; rec = null; clips.reset();
-  const res = play.load(i, again); sync();
+  const res = play.load(i, again);
   blocked=null; beat=false;
   startScan();
-  dbg?.note(`-- ${pad(LEVELS[cur].id)} ${LEVELS[cur].name ?? ''} --`);
+  dbg?.note(`-- ${pad(LEVELS[play.cur].id)} ${LEVELS[play.cur].name ?? ''} --`);
   rest(); render();
   tell(watch, now(), res);
 }
-// The loop's books are `play`'s; these are what the screen last read of them.
-function sync(){ ({ cur, state, decor, moves, won, armed } = play); }
 
 // ---- the solvability indicator ----
-function readLost(){ lost = !!deadKeys && !won && deadKeys.has(stateKey(state)); }
+function readLost(){ lost = !!deadKeys && !play.won && deadKeys.has(stateKey(play.state)); }
 
 const SCAN_BUDGET_MS = 1200;
 let scanSpent = 0;
@@ -522,7 +517,7 @@ const dropIdle = window.cancelIdleCallback
 function startScan(){
   if(scanRaf) dropIdle(scanRaf);
   deadKeys = null; lost = false; scanSpent = 0;
-  scan = deadScan(state);
+  scan = deadScan(play.state);
   scanRaf = askIdle(pumpScan);
 }
 
@@ -547,7 +542,7 @@ function pumpScan(deadline){
   if(scanSpent >= SCAN_BUDGET_MS){ scan = null; return; }
   scanRaf = askIdle(pumpScan);
 }
-function rest(){ anim = null; board = state; stage = stageFrom(state, cur + 1, decor); }
+function rest(){ anim = null; board = play.state; stage = stageFrom(play.state, play.cur + 1, play.decor); }
 
 // ---- render ----
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -776,13 +771,13 @@ const comp = createCompositor([
 
 function render(){
   if(rewind){ paintHud(); return; }
-  const s=state;
+  const s=play.state;
   if(PIXEL) syncDoor();
   cv.width=s.cols*CS; cv.height=s.rows*CS;
   comp.render(ctx, {
-    state:s, board:board ?? state, sprites:stage.sprites,
+    state:s, board:board ?? play.state, sprites:stage.sprites,
     fx, ph: fx ? fxPhase() : null, moving: !!anim,
-    armed, blocked, wipe,
+    armed: play.armed, blocked, wipe,
     w:cv.width, h:cv.height, cs:CS,
   });
   if(rec?.on) record();
@@ -792,31 +787,31 @@ function render(){
 
 // The HUD is DOM, not canvas, so it is not a layer.
 function paintHud(){
-  document.getElementById('moves').textContent=moves;
-  document.getElementById('par').textContent=LEVELS[cur].par;
-  document.getElementById('lvlname').textContent=LEVELS[cur].name;
-  document.getElementById('picknum').textContent=pad(LEVELS[cur].id);
+  document.getElementById('moves').textContent=play.moves;
+  document.getElementById('par').textContent=LEVELS[play.cur].par;
+  document.getElementById('lvlname').textContent=LEVELS[play.cur].name;
+  document.getElementById('picknum').textContent=pad(LEVELS[play.cur].id);
   const w=document.getElementById('warn');
   // The busy notice outranks a stale refusal: it is about right now, and it is about to go.
   w.textContent = busy ? '⏳ one thing at a time — he only has the two paws'
     : blocked ? `✕ ${whyText(blocked)}` : '';
   w.className = 'warn'+(busy?' show busy':blocked?' show':'');
   const am=document.getElementById('arm');
-  am.textContent = armed ? `${({u:'↑',d:'↓',l:'←',r:'→'})[armed]} again to ${armedVerb()}` : '';
-  am.className = 'arm'+(armed?' show':'');
+  am.textContent = play.armed ? `${({u:'↑',d:'↓',l:'←',r:'→'})[play.armed]} again to ${armedVerb()}` : '';
+  am.className = 'arm'+(play.armed?' show':'');
   const sc=document.getElementById('score');
-  const st=progress.stars(LEVELS[cur].id, LEVELS[cur].par), bestMoves=progress.best(LEVELS[cur].id);
+  const st=progress.stars(LEVELS[play.cur].id, LEVELS[play.cur].par), bestMoves=progress.best(LEVELS[play.cur].id);
   // Par is the proven minimum, so "over par" is an exact number rather than a designer's guess.
-  sc.textContent = won ? `${'★'.repeat(st)}${'☆'.repeat(3-st)}${beat?' new best!':''}`
+  sc.textContent = play.won ? `${'★'.repeat(st)}${'☆'.repeat(3-st)}${beat?' new best!':''}`
     : bestMoves !== null ? `${'★'.repeat(st)}${'☆'.repeat(3-st)} best ${bestMoves}` : '';
-  sc.className = 'score'+(bestMoves!==null||won?' show':'')+(beat?' beat':'');
+  sc.className = 'score'+(bestMoves!==null||play.won?' show':'')+(beat?' beat':'');
   const lo=document.getElementById('lost');
   // The notice is short enough to sit on the moves row. A standing notice that pushes the board
   // down the page is a bigger interruption than the thing it reports. It still names the way back,
   // because saying it helps only if you can act on it.
   lo.innerHTML = lost ? '<b>✕</b> unwinnable — undo or restart' : '';
   lo.className = 'lost'+(lost?' show':'');
-  document.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(i===cur?' on':''));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(i===play.cur?' on':''));
 }
 
 // His panel is DOM, like the HUD.
@@ -839,8 +834,8 @@ function paintCrow(v){
   if(v.text !== shownText) crowLine.textContent = shownText = v.text;
 }
 function present(){
-  const L = LEVELS[cur];
-  screen.paint({ room: cv, cols: state.cols, rows: state.rows, left: `${pad(L.id)}  ${L.name ?? ''}`, right: `Moves ${moves}  Par ${L.par}`,
+  const L = LEVELS[play.cur];
+  screen.paint({ room: cv, cols: play.state.cols, rows: play.state.rows, left: `${pad(L.id)}  ${L.name ?? ''}`, right: `Moves ${play.moves}  Par ${L.par}`,
     crow: crowView, faceMs: since(faceUp.t0), settle: speaking ? null : since(settleT0) / FRAME_MS,
     wall: wipe ? (c, w, h) => drawWall(c, { w, h }) : null });
 }
@@ -861,7 +856,7 @@ function toDock(){
 }
 
 function drawLanding(x,y){
-  if(!inGrid(state,x,y)) return;
+  if(!inGrid(play.state,x,y)) return;
   ctx.save();
   ctx.fillStyle="rgba(255,207,0,.32)"; ctx.fillRect(x*CS+1,y*CS+1,CS-2,CS-2);
   ctx.strokeStyle="rgba(224,170,0,.9)"; ctx.lineWidth=3; ctx.setLineDash([6,4]);
@@ -869,8 +864,8 @@ function drawLanding(x,y){
   ctx.restore();
 }
 function armedVerb(){
-  const [dx,dy]=DIRS[armed];
-  const c = cell(state, state.rac.x+dx, state.rac.y+dy);
+  const [dx,dy]=DIRS[play.armed];
+  const c = cell(play.state, play.state.rac.x+dx, play.state.rac.y+dy);
   return c.o===BAG ? 'tear' : 'shove';
 }
 function drawAim(x,y,dx,dy){
@@ -937,8 +932,8 @@ addEventListener('keydown',e=>{
   else if(skipKey){ e.preventDefault(); watch.key(now()); crow.press(now()); }
   else if(e.key==='u'||e.key==='U'){ undo(); }
   else if(e.key==='r'||e.key==='R'){ restart(); }
-  else if(e.key==='<'){ load(cur-1); }
-  else if(e.key==='>'){ load(cur+1); }
+  else if(e.key==='<'){ load(play.cur-1); }
+  else if(e.key==='>'){ load(play.cur+1); }
 });
 // One delegated listener for every button under the board, so the layout is markup-only.
 const MOVEACT={up:'u',down:'d',left:'l',right:'r'};
@@ -947,7 +942,7 @@ document.getElementById('controls').addEventListener('click',e=>{
   const a=btn.dataset.act;
   if(a in MOVEACT){ act(MOVEACT[a]); }
   else if(a==='undo')undo(); else if(a==='restart')restart();
-  else if(a==='next')load(cur+1); else if(a==='prev')load(cur-1);
+  else if(a==='next')load(play.cur+1); else if(a==='prev')load(play.cur-1);
 });
 
 // `?acts=` names the packs to load, comma-separated. A scratch pack loads the same way, so a new
@@ -979,8 +974,8 @@ winBytes = await loadAsset('sfx/win-chime.mp3', 'bytes');
   const rng = mulberry32(Date.now());
   const events = JSON.parse(await loadAsset('dialogue/crow.json'));
   crowDbg = dbg && createCrowDebug(document.getElementById('cdbg'), { events, tuning: TUNING,
-    snap: () => ({ query: location.search, level: LEVELS[cur].id, room: cur, moves, won, armed, path: play.path,
-      board: toGrid(state) }),
+    snap: () => ({ query: location.search, level: LEVELS[play.cur].id, room: play.cur, moves: play.moves, won: play.won, armed: play.armed, path: play.path,
+      board: toGrid(play.state) }),
     send: sendNote });
   crow = createCrow({ events, rng, memory,
     onLog: r => { if(r.type === 'say') dbg?.note(`crow ${r.key}`); crowDbg?.note(r); } });
@@ -1020,7 +1015,7 @@ function paintProgress(){
     const b=CELLS[i]; if(!b) return;
     const n=progress.stars(L.id, L.par), done=progress.done(L.id);
     b.className='cell'+(done?' done':'');
-    b.setAttribute('aria-current',String(i===cur));
+    b.setAttribute('aria-current',String(i===play.cur));
     // Only filled stars are written: at this size a hollow star reads as a filled one, so the count
     // is legible by LENGTH rather than by shape.
     b.querySelector('.stars').textContent = '★'.repeat(n);
@@ -1040,14 +1035,14 @@ function paintProgress(){
 
 function openPicker(){
   paintProgress();
-  const here = ACT_OF.findIndex(a => cur>=a.from && cur<=a.to);
+  const here = ACT_OF.findIndex(a => play.cur>=a.from && play.cur<=a.to);
   const next = ACT_OF.findIndex(a => !a.done);
   const show = (ACT_OF[here]?.done && next !== -1) ? next : here;
   ACT_OF.forEach((a,k)=>{ a.fold.open = k===show; });
   sheet.hidden=false;
   document.getElementById('picker').setAttribute('aria-expanded','true');
-  CELLS[cur]?.scrollIntoView({block:'nearest'});
-  CELLS[cur]?.focus();
+  CELLS[play.cur]?.scrollIntoView({block:'nearest'});
+  CELLS[play.cur]?.focus();
 }
 function closePicker(){
   sheet.hidden=true;
@@ -1063,14 +1058,14 @@ sheet.addEventListener('click',e=>{ if(e.target===sheet) closePicker(); });
 // difference a fault. It is built after boot, since `idle` reads the clips.
 if(dbg) window.__tt = createProbe({
   stage: () => stage,
-  refStage: () => stageFrom(state, cur + 1, decor),
-  decor: () => decor,
-  grid: () => toGrid(state),
+  refStage: () => stageFrom(play.state, play.cur + 1, play.decor),
+  decor: () => play.decor,
+  grid: () => toGrid(play.state),
   idle: () => !animating(),
-  level: () => LEVELS[cur].id,
-  moves: () => moves,
-  won: () => won,
-  armed: () => armed,
+  level: () => LEVELS[play.cur].id,
+  moves: () => play.moves,
+  won: () => play.won,
+  armed: () => play.armed,
   mute: v => { muted = v; },
   hold: () => { heldMs = performance.now(); },
   run: () => { heldMs = null; raf ||= requestAnimationFrame(tick); },
@@ -1080,7 +1075,7 @@ load(0);
 requestAnimationFrame(function crowFrame(){
   const t = now();
   // A speech is not the player idling.
-  if(speaking) watch.key(t); else watch.tick(t, state);
+  if(speaking) watch.key(t); else watch.tick(t, play.state);
   paintCrow(crow.view(t));
   crowDbg?.paint(crow.peek(), watch.peek(t));
   requestAnimationFrame(crowFrame);
