@@ -101,27 +101,7 @@ const progress = createProgress(window.localStorage);
 // downstream of the game and may not be there at all.
 const dbg = new URLSearchParams(location.search).has('debug')
   ? createDebugLog(document.getElementById('dbglog')) : null;
-if(dbg){
-  document.getElementById('dbg').hidden = false; document.body.classList.add('debugging');
-  // The probe reaches the game through questions, not variables: it must not be able to build a
-  // reference stage on a seed the game did not use, or read a board mid-animation and call the
-  // difference a fault.
-  window.__tt = createProbe({
-    stage: () => stage,
-    refStage: () => stageFrom(state, cur + 1, decor),
-    decor: () => decor,
-    grid: () => toGrid(state),
-    idle: () => !anim && !busy && !fx && !wipe && !pose && !rewind,
-    level: () => LEVELS[cur].id,
-    moves: () => moves,
-    won: () => won,
-    armed: () => armed,
-    mute: v => { muted = v; },
-    hold: () => { heldMs = performance.now(); },
-    run: () => { heldMs = null; raf ||= requestAnimationFrame(tick); },
-    step: (n = 1) => { heldMs += n * 1000 / FRAME_RATE; cancelAnimationFrame(raf); tick(); },
-  });
-}
+if(dbg){ document.getElementById('dbg').hidden = false; document.body.classList.add('debugging'); }
 // The crow: `crow` says the lines, `watch` notices what he would say them about. Both are built
 // once the packs have loaded, since what he notices depends on the running order.
 let crow = null, watch = null, play = null;
@@ -197,7 +177,8 @@ function doorRoll(){
   const k = Math.min(1, since(door.t0) / (DOOR.roll * FRAME_MS));
   return { open: door.lit ? k : 1 - k, frame: Math.floor(clockMs() / FRAME_MS) };
 }
-const doorLive = () => PIXEL && !!door && (door.lit || since(door.t0) < DOOR.roll * FRAME_MS);
+const doorRolling = () => !!door && since(door.t0) < DOOR.roll * FRAME_MS;
+const doorLive = () => PIXEL && !!door && (door.lit || doorRolling());
 
 const slow = matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -279,8 +260,6 @@ function record(){
   if(step) rec.tape.steps.push({ t: clockMs() - rec.tape.t0, ...step });
   rec.prev = next;
 }
-// The lit door's shimmer never ends, so it is not asked about.
-const moving = () => !!(anim || pose || fx || clips.anyLive() || (door && since(door.t0) < DOOR.roll * FRAME_MS));
 
 function startRewind(tape){
   // A wipe or the shimmer may have drawn over the screen since the tape stopped.
@@ -394,9 +373,12 @@ function tick(){
   }
   clips.prune();
   render();
-  if(rec?.on && !moving()) rec.on = false;
-  if(fx || anim || wipe || pose || doorLive() || clips.anyLive() || rewind) raf ||= requestAnimationFrame(tick);
+  if(rec?.on && !animating()) rec.on = false;
+  if(animating({ shimmer: true })) raf ||= requestAnimationFrame(tick);
 }
+/** Whether anything drawn is still changing. `shimmer` also counts the lit door, which never stops. */
+const animating = ({ shimmer = false } = {}) =>
+  !!(anim || pose || fx || wipe || rewind || clips.anyLive() || (shimmer ? doorLive() : doorRolling()));
 
 function handOver(keep = false){
   const w = keep ? wipe : null;
@@ -1076,6 +1058,24 @@ document.getElementById('picker').onclick=openPicker;
 document.getElementById('pickclose').onclick=closePicker;
 sheet.addEventListener('click',e=>{ if(e.target===sheet) closePicker(); });
 
+// The probe reaches the game through questions, not variables: it must not be able to build a
+// reference stage on a seed the game did not use, or read a board mid-animation and call the
+// difference a fault. It is built after boot, since `idle` reads the clips.
+if(dbg) window.__tt = createProbe({
+  stage: () => stage,
+  refStage: () => stageFrom(state, cur + 1, decor),
+  decor: () => decor,
+  grid: () => toGrid(state),
+  idle: () => !animating(),
+  level: () => LEVELS[cur].id,
+  moves: () => moves,
+  won: () => won,
+  armed: () => armed,
+  mute: v => { muted = v; },
+  hold: () => { heldMs = performance.now(); },
+  run: () => { heldMs = null; raf ||= requestAnimationFrame(tick); },
+  step: (n = 1) => { heldMs += n * 1000 / FRAME_RATE; cancelAnimationFrame(raf); tick(); },
+});
 load(0);
 requestAnimationFrame(function crowFrame(){
   const t = now();
