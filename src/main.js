@@ -35,6 +35,7 @@ import { createCompositor } from './compositor.js';
 import { reverseStep } from './tape.js';
 import { P, PATTERNS, KINDS, layWall, drawWipe, wallFrom, roomBeats } from './wipe.js';
 import { createWipeTune } from './wipeTune.js';
+import { createSound } from './sound.js';
 // The stage owns the objects, their motion and their envelopes.
 import {
   CART, COUCH, RACCOON, SPLASH, advance, applyStep, cellSeed, easeOut, rollEase, settle,
@@ -95,6 +96,7 @@ const LEVELS = [];
 // One entry per act: { label, from, to } as indices into LEVELS. The picker folds on it.
 const ACT_OF = [], CELLS = [];
 const progress = createProgress(window.localStorage);
+const sound = createSound(window.AudioContext || window.webkitAudioContext);
 // The play-by-play is null without `?debug`, and every call site is optional: the log is
 // downstream of the game and may not be there at all.
 const dbg = new URLSearchParams(location.search).has('debug')
@@ -286,7 +288,7 @@ let wipe = null, wipeSet = WIPE, lastWipe = null;
 let wall = null;      // laid once per board size and kind, since laying one is costly
 
 function startWipe(replay = false){
-  if(!replay) playWinChime();
+  if(!replay) sound.chime();
   const h = ((play.cur + 1) * 2654435761) >>> 0, s = wipeSet, kinds = Object.keys(KINDS);
   wipe = { t0: null, replay, loaded: false, set: s, t: { ...s, hold: Infinity },
     pattern: s.pattern === 'room' ? PATTERNS[h % PATTERNS.length] : s.pattern,
@@ -354,7 +356,7 @@ function tick(){
   if(rewind && !stepRewind()) rewind = null;
   if(fx){
     const ph = fxPhase();
-    if(ph && ph.flash && !fx.beeped){ fx.beeped = true; beep(false); }
+    if(ph && ph.flash && !fx.beeped){ fx.beeped = true; sound.beep(false); }
     if(!ph) fx = null;
   }
   if(anim && !stepMv()){ anim = null; busy = false; }
@@ -396,52 +398,9 @@ const cancelAnim = () => {
   if(rewind) endRewind();
 };
 
-// ---- audio: a procedural two-tone "no" for a refused input.
-let ac = null;
-// A driver walks many beats and every refusal in them buzzes. Muting is the harness's
-// business rather than the audio's, so the flag lives here and the probe is what sets it.
-let muted = false;
-/** The context, created on first input — browsers refuse to start one before a gesture. */
-function audio(){
-  ac ??= new (window.AudioContext || window.webkitAudioContext)();
-  if(ac.state === 'suspended') ac.resume();
-  return ac;
-}
-function beep(ok){
-  if(muted) return;
-  try {
-    audio();
-    const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
-    o.type = ok ? 'triangle' : 'square';
-    o.frequency.setValueAtTime(ok ? 520 : 190, t);
-    if(!ok) o.frequency.setValueAtTime(140, t + .07);
-    g.gain.setValueAtTime(ok ? .045 : .09, t);
-    g.gain.exponentialRampToValueAtTime(.0001, t + (ok ? .07 : .16));
-    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + (ok ? .08 : .17));
-  } catch { /* audio is a nicety; never let it break input */ }
-}
-
-const WIN_GAIN = 0.35;                 // sits above the beeps without shouting
-let winBytes = null, winBuf = null;
-
-/** Decode once, on first input, so the buffer is ready long before anyone wins. */
-function primeWinChime(){
-  if(winBuf || !winBytes) return;
-  const bytes = winBytes; winBytes = null;     // decodeAudioData detaches it — only one go
-  audio().decodeAudioData(bytes).then(b => { winBuf = b; });
-}
-function playWinChime(){
-  if(muted || !winBuf) return;
-  const src = audio().createBufferSource(), g = audio().createGain();
-  src.buffer = winBuf;
-  g.gain.value = WIN_GAIN;
-  src.connect(g); g.connect(ac.destination);
-  src.start();                                 // no handle kept: it finishes on its own
-}
-
 // ---- input ----
 function act(dir){
-  audio(); primeWinChime();              // first input is the gesture that unlocks audio
+  sound.unlock();
   if(play.won){ handOver(); return; }
   if(rewind) endRewind();
   if(wipe){ wipe = null; render(); }
@@ -457,7 +416,7 @@ function act(dir){
     startPose('stuck', dir, play.state.rac, true);
     startFx(dir, r); render();
   }
-  else if(res.kind === 'armed'){ blocked = null; beep(true); render(); }
+  else if(res.kind === 'armed'){ blocked = null; sound.beep(true); render(); }
   else {
     // A cut move ends its tape on the landed drawing, so its rewind jumps where this play did.
     if(anim){ landMv(); busy = false; pose = null; render(); }
@@ -967,7 +926,7 @@ for(const act of ACTS){
   LEVELS.push(...pack.levels);
   ACT_OF.push({ label: actLabel(pack.meta.pack, act), from, to: LEVELS.length - 1 });
 }
-winBytes = await loadAsset('sfx/win-chime.mp3', 'bytes');
+sound.setChime(await loadAsset('sfx/win-chime.mp3', 'bytes'));
 {
   const memory = createCrowMemory(window.localStorage);
   // Which variant he picks is cosmetic, so it may differ from one sitting to the next.
@@ -1066,7 +1025,7 @@ if(dbg) window.__tt = createProbe({
   moves: () => play.moves,
   won: () => play.won,
   armed: () => play.armed,
-  mute: v => { muted = v; },
+  mute: v => sound.mute(v),
   hold: () => { heldMs = performance.now(); },
   run: () => { heldMs = null; raf ||= requestAnimationFrame(tick); },
   step: (n = 1) => { heldMs += n * 1000 / FRAME_RATE; cancelAnimationFrame(raf); tick(); },
