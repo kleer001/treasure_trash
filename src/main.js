@@ -20,7 +20,6 @@ import { RECOVERIES } from './art/cartoon.js';
 import { tracings } from './art/canTip.js';
 import { tearPress } from './art/bagRip.js';
 import { LOOK as DOOR } from './art/door.js';
-import { reverseStep } from './tape.js';
 import { P, PATTERNS, KINDS, layWall, drawWipe, wallFrom, roomBeats } from './wipe.js';
 import { createWipeTune } from './wipeTune.js';
 import { createSound } from './sound.js';
@@ -29,6 +28,7 @@ import { createHud, pad } from './hud.js';
 import { createPicker } from './picker.js';
 import { createCrowPanel } from './crowPanel.js';
 import { createBoardPaint } from './boardPaint.js';
+import { createRewind } from './rewind.js';
 // The stage owns the objects, their motion and their envelopes.
 import { advance, applyStep, easeOut, rollEase, settle, stageFrom, timeline, face, CELL_MS } from './stage.js';
 
@@ -189,45 +189,6 @@ function landMv(){
   anim = null; board = play.state;
 }
 
-// ---- the undo rewind ----
-const REWIND_SPEED = 2;
-// Each move keeps a tape: the stage from before it, and its drawings as reverse steps
-// (`src/tape.js`). The stage is kept because one built again from a board deals the draw seeds
-// again, and every pile spawned since the room loaded would come back with a new look.
-let tapes = [], rec = null, rewind = null;
-
-function startTape(kept){
-  const tape = { stage: kept, t0: clockMs(), steps: [] };
-  tapes.push(tape);
-  if(PIXEL) rec = { tape, on: true, prev: ctx.getImageData(0, 0, cv.width, cv.height) };
-}
-function record(){
-  if(wipe?.t0 != null){ rec.on = false; return; }
-  const next = ctx.getImageData(0, 0, cv.width, cv.height), step = reverseStep(rec.prev, next);
-  if(step) rec.tape.steps.push({ t: clockMs() - rec.tape.t0, ...step });
-  rec.prev = next;
-}
-
-function startRewind(tape){
-  // A wipe or the shimmer may have drawn over the screen since the tape stopped.
-  if(rec?.tape === tape) ctx.putImageData(rec.prev, 0, 0);
-  rec = null;
-  door = { lit: exitLit(play.state), t0: -Infinity };
-  rewind = { steps: tape.steps, i: tape.steps.length - 1, end: tape.steps.at(-1).t, t0: clockMs() };
-  raf ||= requestAnimationFrame(tick);
-}
-const putBack = s => ctx.putImageData(new ImageData(s.old, s.w, s.h), s.x, s.y);
-/** Returns false once the screen is back to the drawing before the move. */
-function stepRewind(){
-  const t = rewind.end - since(rewind.t0) * REWIND_SPEED;
-  while(rewind.i >= 0 && rewind.steps[rewind.i].t > t) putBack(rewind.steps[rewind.i--]);
-  return rewind.i >= 0;
-}
-function endRewind(){
-  while(rewind.i >= 0) putBack(rewind.steps[rewind.i--]);
-  rewind = null;
-}
-
 // ---- the win ----
 // Frames at 60 Hz. `lay` is one brick's drop into its course.
 const WIPE = { exit: 12, empty: 30, cover: 40, roomHold: 60, roomHoldMax: 120, reveal: 30, revealMax: 90, tail: 60,
@@ -278,9 +239,10 @@ if(new URLSearchParams(location.search).has('wipe'))
 
 // One ticker for every animation, so a rejection, a slide and the wipe cannot
 // fight over `raf`.
+const kick = () => { raf ||= requestAnimationFrame(tick); };
 function tick(){
   raf = 0;
-  if(rewind && !stepRewind()) rewind = null;
+  if(rewind.playing) rewind.step();
   if(fx){
     const ph = fxPhase();
     if(ph && ph.flash && !fx.beeped){ fx.beeped = true; sound.beep(false); }
@@ -299,12 +261,12 @@ function tick(){
   }
   clips.prune();
   render();
-  if(rec?.on && !animating()) rec.on = false;
+  if(!animating()) rewind.still();
   if(animating({ shimmer: true })) raf ||= requestAnimationFrame(tick);
 }
 /** Whether anything drawn is still changing. `shimmer` also counts the lit door, which never stops. */
 const animating = ({ shimmer = false } = {}) =>
-  !!(anim || pose || fx || wipe || rewind || clips.anyLive() || (shimmer ? doorLive() : doorRolling()));
+  !!(anim || pose || fx || wipe || rewind.playing || clips.anyLive() || (shimmer ? doorLive() : doorRolling()));
 
 function handOver(keep = false){
   const w = keep ? wipe : null;
@@ -322,14 +284,14 @@ function handOver(keep = false){
 const cancelAnim = () => {
   if(raf) cancelAnimationFrame(raf); raf = 0; fx = null; wipe = null; pose = null;
   if(anim) landMv();
-  if(rewind) endRewind();
+  rewind.end();
 };
 
 // ---- input ----
 function act(dir){
   sound.unlock();
   if(play.won){ handOver(); return; }
-  if(rewind) endRewind();
+  rewind.end();
   if(wipe){ wipe = null; render(); }
   if(fx){ cancelAnim(); render(); }
   const res = play.press(dir, !!anim);
@@ -356,7 +318,7 @@ function act(dir){
     startPose(r.kind === 'tear' ? 'tear' : r.steps[0].moved.length || stay ? 'push' : 'crawl', dir, res.prev.rac, stay);
     startMv(res.prev, r);
     if(r.kind === 'tear') clips.startRip(dir, r.steps[0], pose);
-    startTape(kept);
+    rewind.start(kept);
     if(play.won){ beat = res.beat; startWipe(); dbg?.note(`won in ${play.moves}`); }
     readLost();
     render();
@@ -367,15 +329,15 @@ function undo(){
   cancelAnim(); busy = false;
   const res = play.undo();
   if(res.kind === 'none') return;
-  const tape = tapes.pop();
+  const tape = rewind.pop();
   blocked=null; anim = null; board = play.state; stage = tape.stage; clips.reset();
-  if(tape.steps.length) startRewind(tape);
+  if(tape.steps.length){ door = { lit: exitLit(play.state), t0: -Infinity }; rewind.play(tape); }
   readLost(); render(); dbg?.note(`undo -> ${play.moves}`);
   tell(watch, now(), res);
 }
 function restart(){ load(play.cur, true); }
 function load(i, again = false){
-  cancelAnim(); busy = false; door = null; fxSeen = new Set(); tapes = []; rec = null; clips.reset();
+  cancelAnim(); busy = false; door = null; fxSeen = new Set(); rewind.reset(); clips.reset();
   const res = play.load(i, again);
   blocked=null; beat=false;
   lostScan.start(play.state);
@@ -412,10 +374,11 @@ const screen = PIXEL ? createScreen({ canvas: screenCv, art: await loadScreenArt
 const fitScreen = () => Object.assign(screenCv.style, { width: `${screenCv.width / devicePixelRatio}px`, height: `${screenCv.height / devicePixelRatio}px` });
 if(PIXEL){ document.body.classList.add('pixel'); fitScreen(); addEventListener('resize', fitScreen); }
 if(PIXEL) for(const job of tracings()) askIdle(job);
+const rewind = createRewind({ ctx, pixel: PIXEL, clock: clockMs, since, kick: () => kick() });
 const painter = createBoardPaint({ ctx, art: SP, clips, cs: CS, pad: PAD, pixel: PIXEL });
 
 function render(){
-  if(rewind){ paintHud(); return; }
+  if(rewind.playing){ paintHud(); return; }
   const s=play.state;
   if(PIXEL) syncDoor();
   cv.width=s.cols*CS; cv.height=s.rows*CS;
@@ -427,7 +390,7 @@ function render(){
     pose: pose && { ...pose, at: poseAt() }, door: PIXEL ? doorRoll() : null,
     leaving: leaving(), leave: wipe?.t.leave, wall: wipe ? drawWall : null,
   });
-  if(rec?.on) record();
+  if(rewind.recording) rewind.record(wipe?.t0 != null);
   paintHud();
   if(PIXEL) present();
 }
