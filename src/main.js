@@ -20,7 +20,6 @@ import { RECOVERIES } from './art/cartoon.js';
 import { tracings } from './art/canTip.js';
 import { tearPress } from './art/bagRip.js';
 import { LOOK as DOOR } from './art/door.js';
-import { P, PATTERNS, KINDS, layWall, drawWipe, wallFrom, roomBeats } from './wipe.js';
 import { createWipeTune } from './wipeTune.js';
 import { createSound } from './sound.js';
 import { createLostScan } from './lostScan.js';
@@ -29,6 +28,7 @@ import { createPicker } from './picker.js';
 import { createCrowPanel } from './crowPanel.js';
 import { createBoardPaint } from './boardPaint.js';
 import { createRewind } from './rewind.js';
+import { createWinWipe, WIPE } from './winWipe.js';
 // The stage owns the objects, their motion and their envelopes.
 import { advance, applyStep, easeOut, rollEase, settle, stageFrom, timeline, face, CELL_MS } from './stage.js';
 
@@ -189,51 +189,16 @@ function landMv(){
   anim = null; board = play.state;
 }
 
-// ---- the win ----
-// Frames at 60 Hz. `lay` is one brick's drop into its course.
-const WIPE = { exit: 12, empty: 30, cover: 40, roomHold: 60, roomHoldMax: 120, reveal: 30, revealMax: 90, tail: 60,
-  lay: 8, order: 'same', leave: 'hop', pattern: 'room', kind: 'room' };
-let wipe = null, wipeSet = WIPE, lastWipe = null;
-let wall = null;      // laid once per board size and kind, since laying one is costly
-
-function startWipe(replay = false){
-  if(!replay) sound.chime();
-  const h = ((play.cur + 1) * 2654435761) >>> 0, s = wipeSet, kinds = Object.keys(KINDS);
-  wipe = { t0: null, replay, loaded: false, set: s, t: { ...s, hold: Infinity },
-    pattern: s.pattern === 'room' ? PATTERNS[h % PATTERNS.length] : s.pattern,
-    kind: s.kind === 'room' ? kinds[(h >>> 8) % kinds.length] : s.kind };
-  lastWipe = { pattern: wipe.pattern, kind: wipe.kind };
-  if(!raf) raf = requestAnimationFrame(tick);
-}
-function roomIn(w){
-  crow.cue(now());
-  const { hold, reveal } = roomBeats((crow.peek().line?.lineLeft ?? 0) / FRAME_MS, w.set);
-  w.loaded = true;
-  w.t.hold = wipeAt() - wallFrom(w.t) - w.t.cover + hold; w.t.reveal = reveal;
-}
-/** Frames since he started to leave; negative while the winning step is still on its way. */
-const wipeAt = () => wipe.t0 === null ? -1 : since(wipe.t0) / FRAME_MS;
-function drawWall(ctx, f){
-  const fr = wipeAt() - wallFrom(wipe.t);
-  if(fr < 0) return;
-  if(wall?.kind !== wipe.kind || wall.w !== f.w || wall.h !== f.h)
-    wall = Object.assign(layWall(wipe.kind, f.w, f.h, 1, PIXEL ? 1 : P), { w: f.w, h: f.h });
-  drawWipe(ctx, wall, wipe.pattern, wipe.t, fr);
-}
-
-/** How far gone he is, 0 to 1, until the wall comes down; null when he is simply there. */
-function leaving(){
-  if(!wipe || wipe.t0 === null) return null;
-  const f = wipeAt(), t = wipe.t;
-  return f >= wallFrom(t) + t.cover + t.hold ? null : Math.min(1, f / t.exit);
-}
+let wipeSet = WIPE;
+const winWipe = createWinWipe({ pixel: PIXEL, settings: () => wipeSet, room: () => play.cur, crow: () => crow, now,
+  clock: clockMs, since, chime: () => sound.chime(), kick: () => kick() });
 
 const sendNote = note => fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(note) }).then(r => { if(!r.ok) throw new Error(`HTTP ${r.status}`); });
 if(new URLSearchParams(location.search).has('wipe'))
   wipeSet = createWipeTune(document.getElementById('wtune'), WIPE, {
-    replay: () => { if(!play.won && !anim && !wipe) startWipe(true); },
-    snap: () => ({ level: LEVELS[play.cur].id, room: play.cur, last: lastWipe }),
+    replay: () => { if(!play.won && !anim && !winWipe.live) winWipe.start(true); },
+    snap: () => ({ level: LEVELS[play.cur].id, room: play.cur, last: winWipe.last }),
     send: sendNote,
   });
 
@@ -250,15 +215,7 @@ function tick(){
   }
   if(anim && !stepMv()){ anim = null; busy = false; }
   if(pose && poseAt() >= pose.segs.at(-1).t1) pose = null;
-  if(wipe){
-    if(wipe.t0 === null && !anim){ wipe.t0 = clockMs(); crow.cue(now()); }
-    const f = wipeAt(), t = wipe.t;
-    if(!wipe.loaded && f >= wallFrom(t) + t.cover && !crow.view(now()).talking){
-      if(!wipe.replay){ handOver(true); return; }
-      roomIn(wipe);
-    }
-    if(f >= wallFrom(t) + t.cover + t.hold + t.reveal) wipe = null;
-  }
+  if(winWipe.step(!!anim) === 'handover'){ handOver(true); return; }
   clips.prune();
   render();
   if(!animating()) rewind.still();
@@ -266,23 +223,22 @@ function tick(){
 }
 /** Whether anything drawn is still changing. `shimmer` also counts the lit door, which never stops. */
 const animating = ({ shimmer = false } = {}) =>
-  !!(anim || pose || fx || wipe || rewind.playing || clips.anyLive() || (shimmer ? doorLive() : doorRolling()));
+  !!(anim || pose || fx || winWipe.live || rewind.playing || clips.anyLive() || (shimmer ? doorLive() : doorRolling()));
 
 function handOver(keep = false){
-  const w = keep ? wipe : null;
-  wipe = null;
+  const w = winWipe.detach();
   if(play.cur < LEVELS.length - 1) load(play.cur + 1); else render();
   // Drawn again before the frame is shown: the load drew the new room with no wall over it.
-  if(w){
-    wipe = w; roomIn(w);
-    render(); raf ||= requestAnimationFrame(tick);
+  if(keep && w){
+    winWipe.attach(w);
+    render(); kick();
   }
 }
 // Cutting an action short still has to LAND it: the board was committed the moment the shove
 // was legal, so the stage has to be walked through whatever steps are left or it would keep
 // drawing pieces on cells they have already left.
 const cancelAnim = () => {
-  if(raf) cancelAnimationFrame(raf); raf = 0; fx = null; wipe = null; pose = null;
+  if(raf) cancelAnimationFrame(raf); raf = 0; fx = null; winWipe.cancel(); pose = null;
   if(anim) landMv();
   rewind.end();
 };
@@ -292,7 +248,7 @@ function act(dir){
   sound.unlock();
   if(play.won){ handOver(); return; }
   rewind.end();
-  if(wipe){ wipe = null; render(); }
+  if(winWipe.live){ winWipe.cancel(); render(); }
   if(fx){ cancelAnim(); render(); }
   const res = play.press(dir, !!anim);
   const r = res.r;
@@ -319,7 +275,7 @@ function act(dir){
     startMv(res.prev, r);
     if(r.kind === 'tear') clips.startRip(dir, r.steps[0], pose);
     rewind.start(kept);
-    if(play.won){ beat = res.beat; startWipe(); dbg?.note(`won in ${play.moves}`); }
+    if(play.won){ beat = res.beat; winWipe.start(); dbg?.note(`won in ${play.moves}`); }
     readLost();
     render();
   }
@@ -388,9 +344,9 @@ function render(){
     armed: play.armed, blocked,
     w:cv.width, h:cv.height, cs:CS,
     pose: pose && { ...pose, at: poseAt() }, door: PIXEL ? doorRoll() : null,
-    leaving: leaving(), leave: wipe?.t.leave, wall: wipe ? drawWall : null,
+    leaving: winWipe.leaving(), leave: winWipe.live ? winWipe.style : null, wall: winWipe.live ? winWipe.drawWall : null,
   });
-  if(rewind.recording) rewind.record(wipe?.t0 != null);
+  if(rewind.recording) rewind.record(winWipe.started);
   paintHud();
   if(PIXEL) present();
 }
@@ -404,7 +360,7 @@ function present(){
   const L = LEVELS[play.cur];
   screen.paint({ room: cv, cols: play.state.cols, rows: play.state.rows, left: `${pad(L.id)}  ${L.name ?? ''}`, right: `Moves ${play.moves}  Par ${L.par}`,
     ...crowPanel.screenView(),
-    wall: wipe ? (c, w, h) => drawWall(c, { w, h }) : null });
+    wall: winWipe.live ? (c, w, h) => winWipe.drawWall(c, { w, h }) : null });
 }
 
 
