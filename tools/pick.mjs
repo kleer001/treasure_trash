@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Treasure Trash — choose an act from the harvest and write it out.
 //
-//   node tools/pick.mjs [--in F] [--want N] [--par LO-HI] [--shortlist N] [--workers N]
-//                       [--first ID] [--pack NAME] [--out DIR]
+//   node tools/pick.mjs --name FILE --pack NAME --first ID [--in F] [--want N] [--par LO-HI]
+//                       [--shortlist N] [--workers N] [--out DIR]
 //
 // The ranking alone cannot do these jobs.
 //
@@ -170,8 +170,9 @@ if (!isMainThread && workerData?.tool === 'pick') {
   const want = num('--want', 20);
   const shortlist = num('--shortlist', 300);
   const workers = num('--workers', Math.max(1, availableParallelism() - 2));
-  const first = num('--first', 31);
-  const packName = str('--pack', 'Treasure Trash — Act 2');
+  const name = str('--name'), packName = str('--pack'), first = num('--first');
+  if (!name || !packName || !Number.isInteger(first))
+    throw new Error('pick.mjs needs --name FILE, --pack NAME and --first ID: each act has its own files and room numbers');
   const maxPieceShare = num('--maxpiece', 0.5);
   const [lo, hi] = str('--par', '14-35').split('-').map(Number);
 
@@ -235,9 +236,7 @@ if (!isMainThread && workerData?.tool === 'pick') {
 
   const { tt, sol, md } = emit(picked, { first, pack: packName });
   mkdirSync(outDir, { recursive: true });
-  writeFileSync(`${outDir}/act2.tt`, tt);
-  writeFileSync(`${outDir}/act2.sol`, sol);
-  writeFileSync(`${outDir}/act2.md`, md);
-  console.log(`\n-> ${outDir}/act2.tt, ${outDir}/act2.sol, ${outDir}/act2.md`);
+  for (const [ext, text] of [['tt', tt], ['sol', sol], ['md', md]]) writeFileSync(`${outDir}/${name}.${ext}`, text);
+  console.log(`\n-> ${outDir}/${name}.tt, .sol and .md`);
   console.log('   names, teach lines and notes are placeholders: they are the part nothing can compute.');
 }
