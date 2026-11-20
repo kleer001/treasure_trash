@@ -21,7 +21,7 @@ import { toState } from '../src/format.js';
 import { analyze, reroot, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { measure } from './harvest.mjs';
-import { deadTravel, pathBite, isOneRoom, shortestDag, MAX_STATES } from './metrics.mjs';
+import { isOneRoom, lineMeasure, packRefuses, MAX_STATES } from './metrics.mjs';
 import { PAR_MIN, PAR_MAX } from './sets.mjs';
 
 // The pair is searched one cell at a time — the exit against wherever the raccoon stands, then
@@ -71,12 +71,9 @@ function read(grid, cart, { parMin, parMax }, cache = null) {
   }
   if (a.minMoves === null) return null;
   if (a.minMoves < parMin || a.minMoves > parMax) return null;
-  if (a.silentTraps.length) return null;
-  if (bagsLeft(s) > 0 && a.exitRefusals === 0) return null;
+  if (packRefuses(bagsLeft(s), a.silentTraps.length, a.exitRefusals)) return null;
   if (a.traps.length < 1) return null;
-  const onDag = shortestDag(a);
-  return { par: a.minMoves, solves: a.shortestCount,
-           onPath: pathBite(a, onDag).onPath, ...deadTravel(a, onDag) };
+  return { par: a.minMoves, solves: a.shortestCount, ...lineMeasure(a) };
 }
 
 /**

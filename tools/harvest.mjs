@@ -25,8 +25,8 @@ import { mulberry32 } from '../src/rng.js';
 import { staticallyDead } from './survey.mjs';
 import { bridgeSeats, bankOf, isBarrier, canals, FAMILIES, isBigOpenBlock } from './shapes.mjs';
 import {
-  solveShape, largestOpenBlock, floorIsConnected, hasNiche, pathBite, deadTravel, inertPieces,
-  shortestDag, MAX_STATES,
+  solveShape, largestOpenBlock, floorIsConnected, hasNiche, lineMeasure, postMortem, trapDepths,
+  inertPieces, shortestDag, packRefuses, MAX_STATES,
 } from './metrics.mjs';
 import { parseLurd } from '../src/format.js';
 
@@ -155,40 +155,23 @@ export function measure(group, room, s, a, w, h) {
   const acts = parseLurd(a.shortestLurd);
   const onDag = shortestDag(a);
   const shape = solveShape(s, acts);
-  const trapDepths = a.traps.map(t => parseLurd(t.lurd).length - 1);
-  const entries = new Set();
-  for (const [k, node] of a.states) {
-    if (a.dead.has(k)) continue;
-    for (const e of node.edges) if (a.dead.has(e.to)) entries.add(e.to);
-  }
-  let blind = 0;
-  for (const st of entries) {
-    const seen = new Set([st]);
-    let frontier = [st], depth = 0;
-    while (frontier.length) {
-      const nx = [];
-      for (const k of frontier) for (const e of a.states.get(k).edges)
-        if (a.dead.has(e.to) && !seen.has(e.to)) { seen.add(e.to); nx.push(e.to); }
-      if (nx.length) depth++;
-      frontier = nx;
-    }
-    blind = Math.max(blind, depth);
-  }
+  const depths = trapDepths(a);
+  const line = lineMeasure(a, onDag);
   return {
     group, w, h,
     par: a.minMoves, solves: a.shortestCount, states: a.reachable,
     traps: a.traps.length,
-    firstTrap: trapDepths.length ? Math.min(...trapDepths) : null,
-    lastTrap: trapDepths.length ? Math.max(...trapDepths) : null,
-    biteSteps: new Set(trapDepths).size,
+    firstTrap: depths.length ? Math.min(...depths) : null,
+    lastTrap: depths.length ? Math.max(...depths) : null,
+    biteSteps: new Set(depths).size,
     // The on-path measure is cheap here, since the graph is already built. A raw trap count cannot
     // stand in for it.
-    ...(({ onPath, bitten, firstOnPath }) => ({ onPath: +onPath.toFixed(3), bitten, firstOnPath }))(pathBite(a, onDag)),
+    onPath: +line.onPath.toFixed(3), bitten: line.bitten, firstOnPath: line.firstOnPath,
     // Dead travel is kept apart from the other numbers, since a room can read clean on all of them.
-    ...deadTravel(a, onDag),
+    lead: line.lead, tail: line.tail,
     // The inert piece count is stored per room, because re-siting and walling both change it.
     inert: inertPieces(room, a, { onDag }).length,
-    blind,
+    blind: postMortem(a).depth,
     lines: shape.lines, changes: shape.changes, pushes: shape.pushes, pieces: shape.pieces,
     walks: acts.length - shape.pushes,
     bags: bagsLeft(s), exitRefusals: a.exitRefusals,
@@ -245,8 +228,7 @@ async function harvestGroup(group, samples, seed, engine = null, plans = null) {
     if (r === TOO_BIG) { stat.tooBig++; continue; }
     if (r.par === null) continue;
     const { room, s, w, h, shape } = drawn[i];
-    if (bagsLeft(s) > 0 && r.exitRefusals === 0) continue;
-    if (r.silentTraps) continue;
+    if (packRefuses(bagsLeft(s), r.silentTraps, r.exitRefusals)) continue;
     const row = measure(group, room, s, analyze(s, { maxStates: MAX_STATES }), w, h);
     // Only a family names its outlines. A random one has nothing to be aggregated by.
     if (shape) row.shape = shape;

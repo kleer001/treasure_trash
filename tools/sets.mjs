@@ -29,7 +29,7 @@ import { engineFor, connect, measureMany, measureHere, TOO_BIG } from './engine.
 import { staticallyDead } from './survey.mjs';
 import { placeOn, measure } from './harvest.mjs';
 import { hFamily } from './shapes.mjs';
-import { MAX_STATES } from './metrics.mjs';
+import { MAX_STATES, packRefuses } from './metrics.mjs';
 
 // The empty containers an UPGRADE rung swaps for full ones. Upgrading one adds work without adding
 // a body.
@@ -45,9 +45,9 @@ export const SET_TOP_MIN = 18;
 function keep(s, r, parMin) {
   if (r.par === null) return false;
   if (r.par < parMin || r.par > PAR_MAX) return false;
-  if (bagsLeft(s) < 1) return false;
-  if (r.silentTraps) return false;
-  if (r.exitRefusals === 0) return false;
+  const bags = bagsLeft(s);
+  if (bags < 1) return false;
+  if (packRefuses(bags, r.silentTraps, r.exitRefusals)) return false;
   return r.traps >= 1;
 }
 

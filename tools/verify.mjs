@@ -16,7 +16,7 @@ import { analyze, replay } from '../src/solver.js';
 import { isWon, bagsLeft, isMagnet } from '../src/rules.js';
 import {
   deadTravel, isOneRoom, inertPieces, shortestDag, WALK_MAX, walkFits,
-  parseGate, coverGate, winnableWithoutKind,
+  parseGate, coverGate, winnableWithoutKind, hasSilentTrap, exitForbidsNothing,
 } from './metrics.mjs';
 import { actPacks, root } from './packs.mjs';
 import { watchAccounts } from '../src/audit.js';
@@ -132,7 +132,7 @@ for (const { levelPath, solPath } of PACKS) {
     else console.log(`    · ${a.traps.length} stranding trap(s)`);
 
     check('guard: no lethal plain move (vacuous while walking writes nothing)',
-      a.silentTraps.length === 0,
+      !hasSilentTrap(a.silentTraps.length),
       a.silentTraps.length ? `e.g. ${a.silentTraps[0].lurd}` : '');
 
     const onDag = shortestDag(a);
@@ -169,7 +169,7 @@ for (const { levelPath, solPath } of PACKS) {
 
     // Counted as (state, direction) pairs the exit itself refuses.
     if (bags > 0)
-      check('the exit forbids at least one action', a.exitRefusals > 0,
+      check('the exit forbids at least one action', !exitForbidsNothing(bags, a.exitRefusals),
         `${a.exitRefusals} refusal(s) caused by the exit`);
   }
 

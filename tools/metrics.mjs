@@ -149,7 +149,7 @@ function firstRefusal(a, reasons) {
  * How far you can keep playing after the room is already lost — the worst case over all
  * traps.
  */
-function postMortem(a) {
+export function postMortem(a) {
   const entries = [];
   for (const [key, node] of a.states) {
     if (a.dead.has(key)) continue;
@@ -318,6 +318,16 @@ export function deadTravel(a, onDag) {
   }
   return { lead: worked ? firstWork : 0, tail: par - lastWork };
 }
+
+/**
+ * The measure of the best line, from one shortest-solve DAG that both walks share. A caller that
+ * already holds the DAG passes it as `onDag`.
+ */
+export const lineMeasure = (a, onDag = shortestDag(a)) =>
+  ({ ...pathBite(a, onDag), ...deadTravel(a, onDag) });
+
+/** Actions before each trap, in the analysis's order. */
+export const trapDepths = a => a.traps.map(t => parseLurd(t.lurd).length - 1);
 
 // ---------------------------------------------------------------- inert pieces
 // Reachability is not the question. A piece can sit in the open, on a route, and still do nothing.
@@ -495,6 +505,18 @@ export function winnableWithoutKind(a, kind) {
   return false;
 }
 
+// ---------------------------------------------------------------- the pack gate
+// The refusals a candidate room meets in every pipeline tool and in the verifier. Each refusal is
+// written once, here. A caller words its own reason and decides what a refusal does.
+
+/** Takes a count, so an analysis and a wire measure pass the same argument. */
+export const hasSilentTrap = silentTraps => silentTraps > 0;
+
+export const exitForbidsNothing = (bags, exitRefusals) => bags > 0 && exitRefusals === 0;
+
+export const packRefuses = (bags, silentTraps, exitRefusals) =>
+  hasSilentTrap(silentTraps) || exitForbidsNothing(bags, exitRefusals);
+
 // ---------------------------------------------------------------- room structure
 // Structural rejects, after the Sokoban deadlock literature cited in `solver.js`, applied to the
 // EMPTY room before anything is placed on it. The open-floor rule is the load-bearing one: a room
@@ -585,6 +607,7 @@ export function metrics(level) {
 
   const floor = floorCells(start);
   const bags = bagsLeft(start);
+  const depths = trapDepths(a);
 
   return {
     id: level.id, name: level.name ?? '',
@@ -601,7 +624,7 @@ export function metrics(level) {
     // 'water' belongs here and 'wall'/'edge' do not: it is a decoy rather than a boundary.
     firstRefusal: firstRefusal(a, new Set(['exit', 'fan', 'canRoom', 'water'])),
     firstExitRefusal: firstRefusal(a, new Set(['exit'])),
-    firstTrap: a.traps.length ? Math.min(...a.traps.map(t => parseLurd(t.lurd).length - 1)) : null,
+    firstTrap: depths.length ? Math.min(...depths) : null,
     postMortem: postMortem(a),
   };
 }

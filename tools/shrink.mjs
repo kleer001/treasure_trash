@@ -17,7 +17,7 @@ import { toState } from '../src/format.js';
 import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import { measure } from './harvest.mjs';
-import { pathBite, isOneRoom, deadTravel, inertPieces, shortestDag, MAX_STATES } from './metrics.mjs';
+import { isOneRoom, lineMeasure, inertPieces, packRefuses, shortestDag, MAX_STATES } from './metrics.mjs';
 
 const wallAt = (grid, x, y) =>
   grid.map((row, j) => (j === y ? row.slice(0, x) + '#' + row.slice(x + 1) : row));
@@ -31,12 +31,11 @@ function read(grid, cart) {
   try { a = analyze(s, { maxStates: MAX_STATES }); }
   catch (e) { if (e instanceof TooManyStates) return null; throw e; }
   if (a.minMoves === null) return null;
-  if (a.silentTraps.length) return null;
-  if (bagsLeft(s) > 0 && a.exitRefusals === 0) return null;
+  if (packRefuses(bagsLeft(s), a.silentTraps.length, a.exitRefusals)) return null;
   const onDag = shortestDag(a);
   return { room: { grid, ...(cart && { cart }) }, a, onDag,
            par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,
-           onPath: pathBite(a, onDag).onPath, ...deadTravel(a, onDag) };
+           ...lineMeasure(a, onDag) };
 }
 
 /** The count `holds` guards on, taken from the graph `read` already built. */

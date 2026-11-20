@@ -16,9 +16,9 @@ import { isMainThread, workerData } from 'node:worker_threads';
 import { defaultWorkers, run, serve } from './pool.mjs';
 import { engineFor, connect, measureMany, measureHere, TOO_BIG } from './engine.mjs';
 import { toState, occupantOf } from '../src/format.js';
-import { bagsLeft, BAGS_IN } from '../src/rules.js';
+import { bagsLeft, BAGS_IN, BAG, DIRS, DIR_ORDER, fan } from '../src/rules.js';
 import { mulberry32 } from '../src/rng.js';
-import { MAX_STATES } from './metrics.mjs';
+import { MAX_STATES, packRefuses } from './metrics.mjs';
 
 // ---------------------------------------------------------------- the alphabet
 const POINTS = ['$', 'C', 'c', 'x', 'W', 'w', 'B', 'j'];
@@ -117,22 +117,16 @@ export function place(group, rnd) {
 }
 
 // ---------------------------------------------------------------- static pre-filter
-const FAN = (bx, by, dx, dy) => {
-  const px = -dy, py = dx;
-  return [[bx + px, by + py], [bx - px, by - py], [bx + dx, by + dy],
-          [bx + dx + px, by + dy + py], [bx + dx - px, by + dy - py]];
-};
-
 /** True when the board can be discarded without enumerating anything. */
 export function staticallyDead(s) {
   const bags = [];
   for (let y = 0; y < s.rows; y++) for (let x = 0; x < s.cols; x++)
-    if (s.cells[y][x].o === 1) bags.push([x, y]);            // BAG
+    if (s.cells[y][x].o === BAG) bags.push([x, y]);
   if (!bags.length) return false;
   // The fan is measured against walls, the exit and the grid edge only — those never move.
   for (const [bx, by] of bags) {
-    const anyDir = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) =>
-      FAN(bx, by, dx, dy).every(([x, y]) =>
+    const anyDir = DIR_ORDER.some(dir =>
+      fan(bx, by, ...DIRS[dir]).every(([x, y]) =>
         x >= 0 && y >= 0 && x < s.cols && y < s.rows
         && !s.cells[y][x].wall && !s.cells[y][x].exit));
     if (!anyDir) return true;
@@ -177,8 +171,7 @@ async function surveyGroup(group, samples, seed, engine = null) {
   for (const [i, r] of reads.entries()) {
     if (r === TOO_BIG) { out.tooBig++; continue; }
     if (r.par === null) continue;
-    if (bagsLeft(boards[i]) > 0 && r.exitRefusals === 0) continue;
-    if (r.silentTraps) continue;
+    if (packRefuses(bagsLeft(boards[i]), r.silentTraps, r.exitRefusals)) continue;
     out.solvable++;
     out.pars.push(r.par);
     if (isInteresting(r)) out.interesting++;

@@ -16,7 +16,7 @@ import { analyze, TooManyStates } from '../src/solver.js';
 import { bagsLeft } from '../src/rules.js';
 import {
   deadTravel, isOneRoom, inertPieces, shortestDag, WALK_MAX, walkFits,
-  parseGate, coverGate, winnableWithoutKind, MAX_STATES,
+  parseGate, coverGate, winnableWithoutKind, hasSilentTrap, exitForbidsNothing, MAX_STATES,
 } from './metrics.mjs';
 
 /** The analysis, or null when the graph passes the pipeline's bound. */
@@ -51,9 +51,9 @@ export function draft(room) {
   if (a.minMoves === null) { no('unsolvable'); return out; }
 
   const bags = bagsLeft(s);
-  if (a.silentTraps.length) no(`a plain move can lose the room (${a.silentTraps[0].lurd})`);
+  if (hasSilentTrap(a.silentTraps.length)) no(`a plain move can lose the room (${a.silentTraps[0].lurd})`);
   // The design rules a room can fail — see verify.mjs.
-  if (bags > 0 && a.exitRefusals === 0) no('the exit forbids no action — it is only a destination');
+  if (exitForbidsNothing(bags, a.exitRefusals)) no('the exit forbids no action — it is only a destination');
   const onDag = shortestDag(a);
   const inert = inertPieces(room, a, { onDag });
   if (inert.length) no(`does nothing: ${inert.map(p => p.what).join(' ')}`);

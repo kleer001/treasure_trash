@@ -46,7 +46,7 @@ import { createInterface } from 'node:readline';
 import { toState, toGrid, toCart, toWater, toHold } from '../src/format.js';
 import { explain } from '../src/rules.js';
 import { analyze } from '../src/solver.js';
-import { shortestDag, pathBite, deadTravel } from './metrics.mjs';
+import { lineMeasure } from './metrics.mjs';
 
 const boardOf = req => toState({ id: 'conform', grid: req.grid,
   ...(req.cart && { cart: req.cart }), ...(req.water && { water: req.water }),
@@ -59,16 +59,9 @@ export const shapeOf = s => ({ grid: toGrid(s), cart: toCart(s), water: toWater(
 export const answerOf = a => ({ par: a.minMoves, solves: a.shortestCount, traps: a.traps.length,
                                 reachable: a.reachable, exitRefusals: a.exitRefusals });
 
-/** The `measure` reply. The DAG is built once and shared, so the two walks that read it do not
- *  rebuild it. */
+/** The `measure` reply. */
 export function measureOf(a) {
-  const flat = { silentTraps: a.silentTraps.length, onPath: 0, bitten: 0, firstOnPath: null,
-                 lead: 0, tail: 0 };
-  if (a.minMoves === null) return { ...answerOf(a), ...flat };
-  const onDag = shortestDag(a);
-  const { onPath, bitten, firstOnPath } = pathBite(a, onDag);
-  return { ...answerOf(a), silentTraps: flat.silentTraps, onPath, bitten, firstOnPath,
-           ...deadTravel(a, onDag) };
+  return { ...answerOf(a), silentTraps: a.silentTraps.length, ...lineMeasure(a) };
 }
 
 /**
