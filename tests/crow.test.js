@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { RANK_ENTRIES, rankTable } from '../src/crow.js';
+import { RANK_ENTRIES, rankTable, LEFT_WORDS } from '../src/crow.js';
 import { builtNames } from '../src/crowWatch.js';
 
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
 const CROW = read('../dialogue/crow.json');
+const EVENTS = Object.fromEntries(Object.entries(CROW).filter(([k]) => k !== LEFT_WORDS));
 const SLOT_WORDS = { n: 1, left: 5 };
 const words = line => line.trim().split(/\s+/).reduce((a, w) => {
   const slot = w.match(/\{(\w+)\}/)?.[1];
@@ -22,7 +23,7 @@ const FACES = new Set([...STILLS, ...read('../art/bench/crow/h3/clips.json')
 const TALK = ['quiet', 'chatty', 'verbose'];
 
 test('every crow event names itself, says whether it hints, and has something to say', () => {
-  for (const [key, e] of Object.entries(CROW)) {
+  for (const [key, e] of Object.entries(EVENTS)) {
     assert.equal(typeof e.event, 'string', key);
     assert.ok(e.event.length, key);
     assert.equal(typeof e.hint, 'boolean', key);
@@ -31,7 +32,7 @@ test('every crow event names itself, says whether it hints, and has something to
 });
 
 test('a count-staged event starts at the first time and only counts up', () => {
-  for (const [key, e] of Object.entries(CROW)) {
+  for (const [key, e] of Object.entries(EVENTS)) {
     if (!e.byCount) continue;
     assert.equal(e.byCount[0].from, 1, key);
     e.byCount.forEach((s, i) => i && assert.ok(s.from > e.byCount[i - 1].from, `${key} step ${i}`));
@@ -39,7 +40,7 @@ test('a count-staged event starts at the first time and only counts up', () => {
 });
 
 test('a crow line is ten words at most, or as many as its event allows', () => {
-  for (const [key, e] of Object.entries(CROW)) {
+  for (const [key, e] of Object.entries(EVENTS)) {
     const all = linesOf(e);
     assert.ok(all.length, key);
     if ('words' in e) assert.ok(Number.isInteger(e.words) && e.words > 10, `${key}: words ${e.words}`);
@@ -49,18 +50,18 @@ test('a crow line is ten words at most, or as many as its event allows', () => {
 
 test('every face the crow makes is a still frame or a banked expression clip', () => {
   for (const f of STILLS) assert.ok(FRAMES.includes(f), f);
-  for (const [key, e] of Object.entries(CROW)) {
+  for (const [key, e] of Object.entries(EVENTS)) {
     assert.ok(FACES.has(e.face), `${key}: ${e.face}`);
     for (const s of e.byCount ?? []) assert.ok(FACES.has(s.face), `${key} from ${s.from}: ${s.face}`);
   }
 });
 
 test('every crow event says the quietest talk setting that still hears it', () => {
-  for (const [key, e] of Object.entries(CROW)) assert.ok(TALK.includes(e.talk), `${key}: ${e.talk}`);
+  for (const [key, e] of Object.entries(EVENTS)) assert.ok(TALK.includes(e.talk), `${key}: ${e.talk}`);
 });
 
 test('a variant is a line or a monologue of two lines or more, and a stretch or act mark is only ever set', () => {
-  for (const [key, e] of Object.entries(CROW)) {
+  for (const [key, e] of Object.entries(EVENTS)) {
     for (const v of e.lines ?? e.byCount.flatMap(s => s.lines)) {
       if (typeof v === 'string') continue;
       assert.ok(Array.isArray(v) && v.length > 1, `${key}: a monologue needs two lines or more`);
@@ -74,7 +75,7 @@ test('a variant is a line or a monologue of two lines or more, and a stretch or 
 
 test('a once-only event names its scope, and a callback names an event', () => {
   const ONCE = ['ever', 'room', 'sitting', 'visit'];
-  for (const [key, e] of Object.entries(CROW)) {
+  for (const [key, e] of Object.entries(EVENTS)) {
     if ('once' in e) assert.ok(ONCE.includes(e.once), `${key}: once ${e.once}`);
     if ('after' in e) assert.ok(e.after in CROW, `${key}: after ${e.after}`);
   }
@@ -82,21 +83,21 @@ test('a once-only event names its scope, and a callback names an event', () => {
 
 test('nothing the crow says mentions death', () => {
   const DEATH = /\b(dead|death|die[sd]?|dying|corpse|alive|kill\w*|grave|ghost|afterlife)\b/i;
-  for (const [key, e] of Object.entries(CROW))
+  for (const [key, e] of Object.entries(EVENTS))
     for (const line of linesOf(e)) assert.ok(!DEATH.test(line), `${key}: "${line}"`);
 });
 
 test('the game fills {n}, and {left} only in the events it fires with the full ones left', () => {
   const LEFT = ['tear.half', 'tear.oneLeft', 'walk.exitDark', 'walk.exitDarkAgain'];
-  for (const [key, e] of Object.entries(CROW))
+  for (const [key, e] of Object.entries(EVENTS))
     for (const line of linesOf(e)) for (const [m] of line.matchAll(/\{[^}]*\}/g))
       assert.ok(m === '{n}' || (m === '{left}' && LEFT.includes(key)), `${key}: "${line}"`);
 });
 
 test('every place in the rank names an event, and every event has a place', () => {
-  const keys = Object.keys(CROW);
+  const keys = Object.keys(EVENTS);
   for (const p of RANK_ENTRIES)
-    assert.ok(p.endsWith('.') ? keys.some(k => k.startsWith(p)) : p in CROW, `rank entry ${p}`);
+    assert.ok(p.endsWith('.') ? keys.some(k => k.startsWith(p)) : p in EVENTS, `rank entry ${p}`);
   rankTable(CROW);
 });
 
@@ -124,7 +125,7 @@ const REASONS = new Set([
 
 test('every crow event is fired by something', () => {
   const fired = new Set([...SPELT, ...builtNames()]);
-  for (const [key, e] of Object.entries(CROW)) {
+  for (const [key, e] of Object.entries(EVENTS)) {
     if (e.stretch || fired.has(key) || fired.has(key.replace(/\.act\d+$/, ''))) continue;
     assert.ok(key.startsWith('refuse.') && REASONS.has(key.slice('refuse.'.length)), `${key} is never fired`);
   }

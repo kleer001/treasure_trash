@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { explain, OCCUPANTS, JUG_EMPTY, TIRE_H, TIRE_V, CHAIR, BROOM, SPONGE, CARDBOARD, CABC_U, MAG_R } from '../src/rules.js';
+import { explain, OCCUPANTS, NONE, BAG, TRASH, CAN_FULL, CAN_EMPTY, BIN_EMPTY, JUG_EMPTY, WHEELIE_EMPTY, TIRE_H, TIRE_V, CHAIR, BROOM, SPONGE, CARDBOARD, CABC_U, MAG_R } from '../src/rules.js';
 import { toState } from '../src/format.js';
 import { stageFrom, applyStep, settle, timeline, CELL_MS } from '../src/stage.js';
 import { createClips } from '../src/clips.js';
@@ -15,6 +15,7 @@ const drawn = [];
 const art = {
   wadeEnd: 0,
   dump: () => ({ end: 5, draw: f => drawn.push(f), ground: () => {} }),
+  shedFor: (o, out) => SP.shedFor(o, out),
   rip: () => ({ end: 0, piles: [], layers: () => [] }),
   shatter: () => ({ end: 0, layers: () => [], ground: () => {} }),
   wade: () => {},
@@ -22,14 +23,17 @@ const art = {
 const clipsFor = (stage, pixel = true) =>
   createClips({ pixel, art, stage: () => stage, clock: () => 0, since: () => 0, frame: 1000 / 60 });
 
-function playPour(clips, stage) {
-  for (const seg of timeline(explain(POUR, 'r', { trace: true }), CELL_MS))
-    for (const it of seg.items) {
-      applyStep(stage, it.step, it.racTo, it.board);
-      clips.note(it.step, it.next, 0);
-      settle(stage);
-    }
+const itemsOf = (state, dir) => timeline(explain(state, dir, { trace: true }), CELL_MS).flatMap(seg => seg.items);
+
+function playMove(clips, stage, state, dir) {
+  for (const it of itemsOf(state, dir)) {
+    applyStep(stage, it.step, it.racTo, it.board);
+    clips.note(it.step, it.next, 0);
+    settle(stage);
+  }
 }
+
+const playPour = (clips, stage) => playMove(clips, stage, POUR, 'r');
 
 test('a pour starts a clip, and reset ends it', () => {
   const stage = stageFrom(POUR, 1, null), clips = clipsFor(stage);
@@ -178,4 +182,36 @@ test('a float clip hands the water every place the stage drew its thing, and the
   now = 10 + 30;
   clips.prune();
   assert.equal(clips.anyLive(), false);
+});
+
+const CAN = toState({ id: 'can', grid: ['#######', '#@C---#', '#E#####'] });
+const tips = m => m.o === CAN_FULL && m.becomes.o === CAN_EMPTY;
+
+for (const [name, glyph] of [['a can', 'C'], ['a box', 'B']]) test(`${name} that empties starts a dump clip`, () => {
+  const state = toState({ id: name, grid: ['#######', `#@${glyph}---#`, '#E#####'] }), stage = stageFrom(state, 1, null);
+  const clips = createClips({ pixel: true, art: SP, stage: () => stage, clock: () => 0, since: () => 0, frame: 1000 / 60 });
+  playMove(clips, stage, state, 'r');
+  assert.equal(clips.anyLive(), true);
+});
+
+test('a container that sheds a kind its dump does not take fails loudly, and names the kind', () => {
+  const it = itemsOf(CAN, 'r').find(({ step }) => step.moved.some(tips));
+  const odd = structuredClone(it.step);
+  odd.spawned.find(e => e.o === BAG).o = 99;
+  assert.throws(() => clipsFor(stageFrom(CAN, 1, null)).note(odd, it.next, 0), /sheds 99\b/);
+});
+
+test('a container with no dump fails loudly, and names its kind', () => {
+  const it = itemsOf(CAN, 'r').find(({ step }) => step.moved.some(tips));
+  const odd = structuredClone(it.step);
+  odd.moved.find(tips).becomes.o = 77;
+  assert.throws(() => clipsFor(stageFrom(CAN, 1, null)).note(odd, it.next, 0), /kind 77\b/);
+});
+
+test('each dump takes the one kind it sheds', () => {
+  assert.doesNotThrow(() => SP.shedFor(CAN_EMPTY, { o: BAG }));
+  assert.doesNotThrow(() => SP.shedFor(BIN_EMPTY, { o: TRASH }));
+  assert.doesNotThrow(() => SP.shedFor(JUG_EMPTY, { o: NONE, effect: 'pours' }));
+  assert.doesNotThrow(() => SP.shedFor(WHEELIE_EMPTY, { o: BAG }));
+  assert.throws(() => SP.shedFor(CAN_EMPTY, { o: TRASH }), /sheds 4\b/);
 });

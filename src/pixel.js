@@ -20,7 +20,7 @@ import { BARROW } from './art/barrow.js';
 import { SPONGE } from './art/sponge.js';
 import { CARDBOARD, wetCardboard } from './art/cardboard.js';
 import { SOAKED_LOOK, soakedSponge, soakedCardboard } from './art/soaked.js';
-import { liquidOf } from './stage.js';
+import { liquidOf, SPLASH, kindIn } from './stage.js';
 import { GRATE } from './art/grate.js';
 import { ONEWAY } from './art/oneway.js';
 import { TYRE } from './art/tyre.js';
@@ -35,7 +35,7 @@ import { LOOKS, slickCell } from './art/slick.js';
 import { GLASS_LOOK, glassCell } from './art/glass.js';
 import { ACTIONS, draw, mirror } from './art/cartoon.js';
 import { VIEW, place } from './art/press.js';
-import { cell, inGrid, BAG, CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, JUG, JUG_EMPTY, WHEELIE_EMPTY, PANE, GREASE, TAR, GLASS } from './rules.js';
+import { cell, inGrid, BAG, TRASH, CAN_FULL, CAN_EMPTY, BIN, BIN_EMPTY, JUG, JUG_EMPTY, WHEELIE_EMPTY, PANE, GREASE, TAR, GLASS } from './rules.js';
 
 export const PIXEL_CELL = C;
 
@@ -131,29 +131,45 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
     return decoded.get(f);
   };
   const drawLayers = (layers, f, along) => { for (const [, px] of layers(f, along).sort((a, b) => a[0] - b[0])) put(px, 0, 0); };
-  /** The clip of a container that has just emptied onto cell `shedTo`, keyed by what it is once it
-   *  has: `{ end, draw(f) }`, drawn `f` screen frames from the start of its move, and `ground(f)`, what
-   *  lies on that cell's floor, for one whose clip draws it; `null` when it cannot draw where its
-   *  contents went. */
+  /** One row per container kind once it has emptied. `sheds` is the kind that comes out of it, and
+   *  `spentAtLanding` is set when that kind is spent as it lands. `draw(spec)` gives the clip, `{ end,
+   *  draw(f), ground?(f) }`, drawn `f` screen frames from the start of its move, or `null` when it
+   *  cannot draw where its contents went. */
   const DUMPS = {
-    [CAN_EMPTY]: ({ container, from, to, shedTo, moveFrames, down }) => {
-      const { layers, end } = tipClip({ dir: container.lie, from, to, bagTo: shedTo, moveFrames, down });
-      return { end, draw: f => drawLayers(layers, f, container.along) };
+    [CAN_EMPTY]: {
+      sheds: BAG,
+      draw: ({ container, from, to, shedTo, moveFrames, down }) => {
+        const { layers, end } = tipClip({ dir: container.lie, from, to, bagTo: shedTo, moveFrames, down });
+        return { end, draw: f => drawLayers(layers, f, container.along) };
+      },
     },
-    [JUG_EMPTY]: ({ container, from, to, shedTo: [wx, wy], moveFrames }) => {
-      const { layers, ground, end } = pourClip({ dir: container.lie, from, to, wetAt: [wx, wy], moveFrames,
-        wet: (x, y) => (x === wx && y === wy) || wet(x, y) });
-      return { end, draw: f => drawLayers(layers, f, container.along), ground: f => put(ground(f) ?? [], 0, 0) };
+    [JUG_EMPTY]: {
+      sheds: SPLASH, spentAtLanding: true,
+      draw: ({ container, from, to, shedTo: [wx, wy], moveFrames }) => {
+        const { layers, ground, end } = pourClip({ dir: container.lie, from, to, wetAt: [wx, wy], moveFrames,
+          wet: (x, y) => (x === wx && y === wy) || wet(x, y) });
+        return { end, draw: f => drawLayers(layers, f, container.along), ground: f => put(ground(f) ?? [], 0, 0) };
+      },
     },
-    [BIN_EMPTY]: ({ container, shed, from, to, shedTo, moveFrames, down }) => {
-      if (down) return null;
-      const { layers, end } = boxClip({ dir: container.lie, from, to, pileAt: shedTo, seed: container.seed, pileSeed: shed.seed, moveFrames });
-      return { end, draw: f => drawLayers(layers, f, container.along) };
+    [BIN_EMPTY]: {
+      sheds: TRASH,
+      draw: ({ container, shed, from, to, shedTo, moveFrames, down }) => {
+        if (down) return null;
+        const { layers, end } = boxClip({ dir: container.lie, from, to, pileAt: shedTo, seed: container.seed, pileSeed: shed.seed, moveFrames });
+        return { end, draw: f => drawLayers(layers, f, container.along) };
+      },
     },
-    [WHEELIE_EMPTY]: ({ container: c, down }) => (down ? null : {
-      end: W.dump.r.length * 2,
-      draw: f => { const fs = W.dump[c.heading]; put(wheelieFrame(fs[Math.min(fs.length - 1, Math.floor(f / 2))]), P(c.x), P(c.y)); },
-    }),
+    [WHEELIE_EMPTY]: {
+      sheds: BAG,
+      draw: ({ container: c, down }) => (down ? null : {
+        end: W.dump.r.length * 2,
+        draw: f => { const fs = W.dump[c.heading]; put(wheelieFrame(fs[Math.min(fs.length - 1, Math.floor(f / 2))]), P(c.x), P(c.y)); },
+      }),
+    },
+  };
+  const rowOf = o => {
+    if (!DUMPS[o]) throw new Error(`no dump for container kind ${o}`);
+    return DUMPS[o];
   };
   const span = cells => {
     const xs = cells.map(c => c[0]), ys = cells.map(c => c[1]);
@@ -208,8 +224,14 @@ export function createPixelSprites({ ctx, art: { A, D, LOOK, O, W, J } }) {
     recycleBin(x, y, full, lie = null) { thing(full ? BIN : BIN_EMPTY, x, y, 1, lie); },
     jug(x, y, full = true, lie = null) { thing(full ? JUG : JUG_EMPTY, x, y, 1, lie); },
     wheelie(x, y, full) { floated('wheelie', wheelieFrame(full ? W.full : W.empty), 0, 0, x, y); },
-    /** `o`'s entry in `DUMPS` for `spec`, or `null` when `o` has none. */
-    dump(o, spec) { return DUMPS[o]?.(spec) ?? null; },
+    /** `o`'s dump row, for `out`, the stage spawn that came out of `o`. */
+    shedFor(o, out) {
+      const row = rowOf(o), kind = kindIn(out.lane, out.o, out.effect);
+      if (row.sheds !== kind) throw new Error(`container kind ${o} sheds ${kind}, and its dump takes ${row.sheds}`);
+      return row;
+    },
+    /** The clip of `o`'s dump for `spec`, or `null` when it cannot draw where the contents went. */
+    dump(o, spec) { return rowOf(o).draw(spec); },
     /** The clip of a torn bag from `createBagRip`, each layer's `px` given as `paint()`. */
     rip(spec) {
       const clip = ripClip(spec);

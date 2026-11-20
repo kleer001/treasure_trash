@@ -1,9 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createCrow, createCrowMemory, TUNING, beatMs, lineMs } from '../src/crow.js';
 
+const { left: LEFT } = JSON.parse(readFileSync(new URL('../dialogue/crow.json', import.meta.url), 'utf8'));
 const ev = o => ({ event: 'x', hint: false, face: 'closed', talk: 'quiet', ...o });
 const EVENTS = {
+  left: LEFT,
   'story.act1': ev({ once: 'ever', lines: [['One.', 'Two.']] }),
   'room.firstEver': ev({ once: 'ever', speech: true, lines: [['Hello.', 'Go on.']] }),
   'room.teach': ev({ once: 'room', lines: [['Look.', 'Go.']] }),
@@ -317,7 +320,7 @@ test('a line that names a count fails loudly when it was fired without one', () 
 
 test('a line fills any slot it names from what the event was fired with', () => {
   const { c, log } = crow();
-  c.fire('tear.oneLeft', 0, { left: 'a can' }); c.view(5000);
+  c.fire('tear.oneLeft', 0, { left: [['can', 1]] }); c.view(5000);
   assert.deepEqual(log.find(r => r.type === 'say').beats, ['Last one: a can.']);
   const { c: c2 } = crow();
   c2.fire('tear.oneLeft', 0, { left: null });
@@ -325,10 +328,10 @@ test('a line fills any slot it names from what the event was fired with', () => 
 });
 
 test('a waiting line that counts the full ones is over when the count changes, and not before', () => {
-  for (const [now, said] of [['a can', ['refuse.edge', 'tear.oneLeft']], ['a bag', ['refuse.edge']], [null, ['refuse.edge']]]) {
+  for (const [now, said] of [[[['can', 1]], ['refuse.edge', 'tear.oneLeft']], [[['bag', 1]], ['refuse.edge']], [null, ['refuse.edge']]]) {
     const { c, log, said: heard } = crow();
     c.fire('refuse.edge', 0); c.view(pre);
-    c.fire('tear.oneLeft', pre + 10, { left: 'a can' });
+    c.fire('tear.oneLeft', pre + 10, { left: [['can', 1]] });
     c.recount(pre + 20, now);
     c.view(30000);
     assert.deepEqual(heard(), said, `recount to ${now}`);

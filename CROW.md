@@ -137,7 +137,8 @@ Talking cycles 1 → 2 → 3 → 2 → 1 per syllable, with a gibberish voice bl
 ## Event lines
 
 The lines are in `dialogue/crow.json`, one entry per event, keyed by the name the game will
-trigger it with. Each row is something the player does, and what he says back.
+trigger it with. Each row is something the player does, and what he says back. The words he
+counts with are under `left`, which is not an event.
 
 - `event` says what the player did.
 - `hint` marks a line that tells the player whether the board can still be won.

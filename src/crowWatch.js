@@ -41,10 +41,6 @@ export function namesOn(s) {
   return out;
 }
 
-const PLURAL = { bag: 'bags', can: 'cans', box: 'boxes', wheelie: 'wheelies' };
-const NUMBER = ['', 'a', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven',
-  'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
-
 /** The full ones the door waits on, as `[name, count]` in the order HOLDS names them. */
 export function fullOn(s) {
   const n = new Map();
@@ -55,12 +51,10 @@ export function fullOn(s) {
   return HOLDS.filter(([name]) => n.has(name)).map(([name]) => [name, n.get(name)]);
 }
 
-/** The same in his words: "a can", "two bags and a box". */
+/** What `fullOn` counts, or null when nothing is full. `crow.js` says it in his words. */
 export function leftOn(s) {
-  const kinds = fullOn(s), say = k => NUMBER[k] ?? String(k);
-  if (!kinds.length) return null;
-  if (kinds.length > 2) return `${say(kinds.reduce((a, [, k]) => a + k, 0))} of 'em, all kinds`;
-  return kinds.map(([name, k]) => `${say(k)} ${k === 1 ? name : PLURAL[name]}`).join(' and ');
+  const kinds = fullOn(s);
+  return kinds.length ? kinds : null;
 }
 
 /**

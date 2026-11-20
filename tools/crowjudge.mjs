@@ -27,7 +27,7 @@ import {
   isCabinetOpen, isCabinetClosed, isMagnet, isTar, isGrease, isGlass, isGrate,
 } from '../src/rules.js';
 import { parseLurd, toState } from '../src/format.js';
-import { TUNING, rankTable } from '../src/crow.js';
+import { TUNING, rankTable, phrase, LEFT_WORDS } from '../src/crow.js';
 import { namesOn, pieceEvents, leftOn } from '../src/crowWatch.js';
 import { mulberry32 } from '../src/rng.js';
 import { root } from './packs.mjs';
@@ -35,6 +35,7 @@ import { session, loadPacks, deadOf, along, pacer, OPP, WIN_MS, clock } from './
 
 const CROW = JSON.parse(readFileSync(resolve(root, 'dialogue/crow.json'), 'utf8'));
 const RANK = rankTable(CROW);
+const leftSaid = s => { const kinds = leftOn(s); return kinds && phrase(kinds, CROW[LEFT_WORDS]); };
 
 const STALE_ACTIONS = 3;      // actions between an event and its line that make the line stale
 const REPEAT_ROOMS = 3;       // the same line again within this many rooms is a repeat
@@ -155,7 +156,7 @@ function sit(player, seed, pack) {
     fn();
     if (what === 'arrive') visit++;
     const w = g.watch.peek(g.t);
-    actions.push({ t: g.t, what, room: g.cur, visit, path: g.path, before, verdict: verdict(), bags: bagsLeft(g.state), left: leftOn(g.state),
+    actions.push({ t: g.t, what, room: g.cur, visit, path: g.path, before, verdict: verdict(), bags: bagsLeft(g.state), left: leftSaid(g.state),
       lit: exitLit(g.state), names: [...new Set([...startNames[g.cur], ...namesOn(g.state)])],
       counts: { refusals: w.refusals, sameRefusal: w.same, undos: w.undos, restarts: w.restarts, losses: w.losses,
         movesWhileLost: w.lostMoves }, ...extra, ...(extra.dir ? press(s, extra.dir) : {}) });

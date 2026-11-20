@@ -4,10 +4,11 @@ import { readFileSync } from 'node:fs';
 import { parseLevelPack, toState, parseLurd } from '../src/format.js';
 import { explain, stateKey, isWon, bagsLeft, MOVE, TEAR } from '../src/rules.js';
 import { createProgress } from '../src/progress.js';
-import { createCrowMemory, TUNING } from '../src/crow.js';
+import { createCrowMemory, TUNING, phrase } from '../src/crow.js';
 import { createWatch, teachRooms, pieceEvents, refusal, fullOn, leftOn } from '../src/crowWatch.js';
 
 const CROW = JSON.parse(readFileSync(new URL('../dialogue/crow.json', import.meta.url), 'utf8'));
+const WORDS = CROW.left;
 const LEVELS = ['act1.tt', 'act2.tt'].flatMap(a => parseLevelPack(readFileSync(`levels/${a}`, 'utf8')).levels);
 const ACTS = [{ from: 0, to: LEVELS.length - 1 }];
 const OPP = { l: 'r', r: 'l', u: 'd', d: 'u' };
@@ -200,10 +201,27 @@ test('he counts the full ones by kind, and the kinds add up to what the door wai
       const s = toState(L);
       assert.equal(fullOn(s).reduce((n, [, k]) => n + k, 0), bagsLeft(s), L.id);
     }
-  assert.equal(leftOn(board(['#####', '#@C-#', '#E###'])), 'a can');
-  assert.equal(leftOn(board(['#######', '#@$$B-#', '#E#####'])), 'two bags and a box');
-  assert.equal(leftOn(board(['#######', '#@$CBW#', '#E#####'])), "four of 'em, all kinds");
+  assert.equal(phrase(leftOn(board(['#####', '#@C-#', '#E###'])), WORDS), 'a can');
+  assert.equal(phrase(leftOn(board(['#######', '#@$$B-#', '#E#####'])), WORDS), 'two bags and a box');
+  assert.equal(phrase(leftOn(board(['#######', '#@$CBW#', '#E#####'])), WORDS), "four of 'em, all kinds");
   assert.equal(leftOn(board(['#####', '#@c-#', '#E###'])), null);
+});
+
+test('the crow says each count, noun and join in the words he has always said', () => {
+  const NUMBER = ['a', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+    'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+  const NOUN = { bag: ['bag', 'bags'], can: ['can', 'cans'], box: ['box', 'boxes'], wheelie: ['wheelie', 'wheelies'] };
+  const GLYPH = { bag: '$', can: 'C', box: 'B', wheelie: 'W' };
+  const says = items => phrase(leftOn(board(['#'.repeat(items.length + 4), `#@${items}E#`, '#'.repeat(items.length + 4)])), WORDS);
+  for (const name of Object.keys(NOUN)) for (let k = 1; k <= 20; k++)
+    assert.equal(says(GLYPH[name].repeat(k)), `${NUMBER[k - 1]} ${NOUN[name][k === 1 ? 0 : 1]}`, `${k} ${name}`);
+  assert.equal(says('$'.repeat(21)), '21 bags');
+  assert.equal(says('$C'), 'a bag and a can');
+  assert.equal(says('$$CCC'), 'two bags and three cans');
+  assert.equal(says('BBWWWW'), 'two boxes and four wheelies');
+  assert.equal(says('$CB'), "three of 'em, all kinds");
+  assert.equal(says('$CBW'), "four of 'em, all kinds");
+  assert.equal(says('$$$CCBBWWWW'), "eleven of 'em, all kinds");
 });
 
 test('the one-left and dark-door lines carry what is still full; a dark door with nothing full is the cart', () => {
@@ -221,9 +239,9 @@ test('the one-left and dark-door lines carry what is still full; a dark door wit
     return r;
   };
   assert.equal(press(0, 'r', 0).kind, TEAR);
-  assert.equal(last('tear.oneLeft').ctx.left, 'a bag');
+  assert.equal(phrase(last('tear.oneLeft').ctx.left, WORDS), 'a bag');
   press(1, 'r', 10000);
-  assert.equal(last('walk.exitDark').ctx.left, 'a can');
+  assert.equal(phrase(last('walk.exitDark').ctx.left, WORDS), 'a can');
   press(2, 'r', 20000);
   assert.ok(keys().includes('walk.exitDarkCart'));
   assert.equal(keys().filter(k => k.startsWith('walk.exitDark')).length, 2);

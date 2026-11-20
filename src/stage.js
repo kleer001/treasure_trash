@@ -50,7 +50,7 @@ export const census = stage => stage.sprites.map(shapeOf).sort();
  */
 const isBody = sp => sp.kind === CART || sp.kind === COUCH;
 
-const kindIn = (lane, o, effect) => (lane === CART_LANE ? CART : lane === BODY_LANE ? COUCH
+export const kindIn = (lane, o, effect) => (lane === CART_LANE ? CART : lane === BODY_LANE ? COUCH
   : effect === 'pours' ? SPLASH : o);
 
 /**

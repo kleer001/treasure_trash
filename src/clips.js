@@ -3,7 +3,7 @@
 // its step, takes the sprites it draws so they wait under it, and ends when its drawing does. Nothing here touches the
 // page: the sprite set, the stage, the clock and the frame length come in at the boundary.
 import { BAG, TRASH, PANE, DIRS, inGrid, cell, restsOn, isGlass } from './rules.js';
-import { shedOf, dressPiles, SPLASH } from './stage.js';
+import { shedOf, dressPiles } from './stage.js';
 import { moveStart } from './art/press.js';
 import { onTwos } from './art/timing.js';
 import { PIXEL_CELL } from './pixel.js';
@@ -39,12 +39,13 @@ export function createClips({ pixel, art, stage, clock, since, frame }) {
   function noteDump(step, frames) {
     for (const m of step.moved) {
       if (m.o === m.becomes.o) continue;
-      const out = shedOf(step, m), kind = out?.o === BAG || out?.o === TRASH ? out.o : out?.effect === 'pours' ? SPLASH : null;
-      if (!kind) continue;
+      const out = shedOf(step, m);
+      if (!out) continue;
+      const row = art.shedFor(m.becomes.o, out);
       const [x, y] = restsOn(m), [bx, by] = out.cells[0];
       const container = sprites().find(sp => sp.kind === m.becomes.o && sp.tx === x && sp.ty === y);
-      const shed = sprites().find(sp => sp.kind === kind && sp.tx === bx && sp.ty === by
-        && !sp.dying && (kind === SPLASH || !sp.spent || sp.falls));
+      const shed = sprites().find(sp => sp.kind === row.sheds && sp.tx === bx && sp.ty === by
+        && !sp.dying && (row.spentAtLanding || !sp.spent || sp.falls));
       const clip = container && shed
         && art.dump(m.becomes.o, { container, shed, from: m.cells[0], to: [x, y], shedTo: [bx, by], moveFrames: frames, down: !!shed.falls });
       if (clip) dumps.push({ container, shed, at: [x, y], shedTo: [bx, by], t0: clock(), ...clip });

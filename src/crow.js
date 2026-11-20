@@ -4,6 +4,9 @@
 
 export const TALK = ['quiet', 'chatty', 'verbose'];
 
+// Not an event: the words the `{left}` slot is said in, kept beside the lines.
+export const LEFT_WORDS = 'left';
+
 // Every number the crow runs on, the watcher's thresholds included, so tuning him is one table.
 export const TUNING = {
   // ---- the director ----
@@ -101,7 +104,7 @@ const variantOf = (key, events) => {
  * is not an error here. A test holds `RANK_ENTRIES` against the events.
  */
 export function rankTable(events) {
-  const keys = Object.keys(events).filter(k => !events[k].stretch && !variantOf(k, events));
+  const keys = Object.keys(events).filter(k => k !== LEFT_WORDS && !events[k].stretch && !variantOf(k, events));
   const table = {};
   let at = 0;
   for (const { name: tier, chance, gap, keys: entries } of TIERS) for (const p of entries) {
@@ -147,6 +150,21 @@ export function beatMs(beats, i, speech, T = TUNING) {
 export const lineMs = (line, speech, T = TUNING) =>
   [line].flat().reduce((ms, s, i, beats) => ms + beatMs(beats, i, speech, T), 0);
 
+/** `s` with each `{slot}` replaced by `values[slot]`. A slot with no value is a bug. */
+const fillIn = (s, values, who) => s.replace(/\{(\w+)\}/g, (_, k) => {
+  if (values[k] == null) throw new Error(`crow: "${who}" was fired without its {${k}}`);
+  return String(values[k]);
+});
+
+/** The `[name, count]` pairs of the full ones left, said in the crow's `words`. */
+export function phrase(kinds, words) {
+  const say = k => words.count[k] ?? String(k);
+  if (kinds.length > 2) return fillIn(words.all, { count: say(kinds.reduce((n, [, k]) => n + k, 0)) }, LEFT_WORDS);
+  const parts = kinds.map(([name, k]) => fillIn(words.kind,
+    { count: say(k), noun: words.noun[name][k === 1 ? 'one' : 'many'] }, LEFT_WORDS));
+  return parts.length === 2 ? fillIn(words.pair, { a: parts[0], b: parts[1] }, LEFT_WORDS) : parts[0];
+}
+
 // His answers to being skipped.
 const SKIPPED = 'progress.skipped', QUIETER = 'progress.quieter';
 
@@ -157,6 +175,9 @@ const SKIPPED = 'progress.skipped', QUIETER = 'progress.quieter';
 export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () => {} }) {
   const T = tuning, mem = memory.data, RANK = rankTable(events);
   for (const k of [SKIPPED, QUIETER]) if (!(k in events)) throw new Error(`crow: no event "${k}"`);
+  const words = events[LEFT_WORDS];
+  if (!words) throw new Error(`crow: no "${LEFT_WORDS}" words`);
+  const spoken = kinds => kinds && phrase(kinds, words);
   let now = 0;
   // Fired and not yet decided, and once-only lines waiting their turn (`waiting`).
   let wants = [], dueAt = null;
@@ -279,11 +300,8 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
     const bagKey = c.key + step.bag;
     const i = draw(bagKey, step.lines, pick);
     (mem.bags[bagKey] ??= []).push(firstOf(step.lines[i]));
-    const fill = s => s.replace(/\{(\w+)\}/g, (_, k) => {
-      if (c.ctx[k] == null) throw new Error(`crow: "${c.key}" was fired without its {${k}}`);
-      return String(c.ctx[k]);
-    });
-    const beats = [step.lines[i]].flat().map(fill);
+    const shown = { ...c.ctx, left: spoken(c.ctx.left) };
+    const beats = [step.lines[i]].flat().map(s => fillIn(s, shown, c.key));
     if (e.once === 'sitting') saidSitting.add(c.key);
     else if (e.once === 'visit') saidVisit.add(c.key);
     else if (e.once) mem.said[scopeKey(c.key, e.once, c.ctx)] = true;
@@ -364,7 +382,7 @@ export function createCrow({ events, rng, memory, tuning = TUNING, onLog = () =>
     arrive(t) { advance(t); saidVisit = new Set(); drop(t, c => c.rank.lasts.arrive, 'left'); },
     rewind(t) { advance(t); drop(t, c => c.rank.lasts.rewind, 'rewound'); },
     /** The full ones left changed: a waiting line that counts them would say the old count. */
-    recount(t, left) { advance(t); drop(t, c => 'left' in c.ctx && c.ctx.left !== left, 'recount'); },
+    recount(t, left) { advance(t); const now = spoken(left); drop(t, c => 'left' in c.ctx && spoken(c.ctx.left) !== now, 'recount'); },
     /** What is on screen at `t`. `speech`: a line that takes the whole screen is up, or due. */
     view(t) {
       advance(t);
